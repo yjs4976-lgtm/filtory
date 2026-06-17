@@ -1,14 +1,12 @@
-export type CategoryKey = "derma" | "eye" | "dental"
-
 export const mockAnalysisResult = {
   hospital_name: "클린피부과의원",
-  category: "피부과" as const,
+  category: "피부과",
   total_score: 85,
   trust_score: 85,
   ad_score: 20,
   place_score: 88,
   foreigner_score: 72,
-  trust_level: "신뢰 가능" as const,
+  trust_level: "신뢰 가능",
   summary: {
     ko: "리뷰에 상담 과정과 방문 경험이 포함되어 있어 전반적으로 신뢰 가능한 편입니다. 다만 일부 표현에서 홍보성 문구가 감지되어 추가 확인이 필요합니다.",
     en: "The reviews include consultation details and visit experiences, so they appear generally trustworthy. However, some promotional wording was detected, so additional checking may be helpful.",
@@ -29,15 +27,7 @@ export const mockAnalysisResult = {
   },
 }
 
-export type RecentItem = {
-  id: string
-  name: { ko: string; en: string }
-  category: CategoryKey
-  score: number
-  date: string
-}
-
-export const recentAnalyses: RecentItem[] = [
+export const recentAnalyses = [
   {
     id: "1",
     name: { ko: "클린피부과의원 강남점", en: "Clean Dermatology (Gangnam)" },

@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, FileText, MessageCircle, Settings } from "lucide-react"
+import { FileText, Home, MessageCircle, Settings } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import styles from "@/styles/App.module.css"
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -17,26 +18,20 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-subtle/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-md items-stretch justify-between px-2 py-1.5">
+    <nav className={styles.bottomNav}>
+      <div className={styles.bottomNavInner}>
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href
           return (
             <Link
               key={href}
               href={href}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 transition-colors"
+              className={[styles.bottomNavLink, active ? styles.bottomNavActive : ""].join(" ")}
             >
-              <span
-                className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
-                  active ? "bg-primary text-primary-foreground" : "text-graypurple"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
+              <span className={styles.bottomIcon}>
+                <Icon className={styles.iconMd} />
               </span>
-              <span className={`text-[11px] font-medium ${active ? "text-foreground" : "text-graypurple"}`}>
-                {label}
-              </span>
+              <span className={styles.bottomNavLabel}>{label}</span>
             </Link>
           )
         })}

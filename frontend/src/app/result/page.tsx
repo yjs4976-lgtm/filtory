@@ -1,17 +1,18 @@
 "use client"
 
-import { Header } from "@/components/common/Header"
 import { BottomNav } from "@/components/common/BottomNav"
+import { Header } from "@/components/common/Header"
 import { ResultCard } from "@/components/review/ResultCard"
 import { useLanguage } from "@/context/LanguageContext"
+import styles from "@/styles/App.module.css"
 
 export default function ResultPage() {
   const { t } = useLanguage()
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={styles.page}>
       <Header title={t.result.title} showBack />
-      <main className="mx-auto max-w-md px-4 py-5">
+      <main className={styles.main}>
         <ResultCard />
       </main>
       <BottomNav />

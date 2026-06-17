@@ -1,18 +1,14 @@
 "use client"
 
-type Props = {
-  score: number
-  size?: number
-  label?: string
+import styles from "@/styles/App.module.css"
+
+function colorForScore(score) {
+  if (score >= 75) return "#BDEECF"
+  if (score >= 55) return "#FFD7B5"
+  return "#FFB6C9"
 }
 
-function colorForScore(score: number) {
-  if (score >= 75) return "#BDEECF" // mint
-  if (score >= 55) return "#FFD7B5" // peach
-  return "#FFB6C9" // pink
-}
-
-export function ScoreCircle({ score, size = 140, label }: Props) {
+export function ScoreCircle({ score, size = 140, label }) {
   const stroke = 12
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
@@ -21,8 +17,8 @@ export function ScoreCircle({ score, size = 140, label }: Props) {
   const color = colorForScore(clamped)
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+    <div className={styles.scoreCircle} style={{ width: size, height: size }}>
+      <svg width={size} height={size} className={styles.scoreSvg}>
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#F1E8DD" strokeWidth={stroke} />
         <circle
           cx={size / 2}
@@ -34,12 +30,12 @@ export function ScoreCircle({ score, size = 140, label }: Props) {
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="transition-[stroke-dashoffset] duration-700 ease-out"
+          className={styles.strokeAnimate}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-extrabold text-foreground">{clamped}</span>
-        {label && <span className="mt-0.5 text-xs font-medium text-graypurple">{label}</span>}
+      <div className={styles.scoreCircleValue}>
+        <span className={styles.scoreNumber}>{clamped}</span>
+        {label && <span className={styles.scoreLabel}>{label}</span>}
       </div>
     </div>
   )

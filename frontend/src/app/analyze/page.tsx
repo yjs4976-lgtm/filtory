@@ -2,23 +2,22 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sparkles, Loader2 } from "lucide-react"
-import { Header } from "@/components/common/Header"
+import { Loader2, Sparkles } from "lucide-react"
 import { BottomNav } from "@/components/common/BottomNav"
+import { Header } from "@/components/common/Header"
 import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
-import type { CategoryKey } from "@/lib/mockData"
+import styles from "@/styles/App.module.css"
 
 export default function AnalyzePage() {
   const router = useRouter()
   const { t } = useLanguage()
-
   const [hospital, setHospital] = useState("")
-  const [category, setCategory] = useState<CategoryKey | null>("derma")
+  const [category, setCategory] = useState("derma")
   const [naver, setNaver] = useState("")
   const [google, setGoogle] = useState("")
   const [review, setReview] = useState("")
-  const [mode, setMode] = useState<"ko" | "en">("ko")
+  const [mode, setMode] = useState("ko")
   const [loading, setLoading] = useState(false)
 
   function handleAnalyze() {
@@ -30,112 +29,97 @@ export default function AnalyzePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-8 text-center">
-        <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-lavender-soft">
-          <Loader2 className="h-9 w-9 animate-spin text-primary" />
+      <div className={styles.loadingPage}>
+        <span className={styles.loadingIcon}>
+          <Loader2 className={`${styles.iconLg} ${styles.spin}`} />
         </span>
-        <p className="mt-6 text-base font-bold text-foreground">{t.analyze.loading}</p>
-        <p className="mt-1.5 text-sm text-graypurple">{t.analyze.loadingSub}</p>
+        <p className={styles.loadingTitle}>{t.analyze.loading}</p>
+        <p className={styles.loadingSub}>{t.analyze.loadingSub}</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={styles.page}>
       <Header title={t.analyze.title} showBack />
 
-      <main className="mx-auto max-w-md space-y-5 px-4 py-5">
-        {/* Hospital name */}
-        <div className="space-y-2 rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <label htmlFor="hospital" className="text-sm font-semibold text-foreground">
+      <main className={`${styles.main} ${styles.stackMd}`}>
+        <div className={`${styles.card} ${styles.stackSm}`}>
+          <label htmlFor="hospital" className={styles.label}>
             {t.analyze.hospitalLabel}
           </label>
           <input
             id="hospital"
             value={hospital}
-            onChange={(e) => setHospital(e.target.value)}
+            onChange={(event) => setHospital(event.target.value)}
             placeholder={t.analyze.hospitalPlaceholder}
-            className="w-full rounded-2xl border border-border bg-subtle px-4 py-3 text-sm text-foreground outline-none placeholder:text-graypurple focus:border-primary"
+            className={styles.input}
           />
         </div>
 
-        {/* Category */}
-        <div className="space-y-2.5">
-          <span className="text-sm font-semibold text-foreground">{t.analyze.categoryLabel}</span>
+        <div className={styles.stackSm}>
+          <span className={styles.label}>{t.analyze.categoryLabel}</span>
           <CategorySelector selected={category} onSelect={setCategory} variant="pills" />
         </div>
 
-        {/* Links */}
-        <div className="space-y-4 rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <div className="space-y-2">
-            <label htmlFor="naver" className="text-sm font-semibold text-foreground">
+        <div className={`${styles.card} ${styles.stackMd}`}>
+          <div className={styles.stackSm}>
+            <label htmlFor="naver" className={styles.label}>
               {t.analyze.naverLabel}
             </label>
             <input
               id="naver"
               value={naver}
-              onChange={(e) => setNaver(e.target.value)}
+              onChange={(event) => setNaver(event.target.value)}
               placeholder={t.analyze.naverPlaceholder}
-              className="w-full rounded-2xl border border-border bg-subtle px-4 py-3 text-sm text-foreground outline-none placeholder:text-graypurple focus:border-primary"
+              className={styles.input}
             />
           </div>
-          <div className="space-y-2">
-            <label htmlFor="google" className="text-sm font-semibold text-foreground">
+          <div className={styles.stackSm}>
+            <label htmlFor="google" className={styles.label}>
               {t.analyze.googleLabel}
             </label>
             <input
               id="google"
               value={google}
-              onChange={(e) => setGoogle(e.target.value)}
+              onChange={(event) => setGoogle(event.target.value)}
               placeholder={t.analyze.googlePlaceholder}
-              className="w-full rounded-2xl border border-border bg-subtle px-4 py-3 text-sm text-foreground outline-none placeholder:text-graypurple focus:border-primary"
+              className={styles.input}
             />
           </div>
         </div>
 
-        {/* Review text */}
-        <div className="space-y-2 rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <label htmlFor="review" className="text-sm font-semibold text-foreground">
+        <div className={`${styles.card} ${styles.stackSm}`}>
+          <label htmlFor="review" className={styles.label}>
             {t.analyze.reviewLabel}
           </label>
           <textarea
             id="review"
             value={review}
-            onChange={(e) => setReview(e.target.value)}
+            onChange={(event) => setReview(event.target.value)}
             placeholder={t.analyze.reviewPlaceholder}
-            rows={5}
-            className="w-full resize-none rounded-2xl border border-border bg-subtle px-4 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-graypurple focus:border-primary"
+            className={styles.textarea}
           />
         </div>
 
-        {/* Language mode */}
-        <div className="space-y-2.5 rounded-3xl border border-border bg-subtle p-5">
-          <span className="text-sm font-semibold text-foreground">{t.analyze.langModeLabel}</span>
-          <div className="flex gap-2">
-            {(["ko", "en"] as const).map((m) => (
+        <div className={`${styles.softCard} ${styles.stackSm}`}>
+          <span className={styles.label}>{t.analyze.langModeLabel}</span>
+          <div className={styles.segmented}>
+            {["ko", "en"].map((item) => (
               <button
-                key={m}
+                key={item}
                 type="button"
-                onClick={() => setMode(m)}
-                className={`flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition-all ${
-                  mode === m
-                    ? "border-transparent bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-card text-graypurple"
-                }`}
+                onClick={() => setMode(item)}
+                className={[styles.segmentButton, mode === item ? styles.segmentButtonActive : ""].join(" ")}
               >
-                {m === "ko" ? "한국어" : "English"}
+                {item === "ko" ? "한국어" : "English"}
               </button>
             ))}
           </div>
         </div>
 
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={handleAnalyze}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-sm transition-transform active:scale-[0.99]"
-        >
-          <Sparkles className="h-4 w-4" />
+        <button type="button" onClick={handleAnalyze} className={styles.primaryButton}>
+          <Sparkles className={styles.iconSm} />
           {t.analyze.cta}
         </button>
       </main>

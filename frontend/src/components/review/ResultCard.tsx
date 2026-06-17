@@ -1,34 +1,35 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { AlertTriangle, CheckCircle2, Info, Sparkles, RotateCcw, FileText } from "lucide-react"
+import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, Sparkles } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
-import { ScoreCircle } from "./ScoreCircle"
 import { mockAnalysisResult } from "@/lib/mockData"
+import styles from "@/styles/App.module.css"
+import { ScoreCircle } from "./ScoreCircle"
 
-function trustLevelKey(score: number) {
-  if (score >= 90) return "veryHigh" as const
-  if (score >= 75) return "high" as const
-  if (score >= 55) return "caution" as const
-  if (score >= 35) return "concern" as const
-  return "veryConcern" as const
+function trustLevelKey(score) {
+  if (score >= 90) return "veryHigh"
+  if (score >= 75) return "high"
+  if (score >= 55) return "caution"
+  if (score >= 35) return "concern"
+  return "veryConcern"
 }
 
-function levelTone(score: number) {
-  if (score >= 75) return { bg: "bg-mint-soft", text: "text-foreground", dot: "bg-mint" }
-  if (score >= 55) return { bg: "bg-peach-soft", text: "text-foreground", dot: "bg-peach" }
-  return { bg: "bg-pink-soft", text: "text-foreground", dot: "bg-pink" }
+function levelTone(score) {
+  if (score >= 75) return { bg: styles.bgMint, dot: styles.fillMint }
+  if (score >= 55) return { bg: styles.bgPeach, dot: styles.fillPeach }
+  return { bg: styles.bgPink, dot: styles.fillPink }
 }
 
-function ScoreBar({ label, value, tone }: { label: string; value: number; tone: string }) {
+function ScoreBar({ label, value, tone }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="font-bold text-foreground">{value}</span>
+    <div>
+      <div className={styles.scoreBarRow}>
+        <span>{label}</span>
+        <strong>{value}</strong>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-background">
-        <div className={`h-full rounded-full ${tone} transition-all duration-700`} style={{ width: `${value}%` }} />
+      <div className={styles.barTrack}>
+        <div className={`${styles.barFill} ${tone}`} style={{ width: `${value}%` }} />
       </div>
     </div>
   )
@@ -37,95 +38,81 @@ function ScoreBar({ label, value, tone }: { label: string; value: number; tone: 
 export function ResultCard() {
   const router = useRouter()
   const { t, language } = useLanguage()
-  const r = mockAnalysisResult
-  const tone = levelTone(r.total_score)
-  const level = t.trustLevels[trustLevelKey(r.total_score)]
+  const result = mockAnalysisResult
+  const tone = levelTone(result.total_score)
+  const level = t.trustLevels[trustLevelKey(result.total_score)]
 
   return (
-    <div className="space-y-4">
-      {/* Total score card */}
-      <section className="rounded-3xl border border-border bg-card p-6 text-center shadow-sm">
-        <p className="text-sm font-medium text-graypurple">{r.hospital_name}</p>
-        <div className="mt-4 flex justify-center">
-          <ScoreCircle score={r.total_score} label={t.result.totalScore} />
+    <div className={styles.resultStack}>
+      <section className={`${styles.card} ${styles.scoreCard}`}>
+        <p className={styles.mutedText}>{result.hospital_name}</p>
+        <div className={styles.scoreCircleWrap}>
+          <ScoreCircle score={result.total_score} label={t.result.totalScore} />
         </div>
-        <div className={`mx-auto mt-4 inline-flex items-center gap-2 rounded-full ${tone.bg} px-4 py-1.5`}>
-          <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-          <span className={`text-sm font-bold ${tone.text}`}>{level}</span>
+        <div className={`${styles.trustBadge} ${tone.bg}`}>
+          <span className={`${styles.dot} ${tone.dot}`} />
+          <span>{level}</span>
         </div>
-        <p className="mt-3 text-xs text-graypurple">{t.result.reference}</p>
+        <p className={styles.mutedText}>{t.result.reference}</p>
       </section>
 
-      {/* Score breakdown */}
-      <section className="space-y-4 rounded-3xl border border-border bg-subtle p-5">
-        <ScoreBar label={t.result.trustScore} value={r.trust_score} tone="bg-mint" />
-        <ScoreBar label={t.result.adScore} value={r.ad_score} tone="bg-pink" />
-        <ScoreBar label={t.result.placeScore} value={r.place_score} tone="bg-primary" />
-        <ScoreBar label={t.result.foreignerScore} value={r.foreigner_score} tone="bg-peach" />
+      <section className={`${styles.softCard} ${styles.stackMd}`}>
+        <ScoreBar label={t.result.trustScore} value={result.trust_score} tone={styles.fillMint} />
+        <ScoreBar label={t.result.adScore} value={result.ad_score} tone={styles.fillPink} />
+        <ScoreBar label={t.result.placeScore} value={result.place_score} tone={styles.fillPrimary} />
+        <ScoreBar label={t.result.foreignerScore} value={result.foreigner_score} tone={styles.fillPeach} />
       </section>
 
-      {/* AI summary */}
-      <section className="rounded-3xl border border-border bg-lavender-soft p-5">
-        <div className="mb-2 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">{t.result.summaryTitle}</h2>
+      <section className={`${styles.accentCard} ${styles.stackSm}`}>
+        <div className={styles.row}>
+          <Sparkles className={`${styles.iconSm} ${styles.iconPrimary}`} />
+          <h2 className={styles.titleSm}>{t.result.summaryTitle}</h2>
         </div>
-        <p className="text-sm leading-relaxed text-foreground">{r.summary[language]}</p>
+        <p className={styles.summaryText}>{result.summary[language]}</p>
       </section>
 
-      {/* Concerns */}
-      <section className="rounded-3xl border border-border bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-pink" />
-          <h2 className="text-sm font-bold text-foreground">{t.result.concernsTitle}</h2>
+      <section className={`${styles.card} ${styles.stackSm}`}>
+        <div className={styles.row}>
+          <AlertTriangle className={`${styles.iconSm} ${styles.pinkText}`} />
+          <h2 className={styles.titleSm}>{t.result.concernsTitle}</h2>
         </div>
-        <ul className="space-y-2">
-          {r.concerns[language].map((c, i) => (
-            <li key={i} className="flex gap-2 rounded-2xl bg-pink-soft px-3 py-2.5 text-sm text-foreground">
-              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-pink" />
-              <span className="leading-relaxed">{c}</span>
+        <ul className={styles.list}>
+          {result.concerns[language].map((item) => (
+            <li key={item} className={`${styles.listItem} ${styles.bgPink}`}>
+              <span className={`${styles.listDot} ${styles.fillPink}`} />
+              <span>{item}</span>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* Evidence */}
-      <section className="rounded-3xl border border-border bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-mint" />
-          <h2 className="text-sm font-bold text-foreground">{t.result.evidenceTitle}</h2>
+      <section className={`${styles.card} ${styles.stackSm}`}>
+        <div className={styles.row}>
+          <CheckCircle2 className={`${styles.iconSm} ${styles.mintText}`} />
+          <h2 className={styles.titleSm}>{t.result.evidenceTitle}</h2>
         </div>
-        <ul className="space-y-2">
-          {r.evidence[language].map((e, i) => (
-            <li key={i} className="flex gap-2 rounded-2xl bg-mint-soft px-3 py-2.5 text-sm text-foreground">
-              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-mint" />
-              <span className="leading-relaxed">{e}</span>
+        <ul className={styles.list}>
+          {result.evidence[language].map((item) => (
+            <li key={item} className={`${styles.listItem} ${styles.bgMint}`}>
+              <span className={`${styles.listDot} ${styles.fillMint}`} />
+              <span>{item}</span>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* Reference note */}
-      <div className="flex items-start gap-2 rounded-2xl bg-subtle px-4 py-3 text-xs text-graypurple">
-        <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-        <span className="leading-relaxed">{t.result.reference}</span>
+      <div className={styles.note}>
+        <Info className={styles.iconXs} />
+        <span>{t.result.reference}</span>
       </div>
 
-      {/* Actions */}
-      <div className="space-y-2.5 pt-1">
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-transform active:scale-[0.99]"
-        >
-          <FileText className="h-4 w-4" />
+      <div className={styles.stackSm}>
+        <button type="button" className={styles.primaryButton}>
+          <FileText className={styles.iconSm} />
           {t.result.detailCta}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push("/analyze")}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-subtle"
-        >
-          <RotateCcw className="h-4 w-4" />
+        <button type="button" onClick={() => router.push("/analyze")} className={styles.secondaryButton}>
+          <RotateCcw className={styles.iconSm} />
           {t.result.retryCta}
         </button>
       </div>

@@ -1,23 +1,18 @@
-export type Language = "ko" | "en"
-
 export const translations = {
   ko: {
     appName: "Filtory",
-    // Nav
     nav: {
       home: "홈",
       history: "분석 내역",
       chatbot: "챗봇",
       settings: "설정",
     },
-    // Common
     common: {
       langKo: "한국어",
       langEn: "English",
       back: "뒤로",
       share: "공유",
     },
-    // Categories
     categories: {
       derma: "피부과",
       eye: "안과",
@@ -26,21 +21,19 @@ export const translations = {
       eyeDesc: "라식/라섹, 백내장, 드림렌즈 등",
       dentalDesc: "교정, 임플란트, 스케일링 등",
     },
-    // Home
     home: {
-      greeting: "안녕하세요! 👋",
+      greeting: "안녕하세요!",
       welcome: "믿을 수 있는 병원 선택을 도와드릴게요.",
       selectCategory: "분석할 분야를 선택하세요",
       inputLabel: "네이버 플레이스 링크 또는 병원명 입력",
       inputPlaceholder: "https://place.naver.com/ 또는 병원명",
-      cta: "리뷰·정보 입력하기",
+      cta: "리뷰, 정보 입력하기",
       recentTitle: "최근 분석",
       seeAll: "모두 보기",
       trustReliable: "신뢰 가능",
     },
-    // Analyze
     analyze: {
-      title: "리뷰·정보 입력",
+      title: "리뷰, 정보 입력",
       hospitalLabel: "병원명",
       hospitalPlaceholder: "예) 클린피부과의원",
       categoryLabel: "분야 선택",
@@ -53,20 +46,15 @@ export const translations = {
       langModeLabel: "분석 언어 모드",
       cta: "AI 분석 시작하기",
       loading: "AI가 리뷰를 분석하고 있어요...",
-      loadingSub: "신뢰도·광고성·완성도를 확인하는 중이에요.",
+      loadingSub: "신뢰도, 광고성, 완성도를 확인하는 중이에요.",
     },
-    // Result
     result: {
       title: "분석 결과",
       totalScore: "종합 점수",
-      outOf: "/100",
       trustScore: "리뷰 신뢰도",
       adScore: "광고성 가능성",
       placeScore: "플레이스 완성도",
       foreignerScore: "외국인 친화도",
-      high: "높음",
-      mid: "보통",
-      low: "낮음",
       concernsTitle: "확인이 필요한 부분",
       evidenceTitle: "신뢰 가능한 요소",
       summaryTitle: "AI 요약",
@@ -74,10 +62,9 @@ export const translations = {
       retryCta: "다시 분석하기",
       reference: "이 결과는 병원 선택을 돕기 위한 참고 정보입니다.",
     },
-    // Chatbot
     chatbot: {
       title: "AI 챗봇 상담",
-      greeting: "안녕하세요! 무엇을 도와드릴까요? 😊",
+      greeting: "안녕하세요! 무엇을 도와드릴까요?",
       placeholder: "메시지를 입력하세요...",
       send: "전송",
       examples: ["광고성 문구가 뭔가요?", "외국인 친화도는 어떻게 보나요?", "신뢰도 점수 기준이 궁금해요"],
@@ -88,7 +75,6 @@ export const translations = {
         default: "좋은 질문이에요! 리뷰 신뢰도, 광고성 가능성, 플레이스 완성도 등 궁금한 점을 편하게 물어보세요.",
       },
     },
-    // MyPage
     mypage: {
       title: "설정",
       profileName: "김필터",
@@ -131,18 +117,18 @@ export const translations = {
       dentalDesc: "Orthodontics, implants, scaling",
     },
     home: {
-      greeting: "Hello! 👋",
+      greeting: "Hello!",
       welcome: "We'll help you choose a clinic you can trust.",
       selectCategory: "Select a field to analyze",
       inputLabel: "Naver Place link or clinic name",
       inputPlaceholder: "https://place.naver.com/ or clinic name",
-      cta: "Enter reviews & info",
+      cta: "Enter reviews and info",
       recentTitle: "Recent analyses",
       seeAll: "See all",
       trustReliable: "Generally Trustworthy",
     },
     analyze: {
-      title: "Enter Reviews & Info",
+      title: "Enter Reviews and Info",
       hospitalLabel: "Clinic name",
       hospitalPlaceholder: "e.g. Clean Dermatology Clinic",
       categoryLabel: "Select field",
@@ -160,14 +146,10 @@ export const translations = {
     result: {
       title: "Analysis Result",
       totalScore: "Total score",
-      outOf: "/100",
       trustScore: "Review trust",
       adScore: "Promotion likelihood",
       placeScore: "Place completeness",
       foreignerScore: "Foreigner friendliness",
-      high: "High",
-      mid: "Medium",
-      low: "Low",
       concernsTitle: "Points to double-check",
       evidenceTitle: "Trustworthy elements",
       summaryTitle: "AI summary",
@@ -177,7 +159,7 @@ export const translations = {
     },
     chatbot: {
       title: "AI Chat Support",
-      greeting: "Hello! How can I help you today? 😊",
+      greeting: "Hello! How can I help you today?",
       placeholder: "Type a message...",
       send: "Send",
       examples: ["What is promotional wording?", "How is foreigner friendliness measured?", "How is the trust score decided?"],
@@ -208,5 +190,3 @@ export const translations = {
     },
   },
 }
-
-export type TranslationSet = (typeof translations)["ko"]

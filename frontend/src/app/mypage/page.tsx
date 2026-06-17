@@ -1,23 +1,23 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { User, Bookmark, Globe, LogOut, ChevronRight, Sparkles, Eye, Smile } from "lucide-react"
-import { Header } from "@/components/common/Header"
+import { Bookmark, ChevronRight, Eye, Globe, LogOut, Smile, Sparkles, User } from "lucide-react"
 import { BottomNav } from "@/components/common/BottomNav"
+import { Header } from "@/components/common/Header"
 import { useLanguage } from "@/context/LanguageContext"
-import { recentAnalyses, type CategoryKey } from "@/lib/mockData"
-import type { Language } from "@/lib/translations"
+import { recentAnalyses } from "@/lib/mockData"
+import styles from "@/styles/App.module.css"
 
-const catMeta: Record<CategoryKey, { icon: typeof Sparkles; bg: string; color: string }> = {
-  derma: { icon: Sparkles, bg: "bg-pink-soft", color: "text-pink" },
-  eye: { icon: Eye, bg: "bg-lavender-soft", color: "text-primary" },
-  dental: { icon: Smile, bg: "bg-mint-soft", color: "text-mint" },
+const categoryMeta = {
+  derma: { icon: Sparkles, box: styles.iconPink },
+  eye: { icon: Eye, box: styles.iconLavender },
+  dental: { icon: Smile, box: styles.iconMint },
 }
 
-function scoreTone(score: number) {
-  if (score >= 75) return "text-mint"
-  if (score >= 55) return "text-peach"
-  return "text-pink"
+function scoreClass(score) {
+  if (score >= 75) return styles.scoreGood
+  if (score >= 55) return styles.scoreWarn
+  return styles.scoreBad
 }
 
 export default function MyPage() {
@@ -25,89 +25,70 @@ export default function MyPage() {
   const { t, language, setLanguage } = useLanguage()
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={styles.page}>
       <Header title={t.mypage.title} showBack />
 
-      <main className="mx-auto max-w-md space-y-6 px-4 py-5">
-        {/* Profile card */}
-        <section className="flex items-center gap-4 rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-lavender-soft">
-            <User className="h-8 w-8 text-primary" />
+      <main className={`${styles.main} ${styles.stack}`}>
+        <section className={`${styles.card} ${styles.profileCard}`}>
+          <span className={styles.profileAvatar}>
+            <User className={styles.iconLg} />
           </span>
-          <div className="min-w-0">
-            <p className="text-base font-bold text-foreground">{t.mypage.profileName}</p>
-            <p className="truncate text-sm text-graypurple">{t.mypage.profileEmail}</p>
-            <p className="mt-0.5 text-xs text-graypurple">{t.mypage.memberSince}</p>
+          <div className={styles.profileInfo}>
+            <p className={styles.titleMd}>{t.mypage.profileName}</p>
+            <p className={styles.profileEmail}>{t.mypage.profileEmail}</p>
+            <p className={styles.mutedText}>{t.mypage.memberSince}</p>
           </div>
         </section>
 
-        {/* Recent records */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold text-foreground">{t.mypage.recentTitle}</h2>
-          <div className="space-y-2.5">
+        <section className={styles.stackSm}>
+          <h2 className={styles.titleSm}>{t.mypage.recentTitle}</h2>
+          <div className={styles.recordList}>
             {recentAnalyses.map((item) => {
-              const m = catMeta[item.category]
-              const Icon = m.icon
+              const meta = categoryMeta[item.category]
+              const Icon = meta.icon
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => router.push("/result")}
-                  className="flex w-full items-center gap-3 rounded-3xl border border-border bg-subtle p-3.5 text-left transition-colors hover:border-lavender"
-                >
-                  <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${m.bg}`}>
-                    <Icon className={`h-5 w-5 ${m.color}`} />
+                <button key={item.id} type="button" onClick={() => router.push("/result")} className={styles.recordButton}>
+                  <span className={`${styles.iconBoxSmall} ${meta.box}`}>
+                    <Icon className={styles.iconMd} />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{item.name[language]}</p>
-                    <p className="text-xs text-graypurple">{item.date}</p>
+                  <div className={styles.recordBody}>
+                    <p className={styles.recordName}>{item.name[language]}</p>
+                    <p className={styles.recordDate}>{item.date}</p>
                   </div>
-                  <span className={`text-base font-extrabold ${scoreTone(item.score)}`}>{item.score}</span>
+                  <span className={`${styles.scoreSmall} ${scoreClass(item.score)}`}>{item.score}</span>
                 </button>
               )
             })}
           </div>
         </section>
 
-        {/* Saved results */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold text-foreground">{t.mypage.savedTitle}</h2>
-          <button
-            type="button"
-            onClick={() => router.push("/result")}
-            className="flex w-full items-center gap-3 rounded-3xl border border-border bg-peach-soft p-4 text-left transition-transform active:scale-[0.99]"
-          >
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-card">
-              <Bookmark className="h-5 w-5 text-peach" />
+        <section className={styles.stackSm}>
+          <h2 className={styles.titleSm}>{t.mypage.savedTitle}</h2>
+          <button type="button" onClick={() => router.push("/result")} className={styles.savedButton}>
+            <span className={`${styles.iconBoxSmall} ${styles.iconCard}`}>
+              <Bookmark className={`${styles.iconMd} ${styles.peachText}`} />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {recentAnalyses[0].name[language]}
-              </p>
-              <p className="text-xs text-graypurple">{t.home.trustReliable}</p>
+            <div className={styles.recordBody}>
+              <p className={styles.recordName}>{recentAnalyses[0].name[language]}</p>
+              <p className={styles.recordDate}>{t.home.trustReliable}</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-graypurple" />
+            <ChevronRight className={styles.iconSm} />
           </button>
         </section>
 
-        {/* Language settings */}
-        <section className="space-y-3 rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">{t.mypage.languageTitle}</h2>
+        <section className={`${styles.card} ${styles.stackSm}`}>
+          <div className={styles.row}>
+            <Globe className={`${styles.iconSm} ${styles.iconPrimary}`} />
+            <h2 className={styles.titleSm}>{t.mypage.languageTitle}</h2>
           </div>
-          <p className="text-xs text-graypurple">{t.mypage.languageDesc}</p>
-          <div className="flex gap-2 pt-1">
-            {(["ko", "en"] as Language[]).map((lang) => (
+          <p className={styles.mutedText}>{t.mypage.languageDesc}</p>
+          <div className={styles.segmented}>
+            {["ko", "en"].map((lang) => (
               <button
                 key={lang}
                 type="button"
                 onClick={() => setLanguage(lang)}
-                className={`flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition-all ${
-                  language === lang
-                    ? "border-transparent bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-subtle text-graypurple"
-                }`}
+                className={[styles.segmentButton, language === lang ? styles.segmentButtonActive : ""].join(" ")}
               >
                 {lang === "ko" ? "한국어" : "English"}
               </button>
@@ -115,12 +96,8 @@ export default function MyPage() {
           </div>
         </section>
 
-        {/* Logout */}
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-bold text-pink transition-colors hover:bg-pink-soft"
-        >
-          <LogOut className="h-4 w-4" />
+        <button type="button" className={styles.dangerButton}>
+          <LogOut className={styles.iconSm} />
           {t.mypage.logout}
         </button>
       </main>

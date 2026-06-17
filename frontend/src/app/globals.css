@@ -1,104 +1,56 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-geist-sans), 'Geist Fallback';
-  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  /* Filtory brand tokens */
-  --color-subtle: var(--subtle);
-  --color-lavender: var(--lavender);
-  --color-lavender-soft: var(--lavender-soft);
-  --color-pink: var(--pink);
-  --color-pink-soft: var(--pink-soft);
-  --color-mint: var(--mint);
-  --color-mint-soft: var(--mint-soft);
-  --color-peach: var(--peach);
-  --color-peach-soft: var(--peach-soft);
-  --color-graypurple: var(--graypurple);
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
 :root {
   color-scheme: light;
-
-  /* Filtory lighter, cleaner ivory palette */
-  --background: #fffcf8; /* main app background */
-  --subtle: #fffdf9; /* subtle cards / section backgrounds */
-  --foreground: #3a3651; /* deep gray-purple text */
-
-  --card: #ffffff; /* main input cards & important content */
-  --card-foreground: #3a3651;
-  --popover: #ffffff;
-  --popover-foreground: #3a3651;
-
-  --primary: #dccfff; /* lavender */
+  --background: #fffcf8;
+  --subtle: #fffdf9;
+  --foreground: #3a3651;
+  --card: #ffffff;
+  --primary: #dccfff;
   --primary-foreground: #4a3f7a;
-  --secondary: #fffdf9;
-  --secondary-foreground: #3a3651;
-  --muted: #fffdf9;
-  --muted-foreground: #a8a5b7; /* gray purple */
-  --accent: #f3eeff;
-  --accent-foreground: #4a3f7a;
-  --destructive: #ffb6c9;
-
-  --border: #f1e8dd; /* soft warm border */
-  --input: #f1e8dd;
-  --ring: #dccfff;
-
-  /* Brand accent colors */
   --lavender: #dccfff;
   --lavender-soft: #f1ecff;
   --pink: #ffb6c9;
   --pink-soft: #ffe6ec;
+  --pink-text: #c65a77;
   --mint: #bdeecf;
   --mint-soft: #e4f7eb;
+  --mint-text: #4c9b68;
   --peach: #ffd7b5;
   --peach-soft: #fff0e2;
-  --graypurple: #a8a5b7;
-
-  --radius: 0.75rem;
+  --peach-text: #b97838;
+  --graypurple: #8f8aa3;
+  --border: #f1e8dd;
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
+* {
+  box-sizing: border-box;
 }
 
+html,
+body {
+  max-width: 100vw;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}

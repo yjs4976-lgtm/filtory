@@ -1,32 +1,28 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
-import { translations, type Language, type TranslationSet } from "@/lib/translations"
+import { createContext, useContext, useState } from "react"
+import { translations } from "@/lib/translations"
 
-type LanguageContextValue = {
-  language: Language
-  setLanguage: (lang: Language) => void
-  t: TranslationSet
-}
-
-const LanguageContext = createContext<LanguageContextValue | undefined>(undefined)
-
+const LanguageContext = createContext(undefined)
 const STORAGE_KEY = "filtory-language"
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    const stored = typeof window !== "undefined" ? (localStorage.getItem(STORAGE_KEY) as Language | null) : null
-    return stored === "ko" || stored === "en" ? stored : "ko"
-  })
+function getStoredLanguage() {
+  if (typeof window === "undefined") return "ko"
+  const stored = localStorage.getItem(STORAGE_KEY)
+  return stored === "ko" || stored === "en" ? stored : "ko"
+}
 
-  const setLanguage = (lang: Language) => {
+export function LanguageProvider({ children }) {
+  const [language, setLanguageState] = useState(getStoredLanguage)
+
+  const setLanguage = (lang) => {
     setLanguageState(lang)
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, lang)
     }
   }
 
-  const value: LanguageContextValue = {
+  const value = {
     language,
     setLanguage,
     t: translations[language],
