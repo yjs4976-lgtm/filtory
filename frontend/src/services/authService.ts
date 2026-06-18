@@ -180,9 +180,9 @@ export const authService = {
   },
 
   startSocialLogin(provider: SocialProvider) {
-    const redirectUri = `${window.location.origin}/auth/callback`;
-    const url = `${API_BASE_URL}/api/auth/social-login?provider=${provider}&redirect_uri=${encodeURIComponent(
-      redirectUri
+    const nextUrl = `${window.location.origin}/auth/callback`;
+    const url = `${API_BASE_URL}/api/auth/social-login?provider=${provider}&next=${encodeURIComponent(
+      nextUrl
     )}`;
 
     window.location.href = url;

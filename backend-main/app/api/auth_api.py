@@ -107,22 +107,42 @@ def social_login():
 @auth_bp.route("/social-login", methods=["GET"])
 def start_social_login():
     provider = request.args.get("provider")
-    frontend_redirect_uri = request.args.get("redirect_uri") or _default_frontend_callback_url()
-    backend_redirect_uri = url_for("auth.social_login_callback", _external=True)
+    frontend_next_url = (
+        request.args.get("next")
+        or request.args.get("redirect_uri")
+        or _default_frontend_callback_url()
+    )
 
     try:
+        backend_redirect_uri = _provider_backend_redirect_uri(provider)
         authorization_url = AuthService.build_social_authorization_url(
             provider,
             backend_redirect_uri,
-            frontend_redirect_uri,
+            frontend_next_url,
         )
         return redirect(authorization_url)
     except ValueError as e:
-        return redirect(_append_query(frontend_redirect_uri, {"error": str(e)}))
+        return redirect(_append_query(frontend_next_url, {"error": str(e)}))
 
 
 @auth_bp.route("/social-login/callback", methods=["GET"])
 def social_login_callback():
+    return _complete_social_login_callback(
+        url_for("auth.social_login_callback", _external=True)
+    )
+
+
+@auth_bp.route("/<provider>/callback", methods=["GET"])
+def provider_social_login_callback(provider):
+    try:
+        backend_redirect_uri = _provider_backend_redirect_uri(provider)
+    except ValueError as e:
+        return redirect(_append_query(_default_frontend_callback_url(), {"error": str(e)}))
+
+    return _complete_social_login_callback(backend_redirect_uri)
+
+
+def _complete_social_login_callback(backend_redirect_uri):
     state = request.args.get("state")
     code = request.args.get("code")
     provider_error = request.args.get("error")
@@ -135,7 +155,7 @@ def social_login_callback():
         result, frontend_redirect_uri = AuthService.complete_social_login(
             code,
             state,
-            url_for("auth.social_login_callback", _external=True),
+            backend_redirect_uri,
         )
         response = redirect(_append_query(frontend_redirect_uri, {"social_login": "success"}))
         set_auth_cookies(response, result.get("access_token"), result.get("refresh_token"))
@@ -145,8 +165,18 @@ def social_login_callback():
 
 
 def _default_frontend_callback_url():
-    frontend_base_url = current_app.config.get("FRONTEND_BASE_URL", "").rstrip("/")
-    return f"{frontend_base_url}/auth/callback"
+    return current_app.config.get("FRONTEND_CALLBACK_URL")
+
+
+def _provider_backend_redirect_uri(provider):
+    if not provider:
+        raise ValueError("provider is required")
+
+    configured_redirect_uri = current_app.config.get(f"{provider.upper()}_REDIRECT_URI")
+    if configured_redirect_uri:
+        return configured_redirect_uri
+
+    return url_for("auth.provider_social_login_callback", provider=provider, _external=True)
 
 
 def _append_query(url, params):
