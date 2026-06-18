@@ -1,14 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import type { AdminSummary, AdminUser } from "@/lib/types"
-import { adminService } from "@/services/adminService"
-import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards"
-import { AdminUserTable } from "@/components/admin/AdminUserTable"
+import type { AdminUser } from "@/lib/types"
+import { adminUserService, type AdminUserFilters } from "@/services/adminUserService"
+import { AdminUserFilter } from "@/components/admin/users/AdminUserFilter"
+import { AdminUserTable } from "@/components/admin/users/AdminUserTable"
 
 export default function AdminUsersPage() {
-  const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
+  const [filters, setFilters] = useState<AdminUserFilters>({ status: "all", role: "all" })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -17,19 +17,14 @@ export default function AdminUsersPage() {
       setIsLoading(true)
       setError("")
 
-      const [summaryResult, usersResult] = await Promise.all([
-        adminService.getSummary(),
-        adminService.getUsers(),
-      ])
-
-      setSummary(summaryResult.data)
-      setUsers(usersResult.data)
+      const nextUsers = await adminUserService.getUsers(filters)
+      setUsers(nextUsers)
     } catch (error) {
       setError(error instanceof Error ? error.message : "관리자 데이터 조회 실패")
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [filters])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -49,8 +44,8 @@ export default function AdminUsersPage() {
 
       {isLoading && <p>불러오는 중...</p>}
       {error && <p className="form-error">{error}</p>}
-      {!isLoading && summary && <AdminSummaryCards summary={summary} />}
-      {!isLoading && <AdminUserTable users={users} onRefresh={loadData} />}
+      <AdminUserFilter value={filters} onChange={setFilters} />
+      {!isLoading && <AdminUserTable users={users} />}
     </main>
   )
 }

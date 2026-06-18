@@ -16,6 +16,18 @@ MEMBER_FIELDS = {
     "deleted_at",
 }
 
+MEMBER_FIELD_ALIASES = {
+    "name": "real_name",
+    "realName": "real_name",
+    "profileImageUrl": "profile_img_url",
+    "profileImageURL": "profile_img_url",
+    "profile_image_url": "profile_img_url",
+    "emailVerified": "email_verified",
+    "lastLoginAt": "last_login_at",
+    "passwordChangedAt": "password_changed_at",
+    "deletedAt": "deleted_at",
+}
+
 
 def member_to_dict(member, include_private=False):
     if member is None:
@@ -45,8 +57,17 @@ def member_to_dict(member, include_private=False):
 
 def extract_member_data(payload, include_private=False):
     allowed_fields = MEMBER_FIELDS if include_private else MEMBER_FIELDS - {"password_hash"}
-    return {
-        key: payload[key]
-        for key in allowed_fields
-        if key in payload
-    }
+    data = {}
+
+    for key in allowed_fields:
+        if key in payload:
+            data[key] = payload[key]
+
+    for source_key, target_key in MEMBER_FIELD_ALIASES.items():
+        if target_key in allowed_fields and source_key in payload:
+            data[target_key] = payload[source_key]
+
+    if "role" in data and isinstance(data["role"], str):
+        data["role"] = data["role"].lower()
+
+    return data

@@ -1,7 +1,7 @@
 export type Language = "ko" | "en"
 export type HospitalCategory = "derma" | "eye" | "dental"
 export type UserRole = "USER" | "ADMIN"
-export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN"
+export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "DORMANT"
 export type SocialProvider = "google" | "naver" | "kakao"
 
 export type AnalysisHistoryItem = {
@@ -11,6 +11,14 @@ export type AnalysisHistoryItem = {
   score: number
   foreignerFriendlyScore?: number
   createdAt: string
+  analyzedAt?: string
+  trustScore?: number
+  trustLevel?: string
+  adSuspicionScore?: number
+  adSuspicionLevel?: string
+  infoCompletenessScore?: number
+  globalAccessRating?: number
+  reviewCount?: number
 }
 
 export type ForeignerFriendlyCheck = {
@@ -34,11 +42,22 @@ export interface User {
   id: number | string
   email: string
   nickname: string
-  name: string
+  name?: string
   phone?: string
   role: UserRole
   status: UserStatus
   provider?: "local" | SocialProvider
+  profileImageUrl?: string | null
+  socialProviders?: Partial<Record<SocialProvider, boolean>>
+  emailVerified?: boolean
+  hasPassword?: boolean
+  joinedAt?: string
+  lastLoginAt?: string
+  lastActiveAt?: string
+  analysisCount?: number
+  savedHospitalCount?: number
+  reportCount?: number
+  profileCompletion?: number
   createdAt?: string
 }
 
@@ -54,17 +73,17 @@ export interface LoginRequest {
 }
 
 export interface SignupPayload {
+  name: string
   email: string
   password: string
   nickname: string
   termsAgreed: boolean
   privacyAgreed: boolean
-  marketingAgreed: boolean
+  marketingAgreed?: boolean
 }
 
 export interface SignupRequest extends SignupPayload {
   passwordConfirm?: string
-  name?: string
   phone?: string
 }
 
@@ -73,8 +92,8 @@ export interface LoginResponse {
 }
 
 export interface FindIdRequest {
-  name: string;
-  phone: string;
+  name?: string;
+  nickname?: string;
 }
 
 export interface FindIdResponse {
@@ -96,6 +115,7 @@ export interface UpdateProfileRequest {
   nickname?: string
   phone?: string
   password?: string
+  profileImageUrl?: string | null
 }
 
 export interface WithdrawalRequest {
@@ -104,8 +124,10 @@ export interface WithdrawalRequest {
 }
 
 export interface UpdateProfilePayload {
-  nickname: string
+  name?: string
+  nickname?: string
   password?: string
+  profileImageUrl?: string | null
 }
 
 export interface WithdrawPayload {
@@ -128,4 +150,114 @@ export interface AdminSummary {
 export interface AdminUser extends Omit<User, "id"> {
   id: number
   lastLoginAt?: string;
+  analysisCount?: number
+  savedHospitalCount?: number
+  reportCount?: number
+  memo?: string
+}
+
+export type SavedHospital = {
+  id: number
+  hospitalName: string
+  category: HospitalCategory
+  address: string
+  trustScore: number
+  trustLevel: string
+  adSuspicionScore: number
+  adSuspicionLevel: string
+  infoCompletenessScore: number
+  globalAccessRating: number
+  savedAt: string
+  lastAnalyzedAt?: string
+}
+
+export type CompareHospital = SavedHospital & {
+  reviewCount: number
+  recentReviewRatio: number
+  negativeReviewRatio: number
+  dentalMetrics?: {
+    overtreatmentSuspicion: string
+    priceMentionLevel: string
+    explanationKindness: string
+    revisitReviewLevel: string
+    painMentionLevel: string
+    waitingMentionLevel: string
+  }
+  eyeMetrics?: {
+    examExplanation: string
+    surgeryReviewTrust: string
+    aftercareMention: string
+    equipmentInfo: string
+    waitingMentionLevel: string
+    consultationSatisfaction: string
+  }
+  dermatologyMetrics?: {
+    treatmentEffectReview: string
+    adReviewSuspicion: string
+    eventPhraseLevel: string
+    consultationKindness: string
+    revisitReviewLevel: string
+    beforeAfterDetail: string
+  }
+}
+
+export type CompareResult = {
+  category: HospitalCategory
+  hospitals: CompareHospital[]
+  recommendedHospitalId?: number
+  summary: string
+}
+
+export type MyReport = {
+  id: number
+  targetType: "review" | "hospital"
+  hospitalName: string
+  reason: string
+  status: "RECEIVED" | "REVIEWING" | "COMPLETED" | "REJECTED"
+  createdAt: string
+  adminReply?: string
+}
+
+export type NotificationItem = {
+  id: number
+  title: string
+  message: string
+  type: "ANALYSIS" | "REPORT" | "SAVED_HOSPITAL" | "SECURITY"
+  isRead: boolean
+  createdAt: string
+  link?: string
+}
+
+export type NotificationSettings = {
+  analysisCompleted: boolean
+  reportResult: boolean
+  savedHospitalUpdated: boolean
+  securityAlert: boolean
+  marketing: boolean
+}
+
+export type RecentViewedHospital = {
+  id: number
+  hospitalName: string
+  category: HospitalCategory
+  address: string
+  viewedAt: string
+  trustLevel?: string
+  globalAccessRating?: number
+}
+
+export type UserInsight = {
+  mostAnalyzedCategory: HospitalCategory
+  frequentArea: string
+  savedHospitalAverageTrustLevel: string
+  mainDecisionFactors: string[]
+  summary: string
+}
+
+export type LoginHistory = {
+  id: number
+  loggedInAt: string
+  method: string
+  device: string
+  location: string
 }

@@ -6,6 +6,7 @@ export const ROUTES = {
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
   AUTH_CALLBACK: "/auth/callback",
+  VERIFY_EMAIL: "/verify-email",
 
   ANALYZE: "/analyze",
   RESULT: "/result",
@@ -15,6 +16,15 @@ export const ROUTES = {
   MYPAGE: "/mypage",
   MYPAGE_PROFILE: "/mypage/profile",
   MYPAGE_HISTORY: "/mypage/history",
+  MYPAGE_SAVED: "/mypage/saved",
+  MYPAGE_COMPARE: "/mypage/compare",
+  MYPAGE_REPORTS: "/mypage/reports",
+  MYPAGE_NOTIFICATIONS: "/mypage/notifications",
+  MYPAGE_SETTINGS: "/mypage/settings",
+  MYPAGE_SECURITY: "/mypage/security",
+  MYPAGE_RECENT: "/mypage/recent",
+  MYPAGE_INSIGHTS: "/mypage/insights",
+  MYPAGE_DATA: "/mypage/data",
   MYPAGE_WITHDRAWAL: "/mypage/withdrawal",
 
   ADMIN: "/admin",

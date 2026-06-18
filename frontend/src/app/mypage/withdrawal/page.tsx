@@ -1,15 +1,20 @@
+"use client"
+
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { WithdrawalForm } from "@/components/mypage/WithdrawalForm"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export default function WithdrawalPage() {
+  const { t } = useLanguage()
+
   return (
     <ProtectedRoute>
-      <AppShell title="회원 탈퇴" showBack>
+      <AppShell title={t.mypage.withdrawalPageTitle} showBack>
         <section className={styles.stackSm}>
-          <h1 className={styles.titleLg}>회원 탈퇴</h1>
-          <p className={styles.bodyText}>탈퇴 전 안내 사항을 꼭 확인해주세요.</p>
+          <h1 className={styles.titleLg}>{t.mypage.withdrawalPageTitle}</h1>
+          <p className={styles.bodyText}>{t.mypage.withdrawalPageDescription}</p>
         </section>
 
         <WithdrawalForm />

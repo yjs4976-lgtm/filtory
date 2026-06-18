@@ -43,6 +43,8 @@ export function ProfileCard() {
     )
   }
 
+  const displayName = user.name || user.nickname || "Filtory"
+
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.profileCard}>
@@ -50,7 +52,7 @@ export function ProfileCard() {
           <User className={styles.iconLg} />
         </span>
         <div className={styles.profileInfo}>
-          <p className={styles.titleMd}>{user.name}님</p>
+          <p className={styles.titleMd}>{displayName}님</p>
           <p className={styles.profileEmail}>{user.email}</p>
           <p className={styles.mutedText}>
             {user.provider || "local"} / {user.status}

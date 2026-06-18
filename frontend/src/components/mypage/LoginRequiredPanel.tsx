@@ -1,10 +1,15 @@
+"use client"
+
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
+import { useLanguage } from "@/context/LanguageContext"
 
 export function LoginRequiredPanel() {
+  const { t } = useLanguage()
+
   return (
     <LoginRequiredCard
-      title="로그인이 필요한 기능이에요."
-      description="분석 기록과 회원 정보를 확인하려면 로그인해주세요."
+      title={t.mypage.loginRequiredTitle}
+      description={t.mypage.loginRequiredDescription}
     />
   )
 }

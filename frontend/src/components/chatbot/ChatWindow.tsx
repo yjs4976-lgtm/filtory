@@ -48,6 +48,8 @@ export function ChatWindow() {
 
       <RecommendedQuestions onSelect={send} />
 
+      <div className={styles.chatbotSpacer} />
+
       <ChatInput value={input} onChange={setInput} onSubmit={() => send(input)} />
     </div>
   )
