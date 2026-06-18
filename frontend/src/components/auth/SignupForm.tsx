@@ -52,6 +52,11 @@ export function SignupForm() {
       return;
     }
 
+    if (password.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+
     if (!terms.termsAgreed || !terms.privacyAgreed) {
       setError("필수 약관에 동의해야 회원가입할 수 있어요.");
       return;
@@ -120,6 +125,7 @@ export function SignupForm() {
           type="password"
           placeholder="비밀번호를 입력해주세요"
           value={password}
+          minLength={8}
           autoComplete="new-password"
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -133,6 +139,7 @@ export function SignupForm() {
           type="password"
           placeholder="비밀번호를 다시 입력해주세요"
           value={passwordConfirm}
+          minLength={8}
           autoComplete="new-password"
           onChange={(event) => setPasswordConfirm(event.target.value)}
         />

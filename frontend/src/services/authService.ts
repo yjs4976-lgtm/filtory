@@ -38,9 +38,9 @@ export const authService = {
         ...result,
         data: normalizeLoginResponse(result.data),
       };
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
-        throw new Error("로그인에 실패했습니다.");
+        throw error instanceof Error ? error : new Error("로그인에 실패했습니다.");
       }
 
       // 백엔드 연결 전에도 프론트 흐름을 확인할 수 있는 임시 fallback입니다.
@@ -69,9 +69,9 @@ export const authService = {
         ...result,
         data: normalizeLoginResponse(result.data).user,
       };
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
-        throw new Error("회원가입에 실패했습니다.");
+        throw error instanceof Error ? error : new Error("회원가입에 실패했습니다.");
       }
 
       return {
