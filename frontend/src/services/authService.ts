@@ -38,9 +38,9 @@ export const authService = {
         ...result,
         data: normalizeLoginResponse(result.data),
       };
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
-        throw new Error("로그인에 실패했습니다.");
+        throw error instanceof Error ? error : new Error("로그인에 실패했습니다.");
       }
 
       // 백엔드 연결 전에도 프론트 흐름을 확인할 수 있는 임시 fallback입니다.
@@ -48,7 +48,6 @@ export const authService = {
         success: true,
         message: "로그인되었습니다.",
         data: {
-          accessToken: "mock-access-token",
           user: createMockUser(email),
         },
       };
@@ -70,9 +69,9 @@ export const authService = {
         ...result,
         data: normalizeLoginResponse(result.data).user,
       };
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
-        throw new Error("회원가입에 실패했습니다.");
+        throw error instanceof Error ? error : new Error("회원가입에 실패했습니다.");
       }
 
       return {
@@ -105,14 +104,9 @@ export const authService = {
   },
 
   refresh() {
-    return apiClient<{ access_token?: string; accessToken?: string }>("/api/auth/refresh", {
+    return apiClient<null>("/api/auth/refresh", {
       method: "POST",
-    }).then((result) => ({
-      ...result,
-      data: {
-        accessToken: result.data.accessToken || result.data.access_token || "",
-      },
-    }));
+    });
   },
 
   logout() {
@@ -156,16 +150,4 @@ export const authService = {
     window.location.href = url;
   },
 
-  socialCallback(provider: SocialProvider, accessToken: string) {
-    return apiClient<unknown>("/api/auth/social-login", {
-      method: "POST",
-      body: {
-        provider,
-        access_token: accessToken,
-      },
-    }).then((result) => ({
-      ...result,
-      data: normalizeLoginResponse(result.data),
-    }));
-  },
 };

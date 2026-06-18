@@ -183,6 +183,8 @@ class MemberService:
 
         social_account = MemberRepository.get_social_account(provider, social_id)
         if social_account:
+            if not social_account.member.active or social_account.member.deleted_at:
+                raise ValueError("Member not found")
             return member_to_dict(social_account.member)
 
         social_email = payload.get("social_email")

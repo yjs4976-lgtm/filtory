@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
-import type { SocialProvider } from "@/lib/types";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,18 +16,15 @@ export function AuthCallbackHandler() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const provider = searchParams.get("provider") as SocialProvider | null;
-        const accessToken =
-          searchParams.get("accessToken") || searchParams.get("access_token");
+        const error = searchParams.get("error");
 
-        if (!provider || !accessToken) {
-          setMessage("소셜 로그인 정보가 올바르지 않습니다.");
+        if (error) {
+          setMessage("소셜 로그인 처리 중 오류가 발생했습니다.");
           return;
         }
 
-        const result = await authService.socialCallback(provider, accessToken);
-
-        saveLogin(result.data);
+        const result = await authService.me();
+        saveLogin({ user: result.data });
         router.replace(ROUTES.HOME);
       } catch {
         setMessage("소셜 로그인 처리 중 오류가 발생했습니다.");

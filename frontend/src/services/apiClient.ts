@@ -10,12 +10,6 @@ interface RequestOptions {
   headers?: HeadersInit;
 }
 
-let accessToken: string | null = null;
-
-export function setApiAccessToken(token: string | null) {
-  accessToken = token;
-}
-
 function toRequestBody(body: unknown): BodyInit | undefined {
   if (body === undefined || body === null) return undefined;
   if (typeof body === "string") return body;
@@ -45,16 +39,12 @@ export async function apiClient<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { method = "GET", body, auth = false, headers: customHeaders } = options;
+  const { method = "GET", body, headers: customHeaders } = options;
 
   const headers = new Headers(customHeaders);
 
   if (isJsonBody(body) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
-  }
-
-  if (auth && accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {

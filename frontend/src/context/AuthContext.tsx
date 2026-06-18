@@ -4,7 +4,6 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/types";
-import { setApiAccessToken } from "@/services/apiClient";
 import { authService } from "@/services/authService";
 
 interface AuthContextValue {
@@ -29,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const saveLogin = useCallback((payload: LoginResponse) => {
-    setApiAccessToken(payload.accessToken);
     setUser(payload.user);
   }, []);
 
@@ -53,7 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 백엔드 로그아웃 실패해도 프론트 로그인 정보는 지워야 함
     }
 
-    setApiAccessToken(null);
     setUser(null);
     router.push(ROUTES.LOGIN);
   }, [router]);
@@ -61,13 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const refreshResult = await authService.refresh();
-        setApiAccessToken(refreshResult.data.accessToken);
-
+        await authService.refresh();
         const meResult = await authService.me();
         setUser(meResult.data);
       } catch {
-        setApiAccessToken(null);
         setUser(null);
       } finally {
         setIsLoading(false);

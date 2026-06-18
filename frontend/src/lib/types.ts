@@ -69,7 +69,6 @@ export interface SignupRequest extends SignupPayload {
 }
 
 export interface LoginResponse {
-  accessToken: string
   user: User
 }
 

@@ -10,7 +10,6 @@ type BackendUser = Partial<User> & {
 };
 
 type RawLoginResponse = Partial<LoginResponse> & {
-  access_token?: string;
   member?: BackendUser;
 };
 
@@ -46,15 +45,13 @@ export function normalizeUser(rawUser: BackendUser): User {
 }
 
 export function normalizeLoginResponse(rawResponse: RawLoginResponse): LoginResponse {
-  const accessToken = rawResponse.accessToken || rawResponse.access_token;
   const user = rawResponse.user || rawResponse.member;
 
-  if (!accessToken || !user) {
+  if (!user) {
     throw new Error("로그인 응답 형식이 올바르지 않습니다.");
   }
 
   return {
-    accessToken,
     user: normalizeUser(user),
   };
 }

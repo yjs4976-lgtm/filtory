@@ -1,10 +1,40 @@
 import json
+from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
 class KakaoOAuthClient:
+    AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
+    TOKEN_URL = "https://kauth.kakao.com/oauth/token"
     USER_INFO_URL = "https://kapi.kakao.com/v2/user/me"
+
+    @staticmethod
+    def get_authorization_url(client_id, redirect_uri, state):
+        query = urlencode(
+            {
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "state": state,
+            }
+        )
+        return f"{KakaoOAuthClient.AUTHORIZE_URL}?{query}"
+
+    @staticmethod
+    def exchange_code_for_access_token(code, redirect_uri, client_id, client_secret=None, state=None):
+        payload = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "code": code,
+        }
+
+        if client_secret:
+            payload["client_secret"] = client_secret
+
+        data = _post_form(KakaoOAuthClient.TOKEN_URL, payload)
+        return data.get("access_token")
 
     @staticmethod
     def get_user_info(access_token):
@@ -30,3 +60,19 @@ def _get_json(url, access_token):
             return json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError) as e:
         raise ValueError("Failed to verify Kakao access token") from e
+
+
+def _post_form(url, payload):
+    body = urlencode({key: value for key, value in payload.items() if value is not None}).encode("utf-8")
+    request = Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError) as e:
+        raise ValueError("Failed to exchange Kakao authorization code") from e
