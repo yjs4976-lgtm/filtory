@@ -1,0 +1,235 @@
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from werkzeug.security import generate_password_hash
+
+from app.extensions import db
+from app.models import Member
+from app.repositories import MemberRepository
+from app.schemas import extract_member_data, member_to_dict
+
+
+class MemberService:
+    SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
+
+    @staticmethod
+    def get_member(member_id):
+        member = MemberRepository.get_by_id(member_id)
+        if not member:
+            raise ValueError("Member not found")
+        return member_to_dict(member)
+
+    @staticmethod
+    def list_active_members(limit=20, offset=0):
+        members = MemberRepository.list_active(limit=limit, offset=offset)
+        return [member_to_dict(member) for member in members]
+
+    @staticmethod
+    def create_member(payload):
+        data = extract_member_data(payload, include_private=True)
+
+        if payload.get("password"):
+            data["password_hash"] = generate_password_hash(payload["password"])
+
+        if data.get("email") and MemberRepository.get_by_email(data["email"]):
+            raise ValueError("Email already exists")
+
+        try:
+            member = MemberRepository.create(data)
+            db.session.commit()
+            return member_to_dict(member)
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def update_member(member_id, payload):
+        member = MemberRepository.get_by_id(member_id)
+        if not member:
+            raise ValueError("Member not found")
+
+        data = extract_member_data(payload)
+
+        if payload.get("password"):
+            data["password_hash"] = generate_password_hash(payload["password"])
+            data["password_changed_at"] = datetime.now(timezone.utc)
+
+        try:
+            member = MemberRepository.update(member, data)
+            db.session.commit()
+            return member_to_dict(member)
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def deactivate_member(member_id):
+        member = MemberRepository.get_by_id(member_id)
+        if not member:
+            raise ValueError("Member not found")
+
+        try:
+            member = MemberRepository.update(
+                member,
+                {
+                    "active": False,
+                    "deleted_at": datetime.now(timezone.utc),
+                },
+            )
+            db.session.commit()
+            return member_to_dict(member)
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def find_member_emails(payload):
+        real_name = payload.get("real_name")
+        nickname = payload.get("nickname")
+
+        query = Member.query.filter(Member.active.is_(True), Member.deleted_at.is_(None))
+
+        if real_name:
+            query = query.filter(Member.real_name == real_name)
+
+        if nickname:
+            query = query.filter(Member.nickname == nickname)
+
+        if not real_name and not nickname:
+            raise ValueError("real_name or nickname is required")
+
+        members = query.order_by(Member.created_at.desc()).all()
+
+        return [
+            {
+                "id": member.id,
+                "email": _mask_email(member.email),
+                "created_at": member.created_at.isoformat() if member.created_at else None,
+            }
+            for member in members
+            if member.email
+        ]
+
+    @staticmethod
+    def request_password_reset(payload, request_ip=None, user_agent=None):
+        email = payload.get("email")
+        if not email:
+            raise ValueError("email is required")
+
+        member = MemberRepository.get_by_email(email)
+        if not member or not member.active or member.deleted_at:
+            return {"requested": True}
+
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = _hash_token(raw_token)
+
+        try:
+            MemberRepository.create_password_reset_token(
+                {
+                    "member_id": member.id,
+                    "token_hash": token_hash,
+                    "expires_at": datetime.now(timezone.utc) + timedelta(minutes=30),
+                    "request_ip": request_ip,
+                    "user_agent": user_agent,
+                }
+            )
+            db.session.commit()
+            return {
+                "requested": True,
+                "reset_token": raw_token,
+            }
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def reset_password(payload):
+        raw_token = payload.get("token")
+        password = payload.get("password")
+
+        if not raw_token or not password:
+            raise ValueError("token and password are required")
+
+        token = MemberRepository.get_password_reset_token(_hash_token(raw_token))
+        now = datetime.now(timezone.utc)
+
+        if not token or token.used_at or token.expires_at < now:
+            raise ValueError("Invalid or expired token")
+
+        member = MemberRepository.get_by_id(token.member_id)
+        if not member or not member.active or member.deleted_at:
+            raise ValueError("Member not found")
+
+        try:
+            member.password_hash = generate_password_hash(password)
+            member.password_changed_at = now
+            token.used_at = now
+            db.session.commit()
+            return {"reset": True}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def login_or_register_social(payload):
+        provider = payload.get("provider")
+        social_id = payload.get("social_id")
+
+        if provider not in MemberService.SOCIAL_PROVIDERS:
+            raise ValueError("Invalid social provider")
+
+        if not social_id:
+            raise ValueError("social_id is required")
+
+        social_account = MemberRepository.get_social_account(provider, social_id)
+        if social_account:
+            return member_to_dict(social_account.member)
+
+        social_email = payload.get("social_email")
+        member = MemberRepository.get_by_email(social_email) if social_email else None
+
+        try:
+            if not member:
+                member = MemberRepository.create(
+                    {
+                        "email": social_email,
+                        "nickname": payload.get("social_nickname"),
+                        "profile_img_url": payload.get("profile_img_url"),
+                        "email_verified": bool(social_email),
+                    }
+                )
+                db.session.flush()
+
+            MemberRepository.create_social_account(
+                {
+                    "member_id": member.id,
+                    "provider": provider,
+                    "social_id": social_id,
+                    "social_email": social_email,
+                    "social_nickname": payload.get("social_nickname"),
+                    "profile_img_url": payload.get("profile_img_url"),
+                }
+            )
+            db.session.commit()
+            return member_to_dict(member)
+        except Exception:
+            db.session.rollback()
+            raise
+
+
+def _hash_token(raw_token):
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _mask_email(email):
+    if not email or "@" not in email:
+        return email
+
+    local_part, domain = email.split("@", 1)
+    if len(local_part) <= 2:
+        masked_local = local_part[0] + "*"
+    else:
+        masked_local = local_part[:2] + "*" * (len(local_part) - 2)
+
+    return f"{masked_local}@{domain}"
