@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" role="img" aria-label="Filtory">
+  <rect x="4" y="4" width="40" height="40" rx="14" fill="#DCCFFF"/>
+  <path d="M16 24.5 22 30l11-13" fill="none" stroke="#4A3F7A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="54" y="31" fill="#3A3651" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Filtory</text>
+</svg>

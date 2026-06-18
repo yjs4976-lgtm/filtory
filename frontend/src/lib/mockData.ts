@@ -6,6 +6,13 @@ export const mockAnalysisResult = {
   ad_score: 20,
   place_score: 88,
   foreigner_score: 72,
+  foreigner_checks: {
+    googleMapLink: true,
+    englishName: true,
+    englishGuide: false,
+    reservationLink: true,
+    photoInfo: true,
+  },
   trust_level: "신뢰 가능",
   summary: {
     ko: "리뷰에 상담 과정과 방문 경험이 포함되어 있어 전반적으로 신뢰 가능한 편입니다. 다만 일부 표현에서 홍보성 문구가 감지되어 추가 확인이 필요합니다.",
