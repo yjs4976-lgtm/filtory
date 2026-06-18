@@ -14,6 +14,7 @@ export function MyPageUserCard() {
   if (!user) return null;
 
   const joinedAt = user.createdAt ? user.createdAt.slice(0, 10) : "Filtory 회원";
+  const displayName = user.nickname || user.name || "Filtory 사용자";
 
   return (
     <section className={`${styles.memberHeroCard} ${styles.stackSm}`}>
@@ -23,8 +24,8 @@ export function MyPageUserCard() {
         </span>
         <div className={styles.profileInfo}>
           <p className={styles.memberEyebrow}>MY FILTORY</p>
-          <h1 className={styles.memberName}>{user.nickname || user.name}님</h1>
-          <p className={styles.profileEmail}>{user.email}</p>
+          <h1 className={styles.memberName}>{displayName}님</h1>
+          {user.email && <p className={styles.profileEmail}>{user.email}</p>}
         </div>
       </div>
 

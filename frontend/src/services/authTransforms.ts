@@ -13,6 +13,14 @@ type RawLoginResponse = Partial<LoginResponse> & {
   member?: BackendUser;
 };
 
+function textOrEmpty(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function fallbackNameFromEmail(email: string) {
+  return email.includes("@") ? email.split("@")[0] : "";
+}
+
 function normalizeRole(role: unknown): UserRole {
   return String(role || "USER").toUpperCase() === "ADMIN" ? "ADMIN" : "USER";
 }
@@ -29,13 +37,19 @@ function normalizeStatus(status: unknown, active?: boolean): UserStatus {
 }
 
 export function normalizeUser(rawUser: BackendUser): User {
-  const nickname = rawUser.nickname || rawUser.name || rawUser.real_name || "";
+  const email = textOrEmpty(rawUser.email);
+  const nickname =
+    textOrEmpty(rawUser.nickname) ||
+    textOrEmpty(rawUser.name) ||
+    textOrEmpty(rawUser.real_name) ||
+    fallbackNameFromEmail(email) ||
+    "Filtory 사용자";
 
   return {
     id: rawUser.id ?? "",
-    email: rawUser.email ?? "",
+    email,
     nickname,
-    name: rawUser.name || rawUser.real_name || nickname,
+    name: textOrEmpty(rawUser.name) || textOrEmpty(rawUser.real_name) || nickname,
     phone: rawUser.phone,
     role: normalizeRole(rawUser.role),
     status: normalizeStatus(rawUser.status, rawUser.active),

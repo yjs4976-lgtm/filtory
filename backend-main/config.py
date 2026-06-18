@@ -28,6 +28,10 @@ class Config:
     JWT_REFRESH_COOKIE_PATH = "/api/auth/refresh"
 
     FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    FRONTEND_CALLBACK_URL = os.getenv(
+        "FRONTEND_CALLBACK_URL",
+        f"{FRONTEND_BASE_URL.rstrip('/')}/auth/callback",
+    )
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", FRONTEND_BASE_URL).split(",")
@@ -43,7 +47,10 @@ class Config:
 
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
     KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
     KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
+    KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
     NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
     NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
+    NAVER_REDIRECT_URI = os.getenv("NAVER_REDIRECT_URI")

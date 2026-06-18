@@ -114,11 +114,11 @@ class AuthService:
         }
 
     @staticmethod
-    def build_social_authorization_url(provider, backend_redirect_uri, frontend_redirect_uri):
+    def build_social_authorization_url(provider, backend_redirect_uri, frontend_next_url):
         return SocialAuthService.build_authorization_url(
             provider,
             backend_redirect_uri,
-            frontend_redirect_uri,
+            frontend_next_url,
         )
 
     @staticmethod
@@ -136,4 +136,4 @@ class AuthService:
         )
         result = AuthService.social_login_with_user_info(social_payload)
 
-        return result, state_data["frontend_redirect_uri"]
+        return result, state_data["frontend_next_url"]

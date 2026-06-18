@@ -29,14 +29,14 @@ class SocialAuthService:
         return user_info
 
     @staticmethod
-    def build_authorization_url(provider, backend_redirect_uri, frontend_redirect_uri):
+    def build_authorization_url(provider, backend_redirect_uri, frontend_next_url):
         client = SocialAuthService._get_client(provider)
         client_id = SocialAuthService._get_client_config(provider, "CLIENT_ID")
 
         state = _get_state_serializer().dumps(
             {
                 "provider": provider,
-                "frontend_redirect_uri": frontend_redirect_uri,
+                "frontend_next_url": frontend_next_url,
             }
         )
 
@@ -73,6 +73,9 @@ class SocialAuthService:
         provider = data.get("provider")
         if provider not in SocialAuthService.CLIENTS:
             raise ValueError("Invalid social provider")
+
+        if data.get("frontend_redirect_uri") and not data.get("frontend_next_url"):
+            data["frontend_next_url"] = data["frontend_redirect_uri"]
 
         return data
 
