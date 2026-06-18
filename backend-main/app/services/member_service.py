@@ -185,6 +185,7 @@ class MemberService:
         if social_account:
             if not social_account.member.active or social_account.member.deleted_at:
                 raise ValueError("Member not found")
+            MemberService._fill_missing_social_profile(social_account.member, payload)
             return member_to_dict(social_account.member)
 
         social_email = payload.get("social_email")
@@ -201,6 +202,8 @@ class MemberService:
                     }
                 )
                 db.session.flush()
+            else:
+                MemberService._fill_missing_social_profile(member, payload, commit=False)
 
             MemberRepository.create_social_account(
                 {
@@ -217,6 +220,30 @@ class MemberService:
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def _fill_missing_social_profile(member, payload, commit=True):
+        changed = False
+
+        if not member.nickname and payload.get("social_nickname"):
+            member.nickname = payload["social_nickname"]
+            changed = True
+
+        if not member.profile_img_url and payload.get("profile_img_url"):
+            member.profile_img_url = payload["profile_img_url"]
+            changed = True
+
+        if not member.email and payload.get("social_email"):
+            member.email = payload["social_email"]
+            member.email_verified = True
+            changed = True
+
+        if changed and commit:
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
 
 
 def _hash_token(raw_token):
