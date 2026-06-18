@@ -12,7 +12,7 @@ export function BottomNav() {
 
   const items = [
     { href: "/", label: t.nav.home, icon: Home },
-    { href: "/result", label: t.nav.history, icon: FileText },
+    { href: "/history", label: t.nav.history, icon: FileText },
     { href: "/chatbot", label: t.nav.chatbot, icon: MessageCircle },
     { href: "/mypage", label: t.nav.settings, icon: Settings },
   ]

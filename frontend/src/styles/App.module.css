@@ -1034,6 +1034,264 @@
   background: var(--primary);
 }
 
+.authPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(220, 204, 255, 0.42), transparent 34%),
+    radial-gradient(circle at 92% 90%, rgba(255, 182, 201, 0.32), transparent 30%),
+    var(--background);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 432px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 28px 22px;
+  box-shadow: 0 18px 45px rgba(58, 54, 81, 0.1);
+}
+
+.authLogo {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 24px;
+  color: var(--primary-foreground);
+  font-size: 26px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.authTitleBox {
+  margin-bottom: 22px;
+}
+
+.authTitleBox h1 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 26px;
+  font-weight: 850;
+}
+
+.authTitleBox p {
+  margin: 8px 0 0;
+  color: var(--graypurple);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.memberForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formError,
+.formSuccess {
+  margin: 0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.formError {
+  background: var(--pink-soft);
+  color: var(--pink-text);
+}
+
+.formSuccess {
+  background: var(--mint-soft);
+  color: var(--mint-text);
+}
+
+.authLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  color: var(--graypurple);
+  font-size: 13px;
+}
+
+.authLinks a,
+.authBottomText a {
+  color: var(--primary-foreground);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.authBottomText {
+  margin: 0;
+  color: var(--graypurple);
+  text-align: center;
+  font-size: 13px;
+}
+
+.authDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--graypurple);
+  font-size: 12px;
+}
+
+.authDivider::before,
+.authDivider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+
+.socialIconGroup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.socialIconButton {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(58, 54, 81, 0.08);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.socialIconButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px rgba(58, 54, 81, 0.14);
+}
+
+.termsCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--subtle);
+  padding: 14px;
+}
+
+.termsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.checkRow input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--primary-foreground);
+}
+
+.checkRow span {
+  min-width: 0;
+  flex: 1;
+}
+
+.checkRow strong {
+  display: block;
+}
+
+.checkRow small {
+  display: block;
+  margin-top: 3px;
+  color: var(--graypurple);
+}
+
+.checkRow em {
+  color: var(--pink-text);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.optionalText {
+  color: var(--graypurple) !important;
+}
+
+.memberHeroCard {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: linear-gradient(145deg, #ffffff 0%, var(--lavender-soft) 100%);
+  padding: 20px;
+  box-shadow: 0 14px 35px rgba(58, 54, 81, 0.08);
+}
+
+.memberAvatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.memberEyebrow {
+  margin: 0 0 4px;
+  color: var(--primary-foreground);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.memberName {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.memberInfoPill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--graypurple);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memberActionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
