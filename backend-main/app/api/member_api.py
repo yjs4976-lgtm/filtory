@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from app.services import AuthService
 from app.services import MemberService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
-from app.utils.response import error_response, success_response
+from app.utils.response import auth_success_response, error_response, success_response
 
 member_bp = Blueprint("members", __name__)
 
@@ -105,6 +105,6 @@ def social_login():
 
     try:
         result = AuthService.social_login(payload)
-        return success_response(result, "Social login complete")
+        return auth_success_response(result, "Social login complete")
     except ValueError as e:
         return error_response(str(e), 400)

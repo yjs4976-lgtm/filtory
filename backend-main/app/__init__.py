@@ -18,7 +18,11 @@ def create_app():
     app.config.from_object(Config)
 
     db.init_app(app)
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
+    cors.init_app(
+        app,
+        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
+        supports_credentials=True,
+    )
     jwt.init_app(app)
 
     @jwt.token_in_blocklist_loader

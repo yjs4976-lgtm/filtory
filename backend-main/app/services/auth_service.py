@@ -100,6 +100,11 @@ class AuthService:
         provider = payload.get("provider")
         access_token = payload.get("access_token")
         social_payload = SocialAuthService.verify_access_token(provider, access_token)
+        return AuthService.social_login_with_user_info(social_payload)
+
+    @staticmethod
+    def social_login_with_user_info(social_payload):
+        provider = social_payload.get("provider")
         member = MemberService.login_or_register_social(social_payload)
         member_model = MemberRepository.get_by_id(member["id"])
 
@@ -107,3 +112,28 @@ class AuthService:
             "member": member,
             **TokenService.create_token_pair(member_model, provider=provider, fresh=True),
         }
+
+    @staticmethod
+    def build_social_authorization_url(provider, backend_redirect_uri, frontend_redirect_uri):
+        return SocialAuthService.build_authorization_url(
+            provider,
+            backend_redirect_uri,
+            frontend_redirect_uri,
+        )
+
+    @staticmethod
+    def complete_social_login(code, state, backend_redirect_uri):
+        if not code:
+            raise ValueError("code is required")
+
+        state_data = SocialAuthService.load_state(state)
+        provider = state_data["provider"]
+        social_payload = SocialAuthService.exchange_code_for_user_info(
+            provider,
+            code,
+            backend_redirect_uri,
+            state=state,
+        )
+        result = AuthService.social_login_with_user_info(social_payload)
+
+        return result, state_data["frontend_redirect_uri"]

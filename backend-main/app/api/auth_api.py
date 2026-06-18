@@ -1,8 +1,16 @@
-from flask import Blueprint, request
+from urllib.parse import urlencode, urlparse
+
+from flask import Blueprint, current_app, redirect, request, url_for
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.services import AuthService
-from app.utils.response import error_response, success_response
+from app.utils.response import (
+    auth_success_response,
+    error_response,
+    logout_success_response,
+    set_auth_cookies,
+    success_response,
+)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -13,7 +21,7 @@ def register():
 
     try:
         result = AuthService.register(payload)
-        return success_response(result, "Registration complete", 201)
+        return auth_success_response(result, "Registration complete", 201)
     except ValueError as e:
         return error_response(str(e), 400)
 
@@ -24,7 +32,7 @@ def login():
 
     try:
         result = AuthService.login(payload)
-        return success_response(result, "Login complete")
+        return auth_success_response(result, "Login complete")
     except ValueError as e:
         return error_response(str(e), 401)
 
@@ -47,7 +55,7 @@ def refresh():
             get_jwt_identity(),
             provider=get_jwt().get("provider", "local"),
         )
-        return success_response(result, "Access token refreshed")
+        return auth_success_response(result, "Access token refreshed")
     except ValueError as e:
         return error_response(str(e), 401)
 
@@ -56,7 +64,7 @@ def refresh():
 @jwt_required()
 def logout():
     result = AuthService.logout()
-    return success_response(result, "Logout complete")
+    return logout_success_response(result, "Logout complete")
 
 
 @auth_bp.route("/password-reset/request", methods=["POST"])
@@ -91,6 +99,57 @@ def social_login():
 
     try:
         result = AuthService.social_login(payload)
-        return success_response(result, "Social login complete")
+        return auth_success_response(result, "Social login complete")
     except ValueError as e:
         return error_response(str(e), 400)
+
+
+@auth_bp.route("/social-login", methods=["GET"])
+def start_social_login():
+    provider = request.args.get("provider")
+    frontend_redirect_uri = request.args.get("redirect_uri") or _default_frontend_callback_url()
+    backend_redirect_uri = url_for("auth.social_login_callback", _external=True)
+
+    try:
+        authorization_url = AuthService.build_social_authorization_url(
+            provider,
+            backend_redirect_uri,
+            frontend_redirect_uri,
+        )
+        return redirect(authorization_url)
+    except ValueError as e:
+        return redirect(_append_query(frontend_redirect_uri, {"error": str(e)}))
+
+
+@auth_bp.route("/social-login/callback", methods=["GET"])
+def social_login_callback():
+    state = request.args.get("state")
+    code = request.args.get("code")
+    provider_error = request.args.get("error")
+    fallback_redirect_uri = _default_frontend_callback_url()
+
+    if provider_error:
+        return redirect(_append_query(fallback_redirect_uri, {"error": provider_error}))
+
+    try:
+        result, frontend_redirect_uri = AuthService.complete_social_login(
+            code,
+            state,
+            url_for("auth.social_login_callback", _external=True),
+        )
+        response = redirect(_append_query(frontend_redirect_uri, {"social_login": "success"}))
+        set_auth_cookies(response, result.get("access_token"), result.get("refresh_token"))
+        return response
+    except ValueError as e:
+        return redirect(_append_query(fallback_redirect_uri, {"error": str(e)}))
+
+
+def _default_frontend_callback_url():
+    frontend_base_url = current_app.config.get("FRONTEND_BASE_URL", "").rstrip("/")
+    return f"{frontend_base_url}/auth/callback"
+
+
+def _append_query(url, params):
+    parsed = urlparse(url)
+    separator = "&" if parsed.query else "?"
+    return f"{url}{separator}{urlencode(params)}"

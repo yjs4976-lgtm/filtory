@@ -48,7 +48,6 @@ export const authService = {
         success: true,
         message: "로그인되었습니다.",
         data: {
-          accessToken: "mock-access-token",
           user: createMockUser(email),
         },
       };
@@ -105,14 +104,9 @@ export const authService = {
   },
 
   refresh() {
-    return apiClient<{ access_token?: string; accessToken?: string }>("/api/auth/refresh", {
+    return apiClient<null>("/api/auth/refresh", {
       method: "POST",
-    }).then((result) => ({
-      ...result,
-      data: {
-        accessToken: result.data.accessToken || result.data.access_token || "",
-      },
-    }));
+    });
   },
 
   logout() {
@@ -156,16 +150,4 @@ export const authService = {
     window.location.href = url;
   },
 
-  socialCallback(provider: SocialProvider, accessToken: string) {
-    return apiClient<unknown>("/api/auth/social-login", {
-      method: "POST",
-      body: {
-        provider,
-        access_token: accessToken,
-      },
-    }).then((result) => ({
-      ...result,
-      data: normalizeLoginResponse(result.data),
-    }));
-  },
 };
