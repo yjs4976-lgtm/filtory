@@ -1,7 +1,8 @@
 "use client"
 
-import { Bot } from "lucide-react"
 import { ChatWindow } from "@/components/chatbot/ChatWindow"
+import { ChatbotHero } from "@/components/chatbot/ChatbotHero"
+import { ResultContextCard } from "@/components/chatbot/ResultContextCard"
 import { BottomNav } from "@/components/common/BottomNav"
 import { Header } from "@/components/common/Header"
 import { useLanguage } from "@/context/LanguageContext"
@@ -14,16 +15,9 @@ export default function ChatbotPage() {
     <div className={styles.chatPage}>
       <Header title={t.chatbot.title} showBack />
 
-      <div className={styles.chatIntroWrap}>
-        <div className={`${styles.accentCard} ${styles.chatIntro}`}>
-          <span className={styles.chatIntroIcon}>
-            <Bot className={styles.iconLg} />
-          </span>
-          <div>
-            <p className={styles.titleSm}>Filtory AI</p>
-            <p className={styles.mutedText}>{t.chatbot.greeting}</p>
-          </div>
-        </div>
+      <div className={`${styles.chatIntroWrap} ${styles.stackSm}`}>
+        <ChatbotHero />
+        <ResultContextCard />
       </div>
 
       <div className={styles.chatWrap}>

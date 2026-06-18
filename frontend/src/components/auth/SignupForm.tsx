@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { ROUTES } from "@/lib/routes";
 import type { TermsAgreementState } from "@/lib/types";
 import { TermsAgreement } from "./TermsAgreement";
@@ -12,6 +13,7 @@ import styles from "@/styles/App.module.css";
 export function SignupForm() {
   const router = useRouter();
   const { signup } = useAuth();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
@@ -67,7 +69,11 @@ export function SignupForm() {
         marketingAgreed: terms.marketingAgreed,
       });
 
-      alert("회원가입이 완료되었습니다. 로그인해주세요.");
+      showToast({
+        title: "회원가입이 완료되었어요.",
+        description: "이제 Filtory를 시작해보세요.",
+        tone: "success",
+      });
       router.push(ROUTES.LOGIN);
     } catch (error) {
       setError(error instanceof Error ? error.message : "회원가입에 실패했습니다.");

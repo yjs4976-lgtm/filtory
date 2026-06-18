@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Bot, Send } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import { ChatBubble } from "./ChatBubble"
+import { ChatInput } from "./ChatInput"
+import { RecommendedQuestions } from "./RecommendedQuestions"
 import styles from "@/styles/App.module.css"
 
 export function ChatWindow() {
@@ -20,8 +22,8 @@ export function ChatWindow() {
   function answerFor(question) {
     const examples = t.chatbot.examples
     if (question === examples[0]) return t.chatbot.answers.ad
-    if (question === examples[1]) return t.chatbot.answers.foreigner
-    if (question === examples[2]) return t.chatbot.answers.score
+    if (question === examples[1]) return t.chatbot.answers.score
+    if (question === examples[2]) return t.chatbot.answers.foreigner
     return t.chatbot.answers.default
   }
 
@@ -38,48 +40,15 @@ export function ChatWindow() {
   return (
     <div className={styles.chatWindow}>
       <div className={styles.messageList}>
-        {visibleMessages.map((message) =>
-          message.role === "ai" ? (
-            <div key={message.id} className={styles.messageAi}>
-              <span className={`${styles.iconBoxRound} ${styles.iconLavender}`}>
-                <Bot className={styles.iconSm} />
-              </span>
-              <div className={styles.bubbleAi}>{message.text}</div>
-            </div>
-          ) : (
-            <div key={message.id} className={styles.messageUser}>
-              <div className={styles.bubbleUser}>{message.text}</div>
-            </div>
-          ),
-        )}
+        {visibleMessages.map((message) => (
+          <ChatBubble key={message.id} role={message.role} text={message.text} />
+        ))}
         <div ref={endRef} />
       </div>
 
-      <div className={styles.exampleList}>
-        {t.chatbot.examples.map((question) => (
-          <button key={question} type="button" onClick={() => send(question)} className={styles.exampleButton}>
-            {question}
-          </button>
-        ))}
-      </div>
+      <RecommendedQuestions onSelect={send} />
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          send(input)
-        }}
-        className={styles.chatForm}
-      >
-        <input
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder={t.chatbot.placeholder}
-          className={styles.chatInput}
-        />
-        <button type="submit" aria-label={t.chatbot.send} className={styles.sendButton}>
-          <Send className={styles.iconSm} />
-        </button>
-      </form>
+      <ChatInput value={input} onChange={setInput} onSubmit={() => send(input)} />
     </div>
   )
 }

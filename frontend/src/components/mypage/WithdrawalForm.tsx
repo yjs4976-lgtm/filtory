@@ -2,13 +2,16 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/useToast"
 import { ROUTES } from "@/lib/routes"
 import { memberService } from "@/services/memberService"
 import styles from "@/styles/App.module.css"
 
 export function WithdrawalForm() {
   const router = useRouter()
+  const { user, logout } = useAuth()
+  const { showToast } = useToast()
   const [password, setPassword] = useState("")
   const [checked, setChecked] = useState(false)
   const [error, setError] = useState("")
@@ -28,12 +31,19 @@ export function WithdrawalForm() {
     if (!ok) return
 
     try {
+      if (!user) {
+        setError("로그인이 필요합니다.")
+        return
+      }
+
       setIsSubmitting(true)
-      await memberService.withdrawUser(password)
-      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
-      localStorage.removeItem(STORAGE_KEYS.USER)
-      alert("회원 탈퇴가 완료되었습니다.")
-      router.push(ROUTES.HOME)
+      await memberService.withdrawUser(user.id, password)
+      showToast({
+        title: "회원 탈퇴가 완료되었어요.",
+        tone: "success",
+      })
+      await logout()
+      router.push(ROUTES.LOGIN)
     } catch (error) {
       setError(error instanceof Error ? error.message : "회원 탈퇴 실패")
     } finally {

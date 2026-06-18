@@ -5,10 +5,7 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://localhost:5000";
 
-export const STORAGE_KEYS = {
-  ACCESS_TOKEN: "filtory_access_token",
-  USER: "filtory_user",
-} as const;
+export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 export const SOCIAL_PROVIDERS: Record<
   SocialProvider,

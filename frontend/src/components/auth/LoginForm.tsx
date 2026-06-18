@@ -4,12 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { ROUTES } from "@/lib/routes";
 import styles from "@/styles/App.module.css";
 
 export function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +31,11 @@ export function LoginForm() {
     try {
       setIsSubmitting(true);
       await login({ email, password });
+      showToast({
+        title: "로그인되었습니다.",
+        description: "다시 오신 걸 환영해요!",
+        tone: "success",
+      });
       router.push(ROUTES.MYPAGE);
     } catch (error) {
       setError(error instanceof Error ? error.message : "로그인에 실패했습니다.");

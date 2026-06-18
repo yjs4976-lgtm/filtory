@@ -9,7 +9,25 @@ export type AnalysisHistoryItem = {
   hospitalName: string
   category: HospitalCategory
   score: number
+  foreignerFriendlyScore?: number
   createdAt: string
+}
+
+export type ForeignerFriendlyCheck = {
+  googleMapLink: boolean
+  englishName: boolean
+  englishGuide: boolean
+  reservationLink: boolean
+  photoInfo: boolean
+}
+
+export type ForeignerFriendlyResult = {
+  checkedCount: number
+  score: number
+  stars: number
+  checkedItems: string[]
+  missingItems: string[]
+  message: string
 }
 
 export interface User {

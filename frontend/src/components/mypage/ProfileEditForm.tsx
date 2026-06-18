@@ -2,11 +2,13 @@
 
 import { useState } from "react"
 import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/useToast"
 import { memberService } from "@/services/memberService"
 import styles from "@/styles/App.module.css"
 
 export function ProfileEditForm() {
   const { user, updateUser } = useAuth()
+  const { showToast } = useToast()
 
   const [nickname, setNickname] = useState(user?.nickname ?? user?.name ?? "")
   const [password, setPassword] = useState("")
@@ -33,11 +35,16 @@ export function ProfileEditForm() {
     }
 
     try {
+      if (!user) {
+        setError("로그인이 필요합니다.")
+        return
+      }
+
       setIsSubmitting(true)
-      const result = await memberService.updateProfile({
+      const result = await memberService.updateProfile(user.id, {
         nickname: nickname.trim(),
         password: password || undefined,
-      })
+      }, user)
       updateUser({
         ...result.data,
         email: result.data.email || user?.email || "",
@@ -47,6 +54,10 @@ export function ProfileEditForm() {
       setPassword("")
       setPasswordConfirm("")
       setSuccess("회원 정보가 수정되었습니다.")
+      showToast({
+        title: "회원정보가 저장되었어요.",
+        tone: "success",
+      })
     } catch (error) {
       setError(error instanceof Error ? error.message : "회원 정보 수정 실패")
     } finally {

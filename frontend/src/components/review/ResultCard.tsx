@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, Sparkles } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { mockAnalysisResult } from "@/lib/mockData"
+import { ChatbotConnectCard } from "@/components/result/ChatbotConnectCard"
+import { ForeignerFriendlyRating } from "@/components/result/ForeignerFriendlyRating"
+import { ResultActionCard } from "@/components/result/ResultActionCard"
 import styles from "@/styles/App.module.css"
 import { ScoreCircle } from "./ScoreCircle"
 
@@ -56,11 +59,13 @@ export function ResultCard() {
         <p className={styles.mutedText}>{t.result.reference}</p>
       </section>
 
+      <ResultActionCard />
+
       <section className={`${styles.softCard} ${styles.stackMd}`}>
         <ScoreBar label={t.result.trustScore} value={result.trust_score} tone={styles.fillMint} />
         <ScoreBar label={t.result.adScore} value={result.ad_score} tone={styles.fillPink} />
         <ScoreBar label={t.result.placeScore} value={result.place_score} tone={styles.fillPrimary} />
-        <ScoreBar label={t.result.foreignerScore} value={result.foreigner_score} tone={styles.fillPeach} />
+        <ForeignerFriendlyRating checks={result.foreigner_checks} />
       </section>
 
       <section className={`${styles.accentCard} ${styles.stackSm}`}>
@@ -105,6 +110,8 @@ export function ResultCard() {
         <Info className={styles.iconXs} />
         <span>{t.result.reference}</span>
       </div>
+
+      <ChatbotConnectCard />
 
       <div className={styles.stackSm}>
         <button type="button" className={styles.primaryButton}>

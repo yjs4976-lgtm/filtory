@@ -1,4 +1,4 @@
-import { API_BASE_URL, STORAGE_KEYS } from "@/lib/constants";
+import { API_BASE_URL } from "@/lib/constants";
 import type { ApiResponse } from "@/lib/types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -10,33 +10,58 @@ interface RequestOptions {
   headers?: HeadersInit;
 }
 
+let accessToken: string | null = null;
+
+export function setApiAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+function toRequestBody(body: unknown): BodyInit | undefined {
+  if (body === undefined || body === null) return undefined;
+  if (typeof body === "string") return body;
+  if (
+    (typeof FormData !== "undefined" && body instanceof FormData) ||
+    (typeof Blob !== "undefined" && body instanceof Blob) ||
+    (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams)
+  ) {
+    return body;
+  }
+
+  return JSON.stringify(body);
+}
+
+function isJsonBody(body: unknown) {
+  return (
+    body !== undefined &&
+    body !== null &&
+    typeof body !== "string" &&
+    !(typeof FormData !== "undefined" && body instanceof FormData) &&
+    !(typeof Blob !== "undefined" && body instanceof Blob) &&
+    !(typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams)
+  );
+}
+
 export async function apiClient<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
   const { method = "GET", body, auth = false, headers: customHeaders } = options;
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers = new Headers(customHeaders);
 
-  if (auth && typeof window !== "undefined") {
-    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
+  if (isJsonBody(body) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  if (customHeaders) {
-    Object.assign(headers, customHeaders);
+  if (auth && accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
     credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
+    body: toRequestBody(body),
   });
 
   const result = await response.json().catch(() => null);

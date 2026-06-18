@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { CalendarDays, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import { ROUTES } from "@/lib/routes";
 import styles from "@/styles/App.module.css";
 
 export function MyPageUserCard() {
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
 
   if (!user) return null;
 
@@ -40,7 +42,17 @@ export function MyPageUserCard() {
         </Link>
       </div>
 
-      <button type="button" className={styles.textButton} onClick={logout}>
+      <button
+        type="button"
+        className={styles.textButton}
+        onClick={async () => {
+          await logout();
+          showToast({
+            title: "로그아웃되었습니다.",
+            tone: "info",
+          });
+        }}
+      >
         <LogOut className={styles.iconSm} />
         로그아웃
       </button>

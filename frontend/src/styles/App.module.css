@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding-bottom: 96px;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
   background: var(--background);
 }
 
@@ -13,9 +13,9 @@
 
 .main {
   width: 100%;
-  max-width: 448px;
+  max-width: 430px;
   margin: 0 auto;
-  padding: 20px 16px;
+  padding: 20px 16px 32px;
 }
 
 .stack {
@@ -220,6 +220,245 @@
   cursor: pointer;
 }
 
+.seeAllLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.headerLoginButton,
+.profileChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.profileChip {
+  max-width: 112px;
+  overflow: hidden;
+}
+
+.profileChip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adBanner {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  background: var(--peach-soft);
+  padding: 12px 14px;
+}
+
+.adBanner strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.adBanner p {
+  margin: 2px 0 0;
+  color: var(--graypurple);
+  font-size: 11px;
+}
+
+.heroCard {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: linear-gradient(145deg, var(--card) 0%, var(--lavender-soft) 100%);
+  padding: 22px;
+  box-shadow: 0 14px 35px rgba(58, 54, 81, 0.08);
+}
+
+.heroTitle {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.24;
+}
+
+.heroInputGrid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.featureCard {
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 14px;
+}
+
+.featureCard strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.featureCard p,
+.tipCard p {
+  margin: 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tipCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--mint-soft);
+  padding: 14px;
+}
+
+.emptyCard {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--card);
+  padding: 20px;
+  text-align: left;
+  box-shadow: 0 1px 2px rgba(58, 54, 81, 0.06);
+}
+
+.actionRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryCard {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 14px;
+}
+
+.summaryCard span {
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.summaryCard strong {
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.stepProgress {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepProgress li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  padding: 10px 6px;
+  color: var(--graypurple);
+}
+
+.stepProgress span {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--subtle);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.stepProgress strong {
+  font-size: 11px;
+}
+
+.stepActive {
+  border-color: var(--lavender) !important;
+  background: var(--lavender-soft) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.stepActive span {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.stepCount {
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.submitBar {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 10px;
+}
+
+.smallPillButton {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .recordList {
   display: flex;
   flex-direction: column;
@@ -263,6 +502,13 @@
   margin: 2px 0 0;
   color: var(--graypurple);
   font-size: 12px;
+}
+
+.recordMeta {
+  margin: 4px 0 0;
+  color: var(--peach-text);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .score {
@@ -528,7 +774,7 @@
 
 .headerInner {
   width: 100%;
-  max-width: 448px;
+  max-width: 430px;
   height: 56px;
   display: flex;
   align-items: center;
@@ -638,22 +884,28 @@
 
 .bottomNav {
   position: fixed;
-  inset-inline: 0;
-  bottom: 0;
+  inset-inline: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 20;
-  border-top: 1px solid var(--border);
-  background: rgba(255, 253, 249, 0.96);
-  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .bottomNavInner {
   width: 100%;
-  max-width: 448px;
+  max-width: 430px;
+  min-height: 68px;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  margin: 0 auto;
-  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 8px;
+  box-shadow: 0 18px 45px rgba(31, 42, 68, 0.12);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
 }
 
 .bottomNavLink {
@@ -661,10 +913,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  border: 0;
   border-radius: 12px;
+  background: transparent;
   padding: 6px 0;
   color: var(--graypurple);
+  cursor: pointer;
   text-decoration: none;
 }
 
@@ -699,15 +955,20 @@
 }
 
 .categoryPills {
-  display: flex;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .categoryButton {
+  min-width: 0;
+  width: 100%;
   display: flex;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--foreground);
+  box-sizing: border-box;
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -722,14 +983,14 @@
 }
 
 .categoryPills .categoryButton {
-  flex: 1;
   align-items: center;
   justify-content: center;
   gap: 6px;
   border-radius: 16px;
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 10px 8px;
+  font-size: 13px;
   font-weight: 600;
+  text-align: center;
 }
 
 .categoryButton:hover {
@@ -742,15 +1003,24 @@
 }
 
 .categoryName {
+  min-width: 0;
   color: var(--foreground);
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.2;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  white-space: normal;
+  text-align: center;
 }
 
 .categoryDesc {
   color: var(--graypurple);
   font-size: 11px;
   line-height: 1.25;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  text-align: center;
 }
 
 .chatWindow {
@@ -1034,6 +1304,66 @@
   background: var(--primary);
 }
 
+.foreignerRatingCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 16px;
+}
+
+.foreignerScoreText {
+  color: var(--peach-text);
+  font-size: 16px;
+}
+
+.foreignerStars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--peach-text);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.foreignerStars strong {
+  margin-left: 8px;
+  color: var(--foreground);
+  font-size: 16px;
+}
+
+.starFilled {
+  color: var(--peach);
+  text-shadow: 0 1px 0 rgba(31, 42, 68, 0.12);
+}
+
+.starEmpty {
+  color: #ded6c8;
+}
+
+.foreignerChecklistGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.checklistTitle {
+  margin: 0 0 6px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.compactList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .authPage {
   min-height: 100vh;
   display: flex;
@@ -1284,6 +1614,69 @@
   gap: 10px;
 }
 
+.toastViewport {
+  position: fixed;
+  inset: auto 16px 86px 16px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  width: min(420px, 100%);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 12px 14px;
+  box-shadow: 0 14px 35px rgba(58, 54, 81, 0.14);
+  pointer-events: auto;
+}
+
+.toastSuccess {
+  background: var(--mint-soft);
+}
+
+.toastInfo {
+  background: var(--lavender-soft);
+}
+
+.toastBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toastBody strong {
+  font-size: 13px;
+}
+
+.toastBody span {
+  color: var(--graypurple);
+  font-size: 12px;
+}
+
+.toastClose {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--graypurple);
+  cursor: pointer;
+}
+
 .primaryButton:disabled,
 .secondaryButton:disabled,
 .dangerButton:disabled {
@@ -1309,5 +1702,31 @@
 
   .categoryGrid .categoryButton {
     padding: 10px 8px;
+  }
+
+  .actionRow,
+  .memberActionGrid,
+  .submitBar {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid,
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroInputGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .categoryPills {
+    grid-template-columns: 1fr;
+  }
+
+  .categoryPills .categoryButton {
+    min-height: 48px;
+    padding: 12px;
   }
 }
