@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from app.extensions import db
 from app.repositories import ReportRepository
 from app.schemas import extract_report_data, report_to_dict
+from app.utils.validators import validate_report_target
 
 
 class ReportService:
@@ -88,6 +89,9 @@ class ReportService:
     def _validate_report_data(data, partial=False):
         if not partial and not data.get("report_type"):
             raise ValueError("report_type is required")
+
+        if not partial:
+            validate_report_target(data)
 
         if data.get("report_type") and data["report_type"] not in ReportService.REPORT_TYPES:
             raise ValueError("Invalid report type")
