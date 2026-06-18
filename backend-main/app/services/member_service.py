@@ -2,12 +2,11 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from werkzeug.security import generate_password_hash
-
 from app.extensions import db
 from app.models import Member
 from app.repositories import MemberRepository
 from app.schemas import extract_member_data, member_to_dict
+from app.utils.security import hash_password
 
 
 class MemberService:
@@ -27,10 +26,10 @@ class MemberService:
 
     @staticmethod
     def create_member(payload):
-        data = extract_member_data(payload, include_private=True)
+        data = extract_member_data(payload, include_private=False)
 
         if payload.get("password"):
-            data["password_hash"] = generate_password_hash(payload["password"])
+            data["password_hash"] = hash_password(payload["password"])
 
         if data.get("email") and MemberRepository.get_by_email(data["email"]):
             raise ValueError("Email already exists")
@@ -52,7 +51,7 @@ class MemberService:
         data = extract_member_data(payload)
 
         if payload.get("password"):
-            data["password_hash"] = generate_password_hash(payload["password"])
+            data["password_hash"] = hash_password(payload["password"])
             data["password_changed_at"] = datetime.now(timezone.utc)
 
         try:
@@ -154,7 +153,7 @@ class MemberService:
         token = MemberRepository.get_password_reset_token(_hash_token(raw_token))
         now = datetime.now(timezone.utc)
 
-        if not token or token.used_at or token.expires_at < now:
+        if not token or token.used_at or _as_aware_datetime(token.expires_at) < now:
             raise ValueError("Invalid or expired token")
 
         member = MemberRepository.get_by_id(token.member_id)
@@ -162,7 +161,7 @@ class MemberService:
             raise ValueError("Member not found")
 
         try:
-            member.password_hash = generate_password_hash(password)
+            member.password_hash = hash_password(password)
             member.password_changed_at = now
             token.used_at = now
             db.session.commit()
@@ -220,6 +219,13 @@ class MemberService:
 
 def _hash_token(raw_token):
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _as_aware_datetime(value):
+    if value.tzinfo:
+        return value
+
+    return value.replace(tzinfo=timezone.utc)
 
 
 def _mask_email(email):

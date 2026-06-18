@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 
+from app.services import AuthService
 from app.services import MemberService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
@@ -77,12 +78,11 @@ def request_password_reset():
     payload = request.get_json(silent=True) or {}
 
     try:
-        result = MemberService.request_password_reset(
+        result = AuthService.request_password_reset(
             payload,
             request_ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
-        result.pop("reset_token", None)
         return success_response(result, "Password reset requested")
     except ValueError as e:
         return error_response(str(e), 400)
@@ -104,7 +104,7 @@ def social_login():
     payload = request.get_json(silent=True) or {}
 
     try:
-        member = MemberService.login_or_register_social(payload)
-        return success_response(member, "Social login complete")
+        result = AuthService.social_login(payload)
+        return success_response(result, "Social login complete")
     except ValueError as e:
         return error_response(str(e), 400)
