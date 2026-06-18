@@ -84,7 +84,7 @@ class MemberService:
 
     @staticmethod
     def find_member_emails(payload):
-        real_name = payload.get("real_name")
+        real_name = payload.get("real_name") or payload.get("name") or payload.get("realName")
         nickname = payload.get("nickname")
 
         query = Member.query.filter(Member.active.is_(True), Member.deleted_at.is_(None))

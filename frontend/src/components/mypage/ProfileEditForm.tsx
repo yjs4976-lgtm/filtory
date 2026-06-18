@@ -1,16 +1,23 @@
 "use client"
 
 import { useState } from "react"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
 import { memberService } from "@/services/memberService"
+import { EmailVerificationCard } from "./EmailVerificationCard"
+import { ProfileImageUploader } from "./ProfileImageUploader"
 import styles from "@/styles/App.module.css"
 
 export function ProfileEditForm() {
   const { user, updateUser } = useAuth()
+  const { t } = useLanguage()
   const { showToast } = useToast()
 
+  const [name, setName] = useState(user?.name ?? "")
   const [nickname, setNickname] = useState(user?.nickname ?? user?.name ?? "")
+  const [nicknameCheck, setNicknameCheck] = useState<"idle" | "available" | "unavailable">("available")
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(user?.profileImageUrl ?? null)
   const [password, setPassword] = useState("")
   const [passwordConfirm, setPasswordConfirm] = useState("")
   const [error, setError] = useState("")
@@ -22,47 +29,65 @@ export function ProfileEditForm() {
     setError("")
     setSuccess("")
 
-    if (!nickname.trim()) {
-      setError("닉네임을 입력해주세요.")
+    if (!name.trim() || !nickname.trim()) {
+      setError(t.mypage.requiredProfileFields)
       return
     }
 
     if (password || passwordConfirm) {
       if (password !== passwordConfirm) {
-        setError("새 비밀번호가 서로 다릅니다.")
+        setError(t.mypage.passwordMismatch)
         return
       }
     }
 
+    if (nicknameCheck !== "available") {
+      setError("닉네임 중복 확인을 완료해주세요.")
+      return
+    }
+
     try {
       if (!user) {
-        setError("로그인이 필요합니다.")
+        setError(t.mypage.loginRequiredError)
         return
       }
 
       setIsSubmitting(true)
       const result = await memberService.updateProfile(user.id, {
+        name: name.trim(),
         nickname: nickname.trim(),
         password: password || undefined,
+        profileImageUrl,
       }, user)
       updateUser({
         ...result.data,
         email: result.data.email || user?.email || "",
         nickname: result.data.nickname || nickname.trim(),
-        name: result.data.name || nickname.trim(),
+        name: result.data.name || name.trim(),
+        profileImageUrl: result.data.profileImageUrl ?? profileImageUrl,
       })
       setPassword("")
       setPasswordConfirm("")
-      setSuccess("회원 정보가 수정되었습니다.")
+      setSuccess(t.mypage.profileSaved)
       showToast({
-        title: "회원정보가 저장되었어요.",
+        title: t.mypage.profileToast,
         tone: "success",
       })
     } catch (error) {
-      setError(error instanceof Error ? error.message : "회원 정보 수정 실패")
+      setError(error instanceof Error ? error.message : t.mypage.profileSaveFailed)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleNicknameCheck = async () => {
+    if (!nickname.trim()) {
+      setError(t.mypage.requiredProfileFields)
+      return
+    }
+    const result = await memberService.checkNicknameDuplicate(nickname)
+    setNicknameCheck(result.available ? "available" : "unavailable")
+    setError("")
   }
 
   return (
@@ -70,28 +95,55 @@ export function ProfileEditForm() {
       {error && <p className={styles.formError}>{error}</p>}
       {success && <p className={styles.formSuccess}>{success}</p>}
 
+      <ProfileImageUploader value={profileImageUrl} onChange={setProfileImageUrl} />
+      <EmailVerificationCard user={user} />
+
+      <label className={styles.label} htmlFor="profile-name">
+        {t.mypage.nameLabel}
+        <input
+          id="profile-name"
+          className={styles.input}
+          value={name}
+          placeholder={t.mypage.namePlaceholder}
+          autoComplete="name"
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+
       <label className={styles.label} htmlFor="profile-email">
-        이메일
+        {t.mypage.emailLabel}
         <input id="profile-email" className={styles.input} value={user?.email || ""} disabled readOnly />
       </label>
 
       <label className={styles.label} htmlFor="profile-nickname">
-        닉네임
-        <input
-          id="profile-nickname"
-          className={styles.input}
-          value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
-        />
+        {t.mypage.nicknameLabel}
+        <div className={styles.inlineField}>
+          <input
+            id="profile-nickname"
+            className={styles.input}
+            value={nickname}
+            placeholder={t.mypage.nicknamePlaceholder}
+            autoComplete="nickname"
+            onChange={(event) => {
+              setNickname(event.target.value)
+              setNicknameCheck(event.target.value === user?.nickname ? "available" : "idle")
+            }}
+          />
+          <button type="button" className={styles.smallPillButton} onClick={handleNicknameCheck}>
+            중복 확인
+          </button>
+        </div>
+        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>사용 가능한 닉네임이에요.</span>}
+        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>이미 사용 중인 닉네임이에요.</span>}
       </label>
 
       <div className={`${styles.softCard} ${styles.stackSm}`}>
-        <p className={styles.titleSm}>비밀번호 변경</p>
-        <p className={styles.mutedText}>변경하지 않으려면 비워두세요.</p>
+        <p className={styles.titleSm}>{t.mypage.passwordSection}</p>
+        <p className={styles.mutedText}>{t.mypage.passwordHelp}</p>
       </div>
 
       <label className={styles.label} htmlFor="profile-password">
-        새 비밀번호
+        {t.mypage.newPassword}
         <input
           id="profile-password"
           className={styles.input}
@@ -103,7 +155,7 @@ export function ProfileEditForm() {
       </label>
 
       <label className={styles.label} htmlFor="profile-password-confirm">
-        새 비밀번호 확인
+        {t.mypage.newPasswordConfirm}
         <input
           id="profile-password-confirm"
           className={styles.input}
@@ -115,7 +167,7 @@ export function ProfileEditForm() {
       </label>
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "수정 중..." : "수정 완료"}
+        {isSubmitting ? t.mypage.saving : t.mypage.saveProfile}
       </button>
     </form>
   )

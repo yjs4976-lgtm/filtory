@@ -7,7 +7,7 @@ import { authService } from "@/services/authService";
 
 export function FindIdForm() {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [nickname, setNickname] = useState("");
   const [foundEmail, setFoundEmail] = useState("");
 
   const [error, setError] = useState("");
@@ -18,8 +18,8 @@ export function FindIdForm() {
     setError("");
     setFoundEmail("");
 
-    if (!name || !phone) {
-      setError("이름과 휴대폰 번호를 입력해주세요.");
+    if (!name && !nickname) {
+      setError("이름 또는 닉네임을 입력해주세요.");
       return;
     }
 
@@ -28,10 +28,10 @@ export function FindIdForm() {
 
       const result = await authService.findId({
         name,
-        phone,
+        nickname,
       });
 
-      setFoundEmail(result.data.email);
+      setFoundEmail(result.data.email || "조건에 맞는 이메일이 없습니다.");
     } catch (error) {
       setError(error instanceof Error ? error.message : "아이디 찾기에 실패했습니다.");
     } finally {
@@ -62,13 +62,13 @@ export function FindIdForm() {
       </label>
 
       <label className="form-label">
-        휴대폰 번호
+        닉네임
         <input
           className="form-input"
           type="text"
-          placeholder="01012345678"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
+          placeholder="가입 시 입력한 닉네임"
+          value={nickname}
+          onChange={(event) => setNickname(event.target.value)}
         />
       </label>
 

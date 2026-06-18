@@ -13,15 +13,44 @@ import type {
 import { apiClient } from "./apiClient";
 import { normalizeLoginResponse, normalizeUser } from "./authTransforms";
 
-function createMockUser(email: string, nickname = "필터리 사용자"): User {
+type BackendSignupPayload = {
+  email: string;
+  password: string;
+  nickname: string;
+  real_name: string;
+  termsAgreed: boolean;
+  privacyAgreed: boolean;
+  marketingAgreed?: boolean;
+};
+
+type BackendFindIdResponse = Array<{
+  id: number | string;
+  email: string;
+  created_at?: string | null;
+}>;
+
+function createMockUser(email: string, nickname = "필터리 사용자", name = nickname): User {
   return {
     id: "mock-user",
     email,
     nickname,
-    name: nickname,
+    name,
     role: "USER",
     status: "ACTIVE",
     provider: "local",
+    profileImageUrl: null,
+    socialProviders: {
+      google: false,
+      naver: false,
+      kakao: false,
+    },
+    emailVerified: false,
+    hasPassword: true,
+    joinedAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString(),
+    analysisCount: 0,
+    savedHospitalCount: 0,
+    reportCount: 0,
     createdAt: new Date().toISOString(),
   };
 }
@@ -62,7 +91,7 @@ export const authService = {
     try {
       const result = await apiClient<unknown>("/api/auth/register", {
         method: "POST",
-        body: payload,
+        body: toBackendSignupPayload(payload),
       });
 
       return {
@@ -77,7 +106,7 @@ export const authService = {
       return {
         success: true,
         message: "회원가입이 완료되었습니다.",
-        data: createMockUser(payload.email, payload.nickname),
+        data: createMockUser(payload.email, payload.nickname, payload.name),
       };
     }
   },
@@ -86,6 +115,7 @@ export const authService = {
     return this.signupWithEmail({
       email: payload.email,
       password: payload.password,
+      name: payload.name,
       nickname: payload.nickname ?? payload.name ?? "",
       termsAgreed: payload.termsAgreed,
       privacyAgreed: payload.privacyAgreed,
@@ -121,10 +151,18 @@ export const authService = {
   },
 
   findId(payload: FindIdRequest) {
-    return apiClient<FindIdResponse>("/api/members/find-email", {
+    return apiClient<BackendFindIdResponse>("/api/members/find-email", {
       method: "POST",
-      body: payload,
-    });
+      body: {
+        real_name: payload.name,
+        nickname: payload.nickname,
+      },
+    }).then((result) => ({
+      ...result,
+      data: {
+        email: result.data[0]?.email ?? "",
+      } satisfies FindIdResponse,
+    }));
   },
 
   forgotPassword(payload: ForgotPasswordRequest) {
@@ -151,3 +189,15 @@ export const authService = {
   },
 
 };
+
+function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
+  return {
+    email: payload.email,
+    password: payload.password,
+    nickname: payload.nickname,
+    real_name: payload.name,
+    termsAgreed: payload.termsAgreed,
+    privacyAgreed: payload.privacyAgreed,
+    marketingAgreed: payload.marketingAgreed,
+  };
+}

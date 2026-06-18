@@ -150,6 +150,16 @@ a {
   font-weight: 700;
 }
 
+.form-success {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--mint-soft);
+  color: var(--mint-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -161,6 +171,19 @@ a {
   border-radius: 16px;
   font-weight: 800;
   cursor: pointer;
+}
+
+.small-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .primary-button {
@@ -395,6 +418,23 @@ a {
   gap: 18px;
 }
 
+.admin-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-filter-grid input,
+.admin-filter-grid select,
+.admin-table-card textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px 12px;
+  color: var(--foreground);
+}
+
 .admin-table-card {
   overflow: hidden;
 }
@@ -432,4 +472,10 @@ a {
 .empty-cell {
   color: var(--graypurple);
   text-align: center !important;
+}
+
+@media (max-width: 640px) {
+  .admin-filter-grid {
+    grid-template-columns: 1fr;
+  }
 }

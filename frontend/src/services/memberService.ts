@@ -9,16 +9,36 @@ import { USE_MOCK } from "@/lib/constants";
 import { apiClient } from "./apiClient";
 import { normalizeUser } from "./authTransforms";
 
+type BackendUpdateProfilePayload = {
+  real_name?: string
+  nickname?: string
+  password?: string
+  profile_img_url?: string | null
+}
+
 function getMemberPath(userId: User["id"]) {
   return `/api/members/${userId}`;
 }
 
 export const memberService = {
+  previewProfileImage(file: File) {
+    return URL.createObjectURL(file);
+  },
+
+  async checkNicknameDuplicate(nickname: string) {
+    // TODO: 실제 닉네임 중복 확인 API가 준비되면 /api/member/nickname-check로 교체합니다.
+    const unavailable = ["admin", "test", "filtory", "관리자"]
+    const normalized = nickname.trim().toLowerCase()
+    return {
+      available: normalized.length >= 2 && !unavailable.includes(normalized),
+    }
+  },
+
   async updateProfile(userId: User["id"], payload: UpdateProfilePayload, currentUser?: User | null) {
     try {
       const result = await apiClient<unknown>(getMemberPath(userId), {
         method: "PATCH",
-        body: payload,
+        body: toBackendUpdateProfilePayload(payload),
         auth: true,
       });
 
@@ -37,11 +57,25 @@ export const memberService = {
         data: {
           id: currentUser?.id ?? userId,
           email: currentUser?.email ?? "filtory.user@example.com",
-          nickname: payload.nickname,
-          name: payload.nickname,
+          nickname: payload.nickname ?? currentUser?.nickname ?? "",
+          name: payload.name ?? currentUser?.name ?? payload.nickname ?? currentUser?.nickname ?? "",
           role: currentUser?.role ?? "USER",
           status: currentUser?.status ?? "ACTIVE",
           provider: currentUser?.provider ?? "local",
+          profileImageUrl: payload.profileImageUrl === undefined ? currentUser?.profileImageUrl ?? null : payload.profileImageUrl,
+          socialProviders: currentUser?.socialProviders ?? {
+            google: false,
+            naver: false,
+            kakao: false,
+          },
+          emailVerified: currentUser?.emailVerified ?? false,
+          hasPassword: currentUser?.hasPassword ?? true,
+          joinedAt: currentUser?.joinedAt ?? currentUser?.createdAt,
+          lastLoginAt: currentUser?.lastLoginAt,
+          lastActiveAt: currentUser?.lastActiveAt,
+          analysisCount: currentUser?.analysisCount,
+          savedHospitalCount: currentUser?.savedHospitalCount,
+          reportCount: currentUser?.reportCount,
           createdAt: currentUser?.createdAt ?? new Date().toISOString(),
         } satisfies User,
       };
@@ -70,8 +104,10 @@ export const memberService = {
 
   updateMember(userId: User["id"], payload: UpdateProfileRequest, currentUser?: User | null) {
     return this.updateProfile(userId, {
+      name: payload.name,
       nickname: payload.nickname ?? payload.name ?? "",
       password: payload.password,
+      profileImageUrl: payload.profileImageUrl,
     }, currentUser);
   },
 
@@ -79,3 +115,12 @@ export const memberService = {
     return this.withdrawUser(userId, payload.password ?? "");
   },
 };
+
+function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUpdateProfilePayload {
+  return {
+    real_name: payload.name,
+    nickname: payload.nickname,
+    password: payload.password,
+    profile_img_url: payload.profileImageUrl,
+  };
+}
