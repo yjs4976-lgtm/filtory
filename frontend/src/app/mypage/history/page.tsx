@@ -1,15 +1,20 @@
+"use client"
+
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { AnalysisHistoryList } from "@/components/mypage/AnalysisHistoryList"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export default function MyHistoryPage() {
+  const { t } = useLanguage()
+
   return (
     <ProtectedRoute>
-      <AppShell title="내 분석 기록" showBack>
+      <AppShell title={t.mypage.historyPageTitle} showBack>
         <section className={styles.stackSm}>
-          <h1 className={styles.titleLg}>내 분석 기록</h1>
-          <p className={styles.bodyText}>분석했던 병원을 검색하고 신뢰도 기준으로 다시 확인할 수 있어요.</p>
+          <h1 className={styles.titleLg}>{t.mypage.historyPageTitle}</h1>
+          <p className={styles.bodyText}>{t.mypage.historyPageDescription}</p>
         </section>
         <AnalysisHistoryList />
       </AppShell>

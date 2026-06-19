@@ -5,7 +5,7 @@ import { Bookmark } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import type { SavedHospital } from "@/lib/types"
-import { categoryLabels, formatStars } from "@/services/memberMockData"
+import { formatStars } from "@/services/memberMockData"
 import { SavedHospitalCard } from "./SavedHospitalCard"
 import styles from "@/styles/App.module.css"
 
@@ -26,7 +26,7 @@ export function SavedHospitalList({ hospitals = [], preview = true, onAddToCompa
         <h2 className={styles.titleSm}>{t.mypage.savedHospitals}</h2>
         {preview && (
           <Link href={ROUTES.MYPAGE_SAVED} className={styles.seeAllButton}>
-            전체 보기
+            {t.mypage.seeAll}
           </Link>
         )}
       </div>
@@ -51,10 +51,11 @@ export function SavedHospitalList({ hospitals = [], preview = true, onAddToCompa
                 <span className={styles.recordBody}>
                   <strong className={styles.recordName}>{hospital.hospitalName}</strong>
                   <span className={styles.recordDate}>
-                    {categoryLabels[hospital.category]} · 최근 신뢰도 {hospital.trustScore}점
+                    {t.categories[hospital.category]} · {t.mypage.latestTrust} {hospital.trustScore}
+                    {t.mypage.pointsSuffix}
                   </span>
                   <span className={styles.recordMeta}>
-                    글로벌 접근성 {formatStars(hospital.globalAccessRating)} · {hospital.address}
+                    {t.mypage.globalAccess} {formatStars(hospital.globalAccessRating)} · {hospital.address}
                   </span>
                 </span>
               </article>

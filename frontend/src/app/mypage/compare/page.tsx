@@ -10,12 +10,13 @@ import { CompareHospitalSelector } from "@/components/mypage/CompareHospitalSele
 import { CompareSelectedList } from "@/components/mypage/CompareSelectedList"
 import { HospitalCompareSummary } from "@/components/mypage/HospitalCompareSummary"
 import { HospitalCompareTable } from "@/components/mypage/HospitalCompareTable"
+import { useLanguage } from "@/context/LanguageContext"
 import type { CompareHospital, CompareResult, HospitalCategory } from "@/lib/types"
 import { compareService } from "@/services/compareService"
-import { categoryLabels } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 export default function MyComparePage() {
+  const { t } = useLanguage()
   const [category, setCategory] = useState<HospitalCategory>("derma")
   const [hospitals, setHospitals] = useState<CompareHospital[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -61,26 +62,24 @@ export default function MyComparePage() {
 
   return (
     <ProtectedRoute>
-      <AppShell title="분야별 병원 비교" showBack>
+      <AppShell title={t.mypage.menu.compare} showBack>
         <section className={styles.stackSm}>
-          <h1 className={styles.titleLg}>분야별 병원 비교</h1>
-          <p className={styles.bodyText}>
-            피부과는 피부과끼리, 안과는 안과끼리, 치과는 치과끼리 비교해 더 정확한 선택을 도와드려요.
-          </p>
+          <h1 className={styles.titleLg}>{t.mypage.menu.compare}</h1>
+          <p className={styles.bodyText}>{t.mypage.menu.compareDesc}</p>
         </section>
         <CompareCategoryTabs value={category} onChange={setCategory} />
         {isLoading ? (
-          <LoadingSpinner label="비교할 병원을 불러오고 있어요." />
+          <LoadingSpinner label={t.mypage.loadingCompareHospitals} />
         ) : hospitals.length === 0 ? (
-          <CompareEmptyState categoryLabel={categoryLabels[category]} />
+          <CompareEmptyState categoryLabel={t.categories[category]} />
         ) : (
           <>
             <CompareHospitalSelector hospitals={hospitals} selectedIds={selectedIds} onToggle={handleToggle} />
             <CompareSelectedList hospitals={selectedHospitals} />
             <button className={styles.primaryButton} type="button" disabled={selectedIds.length < 2} onClick={handleCompare}>
-              비교하기
+              {t.mypage.compareAction}
             </button>
-            {selectedIds.length < 2 && <p className={styles.mutedText}>비교하려면 최소 2개의 병원이 필요해요.</p>}
+            {selectedIds.length < 2 && <p className={styles.mutedText}>{t.mypage.compareMinRequired}</p>}
             {result && (
               <>
                 <HospitalCompareSummary result={result} />

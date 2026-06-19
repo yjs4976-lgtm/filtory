@@ -1,15 +1,20 @@
+"use client"
+
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { MyReportList } from "@/components/mypage/MyReportList"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export default function MyReportsPage() {
+  const { t } = useLanguage()
+
   return (
     <ProtectedRoute>
-      <AppShell title="내 신고 내역" showBack>
+      <AppShell title={t.mypage.reportsPageTitle} showBack>
         <section className={styles.stackSm}>
-          <h1 className={styles.titleLg}>내 신고 내역</h1>
-          <p className={styles.bodyText}>신고한 리뷰와 병원 정보의 처리 상태를 확인할 수 있어요.</p>
+          <h1 className={styles.titleLg}>{t.mypage.reportsPageTitle}</h1>
+          <p className={styles.bodyText}>{t.mypage.reportsPageDescription}</p>
         </section>
         <MyReportList />
       </AppShell>

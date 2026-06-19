@@ -28,20 +28,30 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
   const { t } = useLanguage()
   const menuGroups = [
     {
-      title: "내 활동",
+      title: t.mypage.menuGroupActivity,
       items: [
-        { href: ROUTES.MYPAGE_HISTORY, label: "분석 기록", description: "내가 분석한 병원을 다시 확인해요", icon: FileText },
-        { href: ROUTES.MYPAGE_SAVED, label: "저장한 병원", description: "관심 병원을 모아봐요", icon: HeartPulse },
-        { href: ROUTES.MYPAGE_COMPARE, label: "병원 비교", description: "같은 분야 병원끼리 비교해요", icon: GitCompareArrows },
-        { href: ROUTES.MYPAGE_RECENT, label: "최근 본 병원", description: "최근 확인한 병원을 다시 봐요", icon: FileText },
-        { href: ROUTES.MYPAGE_REPORTS, label: "내 신고 내역", description: "신고 처리 상태를 확인해요", icon: ShieldCheck },
+        { href: ROUTES.MYPAGE_HISTORY, label: t.mypage.menu.history, description: t.mypage.menu.historyDesc, icon: FileText },
+        { href: ROUTES.MYPAGE_SAVED, label: t.mypage.menu.saved, description: t.mypage.menu.savedDesc, icon: HeartPulse },
+        { href: ROUTES.MYPAGE_COMPARE, label: t.mypage.menu.compare, description: t.mypage.menu.compareDesc, icon: GitCompareArrows },
+        { href: ROUTES.MYPAGE_RECENT, label: t.mypage.menu.recent, description: t.mypage.menu.recentDesc, icon: FileText },
+        { href: ROUTES.MYPAGE_REPORTS, label: t.mypage.menu.reports, description: t.mypage.menu.reportsDesc, icon: ShieldCheck },
       ],
     },
     {
-      title: "알림",
+      title: t.mypage.menuGroupNotifications,
       items: [
-        { href: ROUTES.MYPAGE_NOTIFICATIONS, label: "알림 센터", description: "내 알림을 모아봐요", icon: Bell },
-        { href: ROUTES.MYPAGE_SETTINGS, label: "알림 설정", description: "알림 수신 여부를 조정해요", icon: Settings },
+        {
+          href: ROUTES.MYPAGE_NOTIFICATIONS,
+          label: t.mypage.menu.notifications,
+          description: t.mypage.menu.notificationsDesc,
+          icon: Bell,
+        },
+        {
+          href: ROUTES.MYPAGE_SETTINGS,
+          label: t.mypage.menu.notificationSettings,
+          description: t.mypage.menu.notificationSettingsDesc,
+          icon: Settings,
+        },
       ],
     },
     {
@@ -54,17 +64,27 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
       ],
     },
     {
-      title: "개인화",
+      title: t.mypage.menuGroupPersonalization,
       items: [
-        { href: ROUTES.MYPAGE_INSIGHTS, label: "나의 병원 선택 성향", description: "내 선택 패턴을 확인해요", icon: Sparkles },
-        { href: ROUTES.CHATBOT, label: "AI 추천", description: "최근 분석을 챗봇에게 물어봐요", icon: Sparkles },
+        { href: ROUTES.MYPAGE_INSIGHTS, label: t.mypage.menu.insights, description: t.mypage.menu.insightsDesc, icon: Sparkles },
+        {
+          href: ROUTES.CHATBOT,
+          label: t.mypage.menu.aiRecommendation,
+          description: t.mypage.menu.aiRecommendationDesc,
+          icon: Sparkles,
+        },
       ],
     },
     {
-      title: "설정",
+      title: t.mypage.menuGroupSettings,
       items: [
-        { href: ROUTES.MYPAGE_SETTINGS, label: "언어·테마 설정", description: "언어와 화면 설정을 관리해요", icon: Settings },
-        { href: ROUTES.MYPAGE_DATA, label: "내 데이터 관리", description: "활동 데이터 다운로드와 삭제를 관리해요", icon: Database },
+        {
+          href: ROUTES.MYPAGE_SETTINGS,
+          label: t.mypage.menu.languageTheme,
+          description: t.mypage.menu.languageThemeDesc,
+          icon: Settings,
+        },
+        { href: ROUTES.MYPAGE_DATA, label: t.mypage.menu.data, description: t.mypage.menu.dataDesc, icon: Database },
       ],
     },
   ]

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { AlertCircle, Bookmark, ChartNoAxesColumnIncreasing, ChevronRight } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
@@ -13,18 +14,35 @@ interface MyActivityStatsProps {
 }
 
 export function MyActivityStats({ nickname, analysisCount, savedHospitalCount, reportCount }: MyActivityStatsProps) {
+  const { t } = useLanguage()
   const stats = [
-    { label: "총 분석", value: `${analysisCount}회`, icon: ChartNoAxesColumnIncreasing, href: ROUTES.MYPAGE_HISTORY },
-    { label: "저장 병원", value: `${savedHospitalCount}개`, icon: Bookmark, href: ROUTES.MYPAGE_SAVED },
-    { label: "신고 내역", value: `${reportCount}개`, icon: AlertCircle, href: ROUTES.MYPAGE_REPORTS },
+    {
+      label: t.mypage.totalAnalysesShort,
+      value: `${analysisCount}${t.mypage.analysisCountSuffix}`,
+      icon: ChartNoAxesColumnIncreasing,
+      href: ROUTES.MYPAGE_HISTORY,
+    },
+    {
+      label: t.mypage.savedHospitalsShort,
+      value: `${savedHospitalCount}${t.mypage.savedCountSuffix}`,
+      icon: Bookmark,
+      href: ROUTES.MYPAGE_SAVED,
+    },
+    {
+      label: t.mypage.reportsShort,
+      value: `${reportCount}${t.mypage.reportCountSuffix}`,
+      icon: AlertCircle,
+      href: ROUTES.MYPAGE_REPORTS,
+    },
   ]
+  const greeting = t.mypage.activityGreeting.replace("{name}", nickname)
 
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.rowBetween}>
         <div>
-          <h2 className={styles.titleMd}>{nickname}님, 오늘도 신뢰할 수 있는 병원 정보를 확인해보세요.</h2>
-          <p className={styles.bodyText}>내 활동을 한눈에 보고 필요한 화면으로 바로 이동할 수 있어요.</p>
+          <h2 className={styles.titleMd}>{greeting}</h2>
+          <p className={styles.bodyText}>{t.mypage.activityDescription}</p>
         </div>
       </div>
       <div className={styles.summaryGrid}>

@@ -18,14 +18,13 @@ function maskEmail(email?: string) {
   return `${visible}${"*".repeat(Math.max(4, name.length - visible.length))}@${domain}`;
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, locale: string = "ko-KR") {
   if (!value) return "";
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-
-  return date.toLocaleDateString("ko-KR", {
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -34,13 +33,13 @@ function formatDate(value?: string) {
 
 export function MyPageUserCard() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!user) return null;
 
   const displayName = user.nickname || user.name || "Filtory";
   const joinedAt = user.createdAt
-    ? formatDate(user.createdAt)
+    ? formatDate(user.createdAt, language === "ko" ? "ko-KR" : "en-US")
     : t.mypage.fallbackMemberSince;
   const realName = user.name || displayName;
   const maskedEmail = maskEmail(user.email) || t.mypage.maskedEmailFallback;
@@ -61,7 +60,7 @@ export function MyPageUserCard() {
         </span>
 
         <div className={styles.profileInfo}>
-          <p className={styles.memberEyebrow}>MY FILTORY</p>
+          <p className={styles.memberEyebrow}>{t.mypage.profileEyebrow}</p>
           <h1 className={styles.memberName}>{displayName}</h1>
           <p className={styles.profileEmail}>
             {realName} · {maskedEmail}

@@ -31,7 +31,7 @@ export function ProfileCompletionCard({ user }: ProfileCompletionCardProps) {
           {completion.completedItems.map((item) => (
             <span key={item.key} className={styles.checkListItem}>
               <Check className={styles.iconSm} />
-              {item.label}
+              {t.mypage.completionItems[item.key]}
             </span>
           ))}
         </div>
@@ -41,7 +41,7 @@ export function ProfileCompletionCard({ user }: ProfileCompletionCardProps) {
             completion.missingItems.map((item) => (
               <Link key={item.key} href={item.href} className={styles.missingListItem}>
                 <CircleDashed className={styles.iconSm} />
-                {item.label}
+                {t.mypage.completionItems[item.key]}
               </Link>
             ))
           ) : (

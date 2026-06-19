@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { Trash2 } from "lucide-react"
+import { ShieldCheck, Trash2 } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
+import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem } from "@/lib/types"
-import { categoryLabels, formatStars } from "@/services/memberMockData"
+import { formatStars } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface AnalysisHistoryCardProps {
@@ -13,7 +15,16 @@ interface AnalysisHistoryCardProps {
 }
 
 export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps) {
+  const { t } = useLanguage()
   const trustScore = item.trustScore ?? item.score
+  const trustLevel = getTrustLevel(trustScore)
+  const trustLevelKey = getTrustLevelKeyFromValue(trustScore, item.trustLevel)
+  const adSuspicionLevel = formatSignalLevel(item.adSuspicionLevel, {
+    low: t.analyze.low,
+    medium: t.analyze.medium,
+    high: t.analyze.high,
+    caution: t.analyze.caution,
+  })
   const date = item.analyzedAt ?? item.createdAt
 
   return (
@@ -22,24 +33,27 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
         <div>
           <h2 className={styles.titleMd}>{item.hospitalName}</h2>
           <p className={styles.bodyText}>
-            {categoryLabels[item.category]} · {date}
+            {t.categories[item.category]} · {date}
           </p>
         </div>
-        <span className={styles.scoreSmall}>{trustScore}점</span>
+        <span className={styles.scoreSmall}>{trustScore}{t.mypage.pointsSuffix}</span>
       </div>
       <div className={styles.metricGrid}>
-        <span>리뷰 신뢰도 {item.trustLevel ?? "보통"}</span>
-        <span>광고 의심 {item.adSuspicionLevel ?? "낮음"}</span>
-        <span>정보 완성도 {item.infoCompletenessScore ?? 0}점</span>
-        <span>글로벌 접근성 {formatStars(item.globalAccessRating)}</span>
+        <span className={styles.trustMetric}>
+          <ShieldCheck className={styles.iconXs} style={{ color: trustLevel.color }} />
+          {t.mypage.trustScoreLabel} {t.trustLevels[trustLevelKey]}
+        </span>
+        <span>{t.mypage.adSuspicionLabel} {adSuspicionLevel}</span>
+        <span>{t.mypage.infoCompletenessLabel} {item.infoCompletenessScore ?? 0}{t.mypage.pointsSuffix}</span>
+        <span>{t.mypage.globalLabel} {formatStars(item.globalAccessRating)}</span>
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
-          분석 결과 보기
+          {t.mypage.viewResult}
         </Link>
         <button type="button" className={styles.dangerButton} onClick={() => onDelete(item.id)}>
           <Trash2 className={styles.iconSm} />
-          기록 삭제
+          {t.mypage.deleteRecord}
         </button>
       </div>
     </article>
