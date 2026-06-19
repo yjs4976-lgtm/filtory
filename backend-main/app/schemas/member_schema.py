@@ -7,6 +7,7 @@ MEMBER_FIELDS = {
     "password_hash",
     "nickname",
     "real_name",
+    "phone",
     "profile_img_url",
     "role",
     "active",
@@ -19,6 +20,7 @@ MEMBER_FIELDS = {
 MEMBER_FIELD_ALIASES = {
     "name": "real_name",
     "realName": "real_name",
+    "phoneNumber": "phone",
     "profileImageUrl": "profile_img_url",
     "profileImageURL": "profile_img_url",
     "profile_image_url": "profile_img_url",
@@ -38,6 +40,7 @@ def member_to_dict(member, include_private=False):
         "email": member.email,
         "nickname": member.nickname,
         "real_name": member.real_name,
+        "phone": member.phone,
         "profile_img_url": member.profile_img_url,
         "role": member.role,
         "active": member.active,

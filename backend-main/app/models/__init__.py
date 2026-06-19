@@ -4,6 +4,7 @@ from app.models.analysis_result import AnalysisResult
 from app.models.hospital import Hospital
 from app.models.member import Member
 from app.models.member_subscription import MemberSubscription
+from app.models.member_terms_agreement import MemberTermsAgreement
 from app.models.password_reset_token import PasswordResetToken
 from app.models.review import Review
 from app.models.review_report import ReviewReport
@@ -17,6 +18,7 @@ __all__ = [
     "Hospital",
     "Member",
     "MemberSubscription",
+    "MemberTermsAgreement",
     "PasswordResetToken",
     "Review",
     "ReviewReport",

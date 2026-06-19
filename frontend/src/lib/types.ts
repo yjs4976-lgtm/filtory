@@ -141,6 +141,7 @@ export interface SignupPayload {
   email: string
   password: string
   nickname: string
+  phone: string
   termsAgreed: boolean
   privacyAgreed: boolean
   marketingAgreed?: boolean
@@ -148,7 +149,6 @@ export interface SignupPayload {
 
 export interface SignupRequest extends SignupPayload {
   passwordConfirm?: string
-  phone?: string
 }
 
 export interface LoginResponse {
@@ -157,7 +157,7 @@ export interface LoginResponse {
 
 export interface FindIdRequest {
   name?: string;
-  nickname?: string;
+  phone?: string;
 }
 
 export interface FindIdResponse {

@@ -12,6 +12,7 @@ import { normalizeUser } from "./authTransforms";
 type BackendUpdateProfilePayload = {
   real_name?: string
   nickname?: string
+  phone?: string
   password?: string
   profile_img_url?: string | null
 }
@@ -125,6 +126,7 @@ function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUp
   return {
     real_name: payload.name,
     nickname: payload.nickname,
+    phone: payload.phone,
     password: payload.password,
     profile_img_url: profileImgUrl,
   }

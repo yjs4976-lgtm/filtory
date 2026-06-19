@@ -19,6 +19,7 @@ export function SignupForm() {
   const { t } = useLanguage();
 
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [nicknameCheck, setNicknameCheck] = useState<"idle" | "available" | "unavailable">("idle");
@@ -36,6 +37,9 @@ export function SignupForm() {
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
   const canSubmit =
+    Boolean(name.trim()) &&
+    Boolean(phone.trim()) &&
+    Boolean(email.trim()) &&
     terms.termsAgreed &&
     terms.privacyAgreed &&
     nicknameCheck === "available" &&
@@ -52,7 +56,7 @@ export function SignupForm() {
     event.preventDefault();
     setError("");
 
-    if (!name || !email || !nickname || !password || !passwordConfirm) {
+    if (!name || !phone || !email || !nickname || !password || !passwordConfirm) {
       setError(t.auth.requiredFields);
       return;
     }
@@ -92,6 +96,7 @@ export function SignupForm() {
 
       await signup({
         name,
+        phone,
         email,
         password,
         nickname,
@@ -138,6 +143,19 @@ export function SignupForm() {
           value={name}
           autoComplete="name"
           onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+
+      <label className={styles.label} htmlFor="signup-phone">
+        {t.auth.phone}
+        <input
+          id="signup-phone"
+          className={styles.input}
+          type="tel"
+          placeholder={t.auth.phonePlaceholder}
+          value={phone}
+          autoComplete="tel"
+          onChange={(event) => setPhone(event.target.value)}
         />
       </label>
 

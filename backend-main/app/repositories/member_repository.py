@@ -1,5 +1,5 @@
 from app.extensions import db
-from app.models import Member, PasswordResetToken, SocialAccount
+from app.models import Member, MemberTermsAgreement, PasswordResetToken, SocialAccount
 
 
 class MemberRepository:
@@ -39,6 +39,12 @@ class MemberRepository:
         social_account = SocialAccount(**data)
         db.session.add(social_account)
         return social_account
+
+    @staticmethod
+    def create_terms_agreement(data):
+        agreement = MemberTermsAgreement(**data)
+        db.session.add(agreement)
+        return agreement
 
     @staticmethod
     def get_social_account(provider, social_id):
