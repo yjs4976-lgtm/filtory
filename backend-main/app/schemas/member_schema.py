@@ -20,6 +20,7 @@ MEMBER_FIELDS = {
 MEMBER_FIELD_ALIASES = {
     "name": "real_name",
     "realName": "real_name",
+    "phoneNumber": "phone",
     "profileImageUrl": "profile_img_url",
     "profileImageURL": "profile_img_url",
     "profile_image_url": "profile_img_url",

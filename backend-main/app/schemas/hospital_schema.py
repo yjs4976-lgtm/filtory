@@ -9,6 +9,7 @@ def _decimal_to_float(value):
 HOSPITAL_FIELDS = {
     "hospital_name",
     "category",
+    "region",
     "naver_place_url",
     "naver_place_id",
     "google_map_url",
@@ -43,6 +44,7 @@ def hospital_to_dict(hospital):
         "id": hospital.id,
         "hospital_name": hospital.hospital_name,
         "category": hospital.category,
+        "region": hospital.region,
         "naver_place_url": hospital.naver_place_url,
         "naver_place_id": hospital.naver_place_id,
         "google_map_url": hospital.google_map_url,

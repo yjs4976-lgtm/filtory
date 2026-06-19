@@ -11,6 +11,11 @@ from app.utils.security import hash_password
 
 class MemberService:
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
+    TERMS_PAYLOAD_MAP = {
+        "termsAgreed": "terms",
+        "privacyAgreed": "privacy",
+        "marketingAgreed": "marketing",
+    }
 
     @staticmethod
     def get_member(member_id):
@@ -27,6 +32,7 @@ class MemberService:
     @staticmethod
     def create_member(payload):
         data = extract_member_data(payload, include_private=False)
+        _normalize_member_data(data)
 
         if payload.get("password"):
             data["password_hash"] = hash_password(payload["password"])
@@ -36,11 +42,13 @@ class MemberService:
 
         try:
             member = MemberRepository.create(data)
+            db.session.flush()
+            MemberService._create_terms_agreements(member.id, payload)
             db.session.commit()
             return member_to_dict(member)
-        except Exception:
+        except Exception as e:
             db.session.rollback()
-            raise
+            raise ValueError("Failed to create member") from e
 
     @staticmethod
     def update_member(member_id, payload):
@@ -49,6 +57,7 @@ class MemberService:
             raise ValueError("Member not found")
 
         data = extract_member_data(payload)
+        _normalize_member_data(data)
 
         if payload.get("password"):
             data["password_hash"] = hash_password(payload["password"])
@@ -85,18 +94,14 @@ class MemberService:
     @staticmethod
     def find_member_emails(payload):
         real_name = payload.get("real_name") or payload.get("name") or payload.get("realName")
-        nickname = payload.get("nickname")
+        phone = _normalize_phone(payload.get("phone"))
 
         query = Member.query.filter(Member.active.is_(True), Member.deleted_at.is_(None))
 
-        if real_name:
-            query = query.filter(Member.real_name == real_name)
+        if not real_name or not phone:
+            raise ValueError("real_name and phone are required")
 
-        if nickname:
-            query = query.filter(Member.nickname == nickname)
-
-        if not real_name and not nickname:
-            raise ValueError("real_name or nickname is required")
+        query = query.filter(Member.real_name == real_name, Member.phone == phone)
 
         members = query.order_by(Member.created_at.desc()).all()
 
@@ -260,6 +265,20 @@ class MemberService:
                 db.session.rollback()
                 raise
 
+    @staticmethod
+    def _create_terms_agreements(member_id, payload):
+        for payload_key, agreement_type in MemberService.TERMS_PAYLOAD_MAP.items():
+            if payload_key != "marketingAgreed" and payload.get(payload_key) is not True:
+                continue
+
+            MemberRepository.create_terms_agreement(
+                {
+                    "member_id": member_id,
+                    "agreement_type": agreement_type,
+                    "agreed": payload.get(payload_key) is True,
+                }
+            )
+
 
 def _hash_token(raw_token):
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
@@ -285,5 +304,14 @@ def _mask_email(email):
     return f"{masked_local}@{domain}"
 
 
-def _normalize_phone(phone):
-    return "".join(character for character in str(phone or "") if character.isdigit())
+def _normalize_member_data(data):
+    if "phone" in data:
+        data["phone"] = _normalize_phone(data["phone"])
+
+
+def _normalize_phone(value):
+    if value is None:
+        return None
+
+    digits = "".join(char for char in str(value) if char.isdigit())
+    return digits or None

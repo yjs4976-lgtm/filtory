@@ -219,6 +219,7 @@ export interface WithdrawalRequest {
 export interface UpdateProfilePayload {
   name?: string
   nickname?: string
+  phone?: string
   password?: string
   profileImageUrl?: string | null
 }

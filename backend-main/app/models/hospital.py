@@ -14,6 +14,7 @@ class Hospital(db.Model):
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     hospital_name = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(30), nullable=False)
+    region = db.Column(db.String(100))
     naver_place_url = db.Column(db.Text)
     naver_place_id = db.Column(db.String(100))
     google_map_url = db.Column(db.Text)

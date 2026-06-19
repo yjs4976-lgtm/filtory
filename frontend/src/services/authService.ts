@@ -30,6 +30,7 @@ function createMockUser(email: string, nickname = "필터리 사용자", name = 
     email,
     nickname,
     name,
+    phone: undefined,
     role: "USER",
     status: "ACTIVE",
     provider: "local",
@@ -101,7 +102,10 @@ export const authService = {
       return {
         success: true,
         message: "회원가입이 완료되었습니다.",
-        data: createMockUser(payload.email, payload.nickname, payload.name),
+        data: {
+          ...createMockUser(payload.email, payload.nickname, payload.name),
+          phone: payload.phone,
+        },
       };
     }
   },

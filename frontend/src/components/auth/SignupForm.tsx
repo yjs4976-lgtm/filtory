@@ -38,6 +38,9 @@ export function SignupForm() {
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
   const canSubmit =
+    Boolean(name.trim()) &&
+    Boolean(phone.trim()) &&
+    Boolean(email.trim()) &&
     terms.termsAgreed &&
     terms.privacyAgreed &&
     nicknameCheck === "available" &&
@@ -143,6 +146,19 @@ export function SignupForm() {
           value={name}
           autoComplete="name"
           onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+
+      <label className={styles.label} htmlFor="signup-phone">
+        {t.auth.phone}
+        <input
+          id="signup-phone"
+          className={styles.input}
+          type="tel"
+          placeholder={t.auth.phonePlaceholder}
+          value={phone}
+          autoComplete="tel"
+          onChange={(event) => setPhone(event.target.value)}
         />
       </label>
 

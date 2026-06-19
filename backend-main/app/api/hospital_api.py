@@ -14,6 +14,7 @@ def list_hospitals():
     try:
         hospitals = HospitalService.list_hospitals(
             category=request.args.get("category"),
+            region=request.args.get("region"),
             keyword=request.args.get("q"),
             limit=pagination["limit"],
             offset=pagination["offset"],
