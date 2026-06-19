@@ -13,6 +13,7 @@ class Member(db.Model):
     password_hash = db.Column(db.Text)
     nickname = db.Column(db.String(100))
     real_name = db.Column(db.String(100))
+    phone = db.Column(db.String(50))
     profile_img_url = db.Column(db.Text)
     role = db.Column(db.String(30), nullable=False, default="user", server_default="user")
     active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text("true"))

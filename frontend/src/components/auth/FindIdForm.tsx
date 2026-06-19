@@ -10,8 +10,8 @@ import styles from "@/styles/App.module.css";
 export function FindIdForm() {
   const { t } = useLanguage();
   const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [foundEmail, setFoundEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [foundId, setFoundId] = useState("");
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,9 +19,9 @@ export function FindIdForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setFoundEmail("");
+    setFoundId("");
 
-    if (!name && !nickname) {
+    if (!name.trim() || !phone.trim()) {
       setError(t.auth.findIdRequired);
       return;
     }
@@ -31,10 +31,10 @@ export function FindIdForm() {
 
       const result = await authService.findId({
         name,
-        nickname,
+        phone,
       });
 
-      setFoundEmail(result.data.email || t.auth.noMatchingEmail);
+      setFoundId(result.data.id);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.auth.findIdFailed);
     } finally {
@@ -46,10 +46,10 @@ export function FindIdForm() {
     <form className={styles.memberForm} onSubmit={handleSubmit}>
       {error && <p className={styles.formError}>{error}</p>}
 
-      {foundEmail && (
+      {foundId && (
         <div className={styles.softCard}>
-          <p className={styles.mutedText}>{t.auth.foundEmailLabel}</p>
-          <strong>{foundEmail}</strong>
+          <p className={styles.mutedText}>{t.auth.foundIdLabel}</p>
+          <strong>{foundId}</strong>
         </div>
       )}
 
@@ -65,13 +65,15 @@ export function FindIdForm() {
       </label>
 
       <label className={styles.label}>
-        {t.auth.nickname}
+        {t.auth.phone}
         <input
           className={styles.input}
-          type="text"
-          placeholder={t.auth.nicknamePlaceholder}
-          value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder={t.auth.phonePlaceholder}
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
         />
       </label>
 

@@ -42,7 +42,7 @@ export function ProfileEditForm() {
     }
 
     if (nicknameCheck !== "available") {
-      setError("닉네임 중복 확인을 완료해주세요.")
+      setError(t.auth.idDuplicateRequired)
       return
     }
 
@@ -130,11 +130,11 @@ export function ProfileEditForm() {
             }}
           />
           <button type="button" className={styles.smallPillButton} onClick={handleNicknameCheck}>
-            중복 확인
+            {t.auth.duplicateCheck}
           </button>
         </div>
-        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>사용 가능한 닉네임이에요.</span>}
-        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>이미 사용 중인 닉네임이에요.</span>}
+        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>{t.auth.idAvailable}</span>}
+        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
 
       <div className={`${styles.softCard} ${styles.stackSm}`}>

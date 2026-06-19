@@ -6,9 +6,11 @@ import type { MyReport } from "@/lib/types"
 import { reportService } from "@/services/reportService"
 import { MyReportCard } from "./MyReportCard"
 import { MyReportEmpty } from "./MyReportEmpty"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export function MyReportList() {
+  const { t } = useLanguage()
   const [reports, setReports] = useState<MyReport[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -25,13 +27,13 @@ export function MyReportList() {
   }, [])
 
   const handleCancel = async (id: number) => {
-    const ok = window.confirm("이 신고를 취소할까요?")
+    const ok = window.confirm(t.mypage.cancelReportConfirm)
     if (!ok) return
     await reportService.cancelReport(id)
     setReports((prevItems) => prevItems.filter((item) => item.id !== id))
   }
 
-  if (isLoading) return <LoadingSpinner label="신고 내역을 불러오고 있어요." />
+  if (isLoading) return <LoadingSpinner label={t.mypage.reportLoading} />
   if (reports.length === 0) return <MyReportEmpty />
 
   return (

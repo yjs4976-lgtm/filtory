@@ -1,4 +1,5 @@
 import type { LoginHistory } from "@/lib/types"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface LoginHistoryListProps {
@@ -6,9 +7,10 @@ interface LoginHistoryListProps {
 }
 
 export function LoginHistoryList({ items }: LoginHistoryListProps) {
+  const { t } = useLanguage()
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>로그인 기록</h2>
+      <h2 className={styles.titleSm}>{t.mypage.loginHistory}</h2>
       <div className={styles.recordList}>
         {items.map((item) => (
           <article key={item.id} className={styles.recordButton}>

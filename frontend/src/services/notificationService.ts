@@ -1,10 +1,8 @@
 import type { NotificationItem } from "@/lib/types"
-import { mockNotifications } from "./memberMockData"
-
 export const notificationService = {
   async getNotifications(): Promise<NotificationItem[]> {
-    // TODO: 실제 알림 API가 준비되면 /api/member/notifications로 교체합니다.
-    return mockNotifications
+    // 실제 알림 API가 준비되기 전에는 임시 알림을 노출하지 않습니다.
+    return []
   },
 
   async markAllAsRead() {

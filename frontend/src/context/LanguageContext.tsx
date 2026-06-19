@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { translations } from "@/lib/translations"
 
 const LanguageContext = createContext(undefined)
@@ -13,7 +13,13 @@ function getStoredLanguage() {
 }
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(getStoredLanguage)
+  // Keep the first client render identical to SSR, then restore the saved preference.
+  const [language, setLanguageState] = useState("ko")
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setLanguageState(getStoredLanguage()))
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   const setLanguage = (lang) => {
     setLanguageState(lang)

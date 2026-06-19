@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
+import { PasswordField } from "./PasswordField";
 import styles from "@/styles/App.module.css";
 
 export function LoginForm() {
@@ -63,18 +64,16 @@ export function LoginForm() {
         />
       </label>
 
-      <label className={styles.label} htmlFor="login-password">
-        {t.auth.password}
-        <input
-          id="login-password"
-          className={styles.input}
-          type="password"
-          placeholder={t.auth.passwordPlaceholder}
-          value={password}
-          autoComplete="current-password"
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+      <PasswordField
+        id="login-password"
+        label={t.auth.password}
+        placeholder={t.auth.passwordPlaceholder}
+        value={password}
+        autoComplete="current-password"
+        showLabel={t.auth.showPassword}
+        hideLabel={t.auth.hidePassword}
+        onChange={setPassword}
+      />
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
         {isSubmitting ? t.auth.loginSubmitting : t.auth.loginButton}

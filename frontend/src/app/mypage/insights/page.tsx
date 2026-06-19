@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { EmptyState } from "@/components/common/EmptyState"
 import { UserCategoryStats } from "@/components/mypage/UserCategoryStats"
 import { UserInsightCard } from "@/components/mypage/UserInsightCard"
 import { UserPreferenceSummary } from "@/components/mypage/UserPreferenceSummary"
@@ -15,11 +16,15 @@ import styles from "@/styles/App.module.css"
 export default function UserInsightsPage() {
   const { t } = useLanguage()
   const [insight, setInsight] = useState<UserInsight | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
     userInsightService.getUserInsight().then((nextInsight) => {
-      if (alive) setInsight(nextInsight)
+      if (alive) {
+        setInsight(nextInsight)
+        setIsLoading(false)
+      }
     })
     return () => {
       alive = false
@@ -33,8 +38,10 @@ export default function UserInsightsPage() {
           <h1 className={styles.titleLg}>{t.mypage.insightsPageTitle}</h1>
           <p className={styles.bodyText}>{t.mypage.insightsPageDescription}</p>
         </section>
-        {!insight ? (
+        {isLoading ? (
           <LoadingSpinner label={t.mypage.loadingInsights} />
+        ) : !insight ? (
+          <EmptyState title={t.mypage.emptyInsightTitle} description={t.mypage.emptyInsightDescription} />
         ) : (
           <>
             <UserInsightCard insight={insight} />

@@ -71,7 +71,7 @@ export default function MyComparePage() {
         {isLoading ? (
           <LoadingSpinner label={t.mypage.loadingCompareHospitals} />
         ) : hospitals.length === 0 ? (
-          <CompareEmptyState categoryLabel={t.categories[category]} />
+          <CompareEmptyState />
         ) : (
           <>
             <CompareHospitalSelector hospitals={hospitals} selectedIds={selectedIds} onToggle={handleToggle} />

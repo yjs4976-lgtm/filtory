@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { SectionPager } from "@/components/common/SectionPager"
 import { AccountManageMenu } from "@/components/mypage/AccountManageMenu"
-import { AiRecommendationCard } from "@/components/mypage/AiRecommendationCard"
+import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import { AppSettingsSection } from "@/components/mypage/AppSettingsSection"
 import { DangerZone } from "@/components/mypage/DangerZone"
 import { LoginRequiredPanel } from "@/components/mypage/LoginRequiredPanel"
@@ -22,6 +23,7 @@ import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { recentHospitalService } from "@/services/recentHospitalService"
 import { reportService } from "@/services/reportService"
 import { savedHospitalService } from "@/services/savedHospitalService"
+import styles from "@/styles/App.module.css"
 
 export default function MyPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -30,6 +32,7 @@ export default function MyPage() {
   const [savedHospitals, setSavedHospitals] = useState<SavedHospital[]>([])
   const [recentHospitals, setRecentHospitals] = useState<RecentViewedHospital[]>([])
   const [reports, setReports] = useState<MyReport[]>([])
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -64,15 +67,13 @@ export default function MyPage() {
     }
   }, [isAuthenticated, isLoading])
 
-  return (
-    <AppShell title={t.mypage.title} showBack>
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : !isAuthenticated ? (
-        <LoginRequiredPanel />
-      ) : (
-        <>
-          <MyPageUserCard />
+  const authenticatedSections = [
+    {
+      id: "profile",
+      content: (
+        <div className={styles.stackMd}>
+          <MyPageUserCard onChatbotToggle={() => setIsChatbotOpen((current) => !current)} isChatbotOpen={isChatbotOpen} />
+          <ChatbotModal open={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
           <MyActivityStats
             nickname={user?.nickname || user?.name || "User"}
             analysisCount={records.length}
@@ -80,15 +81,54 @@ export default function MyPage() {
             reportCount={reports.length}
           />
           <ProfileCompletionCard user={user} />
+        </div>
+      ),
+    },
+    {
+      id: "activity",
+      content: (
+        <div className={styles.stackMd}>
           <MyAnalysisSummary records={records} />
           <RecentAnalysisPreview records={records} />
+        </div>
+      ),
+    },
+    {
+      id: "hospitals",
+      content: (
+        <div className={styles.stackMd}>
           <RecentViewedHospitals hospitals={recentHospitals} />
           <SavedHospitalList hospitals={savedHospitals} />
-          <AiRecommendationCard records={records} />
-          <AccountManageMenu user={user} />
+        </div>
+      ),
+    },
+    {
+      id: "account",
+      content: (
+        <div className={styles.stackMd}>
+          <AccountManageMenu />
+        </div>
+      ),
+    },
+    {
+      id: "settings",
+      content: (
+        <div className={styles.stackMd}>
           <AppSettingsSection />
           <DangerZone />
-        </>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <AppShell title={t.mypage.title} showBack>
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : !isAuthenticated ? (
+        <LoginRequiredPanel />
+      ) : (
+        <SectionPager sections={authenticatedSections} previousLabel={t.common.previous} nextLabel={t.common.next} />
       )}
     </AppShell>
   )

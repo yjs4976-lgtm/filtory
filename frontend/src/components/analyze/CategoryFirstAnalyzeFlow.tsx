@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { ExternalLink, FileCheck2, LinkIcon, MapPinned, Search, Star } from "lucide-react"
 import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
@@ -19,6 +20,7 @@ import type {
   HospitalRegionCode,
   HospitalReviewItem,
 } from "@/lib/types"
+import { ROUTES } from "@/lib/routes"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import styles from "@/styles/App.module.css"
 
@@ -539,6 +541,9 @@ function HospitalResultCard({
           {hospital.homepageUrl && <SourceLink href={hospital.homepageUrl} label={t.analyze.homepage} />}
         </div>
         <div className={styles.actionRow}>
+          <Link className={styles.secondaryButton} href={`${ROUTES.HOSPITAL_DETAIL}/${hospital.id}`}>
+            {t.hospital.detail}
+          </Link>
           <button type="button" className={styles.secondaryButton} onClick={onViewReviews}>
             {t.analyze.viewReviews}
           </button>

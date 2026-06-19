@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
+import { PasswordField } from "./PasswordField";
 import styles from "@/styles/App.module.css";
 
 export function ResetPasswordForm() {
@@ -63,27 +64,23 @@ export function ResetPasswordForm() {
     <form className={styles.memberForm} onSubmit={handleSubmit}>
       {error && <p className={styles.formError}>{error}</p>}
 
-      <label className={styles.label}>
-        {t.auth.newPassword}
-        <input
-          className={styles.input}
-          type="password"
-          placeholder={t.auth.newPasswordPlaceholder}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+      <PasswordField
+        label={t.auth.newPassword}
+        placeholder={t.auth.newPasswordPlaceholder}
+        value={password}
+        showLabel={t.auth.showPassword}
+        hideLabel={t.auth.hidePassword}
+        onChange={setPassword}
+      />
 
-      <label className={styles.label}>
-        {t.auth.newPasswordConfirm}
-        <input
-          className={styles.input}
-          type="password"
-          placeholder={t.auth.newPasswordConfirmPlaceholder}
-          value={passwordConfirm}
-          onChange={(event) => setPasswordConfirm(event.target.value)}
-        />
-      </label>
+      <PasswordField
+        label={t.auth.newPasswordConfirm}
+        placeholder={t.auth.newPasswordConfirmPlaceholder}
+        value={passwordConfirm}
+        showLabel={t.auth.showPassword}
+        hideLabel={t.auth.hidePassword}
+        onChange={setPasswordConfirm}
+      />
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
         {isSubmitting ? t.auth.resetPasswordSubmitting : t.auth.resetPasswordButton}

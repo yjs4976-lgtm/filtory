@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import type { NotificationItem } from "@/lib/types"
 import { notificationService } from "@/services/notificationService"
+import { useLanguage } from "@/context/LanguageContext"
 import { NotificationCard } from "./NotificationCard"
 import { NotificationEmpty } from "./NotificationEmpty"
 import styles from "@/styles/App.module.css"
 
 export function NotificationList() {
+  const { t } = useLanguage()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const unreadCount = useMemo(() => items.filter((item) => !item.isRead).length, [items])
@@ -30,15 +32,15 @@ export function NotificationList() {
     setItems((prevItems) => prevItems.map((item) => ({ ...item, isRead: true })))
   }
 
-  if (isLoading) return <LoadingSpinner label="알림을 불러오고 있어요." />
+  if (isLoading) return <LoadingSpinner label={t.mypage.notificationLoading} />
   if (items.length === 0) return <NotificationEmpty />
 
   return (
     <section className={styles.stackSm}>
       <div className={styles.rowBetween}>
-        <span className={styles.neutralPill}>안 읽음 {unreadCount}개</span>
+        <span className={styles.neutralPill}>{t.mypage.unreadCount.replace("{count}", String(unreadCount))}</span>
         <button type="button" className={styles.smallPillButton} onClick={handleMarkAllAsRead}>
-          전체 읽음 처리
+          {t.mypage.markAllRead}
         </button>
       </div>
       <div className={styles.recordList}>

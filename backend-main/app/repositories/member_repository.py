@@ -12,6 +12,20 @@ class MemberRepository:
         return Member.query.filter(Member.email == email).first()
 
     @staticmethod
+    def get_active_by_name_and_phone(real_name, phone):
+        return (
+            Member.query
+            .filter(
+                Member.real_name == real_name,
+                Member.phone == phone,
+                Member.active.is_(True),
+                Member.deleted_at.is_(None),
+            )
+            .order_by(Member.created_at.desc())
+            .first()
+        )
+
+    @staticmethod
     def list_active(limit=20, offset=0):
         return (
             Member.query

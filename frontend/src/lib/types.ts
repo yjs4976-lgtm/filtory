@@ -70,19 +70,48 @@ export type HospitalItem = {
   sourceUrl?: string
   mapUrl?: string
   homepageUrl?: string
+  description?: string
+  imageUrl?: string
+  treatmentItems?: string
   searchKeywords?: string[]
+}
+
+export type ReviewImageItem = {
+  id: string
+  reviewId: string
+  imageUrl: string
+  altText?: string
+  sortOrder?: number
+}
+
+export type ReviewCommentItem = {
+  id: string
+  reviewId: string
+  memberId?: string | number
+  parentCommentId?: string
+  authorName: string
+  content: string
+  likeCount: number
+  dislikeCount: number
+  userReaction?: "like" | "dislike"
+  createdAt: string
+  replies?: ReviewCommentItem[]
 }
 
 export type HospitalReviewItem = {
   id: string
   hospitalId: string
+  memberId?: string | number
   rating?: number
   content: string
+  visitDate?: string
   createdAt?: string
   sourceName?: string
   sourceUrl?: string
   trustSignal?: "high" | "medium" | "low"
   adSuspicion?: "low" | "medium" | "high"
+  images?: ReviewImageItem[]
+  comments?: ReviewCommentItem[]
 }
 
 export type ForeignerFriendlyCheck = {
@@ -138,6 +167,7 @@ export interface LoginRequest {
 
 export interface SignupPayload {
   name: string
+  phone: string
   email: string
   password: string
   nickname: string
@@ -148,7 +178,6 @@ export interface SignupPayload {
 
 export interface SignupRequest extends SignupPayload {
   passwordConfirm?: string
-  phone?: string
 }
 
 export interface LoginResponse {
@@ -156,12 +185,12 @@ export interface LoginResponse {
 }
 
 export interface FindIdRequest {
-  name?: string;
-  nickname?: string;
+  name: string
+  phone: string
 }
 
 export interface FindIdResponse {
-  email: string;
+  id: string
 }
 
 export interface ForgotPasswordRequest {

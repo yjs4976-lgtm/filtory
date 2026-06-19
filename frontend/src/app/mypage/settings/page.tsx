@@ -6,16 +6,14 @@ import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { LanguageSettings } from "@/components/mypage/LanguageSettings"
 import { NotificationSettings } from "@/components/mypage/NotificationSettings"
-import { ThemeSettings } from "@/components/mypage/ThemeSettings"
 import { useLanguage } from "@/context/LanguageContext"
 import type { NotificationSettings as NotificationSettingsType } from "@/lib/types"
-import { settingService, type AppTheme } from "@/services/settingService"
+import { settingService } from "@/services/settingService"
 import styles from "@/styles/App.module.css"
 
 export default function MySettingsPage() {
   const { language, t } = useLanguage()
   const [settings, setSettings] = useState<NotificationSettingsType | null>(null)
-  const [theme, setTheme] = useState<AppTheme>("system")
   const [message, setMessage] = useState("")
 
   useEffect(() => {
@@ -30,7 +28,7 @@ export default function MySettingsPage() {
 
   const handleSave = async () => {
     if (!settings) return
-    await settingService.saveSettings({ ...settings, language, theme })
+    await settingService.saveSettings({ ...settings, language })
     setMessage(t.mypage.settingsSaved)
   }
 
@@ -48,7 +46,6 @@ export default function MySettingsPage() {
             {message && <p className={styles.formSuccess}>{message}</p>}
             <NotificationSettings value={settings} onChange={setSettings} />
             <LanguageSettings />
-            <ThemeSettings value={theme} onChange={setTheme} />
             <button type="button" className={styles.primaryButton} onClick={handleSave}>
               {t.mypage.saveSettings}
             </button>

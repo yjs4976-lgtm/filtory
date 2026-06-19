@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
@@ -17,6 +18,8 @@ import styles from "@/styles/App.module.css"
 export default function MySecurityPage() {
   const { user, logout } = useAuth()
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
+  const section = searchParams.get("section")
   const [history, setHistory] = useState<LoginHistory[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -46,13 +49,19 @@ export default function MySecurityPage() {
           <h1 className={styles.titleLg}>{t.mypage.securityPageTitle}</h1>
           <p className={styles.bodyText}>{t.mypage.securityPageDescription}</p>
         </section>
-        <AccountSecurityCard user={user} />
-        <SocialProviderList user={user} />
-        <PasswordChangeForm />
-        {isLoading ? <LoadingSpinner label={t.mypage.loadingLoginHistory} /> : <LoginHistoryList items={history} />}
-        <button type="button" className={styles.dangerButton} onClick={handleLogoutAllDevices}>
-          {t.mypage.logoutAllDevices}
-        </button>
+        {section === "password" && <PasswordChangeForm />}
+        {section === "social" && <SocialProviderList user={user} />}
+        {section === "login" && <>
+          <AccountSecurityCard user={user} />
+          {isLoading ? <LoadingSpinner label={t.mypage.loadingLoginHistory} /> : <LoginHistoryList items={history} />}
+          <button type="button" className={styles.dangerButton} onClick={handleLogoutAllDevices}>{t.mypage.logoutAllDevices}</button>
+        </>}
+        {!section && <>
+          <AccountSecurityCard user={user} />
+          <SocialProviderList user={user} />
+          <PasswordChangeForm />
+          {isLoading ? <LoadingSpinner label={t.mypage.loadingLoginHistory} /> : <LoginHistoryList items={history} />}
+        </>}
       </AppShell>
     </ProtectedRoute>
   )

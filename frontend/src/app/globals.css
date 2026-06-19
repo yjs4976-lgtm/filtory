@@ -311,17 +311,18 @@ a {
 
 .page {
   width: 100%;
-  max-width: 980px;
+  max-width: 460px;
   margin: 0 auto;
-  padding: 32px 18px 96px;
+  padding: 20px 16px 120px;
 }
 
 .page-title {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .page-title h1 {
-  font-size: 30px;
+  font-size: 22px;
+  line-height: 1.25;
 }
 
 .eyebrow {
@@ -379,7 +380,7 @@ a {
 .admin-summary-grid,
 .admin-menu-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
@@ -450,9 +451,9 @@ a {
 
 .admin-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 640px;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .admin-table th,
@@ -482,5 +483,11 @@ a {
 @media (max-width: 640px) {
   .admin-filter-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 720px) {
+  .page {
+    max-width: 520px;
   }
 }

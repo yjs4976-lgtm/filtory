@@ -2,6 +2,7 @@
 
 import type { CompareHospital } from "@/lib/types"
 import { formatStars } from "@/services/memberMockData"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface CompareHospitalSelectorProps {
@@ -11,10 +12,11 @@ interface CompareHospitalSelectorProps {
 }
 
 export function CompareHospitalSelector({ hospitals, selectedIds, onToggle }: CompareHospitalSelectorProps) {
+  const { t, language } = useLanguage()
   return (
     <section className={styles.stackSm}>
-      <h2 className={styles.titleSm}>비교할 병원을 선택해주세요</h2>
-      <p className={styles.mutedText}>최소 2개, 최대 3개까지 선택할 수 있어요.</p>
+      <h2 className={styles.titleSm}>{t.mypage.compareSelectTitle}</h2>
+      <p className={styles.mutedText}>{t.mypage.compareSelectDescription}</p>
       <div className={styles.recordList}>
         {hospitals.map((hospital) => {
           const selected = selectedIds.includes(hospital.id)
@@ -31,10 +33,10 @@ export function CompareHospitalSelector({ hospitals, selectedIds, onToggle }: Co
               <span className={styles.recordBody}>
                 <strong className={styles.recordName}>{hospital.hospitalName}</strong>
                 <span className={styles.recordDate}>
-                  신뢰도 {hospital.trustScore}점 · 글로벌 {formatStars(hospital.globalAccessRating)}
+                  {t.mypage.trustScoreLabel} {hospital.trustScore}{language === "ko" ? "점" : " pts"} · {t.mypage.globalAccessLabel} {formatStars(hospital.globalAccessRating)}
                 </span>
               </span>
-              <span className={styles.neutralPill}>{selected ? "선택됨" : "선택"}</span>
+              <span className={styles.neutralPill}>{selected ? t.mypage.selected : t.mypage.select}</span>
             </button>
           )
         })}

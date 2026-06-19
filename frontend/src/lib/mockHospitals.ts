@@ -33,6 +33,9 @@ export const demoHospitals: HospitalItem[] = [
     sourceUrl: "https://example.com/filtory/demo/skin-001",
     mapUrl: "https://maps.google.com/?q=Seoul+Gangnam+skin+clinic",
     homepageUrl: "https://example.com/filtory/demo/skin-001/home",
+    description: "피부 상태 상담, 레이저 시술, 여드름 관리 리뷰를 함께 확인할 수 있는 데모 병원입니다.",
+    imageUrl: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=900&q=80",
+    treatmentItems: "여드름, 색소, 레이저, 피부관리",
     searchKeywords: ["강남 피부과", "강남역 피부과", "테헤란로 피부과", "skin clinic gangnam"],
   },
   {
@@ -46,6 +49,9 @@ export const demoHospitals: HospitalItem[] = [
     sourceName: "Demo Review Source",
     sourceUrl: "https://example.com/filtory/demo/skin-002",
     mapUrl: "https://maps.google.com/?q=Anyang+skin+clinic",
+    description: "지역 기반 피부과 리뷰 신뢰도를 확인하기 위한 데모 병원입니다.",
+    imageUrl: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80",
+    treatmentItems: "피부질환, 여드름, 레이저",
     searchKeywords: ["안양 피부과", "범계 피부과", "범계역 피부과", "동안구 피부과"],
   },
   {
@@ -72,6 +78,9 @@ export const demoHospitals: HospitalItem[] = [
     sourceName: "Demo Review Source",
     sourceUrl: "https://example.com/filtory/demo/eye-001",
     mapUrl: "https://maps.google.com/?q=Gangnam+eye+clinic",
+    description: "검사 설명, 시술 후기, 사후 관리 리뷰를 함께 볼 수 있는 안과 데모 병원입니다.",
+    imageUrl: "https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=900&q=80",
+    treatmentItems: "시력교정, 안구건조, 정밀검사",
     searchKeywords: ["강남 안과", "강남역 안과", "서초 안과", "eye clinic gangnam"],
   },
   {
@@ -110,6 +119,9 @@ export const demoHospitals: HospitalItem[] = [
     sourceName: "Demo Review Source",
     sourceUrl: "https://example.com/filtory/demo/dental-001",
     homepageUrl: "https://example.com/filtory/demo/dental-001/home",
+    description: "치료 비용 설명, 과잉 진료 우려, 재방문 후기 등을 비교할 수 있는 치과 데모 병원입니다.",
+    imageUrl: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?auto=format&fit=crop&w=900&q=80",
+    treatmentItems: "스케일링, 임플란트, 교정, 충치치료",
     searchKeywords: ["강남 치과", "마포 치과", "홍대입구 치과", "dental clinic seoul"],
   },
   {
@@ -139,6 +151,9 @@ export const demoHospitals: HospitalItem[] = [
   },
 ]
 
+// Sample hospitals are available only when an explicit local demo flag is enabled.
+const demoEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_MOCK === "true"
+
 const sharedReviews = {
   derma: [
     "상담 때 피부 상태를 자세히 봐주고 시술 후 관리 방법을 구체적으로 설명해줬어요.",
@@ -167,6 +182,7 @@ export function getRegionLabel(region: HospitalRegionCode | string, language: La
 }
 
 export function getDemoReviewsForHospital(hospital: HospitalItem): HospitalReviewItem[] {
+  if (!demoEnabled) return []
   const contents = [
     ...sharedReviews[hospital.category],
     "접수 과정은 빠른 편이었고 직원 안내가 친절했습니다.",
@@ -178,12 +194,34 @@ export function getDemoReviewsForHospital(hospital: HospitalItem): HospitalRevie
     hospitalId: hospital.id,
     rating: index === 2 ? 3 : 4 + (index % 2),
     content,
+    memberId: index % 2 === 0 ? "demo-member" : undefined,
+    visitDate: `2026-06-${String(12 - index).padStart(2, "0")}`,
     createdAt: `2026-06-${String(18 - index).padStart(2, "0")}`,
     sourceName: hospital.sourceName,
     sourceUrl: hospital.sourceUrl,
     trustSignal: index === 2 ? "medium" : "high",
     adSuspicion: index === 2 ? "medium" : "low",
+    images: index === 0 && hospital.imageUrl
+      ? [{ id: `${hospital.id}-image-1`, reviewId: `${hospital.id}-review-${index + 1}`, imageUrl: hospital.imageUrl, altText: hospital.name }]
+      : [],
+    comments: [
+      {
+        id: `${hospital.id}-comment-${index + 1}-1`,
+        reviewId: `${hospital.id}-review-${index + 1}`,
+        authorName: "Filtory",
+        content: index === 2 ? "반복되는 이벤트 문구는 분석 시 주의 지표로 참고해주세요." : "구체적인 방문 경험이 포함되어 참고하기 좋아요.",
+        likeCount: index + 1,
+        dislikeCount: index === 2 ? 1 : 0,
+        createdAt: `2026-06-${String(17 - index).padStart(2, "0")}`,
+        replies: [],
+      },
+    ],
   }))
+}
+
+export function getDemoHospitalById(id: string) {
+  if (!demoEnabled) return undefined
+  return demoHospitals.find((hospital) => hospital.id === id)
 }
 
 export function searchDemoHospitals({
@@ -195,6 +233,7 @@ export function searchDemoHospitals({
   region?: HospitalRegionCode
   query: string
 }) {
+  if (!demoEnabled) return []
   const normalizedQuery = query.trim().toLowerCase()
   const regionLabel = hospitalRegions.find((item) => item.code === region)
   const regionTerms = [regionLabel?.ko, regionLabel?.en, region].filter(Boolean).map((value) => String(value).toLowerCase())

@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import type { TermsAgreementState } from "@/lib/types";
 import { memberService } from "@/services/memberService";
+import { PasswordField } from "./PasswordField";
 import { TermsAgreement } from "./TermsAgreement";
 import styles from "@/styles/App.module.css";
 
@@ -19,6 +20,7 @@ export function SignupForm() {
   const { t } = useLanguage();
 
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [nicknameCheck, setNicknameCheck] = useState<"idle" | "available" | "unavailable">("idle");
@@ -42,6 +44,8 @@ export function SignupForm() {
     nicknameValidation.valid &&
     passwordValidation.valid &&
     passwordsMatch &&
+    Boolean(name.trim()) &&
+    Boolean(phone.trim()) &&
     !isSubmitting;
 
   function isValidEmail(value: string) {
@@ -52,7 +56,7 @@ export function SignupForm() {
     event.preventDefault();
     setError("");
 
-    if (!name || !email || !nickname || !password || !passwordConfirm) {
+    if (!name || !phone || !email || !nickname || !password || !passwordConfirm) {
       setError(t.auth.requiredFields);
       return;
     }
@@ -92,6 +96,7 @@ export function SignupForm() {
 
       await signup({
         name,
+        phone,
         email,
         password,
         nickname,
@@ -154,6 +159,20 @@ export function SignupForm() {
         />
       </label>
 
+      <label className={styles.label} htmlFor="signup-phone">
+        {t.auth.phone}
+        <input
+          id="signup-phone"
+          className={styles.input}
+          type="tel"
+          inputMode="tel"
+          placeholder={t.auth.phonePlaceholder}
+          value={phone}
+          autoComplete="tel"
+          onChange={(event) => setPhone(event.target.value)}
+        />
+      </label>
+
       <label className={styles.label} htmlFor="signup-nickname">
         {t.auth.id}
         <div className={styles.inlineField}>
@@ -178,43 +197,43 @@ export function SignupForm() {
         {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
 
-      <label className={styles.label} htmlFor="signup-password">
-        {t.auth.password}
-        <input
+      <div className={styles.label}>
+        <PasswordField
           id="signup-password"
-          className={styles.input}
-          type="password"
+          label={t.auth.password}
           placeholder={t.auth.passwordPlaceholder}
           value={password}
           minLength={8}
           autoComplete="new-password"
-          onChange={(event) => setPassword(event.target.value)}
+          showLabel={t.auth.showPassword}
+          hideLabel={t.auth.hidePassword}
+          onChange={setPassword}
         />
         {password && (
           <span className={passwordValidation.valid ? styles.formHintSuccess : styles.formHintError}>
             {passwordValidation.message}
           </span>
         )}
-      </label>
+      </div>
 
-      <label className={styles.label} htmlFor="signup-password-confirm">
-        {t.auth.passwordConfirm}
-        <input
+      <div className={styles.label}>
+        <PasswordField
           id="signup-password-confirm"
-          className={styles.input}
-          type="password"
+          label={t.auth.passwordConfirm}
           placeholder={t.auth.passwordConfirmPlaceholder}
           value={passwordConfirm}
           minLength={8}
           autoComplete="new-password"
-          onChange={(event) => setPasswordConfirm(event.target.value)}
+          showLabel={t.auth.showPassword}
+          hideLabel={t.auth.hidePassword}
+          onChange={setPasswordConfirm}
         />
         {passwordConfirm && (
           <span className={passwordsMatch ? styles.formHintSuccess : styles.formHintError}>
             {passwordsMatch ? t.auth.passwordMatch : t.auth.passwordMismatch}
           </span>
         )}
-      </label>
+      </div>
 
       <TermsAgreement value={terms} onChange={setTerms} />
 

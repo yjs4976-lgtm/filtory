@@ -73,6 +73,16 @@ def find_member_emails():
         return error_response(str(e), 400)
 
 
+@member_bp.route("/find-id", methods=["POST"])
+def find_member_id():
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        return success_response(MemberService.find_member_id(payload))
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @member_bp.route("/password-reset/request", methods=["POST"])
 def request_password_reset():
     payload = request.get_json(silent=True) or {}

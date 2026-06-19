@@ -5,6 +5,7 @@ import { CalendarDays, UserRound } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/lib/routes";
+import { ChatbotIconButton } from "@/components/common/ChatbotIconButton";
 import styles from "@/styles/App.module.css";
 
 function maskEmail(email?: string) {
@@ -31,7 +32,7 @@ function formatDate(value?: string, locale: string = "ko-KR") {
   });
 }
 
-export function MyPageUserCard() {
+export function MyPageUserCard({ onChatbotToggle, isChatbotOpen }: { onChatbotToggle: () => void; isChatbotOpen: boolean }) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
 
@@ -66,6 +67,9 @@ export function MyPageUserCard() {
             {realName} · {maskedEmail}
           </p>
         </div>
+        <span className={styles.profileChatbotButton}>
+          <ChatbotIconButton onClick={onChatbotToggle} expanded={isChatbotOpen} />
+        </span>
       </div>
 
       <div className={styles.memberInfoPill}>

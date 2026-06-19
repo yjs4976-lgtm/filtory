@@ -7,6 +7,7 @@ MEMBER_FIELDS = {
     "password_hash",
     "nickname",
     "real_name",
+    "phone",
     "profile_img_url",
     "role",
     "active",
@@ -38,6 +39,7 @@ def member_to_dict(member, include_private=False):
         "email": member.email,
         "nickname": member.nickname,
         "real_name": member.real_name,
+        "phone": member.phone,
         "profile_img_url": member.profile_img_url,
         "role": member.role,
         "active": member.active,
@@ -69,5 +71,8 @@ def extract_member_data(payload, include_private=False):
 
     if "role" in data and isinstance(data["role"], str):
         data["role"] = data["role"].lower()
+
+    if "phone" in data and data["phone"] is not None:
+        data["phone"] = "".join(character for character in str(data["phone"]) if character.isdigit())
 
     return data

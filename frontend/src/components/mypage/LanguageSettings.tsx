@@ -8,7 +8,7 @@ export function LanguageSettings() {
 
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>언어 설정</h2>
+      <h2 className={styles.titleSm}>{t.mypage.languageTitle}</h2>
       <div className={styles.segmented}>
         <button
           type="button"

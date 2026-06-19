@@ -1,5 +1,6 @@
 export const ROUTES = {
   HOME: "/",
+  ABOUT: "/about",
   LOGIN: "/login",
   SIGNUP: "/signup",
   FIND_ID: "/find-id",
@@ -26,10 +27,14 @@ export const ROUTES = {
   MYPAGE_INSIGHTS: "/mypage/insights",
   MYPAGE_DATA: "/mypage/data",
   MYPAGE_WITHDRAWAL: "/mypage/withdrawal",
+  MYPAGE_TERMS: "/mypage/terms",
+  MYPAGE_PRIVACY: "/mypage/privacy",
+  MYPAGE_VERSION: "/mypage/app-version",
 
   ADMIN: "/admin",
   ADMIN_USERS: "/admin/users",
   ADMIN_REVIEWS: "/admin/reviews",
   ADMIN_REPORTS: "/admin/reports",
   ADMIN_HOSPITALS: "/admin/hospitals",
+  HOSPITAL_DETAIL: "/hospitals",
 } as const;

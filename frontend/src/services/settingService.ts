@@ -1,17 +1,21 @@
 import type { NotificationSettings } from "@/lib/types"
-import { mockNotificationSettings } from "./memberMockData"
 
+// Kept as a compatibility type for the dormant component; no theme selector is rendered.
 export type AppTheme = "system" | "light" | "dark"
-
 export type AppSettingsPayload = NotificationSettings & {
   language: "ko" | "en"
-  theme: AppTheme
 }
 
 export const settingService = {
   async getNotificationSettings(): Promise<NotificationSettings> {
     // TODO: 실제 설정 API가 준비되면 /api/member/settings로 교체합니다.
-    return mockNotificationSettings
+    return {
+      analysisCompleted: true,
+      reportResult: true,
+      savedHospitalUpdated: true,
+      securityAlert: true,
+      marketing: false,
+    }
   },
 
   async saveSettings(payload: AppSettingsPayload) {

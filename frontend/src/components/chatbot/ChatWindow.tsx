@@ -11,6 +11,7 @@ export function ChatWindow() {
   const { t } = useLanguage()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
+  const [isResponding, setIsResponding] = useState(false)
   const endRef = useRef(null)
   const nextMessageId = useRef(1)
   const visibleMessages = [{ id: 0, role: "ai", text: t.chatbot.greeting }, ...messages]
@@ -27,14 +28,19 @@ export function ChatWindow() {
     return t.chatbot.answers.default
   }
 
-  function send(text) {
+  async function send(text) {
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed || isResponding) return
     const userMsg = { id: nextMessageId.current, role: "user", text: trimmed }
-    const aiMsg = { id: nextMessageId.current + 1, role: "ai", text: answerFor(trimmed) }
-    nextMessageId.current += 2
-    setMessages((prev) => [...prev, userMsg, aiMsg])
+    nextMessageId.current += 1
+    setMessages((prev) => [...prev, userMsg])
     setInput("")
+    setIsResponding(true)
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    const aiMsg = { id: nextMessageId.current, role: "ai", text: `${answerFor(trimmed)} ${t.chatbot.reference}` }
+    nextMessageId.current += 1
+    setMessages((prev) => [...prev, aiMsg])
+    setIsResponding(false)
   }
 
   return (
@@ -43,6 +49,7 @@ export function ChatWindow() {
         {visibleMessages.map((message) => (
           <ChatBubble key={message.id} role={message.role} text={message.text} />
         ))}
+        {isResponding && <ChatBubble role="ai" text={t.chatbot.loading} />}
         <div ref={endRef} />
       </div>
 

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { NotificationItem } from "@/lib/types"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface NotificationCardProps {
@@ -7,10 +8,11 @@ interface NotificationCardProps {
 }
 
 export function NotificationCard({ item }: NotificationCardProps) {
+  const { t } = useLanguage()
   const content = (
     <>
       <span className={item.isRead ? styles.neutralPill : styles.connectedPill}>
-        {item.isRead ? "읽음" : "안 읽음"}
+        {item.isRead ? t.mypage.read : t.mypage.unread}
       </span>
       <span className={styles.recordBody}>
         <strong className={styles.recordName}>{item.title}</strong>

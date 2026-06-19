@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, FileText, Languages, LogOut, Moon, Shield } from "lucide-react"
+import { Bell, ChevronRight, Database, FileText, Languages, LogOut, Shield } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
@@ -15,11 +16,11 @@ export function AppSettingsSection() {
   const { showToast } = useToast()
 
   const settings = [
-    { label: t.mypage.notificationTitle, description: t.mypage.notificationDesc, icon: Bell },
-    { label: t.mypage.displayTitle, description: t.mypage.displayDesc, icon: Moon },
-    { label: t.mypage.terms, description: "Filtory", icon: FileText },
-    { label: t.mypage.privacy, description: "Filtory", icon: Shield },
-    { label: t.mypage.version, description: "v0.1.0", icon: FileText },
+    { href: ROUTES.MYPAGE_SETTINGS, label: t.mypage.notificationTitle, description: t.mypage.notificationDesc, icon: Bell },
+    { href: ROUTES.MYPAGE_TERMS, label: t.mypage.terms, description: "Filtory", icon: FileText },
+    { href: ROUTES.MYPAGE_PRIVACY, label: t.mypage.privacy, description: "Filtory", icon: Shield },
+    { href: ROUTES.MYPAGE_VERSION, label: t.mypage.version, description: "v0.1.0", icon: FileText },
+    { href: ROUTES.MYPAGE_DATA, label: t.mypage.menu.data, description: t.mypage.menu.dataDesc, icon: Database },
   ]
 
   const handleLogout = async () => {
@@ -63,8 +64,8 @@ export function AppSettingsSection() {
         </div>
       </div>
       <div className={styles.recordList}>
-        {settings.map(({ label, description, icon: Icon }) => (
-          <article key={label} className={styles.recordButton}>
+        {settings.map(({ href, label, description, icon: Icon }) => href ? (
+          <Link key={label} href={`${href}?fromPage=5`} className={styles.recordButton}>
             <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}>
               <Icon className={styles.iconSm} />
             </span>
@@ -72,6 +73,12 @@ export function AppSettingsSection() {
               <span className={styles.recordName}>{label}</span>
               <span className={styles.recordDate}>{description}</span>
             </span>
+            <ChevronRight className={styles.iconSm} aria-hidden="true" />
+          </Link>
+        ) : (
+          <article key={label} className={styles.recordButton}>
+            <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}><Icon className={styles.iconSm} /></span>
+            <span className={styles.recordBody}><span className={styles.recordName}>{label}</span><span className={styles.recordDate}>{description}</span></span>
           </article>
         ))}
       </div>

@@ -18,16 +18,11 @@ type BackendSignupPayload = {
   password: string;
   nickname: string;
   real_name: string;
+  phone: string;
   termsAgreed: boolean;
   privacyAgreed: boolean;
   marketingAgreed?: boolean;
 };
-
-type BackendFindIdResponse = Array<{
-  id: number | string;
-  email: string;
-  created_at?: string | null;
-}>;
 
 function createMockUser(email: string, nickname = "필터리 사용자", name = nickname): User {
   return {
@@ -116,6 +111,7 @@ export const authService = {
       email: payload.email,
       password: payload.password,
       name: payload.name,
+      phone: payload.phone,
       nickname: payload.nickname ?? payload.name ?? "",
       termsAgreed: payload.termsAgreed,
       privacyAgreed: payload.privacyAgreed,
@@ -151,18 +147,13 @@ export const authService = {
   },
 
   findId(payload: FindIdRequest) {
-    return apiClient<BackendFindIdResponse>("/api/members/find-email", {
+    return apiClient<FindIdResponse>("/api/members/find-id", {
       method: "POST",
       body: {
         real_name: payload.name,
-        nickname: payload.nickname,
+        phone: payload.phone,
       },
-    }).then((result) => ({
-      ...result,
-      data: {
-        email: result.data[0]?.email ?? "",
-      } satisfies FindIdResponse,
-    }));
+    })
   },
 
   forgotPassword(payload: ForgotPasswordRequest) {
@@ -196,6 +187,7 @@ function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
     password: payload.password,
     nickname: payload.nickname,
     real_name: payload.name,
+    phone: payload.phone,
     termsAgreed: payload.termsAgreed,
     privacyAgreed: payload.privacyAgreed,
     marketingAgreed: payload.marketingAgreed,

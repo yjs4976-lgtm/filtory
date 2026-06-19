@@ -1,10 +1,9 @@
 import type { LoginHistory, SocialProvider } from "@/lib/types"
-import { mockLoginHistory } from "./memberMockData"
 
 export const securityService = {
   async getLoginHistory(): Promise<LoginHistory[]> {
     // TODO: 실제 로그인 기록 API가 준비되면 /api/member/security/login-history로 교체합니다.
-    return mockLoginHistory
+    return []
   },
 
   async changePassword(currentPassword: string, newPassword: string) {

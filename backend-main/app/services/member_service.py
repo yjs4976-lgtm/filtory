@@ -111,6 +111,21 @@ class MemberService:
         ]
 
     @staticmethod
+    def find_member_id(payload):
+        real_name = (payload.get("real_name") or payload.get("name") or "").strip()
+        phone = _normalize_phone(payload.get("phone"))
+
+        if not real_name or not phone:
+            raise ValueError("name and phone are required")
+
+        member = MemberRepository.get_active_by_name_and_phone(real_name, phone)
+        if not member or not member.email:
+            raise ValueError("No matching member found")
+
+        # Filtory uses email as the login identifier. Never return a password or an unmasked identifier.
+        return {"id": _mask_identifier(member.email)}
+
+    @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
         email = payload.get("email")
         if not email:
@@ -268,3 +283,14 @@ def _mask_email(email):
         masked_local = local_part[:2] + "*" * (len(local_part) - 2)
 
     return f"{masked_local}@{domain}"
+
+
+def _normalize_phone(phone):
+    return "".join(character for character in str(phone or "") if character.isdigit())
+
+
+def _mask_identifier(identifier):
+    local_part = identifier.split("@", 1)[0]
+    if len(local_part) <= 3:
+        return f"{local_part[:1]}***"
+    return f"{local_part[:3]}***"

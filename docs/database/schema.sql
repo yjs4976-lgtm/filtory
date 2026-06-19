@@ -17,6 +17,7 @@ create table if not exists public.members (
 
   nickname varchar(100),
   real_name varchar(100),
+  phone varchar(50),
   profile_img_url text,
 
   role varchar(30) not null default 'user',

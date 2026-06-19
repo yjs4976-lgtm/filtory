@@ -1,42 +1,26 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import {
   Bell,
   ChevronRight,
-  Database,
-  FileText,
-  GitCompareArrows,
-  HeartPulse,
   KeyRound,
-  Settings,
   ShieldCheck,
   Sparkles,
   UserPen,
   UsersRound,
 } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
-import type { User } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
-interface AccountManageMenuProps {
-  user: User | null
-}
-
-export function AccountManageMenu({ user }: AccountManageMenuProps) {
+export function AccountManageMenu() {
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
+  const fromPage = searchParams.get("page") ?? "4"
+  const withFromPage = (href: string) => `${href}${href.includes("?") ? "&" : "?"}fromPage=${fromPage}`
   const menuGroups = [
-    {
-      title: t.mypage.menuGroupActivity,
-      items: [
-        { href: ROUTES.MYPAGE_HISTORY, label: t.mypage.menu.history, description: t.mypage.menu.historyDesc, icon: FileText },
-        { href: ROUTES.MYPAGE_SAVED, label: t.mypage.menu.saved, description: t.mypage.menu.savedDesc, icon: HeartPulse },
-        { href: ROUTES.MYPAGE_COMPARE, label: t.mypage.menu.compare, description: t.mypage.menu.compareDesc, icon: GitCompareArrows },
-        { href: ROUTES.MYPAGE_RECENT, label: t.mypage.menu.recent, description: t.mypage.menu.recentDesc, icon: FileText },
-        { href: ROUTES.MYPAGE_REPORTS, label: t.mypage.menu.reports, description: t.mypage.menu.reportsDesc, icon: ShieldCheck },
-      ],
-    },
     {
       title: t.mypage.menuGroupNotifications,
       items: [
@@ -46,21 +30,15 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
           description: t.mypage.menu.notificationsDesc,
           icon: Bell,
         },
-        {
-          href: ROUTES.MYPAGE_SETTINGS,
-          label: t.mypage.menu.notificationSettings,
-          description: t.mypage.menu.notificationSettingsDesc,
-          icon: Settings,
-        },
       ],
     },
     {
       title: t.mypage.accountManagement,
       items: [
         { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.menu.profile, description: t.mypage.menu.profileDesc, icon: UserPen },
-        { href: ROUTES.MYPAGE_SECURITY, label: t.mypage.menu.password, description: t.mypage.menu.passwordDesc, icon: KeyRound },
-        { href: ROUTES.MYPAGE_SECURITY, label: t.mypage.menu.social, description: t.mypage.menu.socialDesc, icon: UsersRound },
-        { href: ROUTES.MYPAGE_SECURITY, label: t.mypage.menu.security, description: t.mypage.menu.securityDesc, icon: ShieldCheck },
+        { href: `${ROUTES.MYPAGE_SECURITY}?section=password`, label: t.mypage.menu.password, description: t.mypage.menu.passwordDesc, icon: KeyRound },
+        { href: `${ROUTES.MYPAGE_SECURITY}?section=social`, label: t.mypage.menu.social, description: t.mypage.menu.socialDesc, icon: UsersRound },
+        { href: `${ROUTES.MYPAGE_SECURITY}?section=login`, label: t.mypage.menu.security, description: t.mypage.menu.securityDesc, icon: ShieldCheck },
       ],
     },
     {
@@ -75,24 +53,7 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
         },
       ],
     },
-    {
-      title: t.mypage.menuGroupSettings,
-      items: [
-        {
-          href: ROUTES.MYPAGE_SETTINGS,
-          label: t.mypage.menu.languageTheme,
-          description: t.mypage.menu.languageThemeDesc,
-          icon: Settings,
-        },
-        { href: ROUTES.MYPAGE_DATA, label: t.mypage.menu.data, description: t.mypage.menu.dataDesc, icon: Database },
-      ],
-    },
   ]
-  const providers = [
-    { key: "google", label: "Google" },
-    { key: "naver", label: "Naver" },
-    { key: "kakao", label: "Kakao" },
-  ] as const
 
   return (
     <section className={styles.stackSm}>
@@ -101,7 +62,7 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
           <h2 className={styles.titleSm}>{group.title}</h2>
           <div className={styles.recordList}>
             {group.items.map(({ href, label, description, icon: Icon }) => (
-              <Link key={`${group.title}-${label}`} href={href} className={styles.recordButton}>
+              <Link key={`${group.title}-${label}`} href={withFromPage(href)} className={styles.recordButton}>
                 <span className={`${styles.iconBoxSmall} ${styles.iconLavender}`}>
                   <Icon className={styles.iconMd} />
                 </span>
@@ -115,16 +76,6 @@ export function AccountManageMenu({ user }: AccountManageMenuProps) {
           </div>
         </div>
       ))}
-      <div className={`${styles.softCard} ${styles.socialProviderGrid}`}>
-        {providers.map((provider) => {
-          const connected = Boolean(user?.socialProviders?.[provider.key])
-          return (
-            <span key={provider.key} className={connected ? styles.connectedPill : styles.neutralPill}>
-              {provider.label} {connected ? t.mypage.connected : t.mypage.notConnected}
-            </span>
-          )
-        })}
-      </div>
     </section>
   )
 }

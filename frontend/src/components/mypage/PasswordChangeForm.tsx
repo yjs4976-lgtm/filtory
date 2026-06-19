@@ -2,9 +2,11 @@
 
 import { useState } from "react"
 import { securityService } from "@/services/securityService"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export function PasswordChangeForm() {
+  const { t } = useLanguage()
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -17,15 +19,15 @@ export function PasswordChangeForm() {
     setError("")
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("비밀번호를 모두 입력해주세요.")
+      setError(t.mypage.passwordChangeRequired)
       return
     }
     if (newPassword.length < 8) {
-      setError("새 비밀번호는 8자 이상이어야 해요.")
+      setError(t.mypage.passwordMinLength)
       return
     }
     if (newPassword !== confirmPassword) {
-      setError("새 비밀번호가 서로 다릅니다.")
+      setError(t.mypage.passwordMismatch)
       return
     }
 
@@ -33,28 +35,28 @@ export function PasswordChangeForm() {
     setCurrentPassword("")
     setNewPassword("")
     setConfirmPassword("")
-    setMessage("비밀번호가 변경되었어요.")
+    setMessage(t.mypage.passwordChanged)
   }
 
   return (
     <form className={`${styles.card} ${styles.stackSm}`} onSubmit={handleSubmit}>
-      <h2 className={styles.titleSm}>비밀번호 변경</h2>
+      <h2 className={styles.titleSm}>{t.mypage.passwordSection}</h2>
       {message && <p className={styles.formSuccess}>{message}</p>}
       {error && <p className={styles.formError}>{error}</p>}
       <label className={styles.label}>
-        현재 비밀번호
+        {t.mypage.currentPassword}
         <input className={styles.input} type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
       </label>
       <label className={styles.label}>
-        새 비밀번호
+        {t.mypage.newPassword}
         <input className={styles.input} type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
       </label>
       <label className={styles.label}>
-        새 비밀번호 확인
+        {t.mypage.newPasswordConfirm}
         <input className={styles.input} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
       </label>
       <button type="submit" className={styles.primaryButton}>
-        비밀번호 변경
+        {t.mypage.passwordSection}
       </button>
     </form>
   )
