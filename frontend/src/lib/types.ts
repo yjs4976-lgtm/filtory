@@ -196,6 +196,7 @@ export interface UpdateProfilePayload {
 
 export interface WithdrawPayload {
   password: string
+  reason?: string
 }
 
 export interface TermsAgreementState {

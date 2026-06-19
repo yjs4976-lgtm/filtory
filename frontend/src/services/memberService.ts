@@ -82,11 +82,11 @@ export const memberService = {
     }
   },
 
-  async withdrawUser(userId: User["id"], password: string) {
+  async withdrawUser(userId: User["id"], password: string, reason?: string) {
     try {
       return await apiClient<null>(getMemberPath(userId), {
         method: "DELETE",
-        body: { password } satisfies WithdrawPayload,
+        body: { password, reason } satisfies WithdrawPayload,
         auth: true,
       });
     } catch {
@@ -112,7 +112,7 @@ export const memberService = {
   },
 
   withdrawal(userId: User["id"], payload: WithdrawalRequest) {
-    return this.withdrawUser(userId, payload.password ?? "");
+    return this.withdrawUser(userId, payload.password ?? "", payload.reason);
   },
 };
 
