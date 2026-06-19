@@ -1,8 +1,8 @@
-import type { UserInsight } from "@/lib/types"
-import styles from "@/styles/App.module.css"
+import type { UserInsight } from "@/lib/types";
+import styles from "@/styles/App.module.css";
 
 interface UserPreferenceSummaryProps {
-  insight: UserInsight
+  insight: UserInsight;
 }
 
 export function UserPreferenceSummary({ insight }: UserPreferenceSummaryProps) {
@@ -16,7 +16,9 @@ export function UserPreferenceSummary({ insight }: UserPreferenceSummaryProps) {
           </span>
         ))}
       </div>
-      <p className={styles.bodyText}>정화님은 광고 의심도가 낮은 병원을 주로 저장했어요.</p>
+      <p className={styles.bodyText}>
+        최근 저장한 병원은 광고 의심도가 낮은 편이에요.
+      </p>
     </section>
-  )
+  );
 }

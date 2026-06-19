@@ -117,10 +117,15 @@ export const memberService = {
 };
 
 function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUpdateProfilePayload {
+  const profileImgUrl =
+    payload.profileImageUrl && payload.profileImageUrl.startsWith("blob:")
+      ? undefined
+      : payload.profileImageUrl
+
   return {
     real_name: payload.name,
     nickname: payload.nickname,
     password: payload.password,
-    profile_img_url: payload.profileImageUrl,
-  };
+    profile_img_url: profileImgUrl,
+  }
 }
