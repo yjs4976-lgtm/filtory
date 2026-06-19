@@ -73,6 +73,7 @@ def extract_member_data(payload, include_private=False):
         data["role"] = data["role"].lower()
 
     if "phone" in data and data["phone"] is not None:
-        data["phone"] = "".join(character for character in str(data["phone"]) if character.isdigit())
+        digits = "".join(character for character in str(data["phone"]) if character.isdigit())
+        data["phone"] = digits or None
 
     return data

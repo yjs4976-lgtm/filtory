@@ -123,7 +123,7 @@ class MemberService:
             raise ValueError("No matching member found")
 
         # Filtory uses email as the login identifier. Never return a password or an unmasked identifier.
-        return {"id": _mask_identifier(member.email)}
+        return {"id": _mask_email(member.email)}
 
     @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
@@ -287,10 +287,3 @@ def _mask_email(email):
 
 def _normalize_phone(phone):
     return "".join(character for character in str(phone or "") if character.isdigit())
-
-
-def _mask_identifier(identifier):
-    local_part = identifier.split("@", 1)[0]
-    if len(local_part) <= 3:
-        return f"{local_part[:1]}***"
-    return f"{local_part[:3]}***"
