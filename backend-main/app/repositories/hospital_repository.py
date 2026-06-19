@@ -1,3 +1,5 @@
+from sqlalchemy import or_
+
 from app.extensions import db
 from app.models import Hospital
 
@@ -40,7 +42,7 @@ class HospitalRepository:
         if keyword:
             pattern = f"%{keyword}%"
             query = query.filter(
-                db.or_(
+                or_(
                     Hospital.hospital_name.ilike(pattern),
                     Hospital.english_name.ilike(pattern),
                     Hospital.region.ilike(pattern),
