@@ -18,6 +18,7 @@ type BackendSignupPayload = {
   password: string;
   nickname: string;
   real_name: string;
+  phone: string;
   termsAgreed: boolean;
   privacyAgreed: boolean;
   marketingAgreed?: boolean;
@@ -107,7 +108,10 @@ export const authService = {
       return {
         success: true,
         message: "회원가입이 완료되었습니다.",
-        data: createMockUser(payload.email, payload.nickname, payload.name),
+        data: {
+          ...createMockUser(payload.email, payload.nickname, payload.name),
+          phone: payload.phone,
+        },
       };
     }
   },
@@ -118,6 +122,7 @@ export const authService = {
       password: payload.password,
       name: payload.name,
       nickname: payload.nickname ?? payload.name ?? "",
+      phone: payload.phone,
       termsAgreed: payload.termsAgreed,
       privacyAgreed: payload.privacyAgreed,
       marketingAgreed: payload.marketingAgreed,
@@ -197,6 +202,7 @@ function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
     password: payload.password,
     nickname: payload.nickname,
     real_name: payload.name,
+    phone: payload.phone,
     termsAgreed: payload.termsAgreed,
     privacyAgreed: payload.privacyAgreed,
     marketingAgreed: payload.marketingAgreed,

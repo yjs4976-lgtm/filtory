@@ -24,7 +24,7 @@ class AuthService:
         signup_payload = {
             key: value
             for key, value in payload.items()
-            if key not in {"phone", "phoneNumber"}
+            if key not in {"passwordConfirm"}
         }
 
         member = MemberService.create_member(signup_payload)

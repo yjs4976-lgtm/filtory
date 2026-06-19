@@ -141,6 +141,7 @@ export interface SignupPayload {
   email: string
   password: string
   nickname: string
+  phone: string
   termsAgreed: boolean
   privacyAgreed: boolean
   marketingAgreed?: boolean
