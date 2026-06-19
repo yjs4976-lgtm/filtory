@@ -148,7 +148,6 @@ export interface SignupPayload {
 
 export interface SignupRequest extends SignupPayload {
   passwordConfirm?: string
-  phone?: string
 }
 
 export interface LoginResponse {
@@ -157,7 +156,7 @@ export interface LoginResponse {
 
 export interface FindIdRequest {
   name?: string;
-  nickname?: string;
+  phone?: string;
 }
 
 export interface FindIdResponse {

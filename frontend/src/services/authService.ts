@@ -35,6 +35,7 @@ function createMockUser(email: string, nickname = "필터리 사용자", name = 
     email,
     nickname,
     name,
+    phone: undefined,
     role: "USER",
     status: "ACTIVE",
     provider: "local",
@@ -155,7 +156,7 @@ export const authService = {
       method: "POST",
       body: {
         real_name: payload.name,
-        nickname: payload.nickname,
+        phone: payload.phone,
       },
     }).then((result) => ({
       ...result,

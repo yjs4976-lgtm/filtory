@@ -10,7 +10,7 @@ import styles from "@/styles/App.module.css";
 export function FindIdForm() {
   const { t } = useLanguage();
   const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [phone, setPhone] = useState("");
   const [foundEmail, setFoundEmail] = useState("");
 
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export function FindIdForm() {
     setError("");
     setFoundEmail("");
 
-    if (!name && !nickname) {
+    if (!name || !phone) {
       setError(t.auth.findIdRequired);
       return;
     }
@@ -31,7 +31,7 @@ export function FindIdForm() {
 
       const result = await authService.findId({
         name,
-        nickname,
+        phone,
       });
 
       setFoundEmail(result.data.email || t.auth.noMatchingEmail);
@@ -65,13 +65,13 @@ export function FindIdForm() {
       </label>
 
       <label className={styles.label}>
-        {t.auth.nickname}
+        {t.auth.phone}
         <input
           className={styles.input}
-          type="text"
-          placeholder={t.auth.nicknamePlaceholder}
-          value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
+          type="tel"
+          placeholder={t.auth.phonePlaceholder}
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
         />
       </label>
 

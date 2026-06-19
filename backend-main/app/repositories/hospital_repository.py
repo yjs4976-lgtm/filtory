@@ -16,11 +16,14 @@ class HospitalRepository:
         return Hospital.query.filter(Hospital.google_place_id == google_place_id).first()
 
     @staticmethod
-    def list_by_category(category=None, limit=20, offset=0):
+    def list_by_category(category=None, region=None, limit=20, offset=0):
         query = Hospital.query
 
         if category:
             query = query.filter(Hospital.category == category)
+
+        if region:
+            query = query.filter(Hospital.region == region)
 
         return (
             query
@@ -31,7 +34,7 @@ class HospitalRepository:
         )
 
     @staticmethod
-    def search(keyword, category=None, limit=20, offset=0):
+    def search(keyword, category=None, region=None, limit=20, offset=0):
         query = Hospital.query
 
         if keyword:
@@ -40,12 +43,16 @@ class HospitalRepository:
                 db.or_(
                     Hospital.hospital_name.ilike(pattern),
                     Hospital.english_name.ilike(pattern),
+                    Hospital.region.ilike(pattern),
                     Hospital.address.ilike(pattern),
                 )
             )
 
         if category:
             query = query.filter(Hospital.category == category)
+
+        if region:
+            query = query.filter(Hospital.region == region)
 
         return (
             query

@@ -18,7 +18,16 @@ class AuthService:
         validate_email(payload["email"])
         validate_password(payload["password"])
 
-        member = MemberService.create_member(payload)
+        if payload.get("termsAgreed") is not True or payload.get("privacyAgreed") is not True:
+            raise ValueError("Required terms agreements are missing")
+
+        signup_payload = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"phone", "phoneNumber"}
+        }
+
+        member = MemberService.create_member(signup_payload)
         member_model = MemberRepository.get_by_id(member["id"])
 
         return {

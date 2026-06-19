@@ -36,6 +36,8 @@ export function SignupForm() {
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
   const canSubmit =
+    Boolean(name.trim()) &&
+    Boolean(email.trim()) &&
     terms.termsAgreed &&
     terms.privacyAgreed &&
     nicknameCheck === "available" &&
