@@ -1,13 +1,38 @@
 export type Language = "ko" | "en"
 export type HospitalCategory = "derma" | "eye" | "dental"
+export type HospitalRegionCode =
+  | "seoul"
+  | "gyeonggi"
+  | "incheon"
+  | "busan"
+  | "daegu"
+  | "daejeon"
+  | "gwangju"
+  | "ulsan"
+  | "sejong"
+  | "gangwon"
+  | "chungbuk"
+  | "chungnam"
+  | "jeonbuk"
+  | "jeonnam"
+  | "gyeongbuk"
+  | "gyeongnam"
+  | "jeju"
 export type UserRole = "USER" | "ADMIN"
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "DORMANT"
 export type SocialProvider = "google" | "naver" | "kakao"
 
 export type AnalysisHistoryItem = {
   id: string
+  userId?: string | number
   hospitalName: string
   category: HospitalCategory
+  hospitalCategory?: HospitalCategory | string
+  hospitalAddress?: string
+  hospitalInfo?: string
+  region?: string
+  sourceName?: string
+  sourceUrl?: string
   score: number
   foreignerFriendlyScore?: number
   createdAt: string
@@ -19,6 +44,45 @@ export type AnalysisHistoryItem = {
   infoCompletenessScore?: number
   globalAccessRating?: number
   reviewCount?: number
+  selectedReviewCount?: number
+  totalReviewCount?: number
+  repetitivePatternLevel?: "low" | "medium" | "high"
+  concreteExperienceLevel?: "low" | "medium" | "high"
+  positiveRatio?: number
+  negativeRatio?: number
+  summary?: string
+  suspiciousPhrases?: string[]
+  trustworthyPhrases?: string[]
+  detectedReasons?: string[]
+  foreignAccessibilityStars?: number
+  resultStatus?: "completed" | "pending" | "failed" | string
+}
+
+export type HospitalItem = {
+  id: string
+  name: string
+  category: HospitalCategory
+  region: HospitalRegionCode
+  address: string
+  phone?: string
+  reviewCount?: number
+  sourceName?: string
+  sourceUrl?: string
+  mapUrl?: string
+  homepageUrl?: string
+  searchKeywords?: string[]
+}
+
+export type HospitalReviewItem = {
+  id: string
+  hospitalId: string
+  rating?: number
+  content: string
+  createdAt?: string
+  sourceName?: string
+  sourceUrl?: string
+  trustSignal?: "high" | "medium" | "low"
+  adSuspicion?: "low" | "medium" | "high"
 }
 
 export type ForeignerFriendlyCheck = {
@@ -132,6 +196,7 @@ export interface UpdateProfilePayload {
 
 export interface WithdrawPayload {
   password: string
+  reason?: string
 }
 
 export interface TermsAgreementState {

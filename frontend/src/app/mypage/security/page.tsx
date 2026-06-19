@@ -8,6 +8,7 @@ import { AccountSecurityCard } from "@/components/mypage/AccountSecurityCard"
 import { LoginHistoryList } from "@/components/mypage/LoginHistoryList"
 import { PasswordChangeForm } from "@/components/mypage/PasswordChangeForm"
 import { SocialProviderList } from "@/components/mypage/SocialProviderList"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import type { LoginHistory } from "@/lib/types"
 import { securityService } from "@/services/securityService"
@@ -15,6 +16,7 @@ import styles from "@/styles/App.module.css"
 
 export default function MySecurityPage() {
   const { user, logout } = useAuth()
+  const { t } = useLanguage()
   const [history, setHistory] = useState<LoginHistory[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -31,7 +33,7 @@ export default function MySecurityPage() {
   }, [])
 
   const handleLogoutAllDevices = async () => {
-    const ok = window.confirm("모든 기기에서 로그아웃할까요?")
+    const ok = window.confirm(t.mypage.logoutAllDevicesConfirm)
     if (!ok) return
     await securityService.logoutAllDevices()
     await logout()
@@ -39,17 +41,17 @@ export default function MySecurityPage() {
 
   return (
     <ProtectedRoute>
-      <AppShell title="계정 보안" showBack>
+      <AppShell title={t.mypage.securityPageTitle} showBack>
         <section className={styles.stackSm}>
-          <h1 className={styles.titleLg}>계정 보안</h1>
-          <p className={styles.bodyText}>로그인 방식, 연결된 계정, 비밀번호를 안전하게 관리해요.</p>
+          <h1 className={styles.titleLg}>{t.mypage.securityPageTitle}</h1>
+          <p className={styles.bodyText}>{t.mypage.securityPageDescription}</p>
         </section>
         <AccountSecurityCard user={user} />
         <SocialProviderList user={user} />
         <PasswordChangeForm />
-        {isLoading ? <LoadingSpinner label="로그인 기록을 불러오고 있어요." /> : <LoginHistoryList items={history} />}
+        {isLoading ? <LoadingSpinner label={t.mypage.loadingLoginHistory} /> : <LoginHistoryList items={history} />}
         <button type="button" className={styles.dangerButton} onClick={handleLogoutAllDevices}>
-          모든 기기에서 로그아웃
+          {t.mypage.logoutAllDevices}
         </button>
       </AppShell>
     </ProtectedRoute>

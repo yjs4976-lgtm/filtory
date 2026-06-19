@@ -11,11 +11,11 @@ interface RecentAnalysisPreviewProps {
   records: AnalysisHistoryItem[]
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, locale: string = "ko-KR") {
   if (!value) return ""
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString("ko-KR", {
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -30,13 +30,14 @@ function formatStars(score?: number) {
 
 export function RecentAnalysisPreview({ records }: RecentAnalysisPreviewProps) {
   const { t, language } = useLanguage()
+  const locale = language === "ko" ? "ko-KR" : "en-US"
   const recentRecords = records.slice(0, 3)
 
   return (
     <section className={styles.stackSm}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.titleSm}>{t.mypage.recentReports}</h2>
-        <Link href={ROUTES.HISTORY} className={styles.seeAllButton}>
+        <Link href={ROUTES.MYPAGE_HISTORY} className={styles.seeAllButton}>
           {t.mypage.viewAllHistory}
           <ChevronRight className={styles.iconSm} />
         </Link>
@@ -66,13 +67,13 @@ export function RecentAnalysisPreview({ records }: RecentAnalysisPreviewProps) {
                 <strong className={styles.recordName}>{item.hospitalName}</strong>
                 <span className={styles.recordDate}>
                   {t.mypage.averageTrust} {item.score}
-                  {t.mypage.pointsSuffix} · {formatDate(item.createdAt)}
+                  {t.mypage.pointsSuffix} · {formatDate(item.createdAt, locale)}
                 </span>
                 {item.foreignerFriendlyScore !== undefined && (
                   <span className={styles.recordMeta}>
                     {t.mypage.foreignerFriendliness} {formatStars(item.foreignerFriendlyScore)}{" "}
                     {item.foreignerFriendlyScore}
-                    {language === "en" ? " pts" : "점"}
+                    {t.mypage.pointsSuffix}
                   </span>
                 )}
               </span>

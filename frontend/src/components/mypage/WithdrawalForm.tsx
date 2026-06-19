@@ -11,6 +11,8 @@ import { WithdrawalConfirmModal } from "./WithdrawalConfirmModal"
 import { WithdrawalReasonSelect } from "./WithdrawalReasonSelect"
 import styles from "@/styles/App.module.css"
 
+const OTHER_REASON = "기타"
+
 export function WithdrawalForm() {
   const router = useRouter()
   const { t } = useLanguage()
@@ -19,11 +21,13 @@ export function WithdrawalForm() {
   const [password, setPassword] = useState("")
   const [reason, setReason] = useState("")
   const [confirmText, setConfirmText] = useState("")
+  const [otherReason, setOtherReason] = useState("")
   const [checked, setChecked] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const canWithdraw = password.length > 0 && reason.length > 0 && confirmText === "탈퇴합니다" && checked && !isSubmitting
+  const withdrawalReason = reason === OTHER_REASON ? otherReason.trim() : reason
+  const canWithdraw = password.length > 0 && withdrawalReason.length > 0 && confirmText === "탈퇴합니다" && checked && !isSubmitting
 
   const handleWithdrawal = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -45,8 +49,7 @@ export function WithdrawalForm() {
       }
 
       setIsSubmitting(true)
-      // TODO: 탈퇴 사유를 받는 백엔드 API가 준비되면 reason도 함께 전달합니다.
-      await memberService.withdrawUser(user.id, password)
+      await memberService.withdrawUser(user.id, password, withdrawalReason)
       showToast({
         title: t.mypage.withdrawalToast,
         tone: "success",
@@ -80,6 +83,19 @@ export function WithdrawalForm() {
       </div>
 
       <WithdrawalReasonSelect value={reason} onChange={setReason} />
+
+      {reason === OTHER_REASON && (
+        <label className={styles.label} htmlFor="withdraw-other-reason">
+          기타 사유
+          <textarea
+            id="withdraw-other-reason"
+            className={styles.textarea}
+            placeholder="탈퇴 사유를 입력해주세요."
+            value={otherReason}
+            onChange={(event) => setOtherReason(event.target.value)}
+          />
+        </label>
+      )}
 
       {error && <p className={styles.formError}>{error}</p>}
 

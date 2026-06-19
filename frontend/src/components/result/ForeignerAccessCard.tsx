@@ -1,5 +1,10 @@
+"use client"
+
 import { ScoreCard } from "./ScoreCard"
+import { useLanguage } from "@/context/LanguageContext"
 
 export function ForeignerAccessCard() {
-  return <ScoreCard label="외국인 접근성" score={72} />
+  const { t } = useLanguage()
+
+  return <ScoreCard label={t.result.foreignerScore} score={72} />
 }

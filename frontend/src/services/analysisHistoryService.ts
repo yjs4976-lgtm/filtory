@@ -1,8 +1,13 @@
 import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
-import { mockAnalysisHistory } from "./memberMockData"
+import {
+  deleteAnalysisHistoryItem,
+  readAnalysisHistory,
+  saveAnalysisHistoryItem,
+} from "@/lib/analysisStorage"
+import { getTrustLevelKey, type TrustLevelKey } from "@/lib/score"
 
 export type AnalysisHistorySort = "latest" | "trust" | "ad"
-export type TrustFilter = "all" | "high" | "medium" | "caution"
+export type TrustFilter = "all" | TrustLevelKey
 
 export type AnalysisHistoryFilters = {
   keyword?: string
@@ -13,9 +18,7 @@ export type AnalysisHistoryFilters = {
 
 function matchesTrust(item: AnalysisHistoryItem, trust: TrustFilter) {
   const score = item.trustScore ?? item.score
-  if (trust === "high") return score >= 85
-  if (trust === "medium") return score >= 70 && score < 85
-  if (trust === "caution") return score < 70
+  if (trust !== "all") return getTrustLevelKey(score) === trust
   return true
 }
 
@@ -27,7 +30,7 @@ export const analysisHistoryService = {
     const trust = filters.trust ?? "all"
     const sort = filters.sort ?? "latest"
 
-    const filtered = mockAnalysisHistory
+    return readAnalysisHistory()
       .filter((item) => !keyword || item.hospitalName.toLowerCase().includes(keyword))
       .filter((item) => category === "all" || item.category === category)
       .filter((item) => matchesTrust(item, trust))
@@ -36,12 +39,15 @@ export const analysisHistoryService = {
         if (sort === "ad") return (b.adSuspicionScore ?? 0) - (a.adSuspicionScore ?? 0)
         return String(b.analyzedAt ?? b.createdAt).localeCompare(String(a.analyzedAt ?? a.createdAt))
       })
+  },
 
-    return filtered
+  async saveAnalysisHistoryItem(item: AnalysisHistoryItem) {
+    return saveAnalysisHistoryItem(item)
   },
 
   async deleteAnalysisHistory(id: string) {
     // TODO: 실제 삭제 API 연결 시 DELETE /api/member/analysis-history/:id 호출로 교체합니다.
+    deleteAnalysisHistoryItem(id)
     return { success: true, deletedId: id }
   },
 }

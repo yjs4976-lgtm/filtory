@@ -1,13 +1,17 @@
+"use client"
+
 import { FileSearch, Globe2, ShieldCheck } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
-const features = [
-  { icon: ShieldCheck, title: "리뷰 신뢰도", description: "구체적인 경험과 반복 패턴을 함께 확인합니다." },
-  { icon: FileSearch, title: "플레이스 완성도", description: "병원 정보가 충분히 채워져 있는지 살펴봅니다." },
-  { icon: Globe2, title: "외국인 접근성", description: "영어 정보와 지도 접근성을 참고합니다." },
-]
-
 export function FeatureCards() {
+  const { t } = useLanguage()
+  const features = [
+    { icon: ShieldCheck, title: t.home.featureReviewTrust, description: t.home.featureReviewTrustDesc },
+    { icon: FileSearch, title: t.home.featurePlace, description: t.home.featurePlaceDesc },
+    { icon: Globe2, title: t.home.featureForeignerAccess, description: t.home.featureForeignerAccessDesc },
+  ]
+
   return (
     <section className={styles.stackSm}>
       {features.map(({ icon: Icon, title, description }) => (

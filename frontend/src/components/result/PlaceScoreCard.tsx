@@ -1,5 +1,10 @@
+"use client"
+
 import { ScoreCard } from "./ScoreCard"
+import { useLanguage } from "@/context/LanguageContext"
 
 export function PlaceScoreCard() {
-  return <ScoreCard label="플레이스 완성도" score={88} />
+  const { t } = useLanguage()
+
+  return <ScoreCard label={t.result.placeScore} score={88} />
 }

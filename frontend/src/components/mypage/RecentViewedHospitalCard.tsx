@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { Bookmark, Trash2 } from "lucide-react"
+import { Bookmark, ShieldCheck, Trash2 } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
+import { getTrustLevelByKey, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { RecentViewedHospital } from "@/lib/types"
-import { categoryLabels, formatStars } from "@/services/memberMockData"
+import { formatStars } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface RecentViewedHospitalCardProps {
@@ -14,29 +16,43 @@ interface RecentViewedHospitalCardProps {
 }
 
 export function RecentViewedHospitalCard({ hospital, onSave, onDelete }: RecentViewedHospitalCardProps) {
+  const { t } = useLanguage()
+  const trustLevelKey = hospital.trustLevel ? getTrustLevelKeyFromValue(undefined, hospital.trustLevel) : undefined
+  const trustLevel = trustLevelKey ? getTrustLevelByKey(trustLevelKey) : undefined
+
   return (
     <article className={`${styles.card} ${styles.stackSm}`}>
       <div>
         <h2 className={styles.titleMd}>{hospital.hospitalName}</h2>
         <p className={styles.bodyText}>
-          {categoryLabels[hospital.category]} · {hospital.address}
+          {t.categories[hospital.category]} · {hospital.address}
         </p>
         <p className={styles.recordMeta}>
-          최근 본 날짜 {hospital.viewedAt} · {hospital.trustLevel ?? "분석 전"} · {formatStars(hospital.globalAccessRating)}
+          {t.mypage.recentViewedDate} {hospital.viewedAt} ·{" "}
+          {trustLevelKey && trustLevel ? (
+            <span className={styles.inlineTrustLabel}>
+              <ShieldCheck className={styles.iconXs} style={{ color: trustLevel.color }} />
+              {t.trustLevels[trustLevelKey]}
+            </span>
+          ) : (
+            t.mypage.notAnalyzed
+          )}{" "}
+          ·{" "}
+          {formatStars(hospital.globalAccessRating)}
         </p>
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.ANALYZE} className={styles.secondaryButton}>
-          다시 분석하기
+          {t.mypage.analyzeAgain}
         </Link>
         <button type="button" className={styles.secondaryButton} onClick={() => onSave(hospital.id)}>
           <Bookmark className={styles.iconSm} />
-          저장하기
+          {t.mypage.saveHospital}
         </button>
       </div>
       <button type="button" className={styles.dangerButton} onClick={() => onDelete(hospital.id)}>
         <Trash2 className={styles.iconSm} />
-        기록 삭제
+        {t.mypage.deleteRecord}
       </button>
     </article>
   )

@@ -5,13 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
+import styles from "@/styles/App.module.css";
 
 export function AuthCallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { saveLogin } = useAuth();
+  const { t } = useLanguage();
 
-  const [message, setMessage] = useState("소셜 로그인 처리 중입니다...");
+  const [message, setMessage] = useState(t.auth.socialProcessingDescription);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -19,7 +22,7 @@ export function AuthCallbackHandler() {
         const error = searchParams.get("error");
 
         if (error) {
-          setMessage("소셜 로그인 처리 중 오류가 발생했습니다.");
+          setMessage(t.auth.socialProcessingError);
           return;
         }
 
@@ -27,16 +30,16 @@ export function AuthCallbackHandler() {
         saveLogin({ user: result.data });
         router.replace(ROUTES.HOME);
       } catch {
-        setMessage("소셜 로그인 처리 중 오류가 발생했습니다.");
+        setMessage(t.auth.socialProcessingError);
       }
     };
 
     handleCallback();
-  }, [router, searchParams, saveLogin]);
+  }, [router, searchParams, saveLogin, t.auth.socialProcessingError]);
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
+    <main className={styles.authPage}>
+      <section className={styles.authCard}>
         <h1>Filtory</h1>
         <p>{message}</p>
       </section>

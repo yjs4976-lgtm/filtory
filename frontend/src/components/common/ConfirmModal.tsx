@@ -1,8 +1,11 @@
 "use client"
 
 import styles from "@/styles/App.module.css"
+import { useLanguage } from "@/context/LanguageContext"
 
 export function ConfirmModal({ open, title, description, onCancel, onConfirm }) {
+  const { t } = useLanguage()
+
   if (!open) return null
 
   return (
@@ -12,10 +15,10 @@ export function ConfirmModal({ open, title, description, onCancel, onConfirm }) 
         <p className={styles.mutedText}>{description}</p>
         <div className={styles.stackSm}>
           <button type="button" className={styles.dangerButton} onClick={onConfirm}>
-            확인
+            {t.common.confirm}
           </button>
           <button type="button" className={styles.secondaryButton} onClick={onCancel}>
-            취소
+            {t.common.cancel}
           </button>
         </div>
       </div>

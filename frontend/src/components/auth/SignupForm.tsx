@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
+import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import type { TermsAgreementState } from "@/lib/types";
 import { memberService } from "@/services/memberService";
@@ -15,6 +16,7 @@ export function SignupForm() {
   const router = useRouter();
   const { signup } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +32,17 @@ export function SignupForm() {
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const canSubmit = terms.termsAgreed && terms.privacyAgreed && nicknameCheck === "available" && !isSubmitting;
+  const nicknameValidation = validateSignupId(nickname, t.auth);
+  const passwordValidation = validatePassword(password, t.auth);
+  const passwordsMatch = password.length > 0 && password === passwordConfirm;
+  const canSubmit =
+    terms.termsAgreed &&
+    terms.privacyAgreed &&
+    nicknameCheck === "available" &&
+    nicknameValidation.valid &&
+    passwordValidation.valid &&
+    passwordsMatch &&
+    !isSubmitting;
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -41,32 +53,37 @@ export function SignupForm() {
     setError("");
 
     if (!name || !email || !nickname || !password || !passwordConfirm) {
-      setError("필수 항목을 모두 입력해주세요.");
+      setError(t.auth.requiredFields);
       return;
     }
 
     if (!isValidEmail(email)) {
-      setError("올바른 이메일 형식으로 입력해주세요.");
+      setError(t.auth.invalidEmail);
+      return;
+    }
+
+    if (!nicknameValidation.valid) {
+      setError(nicknameValidation.message);
+      return;
+    }
+
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message);
       return;
     }
 
     if (password !== passwordConfirm) {
-      setError("비밀번호가 서로 다릅니다.");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("비밀번호는 8자 이상이어야 합니다.");
+      setError(t.auth.passwordMismatch);
       return;
     }
 
     if (nicknameCheck !== "available") {
-      setError("닉네임 중복 확인을 완료해주세요.");
+      setError(t.auth.idDuplicateRequired);
       return;
     }
 
     if (!terms.termsAgreed || !terms.privacyAgreed) {
-      setError("필수 약관에 동의해야 회원가입할 수 있어요.");
+      setError(t.auth.termsRequired);
       return;
     }
 
@@ -84,21 +101,22 @@ export function SignupForm() {
       });
 
       showToast({
-        title: "회원가입이 완료되었어요.",
-        description: "이제 Filtory를 시작해보세요.",
+        title: t.auth.signupToastTitle,
+        description: t.auth.signupToastDescription,
         tone: "success",
       });
       router.push(ROUTES.LOGIN);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "회원가입에 실패했습니다.");
+      setError(error instanceof Error ? error.message : t.auth.signupFailed);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleNicknameCheck = async () => {
-    if (!nickname.trim()) {
-      setError("닉네임을 입력해주세요.");
+    const validation = validateSignupId(nickname, t.auth)
+    if (!validation.valid) {
+      setError(validation.message);
       return;
     }
     const result = await memberService.checkNicknameDuplicate(nickname)
@@ -111,12 +129,12 @@ export function SignupForm() {
       {error && <p className={styles.formError}>{error}</p>}
 
       <label className={styles.label} htmlFor="signup-name">
-        이름
+        {t.auth.name}
         <input
           id="signup-name"
           className={styles.input}
           type="text"
-          placeholder="실명을 입력해주세요"
+          placeholder={t.auth.namePlaceholder}
           value={name}
           autoComplete="name"
           onChange={(event) => setName(event.target.value)}
@@ -124,7 +142,7 @@ export function SignupForm() {
       </label>
 
       <label className={styles.label} htmlFor="signup-email">
-        이메일
+        {t.auth.email}
         <input
           id="signup-email"
           className={styles.input}
@@ -137,13 +155,13 @@ export function SignupForm() {
       </label>
 
       <label className={styles.label} htmlFor="signup-nickname">
-        닉네임
+        {t.auth.id}
         <div className={styles.inlineField}>
           <input
             id="signup-nickname"
             className={styles.input}
             type="text"
-            placeholder="Filtory에서 사용할 닉네임"
+            placeholder={t.auth.idPlaceholder}
             value={nickname}
             autoComplete="nickname"
             onChange={(event) => {
@@ -152,50 +170,106 @@ export function SignupForm() {
             }}
           />
           <button type="button" className={styles.smallPillButton} onClick={handleNicknameCheck}>
-            중복 확인
+            {t.auth.duplicateCheck}
           </button>
         </div>
-        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>사용 가능한 닉네임이에요.</span>}
-        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>이미 사용 중인 닉네임이에요.</span>}
+        {nickname && !nicknameValidation.valid && <span className={styles.formHintError}>{nicknameValidation.message}</span>}
+        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>{t.auth.idAvailable}</span>}
+        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
 
       <label className={styles.label} htmlFor="signup-password">
-        비밀번호
+        {t.auth.password}
         <input
           id="signup-password"
           className={styles.input}
           type="password"
-          placeholder="비밀번호를 입력해주세요"
+          placeholder={t.auth.passwordPlaceholder}
           value={password}
           minLength={8}
           autoComplete="new-password"
           onChange={(event) => setPassword(event.target.value)}
         />
+        {password && (
+          <span className={passwordValidation.valid ? styles.formHintSuccess : styles.formHintError}>
+            {passwordValidation.message}
+          </span>
+        )}
       </label>
 
       <label className={styles.label} htmlFor="signup-password-confirm">
-        비밀번호 확인
+        {t.auth.passwordConfirm}
         <input
           id="signup-password-confirm"
           className={styles.input}
           type="password"
-          placeholder="비밀번호를 다시 입력해주세요"
+          placeholder={t.auth.passwordConfirmPlaceholder}
           value={passwordConfirm}
           minLength={8}
           autoComplete="new-password"
           onChange={(event) => setPasswordConfirm(event.target.value)}
         />
+        {passwordConfirm && (
+          <span className={passwordsMatch ? styles.formHintSuccess : styles.formHintError}>
+            {passwordsMatch ? t.auth.passwordMatch : t.auth.passwordMismatch}
+          </span>
+        )}
       </label>
 
       <TermsAgreement value={terms} onChange={setTerms} />
 
       <button className={styles.primaryButton} type="submit" disabled={!canSubmit}>
-        {isSubmitting ? "가입 중..." : "회원가입"}
+        {isSubmitting ? t.auth.signupSubmitting : t.auth.signupButton}
       </button>
 
       <p className={styles.authBottomText}>
-        이미 계정이 있으신가요? <Link href={ROUTES.LOGIN}>로그인</Link>
+        {t.auth.loginPrompt} <Link href={ROUTES.LOGIN}>{t.auth.loginLink}</Link>
       </p>
     </form>
   );
+}
+
+function validateSignupId(value: string, messages: Record<string, string>) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return { valid: false, message: messages.idRequired };
+  }
+
+  if (trimmed !== value || /\s/.test(value)) {
+    return { valid: false, message: messages.idNoSpaces };
+  }
+
+  if (!/^[A-Za-z0-9_.-]{4,20}$/.test(value)) {
+    return { valid: false, message: messages.idInvalid };
+  }
+
+  return { valid: true, message: messages.idFormatAvailable };
+}
+
+function validatePassword(value: string, messages: Record<string, string>) {
+  if (!value) {
+    return { valid: false, message: messages.passwordRequired };
+  }
+
+  if (value.trim() !== value) {
+    return { valid: false, message: messages.passwordNoEdgeSpaces };
+  }
+
+  if (value.length < 8) {
+    return { valid: false, message: messages.passwordMinLength };
+  }
+
+  const groups = [
+    /[A-Z]/.test(value),
+    /[a-z]/.test(value),
+    /\d/.test(value),
+    /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(value),
+  ].filter(Boolean).length;
+
+  if (groups < 3) {
+    return { valid: false, message: messages.passwordStrength };
+  }
+
+  return { valid: true, message: messages.passwordStrong };
 }

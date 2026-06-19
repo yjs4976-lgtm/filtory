@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { GitCompareArrows, Trash2 } from "lucide-react"
+import { GitCompareArrows, ShieldCheck, Trash2 } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
+import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { SavedHospital } from "@/lib/types"
-import { categoryLabels, formatStars } from "@/services/memberMockData"
+import { formatStars } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface SavedHospitalCardProps {
@@ -14,35 +16,48 @@ interface SavedHospitalCardProps {
 }
 
 export function SavedHospitalCard({ hospital, onAddToCompare, onUnsave }: SavedHospitalCardProps) {
+  const { t } = useLanguage()
+  const trustLevel = getTrustLevel(hospital.trustScore)
+  const trustLevelKey = getTrustLevelKeyFromValue(hospital.trustScore, hospital.trustLevel)
+  const adSuspicionLevel = formatSignalLevel(hospital.adSuspicionLevel, {
+    low: t.analyze.low,
+    medium: t.analyze.medium,
+    high: t.analyze.high,
+    caution: t.analyze.caution,
+  })
+
   return (
     <article className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.rowBetween}>
         <div>
           <h2 className={styles.titleMd}>{hospital.hospitalName}</h2>
           <p className={styles.bodyText}>
-            {categoryLabels[hospital.category]} · {hospital.address}
+            {t.categories[hospital.category]} · {hospital.address}
           </p>
         </div>
-        <strong className={styles.scoreSmall}>{hospital.trustScore}점</strong>
+        <strong className={styles.scoreSmall}>{hospital.trustScore}{t.mypage.pointsSuffix}</strong>
       </div>
       <div className={styles.metricGrid}>
-        <span>신뢰도 {hospital.trustLevel}</span>
-        <span>광고 의심 {hospital.adSuspicionLevel}</span>
-        <span>정보 완성도 {hospital.infoCompletenessScore}점</span>
-        <span>글로벌 {formatStars(hospital.globalAccessRating)}</span>
+        <span className={styles.trustMetric}>
+          <ShieldCheck className={styles.iconXs} style={{ color: trustLevel.color }} />
+          {t.mypage.trustScoreLabel} {t.trustLevels[trustLevelKey]}
+        </span>
+        <span>{t.mypage.adSuspicionLabel} {adSuspicionLevel}</span>
+        <span>{t.mypage.infoCompletenessLabel} {hospital.infoCompletenessScore}{t.mypage.pointsSuffix}</span>
+        <span>{t.mypage.globalLabel} {formatStars(hospital.globalAccessRating)}</span>
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
-          상세 보기
+          {t.mypage.detailView}
         </Link>
         <button type="button" className={styles.secondaryButton} onClick={() => onAddToCompare(hospital.id)}>
           <GitCompareArrows className={styles.iconSm} />
-          비교함 추가
+          {t.mypage.addToCompare}
         </button>
       </div>
       <button type="button" className={styles.dangerButton} onClick={() => onUnsave(hospital.id)}>
         <Trash2 className={styles.iconSm} />
-        저장 해제
+        {t.mypage.unsave}
       </button>
     </article>
   )

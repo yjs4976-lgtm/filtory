@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
+import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import styles from "@/styles/App.module.css";
 
@@ -12,6 +13,7 @@ export function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +26,7 @@ export function LoginForm() {
     setError("");
 
     if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+      setError(t.auth.emailPasswordRequired);
       return;
     }
 
@@ -32,13 +34,13 @@ export function LoginForm() {
       setIsSubmitting(true);
       await login({ email, password });
       showToast({
-        title: "로그인되었습니다.",
-        description: "다시 오신 걸 환영해요!",
+        title: t.auth.loginToastTitle,
+        description: t.auth.loginToastDescription,
         tone: "success",
       });
       router.push(ROUTES.MYPAGE);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "로그인에 실패했습니다.");
+      setError(error instanceof Error ? error.message : t.auth.loginFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -49,7 +51,7 @@ export function LoginForm() {
       {error && <p className={styles.formError}>{error}</p>}
 
       <label className={styles.label} htmlFor="login-email">
-        이메일
+        {t.auth.email}
         <input
           id="login-email"
           className={styles.input}
@@ -62,12 +64,12 @@ export function LoginForm() {
       </label>
 
       <label className={styles.label} htmlFor="login-password">
-        비밀번호
+        {t.auth.password}
         <input
           id="login-password"
           className={styles.input}
           type="password"
-          placeholder="비밀번호를 입력해주세요"
+          placeholder={t.auth.passwordPlaceholder}
           value={password}
           autoComplete="current-password"
           onChange={(event) => setPassword(event.target.value)}
@@ -75,17 +77,17 @@ export function LoginForm() {
       </label>
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "로그인 중..." : "로그인"}
+        {isSubmitting ? t.auth.loginSubmitting : t.auth.loginButton}
       </button>
 
       <div className={styles.authLinks}>
-        <Link href={ROUTES.FIND_ID}>아이디 찾기</Link>
+        <Link href={ROUTES.FIND_ID}>{t.auth.findIdLink}</Link>
         <span>|</span>
-        <Link href={ROUTES.FORGOT_PASSWORD}>비밀번호 찾기</Link>
+        <Link href={ROUTES.FORGOT_PASSWORD}>{t.auth.forgotPasswordLink}</Link>
       </div>
 
       <p className={styles.authBottomText}>
-        아직 회원이 아니신가요? <Link href={ROUTES.SIGNUP}>회원가입</Link>
+        {t.auth.signupPrompt} <Link href={ROUTES.SIGNUP}>{t.auth.signupButton}</Link>
       </p>
     </form>
   );

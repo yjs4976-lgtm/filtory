@@ -1,28 +1,15 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, Sparkles } from "lucide-react"
+import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, ShieldCheck, Sparkles } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { mockAnalysisResult } from "@/lib/mockData"
+import { getTrustLevel } from "@/lib/score"
 import { ChatbotConnectCard } from "@/components/result/ChatbotConnectCard"
 import { ForeignerFriendlyRating } from "@/components/result/ForeignerFriendlyRating"
 import { ResultActionCard } from "@/components/result/ResultActionCard"
 import styles from "@/styles/App.module.css"
 import { ScoreCircle } from "./ScoreCircle"
-
-function trustLevelKey(score) {
-  if (score >= 90) return "veryHigh"
-  if (score >= 75) return "high"
-  if (score >= 55) return "caution"
-  if (score >= 35) return "concern"
-  return "veryConcern"
-}
-
-function levelTone(score) {
-  if (score >= 75) return { bg: styles.bgMint, dot: styles.fillMint }
-  if (score >= 55) return { bg: styles.bgPeach, dot: styles.fillPeach }
-  return { bg: styles.bgPink, dot: styles.fillPink }
-}
 
 function ScoreBar({ label, value, tone }) {
   return (
@@ -42,8 +29,8 @@ export function ResultCard() {
   const router = useRouter()
   const { t, language } = useLanguage()
   const result = mockAnalysisResult
-  const tone = levelTone(result.total_score)
-  const level = t.trustLevels[trustLevelKey(result.total_score)]
+  const trustLevel = getTrustLevel(result.total_score)
+  const level = t.trustLevels[trustLevel.key]
 
   return (
     <div className={styles.resultStack}>
@@ -52,8 +39,8 @@ export function ResultCard() {
         <div className={styles.scoreCircleWrap}>
           <ScoreCircle score={result.total_score} label={t.result.totalScore} />
         </div>
-        <div className={`${styles.trustBadge} ${tone.bg}`}>
-          <span className={`${styles.dot} ${tone.dot}`} />
+        <div className={styles.trustBadge} style={{ backgroundColor: trustLevel.softColor }}>
+          <ShieldCheck className={styles.iconSm} style={{ color: trustLevel.color }} />
           <span>{level}</span>
         </div>
         <p className={styles.mutedText}>{t.result.reference}</p>

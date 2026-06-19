@@ -74,7 +74,7 @@ export default function MyPage() {
         <>
           <MyPageUserCard />
           <MyActivityStats
-            nickname={user?.nickname || user?.name || "Filtory"}
+            nickname={user?.nickname || user?.name || "User"}
             analysisCount={records.length}
             savedHospitalCount={savedHospitals.length}
             reportCount={reports.length}

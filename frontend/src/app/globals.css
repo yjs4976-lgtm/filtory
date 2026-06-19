@@ -17,6 +17,11 @@
   --peach: #ffd785;
   --peach-soft: #fff0e2;
   --peach-text: #b97838;
+  --trust-very-high: #9b8afb;
+  --trust-high: #8fd8b5;
+  --trust-caution: #f6c56f;
+  --trust-concern: #f29a7e;
+  --trust-very-concern: #e989b5;
   --graypurple: #6b7280;
   --border: #f1e8dd;
 }
