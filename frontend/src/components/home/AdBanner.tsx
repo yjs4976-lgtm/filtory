@@ -8,7 +8,7 @@ export function AdBanner() {
   const { t } = useLanguage()
 
   return (
-    <section className={styles.adBanner} aria-label="광고 영역">
+    <section className={styles.adBanner} aria-label={t.home.adTitle}>
       <span className={`${styles.iconBoxRound} ${styles.iconPeach}`}>
         <Megaphone className={styles.iconSm} />
       </span>

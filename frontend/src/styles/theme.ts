@@ -11,6 +11,11 @@ export const theme = {
     trustMint: "#BDEECF",
     softPeach: "#FFD785",
     border: "#F1E8DD",
+    trustVeryHigh: "#9B8AFB",
+    trustHigh: "#8FD8B5",
+    trustCaution: "#F6C56F",
+    trustConcern: "#F29A7E",
+    trustVeryConcern: "#E989B5",
   },
   radius: {
     sm: 12,

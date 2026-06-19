@@ -1,16 +1,20 @@
 "use client"
 
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export function ReviewFilterTabs({ value = "all", onChange = null }) {
+  const { t } = useLanguage()
+  const tabs = [
+    ["all", t.result.filterAll],
+    ["trust", t.result.filterTrust],
+    ["caution", t.result.filterCaution],
+    ["ad", t.result.filterAd],
+  ]
+
   return (
     <div className={styles.segmented}>
-      {[
-        ["all", "전체"],
-        ["trust", "신뢰"],
-        ["caution", "검토"],
-        ["ad", "광고성"],
-      ].map(([key, label]) => (
+      {tabs.map(([key, label]) => (
         <button key={key} type="button" className={[styles.segmentButton, value === key ? styles.segmentButtonActive : ""].join(" ")} onClick={() => onChange?.(key)}>
           {label}
         </button>

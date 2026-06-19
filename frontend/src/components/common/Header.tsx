@@ -13,6 +13,7 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
   const router = useRouter()
   const { t } = useLanguage()
   const { user, isLoading } = useAuth()
+  const displayName = user?.nickname || user?.name || t.nav.my
 
   return (
     <header className={styles.header}>
@@ -36,7 +37,7 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
               <span className={styles.brandText}>{t.appName}</span>
             </Link>
           ) : (
-            <h1 className={styles.headerTitle}>{title}</h1>
+            <h1 className={styles.headerTitle} title={title}>{title}</h1>
           )}
         </div>
 
@@ -44,9 +45,9 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
           <LanguageToggle />
           {!isLoading && (
             user ? (
-              <Link href={ROUTES.MYPAGE} className={styles.profileChip} aria-label={t.common.mypage}>
+              <Link href={ROUTES.MYPAGE} className={styles.profileChip} aria-label={t.common.mypage} title={displayName}>
                 <UserRound className={styles.iconSm} />
-                <span>{user.nickname || user.name || t.nav.my}</span>
+                <span>{displayName}</span>
               </Link>
             ) : (
               <Link href={ROUTES.LOGIN} className={styles.headerLoginButton}>

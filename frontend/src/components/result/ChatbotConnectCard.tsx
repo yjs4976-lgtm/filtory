@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation"
 import { Bot } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
 export function ChatbotConnectCard() {
   const router = useRouter()
+  const { t } = useLanguage()
 
   return (
     <section className={`${styles.accentCard} ${styles.rowBetween}`}>
@@ -15,12 +17,12 @@ export function ChatbotConnectCard() {
           <Bot className={styles.iconMd} />
         </span>
         <div>
-          <h2 className={styles.titleSm}>결과가 어렵게 느껴지나요?</h2>
-          <p className={styles.mutedText}>챗봇에게 결과를 쉽게 설명해달라고 물어보세요.</p>
+          <h2 className={styles.titleSm}>{t.result.chatbotQuestionTitle}</h2>
+          <p className={styles.mutedText}>{t.result.chatbotQuestionDescription}</p>
         </div>
       </div>
       <button type="button" className={styles.smallPillButton} onClick={() => router.push(ROUTES.CHATBOT)}>
-        질문하기
+        {t.result.askQuestion}
       </button>
     </section>
   )

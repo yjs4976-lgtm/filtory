@@ -237,22 +237,26 @@
   justify-content: center;
   gap: 6px;
   min-height: 32px;
+  flex: 0 1 auto;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--card);
   color: var(--foreground);
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 800;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .profileChip {
-  max-width: 112px;
+  min-width: 74px;
+  max-width: 132px;
   overflow: hidden;
 }
 
 .profileChip span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -457,6 +461,7 @@
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .recordList {
@@ -519,6 +524,10 @@
   color: var(--peach-text);
   font-size: 11px;
   font-weight: 800;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .score {
@@ -545,6 +554,113 @@
   padding: 10px 12px;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trustMetric {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inlineTrustLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
+.trustGuide {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--lavender-soft);
+  padding: 14px 16px;
+}
+
+.trustGuideSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--foreground);
+  cursor: pointer;
+  list-style: none;
+}
+
+.trustGuideSummary::-webkit-details-marker {
+  display: none;
+}
+
+.trustGuideSummary strong,
+.trustGuideSummary small,
+.trustGuideText strong,
+.trustGuideText small {
+  display: block;
+}
+
+.trustGuideSummary strong {
+  font-size: 14px;
+}
+
+.trustGuideSummary small {
+  margin-top: 3px;
+  color: var(--graypurple);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.trustGuideToggle {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--primary-foreground);
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.trustGuideGrid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.trustGuideItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 10px 12px;
+}
+
+.trustShield {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+}
+
+.trustGuideText {
+  min-width: 0;
+}
+
+.trustGuideText strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.trustGuideText small {
+  margin-top: 2px;
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .inlineField {
@@ -884,9 +1000,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .headerLeft,
@@ -898,7 +1014,15 @@
 }
 
 .headerLeft {
+  flex: 0 0 auto;
   min-width: 0;
+  max-width: 46%;
+}
+
+.headerActions {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
 }
 
 .brandLink {
@@ -926,18 +1050,20 @@
 
 .headerTitle {
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   color: var(--foreground);
-  font-size: 16px;
-  font-weight: 600;
-  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.1;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
 .iconButton {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -965,21 +1091,26 @@
 .languageToggle {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--subtle);
   padding: 2px;
+  white-space: nowrap;
 }
 
 .languageButton {
+  min-width: 48px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--graypurple);
-  padding: 4px 12px;
+  padding: 5px 8px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .languageButtonActive {
@@ -1130,6 +1261,221 @@
   text-align: center;
 }
 
+.regionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.searchModeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.searchModeCard {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--subtle);
+  color: var(--foreground);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchModeCard strong,
+.searchModeCard span {
+  display: block;
+  min-width: 0;
+}
+
+.searchModeCard strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.searchModeCard span {
+  margin-top: 6px;
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.searchModeCardActive {
+  border-color: transparent;
+  background: var(--lavender-soft);
+  box-shadow: 0 0 0 2px var(--lavender);
+}
+
+.regionButton {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--subtle);
+  color: var(--foreground);
+  padding: 10px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.regionButtonActive {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.hospitalResultCard {
+  align-items: flex-start;
+  cursor: default;
+}
+
+.paginatedPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  touch-action: pan-y;
+}
+
+.badgeRow,
+.linkRow,
+.selectionToolbar,
+.reviewMetaLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.linkRow {
+  margin-top: 10px;
+}
+
+.sourceLink {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reviewCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--subtle);
+  padding: 14px;
+}
+
+.selectedReviewCard {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+}
+
+.reviewCheckRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.reviewCheckRow input {
+  margin-top: 4px;
+}
+
+.reviewMetaLine {
+  color: var(--graypurple);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.reviewMetaLine span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reviewContent {
+  display: block;
+  margin-top: 8px;
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.statusBadge {
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--graypurple);
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.resultMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.paginationControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.pageButton {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pageButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pageIndicator {
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .chatWindow {
   min-height: 0;
   flex: 1 1 auto;
@@ -1269,11 +1615,14 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
   margin-top: 16px;
   border-radius: 999px;
   padding: 6px 16px;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .dot {
@@ -1970,8 +2319,46 @@
 }
 
 @media (max-width: 360px) {
-  .languageButton {
+  .headerInner {
+    gap: 4px;
     padding-inline: 8px;
+  }
+
+  .headerLeft,
+  .headerActions {
+    gap: 4px;
+  }
+
+  .headerTitle {
+    font-size: 13px;
+  }
+
+  .iconButton {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+
+  .languageButton {
+    min-width: 42px;
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+
+  .profileChip {
+    min-width: 66px;
+    max-width: 92px;
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+
+  .regionGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .searchModeGrid,
+  .paginationControls {
+    grid-template-columns: 1fr;
   }
 
   .categoryGrid {
@@ -1992,6 +2379,7 @@
   .featureGrid,
   .filterGrid,
   .metricGrid,
+  .resultMetricGrid,
   .profileChecklistGrid {
     grid-template-columns: 1fr;
   }
@@ -2002,6 +2390,16 @@
 
   .inlineField {
     grid-template-columns: 1fr;
+  }
+
+  .trustGuideSummary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .trustGuideToggle {
+    align-self: flex-start;
+    white-space: normal;
   }
 
   .profileUploaderRow {

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { FileText, LogIn } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
@@ -9,19 +10,20 @@ import styles from "@/styles/App.module.css"
 export function ResultActionCard() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
+  const { t } = useLanguage()
 
   if (!isAuthenticated) {
     return (
       <section className={`${styles.softCard} ${styles.stackSm}`}>
-        <h2 className={styles.titleSm}>분석은 완료됐어요!</h2>
-        <p className={styles.mutedText}>이 결과를 나중에 다시 보려면 로그인하고 저장해보세요.</p>
+        <h2 className={styles.titleSm}>{t.result.completedTitle}</h2>
+        <p className={styles.mutedText}>{t.result.loginSaveDescription}</p>
         <div className={styles.actionRow}>
           <button type="button" className={styles.primaryButton} onClick={() => router.push(ROUTES.LOGIN)}>
             <LogIn className={styles.iconSm} />
-            로그인하고 저장하기
+            {t.result.loginAndSave}
           </button>
           <button type="button" className={styles.secondaryButton}>
-            그냥 보기
+            {t.result.viewOnly}
           </button>
         </div>
       </section>
@@ -30,10 +32,10 @@ export function ResultActionCard() {
 
   return (
     <section className={`${styles.softCard} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>분석 결과가 내 기록에 저장되었어요.</h2>
+      <h2 className={styles.titleSm}>{t.result.savedTitle}</h2>
       <button type="button" className={styles.primaryButton} onClick={() => router.push(ROUTES.HISTORY)}>
         <FileText className={styles.iconSm} />
-        내 기록 보기
+        {t.result.viewHistory}
       </button>
     </section>
   )
