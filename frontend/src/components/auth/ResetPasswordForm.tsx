@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
+import styles from "@/styles/App.module.css";
 
 export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   const token = searchParams.get("token") || "";
 
@@ -22,17 +25,17 @@ export function ResetPasswordForm() {
     setError("");
 
     if (!token) {
-      setError("비밀번호 재설정 토큰이 없습니다.");
+      setError(t.auth.resetTokenMissing);
       return;
     }
 
     if (!password || !passwordConfirm) {
-      setError("새 비밀번호를 입력해주세요.");
+      setError(t.auth.resetPasswordRequired);
       return;
     }
 
     if (password !== passwordConfirm) {
-      setError("비밀번호가 서로 다릅니다.");
+      setError(t.auth.passwordMismatch);
       return;
     }
 
@@ -45,11 +48,11 @@ export function ResetPasswordForm() {
         passwordConfirm,
       });
 
-      alert("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
+      alert(t.auth.resetPasswordSuccess);
       router.push(ROUTES.LOGIN);
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "비밀번호 재설정에 실패했습니다."
+        error instanceof Error ? error.message : t.auth.resetPasswordFailed
       );
     } finally {
       setIsSubmitting(false);
@@ -57,33 +60,33 @@ export function ResetPasswordForm() {
   };
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      {error && <p className="form-error">{error}</p>}
+    <form className={styles.memberForm} onSubmit={handleSubmit}>
+      {error && <p className={styles.formError}>{error}</p>}
 
-      <label className="form-label">
-        새 비밀번호
+      <label className={styles.label}>
+        {t.auth.newPassword}
         <input
-          className="form-input"
+          className={styles.input}
           type="password"
-          placeholder="새 비밀번호를 입력해주세요"
+          placeholder={t.auth.newPasswordPlaceholder}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
 
-      <label className="form-label">
-        새 비밀번호 확인
+      <label className={styles.label}>
+        {t.auth.newPasswordConfirm}
         <input
-          className="form-input"
+          className={styles.input}
           type="password"
-          placeholder="새 비밀번호를 다시 입력해주세요"
+          placeholder={t.auth.newPasswordConfirmPlaceholder}
           value={passwordConfirm}
           onChange={(event) => setPasswordConfirm(event.target.value)}
         />
       </label>
 
-      <button className="primary-button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "변경 중..." : "비밀번호 재설정"}
+      <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
+        {isSubmitting ? t.auth.resetPasswordSubmitting : t.auth.resetPasswordButton}
       </button>
     </form>
   );

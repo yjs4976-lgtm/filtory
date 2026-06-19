@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
+import styles from "@/styles/App.module.css";
 
 export function ForgotPasswordForm() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
 
@@ -18,7 +21,7 @@ export function ForgotPasswordForm() {
     setDone(false);
 
     if (!email) {
-      setError("이메일을 입력해주세요.");
+      setError(t.auth.forgotEmailRequired);
       return;
     }
 
@@ -32,7 +35,7 @@ export function ForgotPasswordForm() {
       setDone(true);
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "비밀번호 찾기에 실패했습니다."
+        error instanceof Error ? error.message : t.auth.forgotPasswordFailed
       );
     } finally {
       setIsSubmitting(false);
@@ -40,33 +43,33 @@ export function ForgotPasswordForm() {
   };
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      {error && <p className="form-error">{error}</p>}
+    <form className={styles.memberForm} onSubmit={handleSubmit}>
+      {error && <p className={styles.formError}>{error}</p>}
 
       {done && (
-        <div className="result-box">
-          <strong>재설정 메일을 보냈어요.</strong>
-          <p>이메일을 확인한 뒤 비밀번호를 다시 설정해주세요.</p>
+        <div className={styles.softCard}>
+          <strong>{t.auth.resetMailSentTitle}</strong>
+          <p className={styles.mutedText}>{t.auth.resetMailSentDescription}</p>
         </div>
       )}
 
-      <label className="form-label">
-        이메일
+      <label className={styles.label}>
+        {t.auth.email}
         <input
-          className="form-input"
+          className={styles.input}
           type="email"
-          placeholder="가입한 이메일을 입력해주세요"
+          placeholder="example@email.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
       </label>
 
-      <button className="primary-button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "전송 중..." : "비밀번호 재설정 메일 받기"}
+      <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
+        {isSubmitting ? t.auth.forgotPasswordSubmitting : t.auth.forgotPasswordButton}
       </button>
 
-      <p className="auth-bottom-text">
-        <Link href={ROUTES.LOGIN}>로그인으로 돌아가기</Link>
+      <p className={styles.authBottomText}>
+        <Link href={ROUTES.LOGIN}>{t.auth.backToLogin}</Link>
       </p>
     </form>
   );

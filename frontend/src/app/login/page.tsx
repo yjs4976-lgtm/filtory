@@ -1,18 +1,23 @@
+"use client";
+
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
+import { useLanguage } from "@/context/LanguageContext";
 import styles from "@/styles/App.module.css";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
+
   return (
     <AuthCard
-      title="로그인"
-      description="Filtory에서 병원 리뷰 분석 기록을 안전하게 관리해보세요."
+      title={t.auth.loginTitle}
+      description={t.auth.loginDescription}
     >
       <LoginForm />
 
       <div className={styles.authDivider}>
-        <span>또는</span>
+        <span>{t.auth.divider}</span>
       </div>
 
       <SocialLoginButtons />

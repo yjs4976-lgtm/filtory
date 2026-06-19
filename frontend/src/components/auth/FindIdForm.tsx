@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
+import styles from "@/styles/App.module.css";
 
 export function FindIdForm() {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
   const [foundEmail, setFoundEmail] = useState("");
@@ -19,7 +22,7 @@ export function FindIdForm() {
     setFoundEmail("");
 
     if (!name && !nickname) {
-      setError("이름 또는 닉네임을 입력해주세요.");
+      setError(t.auth.findIdRequired);
       return;
     }
 
@@ -31,53 +34,53 @@ export function FindIdForm() {
         nickname,
       });
 
-      setFoundEmail(result.data.email || "조건에 맞는 이메일이 없습니다.");
+      setFoundEmail(result.data.email || t.auth.noMatchingEmail);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "아이디 찾기에 실패했습니다.");
+      setError(error instanceof Error ? error.message : t.auth.findIdFailed);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      {error && <p className="form-error">{error}</p>}
+    <form className={styles.memberForm} onSubmit={handleSubmit}>
+      {error && <p className={styles.formError}>{error}</p>}
 
       {foundEmail && (
-        <div className="result-box">
-          <p>가입된 이메일</p>
+        <div className={styles.softCard}>
+          <p className={styles.mutedText}>{t.auth.foundEmailLabel}</p>
           <strong>{foundEmail}</strong>
         </div>
       )}
 
-      <label className="form-label">
-        이름
+      <label className={styles.label}>
+        {t.auth.name}
         <input
-          className="form-input"
+          className={styles.input}
           type="text"
-          placeholder="가입 시 입력한 이름"
+          placeholder={t.auth.namePlaceholder}
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
       </label>
 
-      <label className="form-label">
-        닉네임
+      <label className={styles.label}>
+        {t.auth.nickname}
         <input
-          className="form-input"
+          className={styles.input}
           type="text"
-          placeholder="가입 시 입력한 닉네임"
+          placeholder={t.auth.nicknamePlaceholder}
           value={nickname}
           onChange={(event) => setNickname(event.target.value)}
         />
       </label>
 
-      <button className="primary-button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "확인 중..." : "아이디 찾기"}
+      <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
+        {isSubmitting ? t.auth.findIdSubmitting : t.auth.findIdButton}
       </button>
 
-      <p className="auth-bottom-text">
-        기억나셨나요? <Link href={ROUTES.LOGIN}>로그인하기</Link>
+      <p className={styles.authBottomText}>
+        {t.auth.rememberedPrompt} <Link href={ROUTES.LOGIN}>{t.auth.loginActionLink}</Link>
       </p>
     </form>
   );

@@ -1,14 +1,19 @@
+"use client"
+
 import { Suspense } from "react"
 import { AuthCard } from "@/components/auth/AuthCard"
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm"
+import { useLanguage } from "@/context/LanguageContext"
 
 export default function ResetPasswordPage() {
+  const { t } = useLanguage()
+
   return (
     <AuthCard
-      title="비밀번호 재설정"
-      description="새로운 비밀번호를 입력해주세요."
+      title={t.auth.resetPasswordTitle}
+      description={t.auth.resetPasswordDescription}
     >
-      <Suspense fallback={<p>불러오는 중...</p>}>
+      <Suspense fallback={<p>{t.common.loading}</p>}>
         <ResetPasswordForm />
       </Suspense>
     </AuthCard>
