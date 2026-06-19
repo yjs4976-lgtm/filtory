@@ -46,9 +46,9 @@ class MemberService:
             MemberService._create_terms_agreements(member.id, payload)
             db.session.commit()
             return member_to_dict(member)
-        except Exception:
+        except Exception as e:
             db.session.rollback()
-            raise
+            raise ValueError("Failed to create member") from e
 
     @staticmethod
     def update_member(member_id, payload):
