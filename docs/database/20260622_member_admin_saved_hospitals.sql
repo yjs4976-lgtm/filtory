@@ -37,12 +37,25 @@ create index if not exists idx_members_status
 on public.members(status);
 
 -- 2. Nicknames are unique after trimming and case normalization.
--- Resolve any rows returned by this diagnostic before creating the unique index.
-select lower(btrim(nickname)) as normalized_nickname, array_agg(id order by id) as member_ids
-from public.members
-where nickname is not null and btrim(nickname) <> ''
-group by lower(btrim(nickname))
-having count(*) > 1;
+-- Rename duplicate values before creating the unique index so this migration is
+-- safe to run against existing data.
+with ranked_duplicates as (
+  select
+    id,
+    nickname,
+    row_number() over (
+      partition by lower(btrim(nickname))
+      order by created_at asc nulls last, id asc
+    ) as row_num
+  from public.members
+  where nickname is not null
+    and btrim(nickname) <> ''
+)
+update public.members as m
+set nickname = btrim(m.nickname) || '-dup-' || m.id
+from ranked_duplicates as d
+where m.id = d.id
+  and d.row_num > 1;
 
 create unique index if not exists idx_members_nickname_normalized_unique
 on public.members (lower(btrim(nickname)))
@@ -79,21 +92,3 @@ on public.member_saved_hospitals(hospital_id);
 create index if not exists idx_member_saved_hospitals_analysis_result_id
 on public.member_saved_hospitals(analysis_result_id)
 where analysis_result_id is not null;
-
-with ranked_duplicates as (
-  select
-    id,
-    nickname,
-    row_number() over (
-      partition by lower(btrim(nickname))
-      order by created_at asc nulls last, id asc
-    ) as row_num
-  from public.members
-  where nickname is not null
-    and btrim(nickname) <> ''
-)
-update public.members as m
-set nickname = btrim(m.nickname) || '-dup-' || m.id
-from ranked_duplicates as d
-where m.id = d.id
-  and d.row_num > 1;
