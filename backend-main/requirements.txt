@@ -5,11 +5,16 @@ flask-cors==6.0.5
 Flask-JWT-Extended==4.7.4
 Flask-SQLAlchemy==3.1.1
 greenlet==3.5.1
+iniconfig==2.3.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
+packaging==26.2
+pluggy==1.6.0
 psycopg2-binary==2.9.12
+Pygments==2.20.0
 PyJWT==2.13.0
+pytest==9.1.1
 python-dotenv==1.2.2
 SQLAlchemy==2.0.51
 typing_extensions==4.15.0

@@ -20,9 +20,26 @@ class MailService:
             else reset_token
         )
 
-        subject = "[Filtory] Password reset request"
+        subject = "[Filtory] 비밀번호 재설정 안내 / Password reset"
         html_body = render_template("emails/password_reset.html", reset_url=reset_url)
-        text_body = f"Use this link to reset your password: {reset_url}"
+        text_body = f"""[Filtory] 비밀번호 재설정 안내 / Password reset
+
+안녕하세요, Filtory입니다.
+비밀번호 재설정 요청을 받았습니다. 아래 링크에서 새 비밀번호를 설정해 주세요.
+이 링크는 30분 동안 유효하며 한 번만 사용할 수 있습니다.
+
+{reset_url}
+
+본인이 요청하지 않았다면 이 메일을 무시해 주세요. 비밀번호는 변경되지 않습니다.
+링크를 다른 사람과 공유하지 마세요.
+
+Hello from Filtory.
+We received a request to reset your password. Use the link above to set a new password.
+The link expires in 30 minutes and can only be used once.
+
+If you did not request this, you can safely ignore this email. Your password will not change.
+Please do not share this link with anyone.
+"""
 
         return MailService.send_email(email, subject, text_body, html_body)
 
