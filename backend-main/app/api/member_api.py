@@ -1,14 +1,15 @@
 from flask import Blueprint, request
 
-from app.services import AuthService
-from app.services import MemberService
+from app.services import AnalysisService, AuthService, MemberService, ProfileImageService, SavedHospitalService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import auth_success_response, error_response, success_response
+from app.utils.security import require_admin, require_member_or_admin
 
 member_bp = Blueprint("members", __name__)
 
 
 @member_bp.route("/", methods=["GET"])
+@require_admin
 def list_members():
     pagination = get_pagination_params(request.args)
     members = MemberService.list_active_members(
@@ -23,6 +24,7 @@ def list_members():
 
 
 @member_bp.route("/", methods=["POST"])
+@require_admin
 def create_member():
     payload = request.get_json(silent=True) or {}
 
@@ -34,6 +36,7 @@ def create_member():
 
 
 @member_bp.route("/<int:member_id>", methods=["GET"])
+@require_member_or_admin
 def get_member(member_id):
     try:
         member = MemberService.get_member(member_id)
@@ -43,6 +46,7 @@ def get_member(member_id):
 
 
 @member_bp.route("/<int:member_id>", methods=["PATCH"])
+@require_member_or_admin
 def update_member(member_id):
     payload = request.get_json(silent=True) or {}
 
@@ -53,7 +57,28 @@ def update_member(member_id):
         return error_response(str(e), 400)
 
 
+@member_bp.route("/<int:member_id>/profile-image", methods=["POST"])
+@require_member_or_admin
+def upload_profile_image(member_id):
+    try:
+        member = ProfileImageService.upload(member_id, request.files.get("image"))
+        return success_response(member, "Profile image uploaded")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@member_bp.route("/<int:member_id>/profile-image", methods=["DELETE"])
+@require_member_or_admin
+def delete_profile_image(member_id):
+    try:
+        member = ProfileImageService.remove(member_id)
+        return success_response(member, "Profile image removed")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @member_bp.route("/<int:member_id>", methods=["DELETE"])
+@require_member_or_admin
 def deactivate_member(member_id):
     try:
         member = MemberService.deactivate_member(member_id)
@@ -71,6 +96,76 @@ def find_member_emails():
         return success_response(emails)
     except ValueError as e:
         return error_response(str(e), 400)
+
+
+@member_bp.route("/nickname-check", methods=["GET"])
+def check_nickname():
+    return success_response(MemberService.check_nickname_available(request.args.get("nickname")))
+
+
+@member_bp.route("/<int:member_id>/analysis-history", methods=["GET"])
+@require_member_or_admin
+def list_member_analysis_history(member_id):
+    pagination = get_pagination_params(request.args)
+    history = AnalysisService.list_member_history(
+        member_id,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+    )
+    return success_response(
+        data=history,
+        meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(history)),
+    )
+
+
+@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>", methods=["DELETE"])
+@require_member_or_admin
+def delete_member_analysis_history(member_id, request_id):
+    try:
+        return success_response(
+            AnalysisService.delete_member_history(member_id, request_id),
+            "Analysis history deleted",
+        )
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@member_bp.route("/<int:member_id>/saved-hospitals", methods=["GET"])
+@require_member_or_admin
+def list_saved_hospitals(member_id):
+    pagination = get_pagination_params(request.args)
+    saved_hospitals = SavedHospitalService.list_saved_hospitals(
+        member_id,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+    )
+    return success_response(
+        data=saved_hospitals,
+        meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(saved_hospitals)),
+    )
+
+
+@member_bp.route("/<int:member_id>/saved-hospitals", methods=["POST"])
+@require_member_or_admin
+def save_hospital(member_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        saved_hospital = SavedHospitalService.save_hospital(member_id, payload)
+        return success_response(saved_hospital, "Hospital saved", 201)
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@member_bp.route("/<int:member_id>/saved-hospitals/<int:hospital_id>", methods=["DELETE"])
+@require_member_or_admin
+def delete_saved_hospital(member_id, hospital_id):
+    try:
+        return success_response(
+            SavedHospitalService.delete_saved_hospital(member_id, hospital_id),
+            "Saved hospital deleted",
+        )
+    except ValueError as e:
+        return error_response(str(e), 404)
 
 
 @member_bp.route("/find-id", methods=["POST"])

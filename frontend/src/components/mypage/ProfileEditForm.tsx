@@ -15,9 +15,12 @@ export function ProfileEditForm() {
   const { showToast } = useToast()
 
   const [name, setName] = useState(user?.name ?? "")
+  const [email, setEmail] = useState(user?.email ?? "")
   const [nickname, setNickname] = useState(user?.nickname ?? user?.name ?? "")
   const [nicknameCheck, setNicknameCheck] = useState<"idle" | "available" | "unavailable">("available")
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(user?.profileImageUrl ?? null)
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [removeProfileImage, setRemoveProfileImage] = useState(false)
   const [password, setPassword] = useState("")
   const [passwordConfirm, setPasswordConfirm] = useState("")
   const [error, setError] = useState("")
@@ -31,6 +34,11 @@ export function ProfileEditForm() {
 
     if (!name.trim() || !nickname.trim()) {
       setError(t.mypage.requiredProfileFields)
+      return
+    }
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError(t.auth.invalidEmail)
       return
     }
 
@@ -55,19 +63,28 @@ export function ProfileEditForm() {
       setIsSubmitting(true)
       const result = await memberService.updateProfile(user.id, {
         name: name.trim(),
+        email: email.trim() || undefined,
         nickname: nickname.trim(),
         password: password || undefined,
-        profileImageUrl,
+        profileImageUrl: profileImageFile || removeProfileImage ? undefined : profileImageUrl,
       }, user)
+      const imageResult = profileImageFile
+        ? await memberService.uploadProfileImage(user.id, profileImageFile)
+        : removeProfileImage && user.profileImageUrl
+          ? await memberService.removeProfileImage(user.id)
+          : result
+      const nextUser = imageResult.data
       updateUser({
-        ...result.data,
-        email: result.data.email || user?.email || "",
-        nickname: result.data.nickname || nickname.trim(),
-        name: result.data.name || name.trim(),
-        profileImageUrl: result.data.profileImageUrl ?? profileImageUrl,
+        ...nextUser,
+        email: nextUser.email || "",
+        nickname: nextUser.nickname || nickname.trim(),
+        name: nextUser.name || name.trim(),
+        profileImageUrl: nextUser.profileImageUrl ?? null,
       })
       setPassword("")
       setPasswordConfirm("")
+      setProfileImageFile(null)
+      setRemoveProfileImage(false)
       setSuccess(t.mypage.profileSaved)
       showToast({
         title: t.mypage.profileToast,
@@ -95,7 +112,14 @@ export function ProfileEditForm() {
       {error && <p className={styles.formError}>{error}</p>}
       {success && <p className={styles.formSuccess}>{success}</p>}
 
-      <ProfileImageUploader value={profileImageUrl} onChange={setProfileImageUrl} />
+      <ProfileImageUploader
+        value={profileImageUrl}
+        onChange={(nextUrl, file) => {
+          setProfileImageUrl(nextUrl)
+          setProfileImageFile(file ?? null)
+          setRemoveProfileImage(nextUrl === null && Boolean(user?.profileImageUrl))
+        }}
+      />
       <EmailVerificationCard user={user} />
 
       <label className={styles.label} htmlFor="profile-name">
@@ -112,7 +136,17 @@ export function ProfileEditForm() {
 
       <label className={styles.label} htmlFor="profile-email">
         {t.mypage.emailLabel}
-        <input id="profile-email" className={styles.input} value={user?.email || ""} disabled readOnly />
+        <input
+          id="profile-email"
+          className={styles.input}
+          type="email"
+          value={email}
+          placeholder="example@email.com"
+          autoComplete="email"
+          disabled={Boolean(user?.email)}
+          readOnly={Boolean(user?.email)}
+          onChange={(event) => setEmail(event.target.value)}
+        />
       </label>
 
       <label className={styles.label} htmlFor="profile-nickname">

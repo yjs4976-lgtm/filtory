@@ -8,7 +8,7 @@ import styles from "@/styles/App.module.css"
 
 interface ProfileImageUploaderProps {
   value?: string | null
-  onChange: (url: string | null) => void
+  onChange: (url: string | null, file?: File) => void
 }
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024
@@ -37,7 +37,7 @@ export function ProfileImageUploader({ value, onChange }: ProfileImageUploaderPr
       return
     }
 
-    onChange(memberService.previewProfileImage(file))
+    onChange(memberService.previewProfileImage(file), file)
   }
 
   const handleReset = () => {

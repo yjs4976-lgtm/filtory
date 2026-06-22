@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
 
+from flask import current_app
+
 from app.extensions import db
 from app.repositories import MemberRepository
 from app.schemas import member_to_dict
 from app.services.mail_service import MailService
+from app.services.email_verification_service import EmailVerificationService
 from app.services.member_service import MemberService
 from app.services.social_auth_service import SocialAuthService
 from app.services.token_service import TokenService
@@ -103,6 +106,37 @@ class AuthService:
     def reset_password(payload):
         validate_password(payload.get("password"))
         return MemberService.reset_password(payload)
+
+    @staticmethod
+    def request_email_verification(member_id, request_ip=None, user_agent=None):
+        result = EmailVerificationService.request_verification(
+            member_id,
+            request_ip=request_ip,
+            user_agent=user_agent,
+        )
+        verification_token = result.pop("verification_token", None)
+
+        if verification_token and result.get("email"):
+            try:
+                result["mail"] = MailService.send_email_verification_email(
+                    result["email"],
+                    verification_token,
+                )
+                if not result["mail"].get("sent"):
+                    current_app.logger.warning(
+                        "Email verification was not sent: %s",
+                        result["mail"].get("reason", "unknown_reason"),
+                    )
+            except Exception:
+                current_app.logger.exception("Failed to send email verification message")
+                result["mail"] = {"sent": False, "reason": "mail_delivery_failed"}
+
+        result.pop("email", None)
+        return result
+
+    @staticmethod
+    def confirm_email_verification(payload):
+        return EmailVerificationService.confirm_verification(payload.get("token"))
 
     @staticmethod
     def social_login(payload):

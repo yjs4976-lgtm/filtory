@@ -1,5 +1,6 @@
 from app.extensions import db
-from app.models import Member, MemberTermsAgreement, PasswordResetToken, SocialAccount
+from sqlalchemy import func
+from app.models import EmailVerificationToken, Member, MemberTermsAgreement, PasswordResetToken, SocialAccount
 
 
 class MemberRepository:
@@ -10,6 +11,14 @@ class MemberRepository:
     @staticmethod
     def get_by_email(email):
         return Member.query.filter(Member.email == email).first()
+
+    @staticmethod
+    def get_by_nickname(nickname):
+        return (
+            Member.query.filter(func.lower(func.trim(Member.nickname)) == nickname)
+            .order_by(Member.id.asc())
+            .first()
+        )
 
     @staticmethod
     def get_active_by_name_and_phone(real_name, phone):
@@ -78,8 +87,18 @@ class MemberRepository:
         return token
 
     @staticmethod
+    def create_email_verification_token(data):
+        token = EmailVerificationToken(**data)
+        db.session.add(token)
+        return token
+
+    @staticmethod
     def get_password_reset_token(token_hash):
         return PasswordResetToken.query.filter(PasswordResetToken.token_hash == token_hash).first()
+
+    @staticmethod
+    def get_email_verification_token(token_hash):
+        return EmailVerificationToken.query.filter(EmailVerificationToken.token_hash == token_hash).first()
 
     @staticmethod
     def commit():

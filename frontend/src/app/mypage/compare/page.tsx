@@ -11,12 +11,14 @@ import { CompareSelectedList } from "@/components/mypage/CompareSelectedList"
 import { HospitalCompareSummary } from "@/components/mypage/HospitalCompareSummary"
 import { HospitalCompareTable } from "@/components/mypage/HospitalCompareTable"
 import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import type { CompareHospital, CompareResult, HospitalCategory } from "@/lib/types"
 import { compareService } from "@/services/compareService"
 import styles from "@/styles/App.module.css"
 
 export default function MyComparePage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [category, setCategory] = useState<HospitalCategory>("derma")
   const [hospitals, setHospitals] = useState<CompareHospital[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -27,7 +29,7 @@ export default function MyComparePage() {
     let alive = true
     const timer = window.setTimeout(() => {
       setIsLoading(true)
-      compareService.getCompareHospitalsByCategory(category).then((items) => {
+      compareService.getCompareHospitalsByCategory(category, user?.id).then((items) => {
         if (!alive) return
         setHospitals(items)
         setSelectedIds([])
@@ -39,7 +41,7 @@ export default function MyComparePage() {
       alive = false
       window.clearTimeout(timer)
     }
-  }, [category])
+  }, [category, user?.id])
 
   const selectedHospitals = useMemo(
     () => hospitals.filter((hospital) => selectedIds.includes(hospital.id)),
@@ -56,7 +58,7 @@ export default function MyComparePage() {
 
   const handleCompare = async () => {
     if (selectedIds.length < 2) return
-    const nextResult = await compareService.compareHospitals(category, selectedIds)
+    const nextResult = await compareService.compareHospitals(category, selectedIds, user?.id)
     setResult(nextResult)
   }
 

@@ -13,7 +13,12 @@ export function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const { t } = useLanguage();
 
-  const token = searchParams.get("token") || "";
+  const fragmentToken =
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.hash.replace(/^#/, "")).get("token") || "";
+  // Query-string links remain valid while already-sent reset emails expire.
+  const token = fragmentToken || searchParams.get("token") || "";
 
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");

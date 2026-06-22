@@ -7,10 +7,12 @@ from app.models import Member
 from app.repositories import MemberRepository
 from app.schemas import extract_member_data, member_to_dict
 from app.utils.security import hash_password
+from app.utils.validators import validate_email
 
 
 class MemberService:
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
+    PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
     TERMS_PAYLOAD_MAP = {
         "termsAgreed": "terms",
         "privacyAgreed": "privacy",
@@ -32,6 +34,7 @@ class MemberService:
     @staticmethod
     def create_member(payload):
         data = extract_member_data(payload, include_private=False)
+        data = {key: value for key, value in data.items() if key in MemberService.PROFILE_FIELDS}
         _normalize_member_data(data)
 
         if payload.get("password"):
@@ -39,6 +42,8 @@ class MemberService:
 
         if data.get("email") and MemberRepository.get_by_email(data["email"]):
             raise ValueError("Email already exists")
+
+        MemberService._validate_nickname(data.get("nickname"))
 
         try:
             member = MemberRepository.create(data)
@@ -57,7 +62,24 @@ class MemberService:
             raise ValueError("Member not found")
 
         data = extract_member_data(payload)
+        data = {key: value for key, value in data.items() if key in MemberService.PROFILE_FIELDS}
         _normalize_member_data(data)
+
+        if "email" in data:
+            email = (data["email"] or "").strip().lower()
+            if not email:
+                data["email"] = None
+            else:
+                validate_email(email)
+                existing_member = MemberRepository.get_by_email(email)
+                if existing_member and existing_member.id != member.id:
+                    raise ValueError("Email already exists")
+                data["email"] = email
+                if email != member.email:
+                    data["email_verified"] = False
+
+        if "nickname" in data:
+            MemberService._validate_nickname(data["nickname"], member_id=member.id)
 
         if payload.get("password"):
             data["password_hash"] = hash_password(payload["password"])
@@ -82,6 +104,7 @@ class MemberService:
                 member,
                 {
                     "active": False,
+                    "status": "withdrawn",
                     "deleted_at": datetime.now(timezone.utc),
                 },
             )
@@ -129,6 +152,13 @@ class MemberService:
 
         # Filtory uses email as the login identifier. Never return a password or an unmasked identifier.
         return {"id": _mask_email(member.email)}
+
+    @staticmethod
+    def check_nickname_available(nickname):
+        normalized_nickname = _normalize_nickname(nickname)
+        if not normalized_nickname or len(normalized_nickname) < 2:
+            return {"available": False}
+        return {"available": MemberRepository.get_by_nickname(normalized_nickname) is None}
 
     @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
@@ -216,9 +246,12 @@ class MemberService:
                 member = MemberRepository.create(
                     {
                         "email": social_email,
-                        "nickname": payload.get("social_nickname"),
+                        "nickname": MemberService._get_available_social_nickname(
+                            payload.get("social_nickname"),
+                            social_id,
+                        ),
                         "profile_img_url": payload.get("profile_img_url"),
-                        "email_verified": bool(social_email),
+                        "email_verified": bool(payload.get("email_verified")),
                     }
                 )
                 db.session.flush()
@@ -246,7 +279,10 @@ class MemberService:
         changed = False
 
         if not member.nickname and payload.get("social_nickname"):
-            member.nickname = payload["social_nickname"]
+            member.nickname = MemberService._get_available_social_nickname(
+                payload["social_nickname"],
+                payload.get("social_id"),
+            )
             changed = True
 
         if not member.profile_img_url and payload.get("profile_img_url"):
@@ -255,7 +291,7 @@ class MemberService:
 
         if not member.email and payload.get("social_email"):
             member.email = payload["social_email"]
-            member.email_verified = True
+            member.email_verified = bool(payload.get("email_verified"))
             changed = True
 
         if changed and commit:
@@ -278,6 +314,39 @@ class MemberService:
                     "agreed": payload.get(payload_key) is True,
                 }
             )
+
+    @staticmethod
+    def _validate_nickname(nickname, member_id=None):
+        if nickname is None:
+            return
+
+        normalized_nickname = _normalize_nickname(nickname)
+        if not normalized_nickname:
+            raise ValueError("nickname cannot be empty")
+
+        existing_member = MemberRepository.get_by_nickname(normalized_nickname)
+        if existing_member and existing_member.id != member_id:
+            raise ValueError("Nickname already exists")
+
+    @staticmethod
+    def _get_available_social_nickname(nickname, social_id):
+        base_nickname = str(nickname or "").strip()
+        if not base_nickname:
+            return None
+
+        if not MemberRepository.get_by_nickname(_normalize_nickname(base_nickname)):
+            return base_nickname
+
+        suffix = str(social_id or "social")[-8:]
+        candidate = f"{base_nickname[:90]}-{suffix}"
+        sequence = 2
+
+        while MemberRepository.get_by_nickname(_normalize_nickname(candidate)):
+            suffix_with_sequence = f"-{suffix}-{sequence}"
+            candidate = f"{base_nickname[:100 - len(suffix_with_sequence)]}{suffix_with_sequence}"
+            sequence += 1
+
+        return candidate
 
 
 def _hash_token(raw_token):
@@ -307,6 +376,8 @@ def _mask_email(email):
 def _normalize_member_data(data):
     if "phone" in data:
         data["phone"] = _normalize_phone(data["phone"])
+    if "nickname" in data and data["nickname"] is not None:
+        data["nickname"] = data["nickname"].strip()
 
 
 def _normalize_phone(value):
@@ -315,3 +386,7 @@ def _normalize_phone(value):
 
     digits = "".join(char for char in str(value) if char.isdigit())
     return digits or None
+
+
+def _normalize_nickname(value):
+    return str(value or "").strip().lower()

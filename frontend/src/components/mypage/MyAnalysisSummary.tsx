@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { CalendarDays, ChartNoAxesColumnIncreasing, Gauge, Stethoscope } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import type { AnalysisHistoryItem } from "@/lib/types"
 import { getHistory } from "@/services/historyService"
 import styles from "@/styles/App.module.css"
@@ -24,6 +25,7 @@ function formatDate(value?: string, emptyText = "-") {
 
 export function MyAnalysisSummary({ records: recordsProp }: MyAnalysisSummaryProps) {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [fetchedRecords, setFetchedRecords] = useState<AnalysisHistoryItem[]>([])
   const records = recordsProp ?? fetchedRecords
 
@@ -31,13 +33,13 @@ export function MyAnalysisSummary({ records: recordsProp }: MyAnalysisSummaryPro
     if (recordsProp) return
 
     let alive = true
-    getHistory().then((items) => {
+    getHistory(user?.id).then((items) => {
       if (alive) setFetchedRecords(items)
     })
     return () => {
       alive = false
     }
-  }, [recordsProp])
+  }, [recordsProp, user?.id])
 
   const averageScore = records.length
     ? Math.round(records.reduce((sum, item) => sum + item.score, 0) / records.length)

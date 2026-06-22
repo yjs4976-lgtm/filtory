@@ -1,9 +1,35 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
+import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards"
+import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
+import type { AdminSummary } from "@/lib/types"
+import { adminService } from "@/services/adminService"
 
 export default function AdminPage() {
+  const { isAdmin } = useAuth()
+  const [summary, setSummary] = useState<AdminSummary | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin) return
+
+    let alive = true
+
+    adminService.getSummary().then((result) => {
+      if (alive) setSummary(result.data)
+    }).catch(() => {
+      if (alive) setSummary(null)
+    })
+
+    return () => {
+      alive = false
+    }
+  }, [isAdmin])
+
   return (
     <AdminAppShell title="관리자">
       <AdminGuard>
@@ -12,6 +38,8 @@ export default function AdminPage() {
           <h1>관리자 대시보드</h1>
           <p>Filtory 회원, 리뷰 분석, 신고 리뷰, 병원 정보를 관리합니다.</p>
         </section>
+
+        {summary && <AdminSummaryCards summary={summary} />}
 
         <section className="admin-menu-grid">
           <Link href={ROUTES.ADMIN_USERS} className="soft-card admin-menu-card">

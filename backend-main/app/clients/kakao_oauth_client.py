@@ -55,7 +55,10 @@ class KakaoOAuthClient:
             "social_email": kakao_account.get("email"),
             "social_nickname": nickname,
             "profile_img_url": profile_img_url,
-            "email_verified": kakao_account.get("is_email_verified", False),
+            "email_verified": bool(
+                kakao_account.get("is_email_verified")
+                and kakao_account.get("is_email_valid")
+            ),
         }
 
 

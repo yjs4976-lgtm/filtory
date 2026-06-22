@@ -5,6 +5,10 @@ class Member(db.Model):
     __tablename__ = "members"
     __table_args__ = (
         db.CheckConstraint("role in ('user', 'admin')", name="members_role_check"),
+        db.CheckConstraint(
+            "status in ('active', 'suspended', 'withdrawn', 'dormant')",
+            name="members_status_check",
+        ),
         {"schema": "public"},
     )
 
@@ -16,6 +20,7 @@ class Member(db.Model):
     phone = db.Column(db.String(30))
     profile_img_url = db.Column(db.Text)
     role = db.Column(db.String(30), nullable=False, default="user", server_default="user")
+    status = db.Column(db.String(30), nullable=False, default="active", server_default="active")
     active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text("true"))
     email_verified = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("false"))
     last_login_at = db.Column(db.DateTime(timezone=True))
@@ -36,6 +41,12 @@ class Member(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    email_verification_tokens = db.relationship(
+        "EmailVerificationToken",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     reviews = db.relationship("Review", back_populates="member")
     analysis_requests = db.relationship("AnalysisRequest", back_populates="member")
     analysis_results = db.relationship("AnalysisResult", back_populates="member")
@@ -47,6 +58,12 @@ class Member(db.Model):
     )
     terms_agreements = db.relationship(
         "MemberTermsAgreement",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    saved_hospitals = db.relationship(
+        "MemberSavedHospital",
         back_populates="member",
         cascade="all, delete-orphan",
         passive_deletes=True,

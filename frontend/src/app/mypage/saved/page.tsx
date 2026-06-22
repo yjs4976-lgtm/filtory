@@ -7,19 +7,21 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { SavedHospitalEmpty } from "@/components/mypage/SavedHospitalEmpty"
 import { SavedHospitalList } from "@/components/mypage/SavedHospitalList"
 import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import type { SavedHospital } from "@/lib/types"
 import { savedHospitalService } from "@/services/savedHospitalService"
 import styles from "@/styles/App.module.css"
 
 export default function MySavedHospitalsPage() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [hospitals, setHospitals] = useState<SavedHospital[]>([])
   const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
-    savedHospitalService.getSavedHospitals().then((items) => {
+    savedHospitalService.getSavedHospitals(user?.id).then((items) => {
       if (!alive) return
       setHospitals(items)
       setIsLoading(false)
@@ -27,7 +29,7 @@ export default function MySavedHospitalsPage() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [user?.id])
 
   const handleAddToCompare = async (id: number) => {
     await savedHospitalService.addToCompare(id)
@@ -37,7 +39,7 @@ export default function MySavedHospitalsPage() {
   const handleUnsave = async (id: number) => {
     const ok = window.confirm(t.mypage.unsaveConfirm)
     if (!ok) return
-    await savedHospitalService.unsaveHospital(id)
+    await savedHospitalService.unsaveHospital(user?.id, id)
     setHospitals((prevItems) => prevItems.filter((item) => item.id !== id))
   }
 

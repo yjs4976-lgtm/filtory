@@ -65,6 +65,12 @@ class Hospital(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    saved_by_members = db.relationship(
+        "MemberSavedHospital",
+        back_populates="hospital",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Hospital id={self.id} hospital_name={self.hospital_name}>"

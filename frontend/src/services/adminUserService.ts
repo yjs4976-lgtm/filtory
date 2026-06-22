@@ -1,5 +1,6 @@
-import type { UserRole, UserStatus } from "@/lib/types"
-import { mockAdminUsers, mockAnalysisHistory, mockReports, mockSavedHospitals } from "./memberMockData"
+import type { AdminUser, UserRole, UserStatus } from "@/lib/types"
+import { apiClient } from "./apiClient"
+import { mockAnalysisHistory, mockReports, mockSavedHospitals } from "./memberMockData"
 
 export type AdminUserFilters = {
   keyword?: string
@@ -9,20 +10,21 @@ export type AdminUserFilters = {
 
 export const adminUserService = {
   async getUsers(filters: AdminUserFilters = {}) {
-    // TODO: 실제 관리자 회원 API가 준비되면 /api/admin/users 쿼리로 교체합니다.
-    const keyword = filters.keyword?.trim().toLowerCase() ?? ""
-    return mockAdminUsers
-      .filter((user) => {
-        if (!keyword) return true
-        return [user.name, user.nickname, user.email].some((value) => value?.toLowerCase().includes(keyword))
-      })
-      .filter((user) => !filters.status || filters.status === "all" || user.status === filters.status)
-      .filter((user) => !filters.role || filters.role === "all" || user.role === filters.role)
+    const params = new URLSearchParams()
+    if (filters.keyword?.trim()) params.set("keyword", filters.keyword.trim())
+    if (filters.status && filters.status !== "all") params.set("status", filters.status)
+    if (filters.role && filters.role !== "all") params.set("role", filters.role)
+
+    const query = params.toString()
+    const result = await apiClient<AdminUser[]>(`/api/admin/users${query ? `?${query}` : ""}`, {
+      auth: true,
+    })
+    return result.data
   },
 
   async getUserDetail(id: number) {
-    // TODO: 실제 관리자 회원 상세 API가 준비되면 /api/admin/users/:id로 교체합니다.
-    return mockAdminUsers.find((user) => user.id === id) ?? mockAdminUsers[0]
+    const result = await apiClient<AdminUser>(`/api/admin/users/${id}`, { auth: true })
+    return result.data
   },
 
   async getUserActivity(id: number) {
@@ -36,8 +38,12 @@ export const adminUserService = {
   },
 
   async updateUserStatus(id: number, status: UserStatus) {
-    // TODO: 실제 상태 변경 API 연결 시 PATCH /api/admin/users/:id/status 호출로 교체합니다.
-    return { success: true, id, status }
+    const result = await apiClient<AdminUser>(`/api/admin/users/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+      auth: true,
+    })
+    return result.data
   },
 
   async saveMemo(id: number, memo: string) {

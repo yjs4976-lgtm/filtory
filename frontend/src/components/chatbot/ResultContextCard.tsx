@@ -10,7 +10,7 @@ import { getHistory } from "@/services/historyService"
 import styles from "@/styles/App.module.css"
 
 export function ResultContextCard() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
   const { t } = useLanguage()
   const [latest, setLatest] = useState<AnalysisHistoryItem | null>(null)
 
@@ -19,14 +19,14 @@ export function ResultContextCard() {
 
     if (isLoading || !isAuthenticated) return
 
-    getHistory().then((records) => {
+    getHistory(user?.id).then((records) => {
       if (alive) setLatest(records[0] ?? null)
     })
 
     return () => {
       alive = false
     }
-  }, [isAuthenticated, isLoading])
+  }, [isAuthenticated, isLoading, user?.id])
 
   if (!isLoading && !isAuthenticated) {
     return (

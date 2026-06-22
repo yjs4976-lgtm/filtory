@@ -18,7 +18,7 @@ interface HistoryListProps {
 }
 
 export function HistoryList({ items, compact = false }: HistoryListProps) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
   const { t } = useLanguage()
   const [fetchedRecords, setFetchedRecords] = useState<AnalysisHistoryItem[] | null>(null)
   const records = items ?? fetchedRecords ?? []
@@ -33,7 +33,7 @@ export function HistoryList({ items, compact = false }: HistoryListProps) {
 
     if (!isAuthenticated) return
 
-    getHistory()
+    getHistory(user?.id)
       .then((nextRecords) => {
         if (alive) setFetchedRecords(nextRecords)
       })
@@ -44,7 +44,7 @@ export function HistoryList({ items, compact = false }: HistoryListProps) {
     return () => {
       alive = false
     }
-  }, [items, isAuthenticated, isLoading])
+  }, [items, isAuthenticated, isLoading, user?.id])
 
   if (isLoading || loading) {
     return <LoadingSpinner label={t.history.loading} />

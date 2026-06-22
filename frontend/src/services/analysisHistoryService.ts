@@ -1,10 +1,11 @@
-import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
+import type { AnalysisHistoryItem, HospitalCategory, User } from "@/lib/types"
 import {
   deleteAnalysisHistoryItem,
-  readAnalysisHistory,
   saveAnalysisHistoryItem,
 } from "@/lib/analysisStorage"
 import { getTrustLevelKey, type TrustLevelKey } from "@/lib/score"
+import { apiClient } from "./apiClient"
+import { getHistory } from "./historyService"
 
 export type AnalysisHistorySort = "latest" | "trust" | "ad"
 export type TrustFilter = "all" | TrustLevelKey
@@ -23,14 +24,15 @@ function matchesTrust(item: AnalysisHistoryItem, trust: TrustFilter) {
 }
 
 export const analysisHistoryService = {
-  async getAnalysisHistory(filters: AnalysisHistoryFilters = {}) {
-    // TODO: 실제 분석 기록 API가 준비되면 /api/member/analysis-history로 교체합니다.
+  async getAnalysisHistory(memberId: User["id"] | undefined, filters: AnalysisHistoryFilters = {}) {
     const keyword = filters.keyword?.trim().toLowerCase() ?? ""
     const category = filters.category ?? "all"
     const trust = filters.trust ?? "all"
     const sort = filters.sort ?? "latest"
 
-    return readAnalysisHistory()
+    const history = await getHistory(memberId)
+
+    return history
       .filter((item) => !keyword || item.hospitalName.toLowerCase().includes(keyword))
       .filter((item) => category === "all" || item.category === category)
       .filter((item) => matchesTrust(item, trust))
@@ -45,8 +47,19 @@ export const analysisHistoryService = {
     return saveAnalysisHistoryItem(item)
   },
 
-  async deleteAnalysisHistory(id: string) {
-    // TODO: 실제 삭제 API 연결 시 DELETE /api/member/analysis-history/:id 호출로 교체합니다.
+  async deleteAnalysisHistory(memberId: User["id"] | undefined, id: string) {
+    const numericMemberId = Number(memberId)
+    const numericRequestId = Number(id)
+    if (Number.isInteger(numericMemberId) && numericMemberId > 0 && Number.isInteger(numericRequestId)) {
+      try {
+        await apiClient(`/api/members/${numericMemberId}/analysis-history/${numericRequestId}`, {
+          method: "DELETE",
+          auth: true,
+        })
+      } catch {
+        // A locally created analysis has no server request to delete yet.
+      }
+    }
     deleteAnalysisHistoryItem(id)
     return { success: true, deletedId: id }
   },

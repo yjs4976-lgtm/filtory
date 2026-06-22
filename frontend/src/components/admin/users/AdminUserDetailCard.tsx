@@ -10,7 +10,6 @@ interface AdminUserDetailCardProps {
 export function AdminUserDetailCard({ user }: AdminUserDetailCardProps) {
   const handleStatusChange = async (status: UserStatus) => {
     await adminUserService.updateUserStatus(user.id, status)
-    window.alert("회원 상태 변경은 mock 처리되었습니다.")
   }
 
   return (
