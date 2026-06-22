@@ -1,11 +1,19 @@
+import { apiClient } from "./apiClient"
+import { normalizeUser } from "./authTransforms"
+
 export const emailVerificationService = {
-  async resendVerificationEmail(email: string) {
-    // TODO: 실제 인증 메일 재발송 API가 준비되면 POST /api/auth/email-verification/resend로 교체합니다.
-    return { success: true, email }
+  resendVerificationEmail() {
+    return apiClient<{ requested: boolean; already_verified?: boolean; mail?: { sent: boolean; reason?: string } }>(
+      "/api/auth/email-verification/resend",
+      { method: "POST", auth: true },
+    )
   },
 
   async verifyEmail(token?: string | null) {
-    // TODO: 실제 이메일 인증 API가 준비되면 POST /api/auth/email-verification/confirm로 교체합니다.
-    return { success: true, verified: Boolean(token) }
+    const result = await apiClient<unknown>("/api/auth/email-verification/confirm", {
+      method: "POST",
+      body: { token },
+    })
+    return { ...result, data: normalizeUser(result.data as never) }
   },
 }

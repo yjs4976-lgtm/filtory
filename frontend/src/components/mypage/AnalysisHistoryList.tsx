@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
 import {
   analysisHistoryService,
@@ -17,6 +18,7 @@ import styles from "@/styles/App.module.css"
 
 export function AnalysisHistoryList() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [keyword, setKeyword] = useState("")
   const [category, setCategory] = useState<"all" | HospitalCategory>("all")
   const [trust, setTrust] = useState<TrustFilter>("all")
@@ -29,14 +31,14 @@ export function AnalysisHistoryList() {
     try {
       setIsLoading(true)
       setError("")
-      const nextItems = await analysisHistoryService.getAnalysisHistory({ keyword, category, trust, sort })
+      const nextItems = await analysisHistoryService.getAnalysisHistory(user?.id, { keyword, category, trust, sort })
       setItems(nextItems)
     } catch (error) {
       setError(error instanceof Error ? error.message : t.mypage.loadHistoryFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [category, keyword, sort, trust, t.mypage.loadHistoryFailed])
+  }, [category, keyword, sort, trust, t.mypage.loadHistoryFailed, user])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -48,7 +50,7 @@ export function AnalysisHistoryList() {
   const handleDelete = async (id: string) => {
     const ok = window.confirm(t.mypage.deleteHistoryConfirm)
     if (!ok) return
-    await analysisHistoryService.deleteAnalysisHistory(id)
+    await analysisHistoryService.deleteAnalysisHistory(user?.id, id)
     setItems((prevItems) => prevItems.filter((item) => item.id !== id))
   }
 

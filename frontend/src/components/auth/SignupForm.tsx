@@ -175,20 +175,6 @@ export function SignupForm() {
         />
       </label>
 
-      <label className={styles.label} htmlFor="signup-phone">
-        {t.auth.phone}
-        <input
-          id="signup-phone"
-          className={styles.input}
-          type="tel"
-          inputMode="tel"
-          placeholder={t.auth.phonePlaceholder}
-          value={phone}
-          autoComplete="tel"
-          onChange={(event) => setPhone(event.target.value)}
-        />
-      </label>
-
       <label className={styles.label} htmlFor="signup-nickname">
         {t.auth.id}
         <div className={styles.inlineField}>

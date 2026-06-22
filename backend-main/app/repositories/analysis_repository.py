@@ -1,5 +1,6 @@
 from app.extensions import db
 from app.models import AnalysisRequest, AnalysisResult
+from sqlalchemy.orm import joinedload
 
 
 class AnalysisRepository:
@@ -19,6 +20,20 @@ class AnalysisRepository:
     def list_requests_by_member(member_id, limit=20, offset=0):
         return (
             AnalysisRequest.query
+            .filter(AnalysisRequest.member_id == member_id)
+            .order_by(AnalysisRequest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+    @staticmethod
+    def list_history_by_member(member_id, limit=20, offset=0):
+        return (
+            AnalysisRequest.query.options(
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.analysis_result),
+            )
             .filter(AnalysisRequest.member_id == member_id)
             .order_by(AnalysisRequest.created_at.desc())
             .limit(limit)
@@ -48,6 +63,10 @@ class AnalysisRepository:
         for key, value in data.items():
             setattr(analysis_request, key, value)
         return analysis_request
+
+    @staticmethod
+    def delete_request(analysis_request):
+        db.session.delete(analysis_request)
 
     @staticmethod
     def create_result(data):

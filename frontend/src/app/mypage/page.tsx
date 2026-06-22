@@ -42,8 +42,8 @@ export default function MyPage() {
     }
 
     Promise.all([
-      analysisHistoryService.getAnalysisHistory(),
-      savedHospitalService.getSavedHospitals(),
+      analysisHistoryService.getAnalysisHistory(user?.id),
+      savedHospitalService.getSavedHospitals(user?.id),
       recentHospitalService.getRecentViewedHospitals(),
       reportService.getMyReports(),
     ])
@@ -65,7 +65,7 @@ export default function MyPage() {
     return () => {
       alive = false
     }
-  }, [isAuthenticated, isLoading])
+  }, [isAuthenticated, isLoading, user?.id])
 
   const authenticatedSections = [
     {

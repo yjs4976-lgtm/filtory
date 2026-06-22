@@ -1,15 +1,15 @@
-import type { CompareHospital, CompareResult, HospitalCategory, SavedHospital } from "@/lib/types"
+import type { CompareHospital, CompareResult, HospitalCategory, SavedHospital, User } from "@/lib/types"
 import { savedHospitalService } from "./savedHospitalService"
 
 export const compareService = {
-  async getCompareHospitalsByCategory(category: HospitalCategory) {
-    const hospitals = await savedHospitalService.getSavedHospitals()
+  async getCompareHospitalsByCategory(category: HospitalCategory, memberId?: User["id"]) {
+    const hospitals = await savedHospitalService.getSavedHospitals(memberId)
     return hospitals.filter((hospital) => hospital.category === category).map(toCompareHospital)
   },
 
-  async compareHospitals(category: HospitalCategory, selectedIds: number[]): Promise<CompareResult> {
+  async compareHospitals(category: HospitalCategory, selectedIds: number[], memberId?: User["id"]): Promise<CompareResult> {
     // TODO: 실제 비교 분석 API가 준비되면 POST /api/member/compare/result로 교체합니다.
-    const savedHospitals = await savedHospitalService.getSavedHospitals()
+    const savedHospitals = await savedHospitalService.getSavedHospitals(memberId)
     const hospitals = savedHospitals
       .filter((hospital) => hospital.category === category && selectedIds.includes(hospital.id))
       .map(toCompareHospital)

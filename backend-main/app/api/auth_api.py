@@ -93,6 +93,31 @@ def reset_password():
         return error_response(str(e), 400)
 
 
+@auth_bp.route("/email-verification/resend", methods=["POST"])
+@jwt_required()
+def resend_email_verification():
+    try:
+        result = AuthService.request_email_verification(
+            get_jwt_identity(),
+            request_ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        return success_response(result, "Email verification requested")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@auth_bp.route("/email-verification/confirm", methods=["POST"])
+def confirm_email_verification():
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        member = AuthService.confirm_email_verification(payload)
+        return success_response(member, "Email verification complete")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @auth_bp.route("/social-login", methods=["POST"])
 def social_login():
     payload = request.get_json(silent=True) or {}

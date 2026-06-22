@@ -34,6 +34,29 @@ class AnalysisService:
         return analysis_request_to_dict(analysis_request)
 
     @staticmethod
+    def list_member_history(member_id, limit=20, offset=0):
+        analysis_requests = AnalysisRepository.list_history_by_member(
+            member_id,
+            limit=limit,
+            offset=offset,
+        )
+        return [AnalysisService._history_item_to_dict(analysis_request) for analysis_request in analysis_requests]
+
+    @staticmethod
+    def delete_member_history(member_id, request_id):
+        analysis_request = AnalysisRepository.get_request_by_id(request_id)
+        if not analysis_request or analysis_request.member_id != member_id:
+            raise ValueError("Analysis request not found")
+
+        try:
+            AnalysisRepository.delete_request(analysis_request)
+            db.session.commit()
+            return {"id": request_id}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
     def create_request(payload):
         data = extract_analysis_request_data(payload)
         AnalysisService._validate_request_data(data)
@@ -140,3 +163,42 @@ class AnalysisService:
             value = data.get(field)
             if value is not None and not 0 <= value <= 100:
                 raise ValueError(f"{field} must be between 0 and 100")
+
+    @staticmethod
+    def _history_item_to_dict(analysis_request):
+        hospital = analysis_request.hospital
+        analysis_result = analysis_request.analysis_result
+        category = {
+            "dermatology": "derma",
+            "ophthalmology": "eye",
+            "dentistry": "dental",
+        }.get(hospital.category, hospital.category)
+
+        return {
+            "id": analysis_request.id,
+            "member_id": analysis_request.member_id,
+            "hospital_name": hospital.hospital_name,
+            "hospital_category": hospital.category,
+            "category": category,
+            "hospital_address": hospital.address,
+            "region": hospital.region,
+            "score": analysis_result.total_score if analysis_result and analysis_result.total_score is not None else 0,
+            "total_score": analysis_result.total_score if analysis_result else None,
+            "trust_score": analysis_result.trust_score if analysis_result else None,
+            "foreigner_score": analysis_result.foreigner_score if analysis_result else None,
+            "place_score": analysis_result.place_score if analysis_result else None,
+            "ad_score": analysis_result.ad_score if analysis_result else None,
+            "trust_level": analysis_result.trust_level if analysis_result else None,
+            "ad_suspicion_level": analysis_result.ad_suspicion if analysis_result else None,
+            "summary": (
+                analysis_result.summary_ko or analysis_result.summary_en
+                if analysis_result
+                else None
+            ),
+            "selected_review_count": analysis_request.review_count,
+            "total_review_count": analysis_request.review_count,
+            "result_status": "completed" if analysis_request.request_status == "success" else analysis_request.request_status,
+            "created_at": (
+                analysis_request.completed_at or analysis_request.created_at
+            ).isoformat() if (analysis_request.completed_at or analysis_request.created_at) else None,
+        }

@@ -70,3 +70,20 @@ def require_admin(view_func):
         return view_func(*args, **kwargs)
 
     return wrapper
+
+
+def require_member_or_admin(view_func):
+    @wraps(view_func)
+    def wrapper(member_id, *args, **kwargs):
+        try:
+            member = get_current_member_from_request()
+        except ValueError as e:
+            return error_response(str(e), 401)
+
+        if member.id != member_id and member.role != "admin":
+            return error_response("Member permission is required", 403)
+
+        g.current_member = member
+        return view_func(member_id, *args, **kwargs)
+
+    return wrapper

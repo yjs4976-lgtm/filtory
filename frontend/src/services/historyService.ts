@@ -1,6 +1,6 @@
 import { recentAnalyses } from "@/lib/mockData"
 import { readAnalysisHistory } from "@/lib/analysisStorage"
-import type { AnalysisHistoryItem } from "@/lib/types"
+import type { AnalysisHistoryItem, User } from "@/lib/types"
 import { apiClient } from "./apiClient"
 
 function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem {
@@ -23,20 +23,33 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
     totalReviewCount: Number(item.totalReviewCount ?? item.total_review_count ?? 0),
     trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
     trustLevel: item.trustLevel ? String(item.trustLevel) : undefined,
-    adSuspicionLevel: item.adSuspicionLevel ? String(item.adSuspicionLevel) : undefined,
+    adSuspicionLevel: item.adSuspicionLevel || item.ad_suspicion_level
+      ? String(item.adSuspicionLevel ?? item.ad_suspicion_level)
+      : undefined,
     summary: item.summary ? String(item.summary) : undefined,
     detectedReasons: Array.isArray(item.detectedReasons) ? item.detectedReasons.map(String) : [],
-    resultStatus: item.resultStatus ? String(item.resultStatus) : "completed",
+    resultStatus: item.resultStatus || item.result_status
+      ? String(item.resultStatus ?? item.result_status)
+      : "completed",
   }
 }
 
-export async function getHistory(): Promise<AnalysisHistoryItem[]> {
+function toMemberId(memberId?: User["id"]) {
+  const numericId = Number(memberId)
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null
+}
+
+export async function getHistory(memberId?: User["id"]): Promise<AnalysisHistoryItem[]> {
+  const numericMemberId = toMemberId(memberId)
+  if (!numericMemberId) return readAnalysisHistory()
+
   try {
-    const result = await apiClient<unknown[]>("/history", {
+    const result = await apiClient<unknown[]>(`/api/members/${numericMemberId}/analysis-history`, {
       auth: true,
     })
     const records = Array.isArray(result.data) ? result.data : []
-    return records.map((item) => normalizeHistoryItem(item as Record<string, unknown>))
+    const normalizedRecords = records.map((item) => normalizeHistoryItem(item as Record<string, unknown>))
+    return normalizedRecords.length > 0 ? normalizedRecords : readAnalysisHistory()
   } catch {
     return readAnalysisHistory()
   }

@@ -45,6 +45,10 @@ class Config:
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_DEFAULT_SENDER = os.getenv("SMTP_DEFAULT_SENDER")
 
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY")
+    SUPABASE_PROFILE_IMAGE_BUCKET = os.getenv("SUPABASE_PROFILE_IMAGE_BUCKET", "profile-images")
+
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
     GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")

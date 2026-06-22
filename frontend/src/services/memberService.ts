@@ -10,6 +10,7 @@ import { apiClient } from "./apiClient";
 import { normalizeUser } from "./authTransforms";
 
 type BackendUpdateProfilePayload = {
+  email?: string
   real_name?: string
   nickname?: string
   phone?: string
@@ -26,13 +27,30 @@ export const memberService = {
     return URL.createObjectURL(file);
   },
 
+  async uploadProfileImage(userId: User["id"], image: File) {
+    const formData = new FormData()
+    formData.append("image", image)
+    const result = await apiClient<unknown>(`${getMemberPath(userId)}/profile-image`, {
+      method: "POST",
+      body: formData,
+      auth: true,
+    })
+    return { ...result, data: normalizeUser(result.data as User) }
+  },
+
+  async removeProfileImage(userId: User["id"]) {
+    const result = await apiClient<unknown>(`${getMemberPath(userId)}/profile-image`, {
+      method: "DELETE",
+      auth: true,
+    })
+    return { ...result, data: normalizeUser(result.data as User) }
+  },
+
   async checkNicknameDuplicate(nickname: string) {
-    // TODO: 실제 닉네임 중복 확인 API가 준비되면 /api/member/nickname-check로 교체합니다.
-    const unavailable = ["admin", "test", "filtory", "관리자"]
-    const normalized = nickname.trim().toLowerCase()
-    return {
-      available: normalized.length >= 2 && !unavailable.includes(normalized),
-    }
+    const result = await apiClient<{ available: boolean }>(
+      `/api/members/nickname-check?nickname=${encodeURIComponent(nickname)}`,
+    )
+    return result.data
   },
 
   async updateProfile(userId: User["id"], payload: UpdateProfilePayload, currentUser?: User | null) {
@@ -124,6 +142,7 @@ function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUp
       : payload.profileImageUrl
 
   return {
+    email: payload.email,
     real_name: payload.name,
     nickname: payload.nickname,
     phone: payload.phone,
