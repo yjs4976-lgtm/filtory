@@ -24,7 +24,7 @@ class MemberRepository:
         normalized_identifier = str(identifier or "").strip().lower()
         return Member.query.filter(
             or_(
-                func.lower(Member.email) == normalized_identifier,
+                func.lower(func.trim(Member.email)) == normalized_identifier,
                 func.lower(func.trim(Member.login_id)) == normalized_identifier,
             )
         ).first()
