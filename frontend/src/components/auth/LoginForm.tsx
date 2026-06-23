@@ -16,7 +16,7 @@ export function LoginForm() {
   const { showToast } = useToast();
   const { t } = useLanguage();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
@@ -26,14 +26,14 @@ export function LoginForm() {
     event.preventDefault();
     setError("");
 
-    if (!email || !password) {
-      setError(t.auth.emailPasswordRequired);
+    if (!identifier || !password) {
+      setError(t.auth.loginIdentifierPasswordRequired);
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await login({ email, password });
+      await login({ identifier, password });
       showToast({
         title: t.auth.loginToastTitle,
         description: t.auth.loginToastDescription,
@@ -51,16 +51,16 @@ export function LoginForm() {
     <form className={styles.memberForm} onSubmit={handleSubmit}>
       {error && <p className={styles.formError}>{error}</p>}
 
-      <label className={styles.label} htmlFor="login-email">
-        {t.auth.email}
+      <label className={styles.label} htmlFor="login-identifier">
+        {t.auth.loginIdentifier}
         <input
-          id="login-email"
+          id="login-identifier"
           className={styles.input}
-          type="email"
-          placeholder="example@email.com"
-          value={email}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
+          type="text"
+          placeholder={t.auth.loginIdentifierPlaceholder}
+          value={identifier}
+          autoComplete="username"
+          onChange={(event) => setIdentifier(event.target.value)}
         />
       </label>
 

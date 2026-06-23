@@ -17,7 +17,11 @@ from app.utils.validators import validate_email, validate_password, validate_req
 class AuthService:
     @staticmethod
     def register(payload):
-        validate_required(payload, ["email", "password"])
+        login_id = payload.get("loginId") or payload.get("login_id")
+        validate_required(
+            {"login_id": login_id, "email": payload.get("email"), "password": payload.get("password")},
+            ["login_id", "email", "password"],
+        )
         validate_email(payload["email"])
         validate_password(payload["password"])
 
@@ -29,6 +33,7 @@ class AuthService:
             for key, value in payload.items()
             if key not in {"passwordConfirm"}
         }
+        signup_payload["login_id"] = login_id
 
         member = MemberService.create_member(signup_payload)
         member_model = MemberRepository.get_by_id(member["id"])
@@ -40,16 +45,19 @@ class AuthService:
 
     @staticmethod
     def login(payload):
-        validate_required(payload, ["email", "password"])
-        validate_email(payload["email"])
+        identifier = payload.get("identifier") or payload.get("email")
+        validate_required(
+            {"identifier": identifier, "password": payload.get("password")},
+            ["identifier", "password"],
+        )
 
-        member = MemberRepository.get_by_email(payload["email"])
+        member = MemberRepository.get_by_login_identifier(identifier)
 
         if not member or not member.active or member.deleted_at:
-            raise ValueError("Invalid email or password")
+            raise ValueError("Invalid login ID, email, or password")
 
         if not verify_password(member.password_hash, payload["password"]):
-            raise ValueError("Invalid email or password")
+            raise ValueError("Invalid login ID, email, or password")
 
         try:
             member.last_login_at = datetime.now(timezone.utc)

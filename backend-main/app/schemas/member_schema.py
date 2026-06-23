@@ -3,6 +3,7 @@ def _isoformat(value):
 
 
 MEMBER_FIELDS = {
+    "login_id",
     "email",
     "password_hash",
     "nickname",
@@ -19,6 +20,7 @@ MEMBER_FIELDS = {
 }
 
 MEMBER_FIELD_ALIASES = {
+    "loginId": "login_id",
     "name": "real_name",
     "realName": "real_name",
     "phoneNumber": "phone",
@@ -38,6 +40,7 @@ def member_to_dict(member, include_private=False):
 
     data = {
         "id": member.id,
+        "login_id": member.login_id,
         "email": member.email,
         "nickname": member.nickname,
         "real_name": member.real_name,

@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (payload: LoginRequest) => {
-    const result = await authService.loginWithEmail(payload.email, payload.password);
+    const result = await authService.loginWithIdentifier(payload.identifier, payload.password);
     saveLogin(result.data);
   }, [saveLogin]);
 

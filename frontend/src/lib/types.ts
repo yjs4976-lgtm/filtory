@@ -161,7 +161,7 @@ export interface ApiResponse<T> {
 }
 
 export interface LoginRequest {
-  email: string
+  identifier: string
   password: string
 }
 
@@ -169,8 +169,9 @@ export interface SignupPayload {
   name: string
   phone: string
   email: string
+  loginId: string
   password: string
-  nickname: string
+  nickname?: string
   termsAgreed: boolean
   privacyAgreed: boolean
   marketingAgreed?: boolean

@@ -15,6 +15,7 @@ import { normalizeLoginResponse, normalizeUser } from "./authTransforms";
 
 type BackendSignupPayload = {
   email: string;
+  login_id: string;
   password: string;
   nickname: string;
   real_name: string;
@@ -52,11 +53,11 @@ function createMockUser(email: string, nickname = "필터리 사용자", name = 
 }
 
 export const authService = {
-  async loginWithEmail(email: string, password: string) {
+  async loginWithIdentifier(identifier: string, password: string) {
     try {
       const result = await apiClient<unknown>("/api/auth/login", {
         method: "POST",
-        body: { email, password },
+        body: { identifier, password },
       });
 
       return {
@@ -73,14 +74,17 @@ export const authService = {
         success: true,
         message: "로그인되었습니다.",
         data: {
-          user: createMockUser(email),
+          user: createMockUser(
+            identifier.includes("@") ? identifier : "filtory.user@example.com",
+            identifier
+          ),
         },
       };
     }
   },
 
   login(payload: LoginRequest) {
-    return this.loginWithEmail(payload.email, payload.password);
+    return this.loginWithIdentifier(payload.identifier, payload.password);
   },
 
   async signupWithEmail(payload: SignupPayload) {
@@ -103,7 +107,7 @@ export const authService = {
         success: true,
         message: "회원가입이 완료되었습니다.",
         data: {
-          ...createMockUser(payload.email, payload.nickname, payload.name),
+          ...createMockUser(payload.email, payload.nickname ?? payload.loginId, payload.name),
           phone: payload.phone,
         },
       };
@@ -113,10 +117,11 @@ export const authService = {
   signup(payload: SignupRequest) {
     return this.signupWithEmail({
       email: payload.email,
+      loginId: payload.loginId,
       password: payload.password,
       name: payload.name,
       phone: payload.phone,
-      nickname: payload.nickname ?? payload.name ?? "",
+      nickname: payload.nickname,
       termsAgreed: payload.termsAgreed,
       privacyAgreed: payload.privacyAgreed,
       marketingAgreed: payload.marketingAgreed,
@@ -188,8 +193,9 @@ export const authService = {
 function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
   return {
     email: payload.email,
+    login_id: payload.loginId,
     password: payload.password,
-    nickname: payload.nickname,
+    nickname: payload.nickname ?? payload.loginId,
     real_name: payload.name,
     phone: payload.phone,
     termsAgreed: payload.termsAgreed,

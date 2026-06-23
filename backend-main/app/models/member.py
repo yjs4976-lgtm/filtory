@@ -13,6 +13,7 @@ class Member(db.Model):
     )
 
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    login_id = db.Column(db.String(100))
     email = db.Column(db.String(255), unique=True)
     password_hash = db.Column(db.Text)
     nickname = db.Column(db.String(100))

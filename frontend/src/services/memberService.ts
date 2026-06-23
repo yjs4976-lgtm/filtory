@@ -53,6 +53,13 @@ export const memberService = {
     return result.data
   },
 
+  async checkLoginIdDuplicate(loginId: string) {
+    const result = await apiClient<{ available: boolean }>(
+      `/api/members/login-id-check?login_id=${encodeURIComponent(loginId)}`,
+    )
+    return result.data
+  },
+
   async updateProfile(userId: User["id"], payload: UpdateProfilePayload, currentUser?: User | null) {
     try {
       const result = await apiClient<unknown>(getMemberPath(userId), {
