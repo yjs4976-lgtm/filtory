@@ -184,7 +184,7 @@ export function SignupForm() {
             value={loginId}
             autoComplete="username"
             onChange={(event) => {
-              setLoginId(event.target.value)
+              setLoginId(event.target.value.toLowerCase())
               setLoginIdCheck("idle")
             }}
           />
@@ -249,7 +249,7 @@ export function SignupForm() {
 }
 
 function validateLoginId(value: string, messages: Record<string, string>) {
-  const trimmed = value.trim();
+  const trimmed = value.trim().toLowerCase();
 
   if (!trimmed) {
     return { valid: false, message: messages.idRequired };
@@ -259,7 +259,7 @@ function validateLoginId(value: string, messages: Record<string, string>) {
     return { valid: false, message: messages.idNoSpaces };
   }
 
-  if (!/^[A-Za-z0-9_.-]{4,20}$/.test(value)) {
+  if (!/^[a-z0-9_.-]{4,20}$/.test(trimmed)) {
     return { valid: false, message: messages.idInvalid };
   }
 

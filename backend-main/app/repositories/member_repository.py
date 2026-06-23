@@ -15,7 +15,9 @@ class MemberRepository:
     @staticmethod
     def get_by_login_id(login_id):
         normalized_login_id = str(login_id or "").strip().lower()
-        return Member.query.filter(func.lower(Member.login_id) == normalized_login_id).first()
+        return Member.query.filter(
+            func.lower(func.trim(Member.login_id)) == normalized_login_id
+        ).first()
 
     @staticmethod
     def get_by_login_identifier(identifier):
@@ -23,7 +25,7 @@ class MemberRepository:
         return Member.query.filter(
             or_(
                 func.lower(Member.email) == normalized_identifier,
-                func.lower(Member.login_id) == normalized_identifier,
+                func.lower(func.trim(Member.login_id)) == normalized_identifier,
             )
         ).first()
 
