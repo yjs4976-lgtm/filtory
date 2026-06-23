@@ -1,4 +1,5 @@
 import hashlib
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,7 @@ from app.utils.validators import validate_email
 class MemberService:
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
     PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
+    CREATE_FIELDS = PROFILE_FIELDS | {"login_id"}
     TERMS_PAYLOAD_MAP = {
         "termsAgreed": "terms",
         "privacyAgreed": "privacy",
@@ -34,7 +36,7 @@ class MemberService:
     @staticmethod
     def create_member(payload):
         data = extract_member_data(payload, include_private=False)
-        data = {key: value for key, value in data.items() if key in MemberService.PROFILE_FIELDS}
+        data = {key: value for key, value in data.items() if key in MemberService.CREATE_FIELDS}
         _normalize_member_data(data)
 
         if payload.get("password"):
@@ -43,6 +45,9 @@ class MemberService:
         if data.get("email") and MemberRepository.get_by_email(data["email"]):
             raise ValueError("Email already exists")
 
+        MemberService._validate_login_id(data.get("login_id"))
+        if not data.get("nickname") and data.get("login_id"):
+            data["nickname"] = data["login_id"]
         MemberService._validate_nickname(data.get("nickname"))
 
         try:
@@ -147,11 +152,10 @@ class MemberService:
             raise ValueError("name and phone are required")
 
         member = MemberRepository.get_active_by_name_and_phone(real_name, phone)
-        if not member or not member.email:
+        if not member or not member.login_id:
             raise ValueError("No matching member found")
 
-        # Filtory uses email as the login identifier. Never return a password or an unmasked identifier.
-        return {"id": _mask_email(member.email)}
+        return {"id": _mask_login_id(member.login_id)}
 
     @staticmethod
     def check_nickname_available(nickname):
@@ -159,6 +163,13 @@ class MemberService:
         if not normalized_nickname or len(normalized_nickname) < 2:
             return {"available": False}
         return {"available": MemberRepository.get_by_nickname(normalized_nickname) is None}
+
+    @staticmethod
+    def check_login_id_available(login_id):
+        normalized_login_id = _normalize_login_id(login_id)
+        if not _is_valid_login_id(normalized_login_id):
+            return {"available": False}
+        return {"available": MemberRepository.get_by_login_id(normalized_login_id) is None}
 
     @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
@@ -329,6 +340,16 @@ class MemberService:
             raise ValueError("Nickname already exists")
 
     @staticmethod
+    def _validate_login_id(login_id):
+        normalized_login_id = _normalize_login_id(login_id)
+        if not normalized_login_id:
+            raise ValueError("login_id is required")
+        if not _is_valid_login_id(normalized_login_id):
+            raise ValueError("login_id must be 4-20 letters, numbers, _, -, or .")
+        if MemberRepository.get_by_login_id(normalized_login_id):
+            raise ValueError("Login ID already exists")
+
+    @staticmethod
     def _get_available_social_nickname(nickname, social_id):
         base_nickname = str(nickname or "").strip()
         if not base_nickname:
@@ -374,6 +395,8 @@ def _mask_email(email):
 
 
 def _normalize_member_data(data):
+    if "login_id" in data and data["login_id"] is not None:
+        data["login_id"] = _normalize_login_id(data["login_id"])
     if "phone" in data:
         data["phone"] = _normalize_phone(data["phone"])
     if "nickname" in data and data["nickname"] is not None:
@@ -390,3 +413,18 @@ def _normalize_phone(value):
 
 def _normalize_nickname(value):
     return str(value or "").strip().lower()
+
+
+def _normalize_login_id(value):
+    return str(value or "").strip().lower()
+
+
+def _is_valid_login_id(value):
+    return bool(re.fullmatch(r"[a-z0-9_.-]{4,20}", value or ""))
+
+
+def _mask_login_id(login_id):
+    if len(login_id) <= 2:
+        return "*" * len(login_id)
+    visible_length = min(3, len(login_id) - 1)
+    return f"{login_id[:visible_length]}{'*' * (len(login_id) - visible_length)}"

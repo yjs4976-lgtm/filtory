@@ -1,5 +1,5 @@
 from app.extensions import db
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app.models import EmailVerificationToken, Member, MemberTermsAgreement, PasswordResetToken, SocialAccount
 
 
@@ -11,6 +11,23 @@ class MemberRepository:
     @staticmethod
     def get_by_email(email):
         return Member.query.filter(Member.email == email).first()
+
+    @staticmethod
+    def get_by_login_id(login_id):
+        normalized_login_id = str(login_id or "").strip().lower()
+        return Member.query.filter(
+            func.lower(func.trim(Member.login_id)) == normalized_login_id
+        ).first()
+
+    @staticmethod
+    def get_by_login_identifier(identifier):
+        normalized_identifier = str(identifier or "").strip().lower()
+        return Member.query.filter(
+            or_(
+                func.lower(func.trim(Member.email)) == normalized_identifier,
+                func.lower(func.trim(Member.login_id)) == normalized_identifier,
+            )
+        ).first()
 
     @staticmethod
     def get_by_nickname(nickname):

@@ -22,8 +22,8 @@ export function SignupForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [nicknameCheck, setNicknameCheck] = useState<"idle" | "available" | "unavailable">("idle");
+  const [loginId, setLoginId] = useState("");
+  const [loginIdCheck, setLoginIdCheck] = useState<"idle" | "available" | "unavailable">("idle");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [terms, setTerms] = useState<TermsAgreementState>({
@@ -34,7 +34,7 @@ export function SignupForm() {
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const nicknameValidation = validateSignupId(nickname, t.auth);
+  const loginIdValidation = validateLoginId(loginId, t.auth);
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
   const canSubmit =
@@ -43,12 +43,10 @@ export function SignupForm() {
     Boolean(email.trim()) &&
     terms.termsAgreed &&
     terms.privacyAgreed &&
-    nicknameCheck === "available" &&
-    nicknameValidation.valid &&
+    loginIdCheck === "available" &&
+    loginIdValidation.valid &&
     passwordValidation.valid &&
     passwordsMatch &&
-    Boolean(name.trim()) &&
-    Boolean(phone.trim()) &&
     !isSubmitting;
 
   function isValidEmail(value: string) {
@@ -59,7 +57,7 @@ export function SignupForm() {
     event.preventDefault();
     setError("");
 
-    if (!name || !phone || !email || !nickname || !password || !passwordConfirm) {
+    if (!name || !phone || !email || !loginId || !password || !passwordConfirm) {
       setError(t.auth.requiredFields);
       return;
     }
@@ -69,8 +67,8 @@ export function SignupForm() {
       return;
     }
 
-    if (!nicknameValidation.valid) {
-      setError(nicknameValidation.message);
+    if (!loginIdValidation.valid) {
+      setError(loginIdValidation.message);
       return;
     }
 
@@ -84,7 +82,7 @@ export function SignupForm() {
       return;
     }
 
-    if (nicknameCheck !== "available") {
+    if (loginIdCheck !== "available") {
       setError(t.auth.idDuplicateRequired);
       return;
     }
@@ -102,7 +100,7 @@ export function SignupForm() {
         phone,
         email,
         password,
-        nickname,
+        loginId,
         termsAgreed: terms.termsAgreed,
         privacyAgreed: terms.privacyAgreed,
         marketingAgreed: terms.marketingAgreed,
@@ -121,14 +119,14 @@ export function SignupForm() {
     }
   };
 
-  const handleNicknameCheck = async () => {
-    const validation = validateSignupId(nickname, t.auth)
+  const handleLoginIdCheck = async () => {
+    const validation = validateLoginId(loginId, t.auth)
     if (!validation.valid) {
       setError(validation.message);
       return;
     }
-    const result = await memberService.checkNicknameDuplicate(nickname)
-    setNicknameCheck(result.available ? "available" : "unavailable")
+    const result = await memberService.checkLoginIdDuplicate(loginId)
+    setLoginIdCheck(result.available ? "available" : "unavailable")
     setError("")
   };
 
@@ -175,28 +173,28 @@ export function SignupForm() {
         />
       </label>
 
-      <label className={styles.label} htmlFor="signup-nickname">
+      <label className={styles.label} htmlFor="signup-login-id">
         {t.auth.id}
         <div className={styles.inlineField}>
           <input
-            id="signup-nickname"
+            id="signup-login-id"
             className={styles.input}
             type="text"
             placeholder={t.auth.idPlaceholder}
-            value={nickname}
-            autoComplete="nickname"
+            value={loginId}
+            autoComplete="username"
             onChange={(event) => {
-              setNickname(event.target.value)
-              setNicknameCheck("idle")
+              setLoginId(event.target.value.toLowerCase())
+              setLoginIdCheck("idle")
             }}
           />
-          <button type="button" className={styles.smallPillButton} onClick={handleNicknameCheck}>
+          <button type="button" className={styles.smallPillButton} onClick={handleLoginIdCheck}>
             {t.auth.duplicateCheck}
           </button>
         </div>
-        {nickname && !nicknameValidation.valid && <span className={styles.formHintError}>{nicknameValidation.message}</span>}
-        {nicknameCheck === "available" && <span className={styles.formHintSuccess}>{t.auth.idAvailable}</span>}
-        {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
+        {loginId && !loginIdValidation.valid && <span className={styles.formHintError}>{loginIdValidation.message}</span>}
+        {loginIdCheck === "available" && <span className={styles.formHintSuccess}>{t.auth.idAvailable}</span>}
+        {loginIdCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
 
       <div className={styles.label}>
@@ -250,8 +248,8 @@ export function SignupForm() {
   );
 }
 
-function validateSignupId(value: string, messages: Record<string, string>) {
-  const trimmed = value.trim();
+function validateLoginId(value: string, messages: Record<string, string>) {
+  const trimmed = value.trim().toLowerCase();
 
   if (!trimmed) {
     return { valid: false, message: messages.idRequired };
@@ -261,7 +259,7 @@ function validateSignupId(value: string, messages: Record<string, string>) {
     return { valid: false, message: messages.idNoSpaces };
   }
 
-  if (!/^[A-Za-z0-9_.-]{4,20}$/.test(value)) {
+  if (!/^[a-z0-9_.-]{4,20}$/.test(trimmed)) {
     return { valid: false, message: messages.idInvalid };
   }
 

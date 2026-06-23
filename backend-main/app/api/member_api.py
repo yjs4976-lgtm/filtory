@@ -103,6 +103,11 @@ def check_nickname():
     return success_response(MemberService.check_nickname_available(request.args.get("nickname")))
 
 
+@member_bp.route("/login-id-check", methods=["GET"])
+def check_login_id():
+    return success_response(MemberService.check_login_id_available(request.args.get("login_id")))
+
+
 @member_bp.route("/<int:member_id>/analysis-history", methods=["GET"])
 @require_member_or_admin
 def list_member_analysis_history(member_id):

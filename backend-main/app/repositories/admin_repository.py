@@ -23,6 +23,7 @@ class AdminRepository:
             pattern = f"%{keyword.strip()}%"
             query = query.filter(
                 or_(
+                    Member.login_id.ilike(pattern),
                     Member.email.ilike(pattern),
                     Member.nickname.ilike(pattern),
                     Member.real_name.ilike(pattern),
