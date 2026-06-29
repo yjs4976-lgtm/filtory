@@ -76,6 +76,8 @@ class ProfileImageService:
     def _storage_client():
         return SupabaseStorageClient(
             current_app.config.get("SUPABASE_URL"),
-            current_app.config.get("SUPABASE_SECRET_KEY"),
+            current_app.config.get("SUPABASE_STORAGE_KEY")
+            or current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+            or current_app.config.get("SUPABASE_SECRET_KEY"),
             current_app.config.get("SUPABASE_PROFILE_IMAGE_BUCKET", "profile-images"),
         )

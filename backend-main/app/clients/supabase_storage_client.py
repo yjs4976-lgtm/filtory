@@ -1,7 +1,10 @@
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
+
+
+SUPABASE_API_PATH_SUFFIXES = ("/storage/v1", "/rest/v1", "/auth/v1")
 
 
 class SupabaseStorageClient:
@@ -9,7 +12,7 @@ class SupabaseStorageClient:
         if not base_url or not secret_key:
             raise ValueError("Supabase Storage is not configured")
 
-        self.base_url = base_url.rstrip("/")
+        self.base_url = _normalize_supabase_project_url(base_url)
         self.secret_key = secret_key
         self.bucket = bucket
 
@@ -69,6 +72,18 @@ class SupabaseStorageClient:
 
     def _object_url(self, object_path):
         return f"{self.base_url}/storage/v1/object/{quote(self.bucket, safe='')}/{quote(object_path, safe='/')}"
+
+
+def _normalize_supabase_project_url(base_url):
+    parts = urlsplit(str(base_url).strip().rstrip("/"))
+    path = parts.path.rstrip("/")
+
+    for suffix in SUPABASE_API_PATH_SUFFIXES:
+        if path.endswith(suffix):
+            path = path.removesuffix(suffix)
+            break
+
+    return urlunsplit((parts.scheme, parts.netloc, path, "", "")).rstrip("/")
 
 
 def _read_error_detail(error):
