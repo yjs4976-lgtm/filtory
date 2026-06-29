@@ -1,4 +1,5 @@
 from flask import Flask
+import pytest
 
 from app.services.profile_image_service import ProfileImageService
 
@@ -39,14 +40,14 @@ def test_storage_client_falls_back_to_legacy_secret_key():
     assert storage.secret_key == "legacy-secret-key"
 
 
-def test_storage_client_falls_back_to_anon_key():
+def test_storage_client_requires_storage_key():
     app = create_test_app(
         SUPABASE_STORAGE_KEY=None,
+        SUPABASE_SERVICE_ROLE_KEY=None,
         SUPABASE_SECRET_KEY=None,
         SUPABASE_ANON_KEY="anon-key",
     )
 
     with app.app_context():
-        storage = ProfileImageService._storage_client()
-
-    assert storage.secret_key == "anon-key"
+        with pytest.raises(ValueError, match="Supabase Storage is not configured"):
+            ProfileImageService._storage_client()

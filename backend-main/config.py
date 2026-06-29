@@ -52,7 +52,6 @@ class Config:
     SUPABASE_STORAGE_KEY = (
         SUPABASE_SERVICE_ROLE_KEY
         or SUPABASE_SECRET_KEY
-        or SUPABASE_ANON_KEY
     )
     SUPABASE_PROFILE_IMAGE_BUCKET = os.getenv("SUPABASE_PROFILE_IMAGE_BUCKET", "profile-images")
 
