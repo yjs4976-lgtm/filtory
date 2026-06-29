@@ -1,7 +1,11 @@
 import re
+import logging
 from collections import Counter
 
+from app.core.config import get_settings
 from app.schemas.review_analysis_schema import ReviewAnalyzeRequest, ReviewAnalyzeResponse
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewAnalysisService:
@@ -51,6 +55,23 @@ class ReviewAnalysisService:
 
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
+        settings = get_settings()
+
+        if settings.use_openai_review_analyzer:
+            if settings.openai_api_key:
+                try:
+                    from app.services.openai_review_analysis_service import OpenAIReviewAnalysisService
+
+                    return OpenAIReviewAnalysisService.analyze(payload, settings)
+                except Exception as exc:
+                    logger.warning("OpenAI review analysis failed; falling back to mock analyzer: %s", exc)
+            else:
+                logger.warning("USE_OPENAI_REVIEW_ANALYZER is true, but OPENAI_API_KEY is missing. Using mock analyzer.")
+
+        return cls.analyze_mock(payload)
+
+    @classmethod
+    def analyze_mock(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
         review_text = cls._merge_review_text(payload)
         promotional_phrases = cls._find_keywords(review_text, cls.PROMOTIONAL_KEYWORDS)
         concrete_phrases = cls._find_keywords(review_text, cls.CONCRETE_KEYWORDS)
