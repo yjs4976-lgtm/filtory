@@ -114,6 +114,37 @@ export type HospitalReviewItem = {
   comments?: ReviewCommentItem[]
 }
 
+export type ReviewAnalyzeRequest = {
+  category: HospitalCategory
+  hospitalName?: string
+  reviewText?: string
+  reviews?: string[]
+  outputLanguage?: Language
+}
+
+export type ReviewAnalyzeResponse = {
+  trustScore: number
+  trustGrade: string
+  trustLevelKey: "veryHigh" | "high" | "caution" | "concern" | "veryConcern"
+  adSuspicion: string
+  adSuspicionLevel: "low" | "medium" | "high"
+  detectedPatterns: string[]
+  suspiciousPhrases: string[]
+  repetitivePhrases: string[]
+  informationLevel: string
+  summary: string
+  recommendation: string
+  modelVersion: string
+}
+
+export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
+  id: string
+  category: HospitalCategory
+  hospitalName: string
+  reviewText?: string
+  analyzedAt: string
+}
+
 export type ForeignerFriendlyCheck = {
   googleMapLink: boolean
   englishName: boolean

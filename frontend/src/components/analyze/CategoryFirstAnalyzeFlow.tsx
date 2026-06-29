@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ExternalLink, FileCheck2, LinkIcon, MapPinned, Search, Star } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ExternalLink, FileCheck2, LinkIcon, LoaderCircle, MapPinned, Search, Star } from "lucide-react"
 import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
 import { useToast } from "@/hooks/useToast"
@@ -13,15 +14,18 @@ import {
   searchDemoHospitals,
 } from "@/lib/mockHospitals"
 import { getTrustLevelKey, normalizeTrustLevelKey } from "@/lib/score"
+import { writeCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import type {
   AnalysisHistoryItem,
   HospitalCategory,
   HospitalItem,
   HospitalRegionCode,
   HospitalReviewItem,
+  ReviewAnalyzeResponse,
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
+import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import styles from "@/styles/App.module.css"
 
 type SearchMode = "region" | "free"
@@ -33,6 +37,17 @@ const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental">
 }
 
 const PAGE_SIZE = 3
+
+type ApiAnalysisResult = AnalysisHistoryItem & {
+  trustGrade?: string
+  trustLevelKey?: ReviewAnalyzeResponse["trustLevelKey"]
+  adSuspicion?: string
+  detectedPatterns?: string[]
+  repetitivePhrases?: string[]
+  informationLevel?: string
+  recommendation?: string
+  modelVersion?: string
+}
 
 function trustLevelLabel(t: ReturnType<typeof useLanguage>["t"], level?: string, score?: number) {
   if (typeof score === "number") return t.trustLevels[getTrustLevelKey(score)]
@@ -52,64 +67,75 @@ function formatStars(rating = 0) {
   return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`
 }
 
-function createAnalysisResult({
+function adSuspicionScore(level: ReviewAnalyzeResponse["adSuspicionLevel"]) {
+  if (level === "high") return 75
+  if (level === "medium") return 45
+  return 18
+}
+
+function concreteExperienceLevel(informationLevel: string): "low" | "medium" | "high" {
+  if (informationLevel === "구체적") return "high"
+  if (informationLevel === "보통") return "medium"
+  return "low"
+}
+
+function createApiAnalysisResult({
   hospital,
-  reviews,
+  hospitalName,
+  category,
+  response,
   userId,
-  summary,
+  selectedReviewCount,
+  totalReviewCount,
 }: {
-  hospital: HospitalItem
-  reviews: HospitalReviewItem[]
+  hospital?: HospitalItem
+  hospitalName: string
+  category: HospitalCategory
+  response: ReviewAnalyzeResponse
   userId?: string | number
-  summary: string
-}): AnalysisHistoryItem {
-  const joinedText = reviews.map((review) => review.content).join(" ")
-  const adMatches = joinedText.match(/이벤트|예약|추천|할인|당일/g) ?? []
-  const concreteMatches = joinedText.match(/설명|관리|비용|일정|검사|치료|통증|주의사항/g) ?? []
-  const positiveMatches = joinedText.match(/자세|안심|신뢰|편했|꼼꼼|차분|필요한/g) ?? []
-  const negativeMatches = joinedText.match(/광고|부족|대기|확인|반복/g) ?? []
-  const totalSentiment = Math.max(1, positiveMatches.length + negativeMatches.length)
-  const selectedReviewCount = reviews.length
-  const trustScore = Math.max(45, Math.min(96, 72 + concreteMatches.length * 3 - adMatches.length * 4 + selectedReviewCount * 2))
-  const adSuspicionLevel = adMatches.length >= 4 ? "high" : adMatches.length >= 2 ? "medium" : "low"
-  const repetitivePatternLevel = adMatches.length >= 3 ? "high" : adMatches.length >= 1 ? "medium" : "low"
-  const concreteExperienceLevel = concreteMatches.length >= 6 ? "high" : concreteMatches.length >= 3 ? "medium" : "low"
-  const foreignAccessibilityStars = [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length
+  selectedReviewCount: number
+  totalReviewCount: number
+}): ApiAnalysisResult {
+  const foreignAccessibilityStars = hospital
+    ? [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length
+    : 0
 
   return {
     id: `analysis-${Date.now()}`,
     userId,
-    hospitalName: hospital.name,
-    category: hospital.category,
-    hospitalCategory: categoryToHistoryName[hospital.category],
-    hospitalAddress: hospital.address,
-    region: hospital.region,
-    sourceName: hospital.sourceName,
-    sourceUrl: hospital.sourceUrl,
-    score: trustScore,
+    hospitalName,
+    category,
+    hospitalCategory: categoryToHistoryName[category],
+    hospitalAddress: hospital?.address,
+    region: hospital?.region,
+    sourceName: hospital?.sourceName,
+    sourceUrl: hospital?.sourceUrl,
+    score: response.trustScore,
     foreignerFriendlyScore: foreignAccessibilityStars * 20,
     createdAt: new Date().toISOString(),
     analyzedAt: new Date().toISOString(),
     selectedReviewCount,
-    totalReviewCount: hospital.reviewCount ?? selectedReviewCount,
-    trustScore,
-    trustLevel: getTrustLevelKey(trustScore),
-    adSuspicionScore: adSuspicionLevel === "high" ? 75 : adSuspicionLevel === "medium" ? 45 : 18,
-    adSuspicionLevel,
-    repetitivePatternLevel,
-    concreteExperienceLevel,
-    positiveRatio: Math.round((positiveMatches.length / totalSentiment) * 100),
-    negativeRatio: Math.round((negativeMatches.length / totalSentiment) * 100),
-    summary,
-    suspiciousPhrases: Array.from(new Set(adMatches)).slice(0, 4),
-    trustworthyPhrases: Array.from(new Set(concreteMatches)).slice(0, 4),
-    detectedReasons: [
-      `selectedReviews:${selectedReviewCount}`,
-      `adMatches:${adMatches.length}`,
-      `concreteMatches:${concreteMatches.length}`,
-    ],
-    infoCompletenessScore: [hospital.address, hospital.phone, hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl].filter(Boolean)
-      .length * 20,
+    totalReviewCount,
+    trustScore: response.trustScore,
+    trustLevel: response.trustLevelKey,
+    trustGrade: response.trustGrade,
+    trustLevelKey: response.trustLevelKey,
+    adSuspicion: response.adSuspicion,
+    adSuspicionScore: adSuspicionScore(response.adSuspicionLevel),
+    adSuspicionLevel: response.adSuspicionLevel,
+    repetitivePatternLevel: response.repetitivePhrases.length > 0 ? response.adSuspicionLevel : "low",
+    concreteExperienceLevel: concreteExperienceLevel(response.informationLevel),
+    summary: response.summary,
+    suspiciousPhrases: response.suspiciousPhrases,
+    repetitivePhrases: response.repetitivePhrases,
+    detectedReasons: response.detectedPatterns,
+    detectedPatterns: response.detectedPatterns,
+    informationLevel: response.informationLevel,
+    recommendation: response.recommendation,
+    modelVersion: response.modelVersion,
+    infoCompletenessScore: hospital
+      ? [hospital.address, hospital.phone, hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl].filter(Boolean).length * 20
+      : 0,
     globalAccessRating: foreignAccessibilityStars,
     foreignAccessibilityStars,
     reviewCount: selectedReviewCount,
@@ -118,6 +144,7 @@ function createAnalysisResult({
 }
 
 export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number }) {
+  const router = useRouter()
   const { t, language } = useLanguage()
   const { showToast } = useToast()
   const [category, setCategory] = useState<HospitalCategory>("derma")
@@ -130,7 +157,12 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(null)
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([])
   const [reviewPage, setReviewPage] = useState(0)
-  const [analysisResult, setAnalysisResult] = useState<AnalysisHistoryItem | null>(null)
+  const [directHospitalName, setDirectHospitalName] = useState("")
+  const [directReviewText, setDirectReviewText] = useState("")
+  const [analysisResult, setAnalysisResult] = useState<ApiAnalysisResult | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState("")
+  const [inputError, setInputError] = useState("")
   const [isSaved, setIsSaved] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
@@ -207,25 +239,97 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setSelectedReviewIds([])
   }
 
-  const handleAnalyzeHospitalReviews = (hospital: HospitalItem, targetReviews: HospitalReviewItem[]) => {
-    if (targetReviews.length === 0) return
-    const summary =
-      language === "ko"
-        ? targetReviews.length > 1
-          ? `${hospital.name}의 선택 리뷰 ${targetReviews.length}개를 함께 분석했습니다. 구체적인 경험 표현과 반복 홍보 표현을 분리해 참고 점수로 계산했어요.`
-          : `${hospital.name}의 선택 리뷰를 분석했습니다. 리뷰 수가 적어 추가 확인이 필요할 수 있어요.`
-        : targetReviews.length > 1
-          ? `${targetReviews.length} selected reviews for ${hospital.name} were analyzed together. Specific experience wording and repeated promotional patterns were separated into reference scores.`
-          : `One selected review for ${hospital.name} was analyzed. More reviews may be helpful for a firmer judgment.`
-
-    setSelectedHospital(hospital)
-    setAnalysisResult(createAnalysisResult({ hospital, reviews: targetReviews, userId, summary }))
+  const analyzeWithApi = async ({
+    hospital,
+    hospitalName,
+    reviewText,
+    reviews: targetReviewTexts,
+    selectedReviewCount,
+    totalReviewCount,
+  }: {
+    hospital?: HospitalItem
+    hospitalName: string
+    reviewText?: string
+    reviews?: string[]
+    selectedReviewCount: number
+    totalReviewCount: number
+  }) => {
+    setIsAnalyzing(true)
+    setAnalyzeError("")
+    setInputError("")
+    setAnalysisResult(null)
     setIsSaved(false)
+
+    try {
+      const response = await reviewAnalysisService.analyzeReview({
+        category,
+        hospitalName,
+        reviewText,
+        reviews: targetReviewTexts,
+        outputLanguage: language,
+      })
+
+      const nextAnalysisResult = createApiAnalysisResult({
+        hospital,
+        hospitalName,
+        category,
+        response,
+        userId,
+        selectedReviewCount,
+        totalReviewCount,
+      })
+
+      setAnalysisResult(nextAnalysisResult)
+      writeCurrentReviewAnalysis({
+        ...response,
+        id: nextAnalysisResult.id,
+        category,
+        hospitalName,
+        reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
+        analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
+      })
+      router.push(ROUTES.RESULT)
+    } catch {
+      setAnalyzeError(t.analyze.analyzeError)
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
 
-  const handleAnalyze = (targetReviews: HospitalReviewItem[]) => {
+  const handleAnalyzeDirectReview = async () => {
+    const hospitalName = directHospitalName.trim()
+    const reviewText = directReviewText.trim()
+    if (isAnalyzing) return
+    if (!hospitalName || !reviewText) {
+      setInputError(t.analyze.inputRequired)
+      setAnalyzeError("")
+      return
+    }
+
+    await analyzeWithApi({
+      hospitalName,
+      reviewText,
+      selectedReviewCount: 1,
+      totalReviewCount: 1,
+    })
+  }
+
+  const handleAnalyzeHospitalReviews = async (hospital: HospitalItem, targetReviews: HospitalReviewItem[]) => {
+    if (targetReviews.length === 0) return
+
+    setSelectedHospital(hospital)
+    await analyzeWithApi({
+      hospital,
+      hospitalName: hospital.name,
+      reviews: targetReviews.map((review) => review.content),
+      selectedReviewCount: targetReviews.length,
+      totalReviewCount: hospital.reviewCount ?? targetReviews.length,
+    })
+  }
+
+  const handleAnalyze = async (targetReviews: HospitalReviewItem[]) => {
     if (!selectedHospital) return
-    handleAnalyzeHospitalReviews(selectedHospital, targetReviews)
+    await handleAnalyzeHospitalReviews(selectedHospital, targetReviews)
   }
 
   const handleSwipe = (direction: "prev" | "next", totalPages: number, setPage: (updater: (page: number) => number) => void) => {
@@ -264,6 +368,8 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setSelectedHospital(null)
     setSelectedReviewIds([])
     setAnalysisResult(null)
+    setAnalyzeError("")
+    setInputError("")
     setIsSaved(false)
     setQuery("")
   }
@@ -288,6 +394,60 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         <h2 className={styles.titleMd}>{t.analyze.selectCategoryTitle}</h2>
         <CategorySelector selected={category} onSelect={handleCategoryChange} />
       </section>
+
+      <section className={`${styles.card} ${styles.stackSm}`}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.directAnalyzeTitle}</h2>
+          <p className={styles.bodyText}>{t.analyze.directAnalyzeDescription}</p>
+        </div>
+        <label className={styles.label} htmlFor="direct-hospital-name">
+          {t.analyze.hospitalLabel}
+          <input
+            id="direct-hospital-name"
+            className={styles.input}
+            type="text"
+            placeholder={t.analyze.hospitalPlaceholder}
+            value={directHospitalName}
+            onChange={(event) => setDirectHospitalName(event.target.value)}
+          />
+        </label>
+        <label className={styles.label} htmlFor="direct-review-text">
+          {t.analyze.reviewLabel}
+          <textarea
+            id="direct-review-text"
+            className={styles.textarea}
+            placeholder={t.analyze.reviewPlaceholder}
+            value={directReviewText}
+            onChange={(event) => setDirectReviewText(event.target.value)}
+          />
+        </label>
+        {inputError && <p className={styles.bodyText}>{inputError}</p>}
+        <div className={styles.actionRow}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={isAnalyzing}
+            onClick={handleAnalyzeDirectReview}
+          >
+            {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
+            {isAnalyzing ? t.analyze.submitting : t.analyze.directAnalyzeButton}
+          </button>
+        </div>
+      </section>
+
+      {isAnalyzing && (
+        <section className={`${styles.emptyCard} ${styles.stackSm}`}>
+          <LoaderCircle className={`${styles.iconLg} ${styles.spin}`} />
+          <h2 className={styles.titleMd}>{t.analyze.loading}</h2>
+          <p className={styles.bodyText}>{t.analyze.loadingSub}</p>
+        </section>
+      )}
+
+      {analyzeError && (
+        <section className={styles.emptyCard}>
+          <p className={styles.bodyText}>{analyzeError}</p>
+        </section>
+      )}
 
       <section className={`${styles.card} ${styles.stackSm}`}>
         <h2 className={styles.titleMd}>{t.analyze.searchModeTitle}</h2>
@@ -375,6 +535,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
                     regionLabel={getRegionLabel(hospital.region, language)}
                     onViewReviews={() => handleOpenReviews(hospital)}
                     onAnalyze={() => handleAnalyzeHospitalReviews(hospital, getDemoReviewsForHospital(hospital))}
+                    disabled={isAnalyzing}
                   />
                 ))}
               </div>
@@ -441,12 +602,12 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
                 <button
                   type="button"
                   className={styles.secondaryButton}
-                  disabled={selectedReviews.length === 0}
+                  disabled={isAnalyzing || selectedReviews.length === 0}
                   onClick={() => handleAnalyze(selectedReviews)}
                 >
                   {t.analyze.analyzeSelectedReviews}
                 </button>
-                <button type="button" className={styles.primaryButton} onClick={() => handleAnalyze(reviews)}>
+                <button type="button" className={styles.primaryButton} disabled={isAnalyzing} onClick={() => handleAnalyze(reviews)}>
                   {t.analyze.analyzeAllReviews}
                 </button>
               </div>
@@ -463,8 +624,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
           </div>
           <div className={styles.resultMetricGrid}>
             <Metric label={t.analyze.overallTrustScore} value={`${analysisResult.trustScore}/100`} />
-            <Metric label={t.analyze.trustLevel} value={trustLevelLabel(t, analysisResult.trustLevel, analysisResult.trustScore)} />
-            <Metric label={t.analyze.adSuspicionLevel} value={levelLabel(t, analysisResult.adSuspicionLevel)} />
+            <Metric label={t.analyze.trustLevel} value={analysisResult.trustGrade ?? trustLevelLabel(t, analysisResult.trustLevel, analysisResult.trustScore)} />
+            <Metric label={t.analyze.adSuspicionLevel} value={analysisResult.adSuspicion ?? levelLabel(t, analysisResult.adSuspicionLevel)} />
+            <Metric label={t.analyze.informationLevel} value={analysisResult.informationLevel ?? levelLabel(t, analysisResult.concreteExperienceLevel)} />
+            <Metric label={t.analyze.modelVersion} value={analysisResult.modelVersion ?? "mock"} />
             <Metric label={t.analyze.repetitivePattern} value={levelLabel(t, analysisResult.repetitivePatternLevel)} />
             <Metric label={t.analyze.concreteExperience} value={levelLabel(t, analysisResult.concreteExperienceLevel)} />
             <Metric label={t.analyze.foreignAccessibility} value={formatStars(analysisResult.foreignAccessibilityStars)} />
@@ -477,14 +640,21 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             <span className={styles.neutralPill}>
               {t.analyze.totalReviewCount} {analysisResult.totalReviewCount}
             </span>
-            <span className={styles.neutralPill}>
-              {t.analyze.positiveRatio} {analysisResult.positiveRatio}%
-            </span>
-            <span className={styles.neutralPill}>
-              {t.analyze.negativeRatio} {analysisResult.negativeRatio}%
-            </span>
+            {typeof analysisResult.positiveRatio === "number" && (
+              <span className={styles.neutralPill}>
+                {t.analyze.positiveRatio} {analysisResult.positiveRatio}%
+              </span>
+            )}
+            {typeof analysisResult.negativeRatio === "number" && (
+              <span className={styles.neutralPill}>
+                {t.analyze.negativeRatio} {analysisResult.negativeRatio}%
+              </span>
+            )}
           </div>
+          {analysisResult.recommendation && <p className={styles.bodyText}>{analysisResult.recommendation}</p>}
+          <PhraseList title={t.analyze.detectedPatterns} items={analysisResult.detectedPatterns ?? []} />
           <PhraseList title={t.analyze.suspiciousPhrases} items={analysisResult.suspiciousPhrases ?? []} />
+          <PhraseList title={t.analyze.repetitivePhrases} items={analysisResult.repetitivePhrases ?? []} />
           <PhraseList title={t.analyze.trustworthyPhrases} items={analysisResult.trustworthyPhrases ?? []} />
           <div className={styles.actionRow}>
             <button type="button" className={styles.secondaryButton} onClick={handleRestart}>
@@ -506,11 +676,13 @@ function HospitalResultCard({
   regionLabel,
   onViewReviews,
   onAnalyze,
+  disabled,
 }: {
   hospital: HospitalItem
   regionLabel: string
   onViewReviews: () => void
   onAnalyze: () => void
+  disabled?: boolean
 }) {
   const { t } = useLanguage()
 
@@ -547,7 +719,7 @@ function HospitalResultCard({
           <button type="button" className={styles.secondaryButton} onClick={onViewReviews}>
             {t.analyze.viewReviews}
           </button>
-          <button type="button" className={styles.primaryButton} onClick={onAnalyze}>
+          <button type="button" className={styles.primaryButton} disabled={disabled} onClick={onAnalyze}>
             {t.analyze.analyzeHospital}
           </button>
         </div>

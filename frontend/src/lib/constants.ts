@@ -5,6 +5,10 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://localhost:5000";
 
+export const AI_API_BASE_URL =
+  process.env.NEXT_PUBLIC_AI_API_URL ||
+  "http://127.0.0.1:8000";
+
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 export const SOCIAL_PROVIDERS: Record<
