@@ -220,20 +220,24 @@ class ChatbotService:
 
     @classmethod
     def _is_greeting(cls, text):
-        greeting_keywords = [
+        korean_greeting_keywords = [
             "안녕",
             "하이",
             "헬로",
             "반가워",
             "좋은 아침",
-            "hi",
-            "hello",
-            "hey",
+        ]
+        english_greeting_phrases = [
             "good morning",
             "good afternoon",
             "good evening",
         ]
-        return cls._has_any(text, greeting_keywords)
+        english_greeting_words = {"hi", "hello", "hey"}
+
+        if cls._has_any(text, korean_greeting_keywords + english_greeting_phrases):
+            return True
+
+        return bool(english_greeting_words.intersection(str(text).split()))
 
     @classmethod
     def _is_analysis_question(cls, text):
@@ -326,6 +330,21 @@ class ChatbotService:
                 return "Avoid entering personal information such as phone numbers, resident IDs, addresses, or medical record details in reviews or chat. For deletion or retention, use account/data settings or contact service support."
             return "리뷰나 챗봇에는 전화번호, 주민등록번호, 상세 주소, 진료기록처럼 개인을 식별할 수 있는 정보는 입력하지 않는 게 좋아요. 저장/삭제/보관은 마이페이지의 데이터 관리나 고객지원 경로에서 확인해 주세요."
 
+        asks_review_trust = cls._has_any(text, ["리뷰", "후기", "review"]) and cls._has_any(
+            text,
+            ["믿", "신뢰", "trust"],
+        )
+        if asks_review_trust:
+            if language == "en":
+                return (
+                    "Use this review as reference, not as proof. Check whether it includes concrete visit details, "
+                    "whether wording feels promotional or repeated, and compare it with recent reviews and basic clinic information."
+                )
+            return (
+                "이 리뷰는 증거가 아니라 참고 정보로 보는 게 좋아요. 구체적인 방문 경험이 있는지, 광고성·반복 표현이 있는지, "
+                "최근 다른 리뷰와 병원 기본 정보가 함께 맞는지 비교해 주세요."
+            )
+
         if cls._has_any(text, ["점수 낮", "낮은 점수", "낮으면", "나쁜 병원", "bad clinic", "low score", "score is low"]):
             if language == "en":
                 return f"A low score does not automatically mean {hospital_name or 'the clinic'} is bad. It means there are caution signals or limited evidence, so compare recent reviews and basic clinic information."
@@ -340,6 +359,17 @@ class ChatbotService:
 
     @classmethod
     def _answer_by_keyword(cls, text, language):
+        if cls._has_any(text, ["장점", "강점", "좋은 점", "strength", "strengths", "good point", "pros"]):
+            if language == "en":
+                return (
+                    "To identify this hospital’s strengths, please log in and run or save an analysis first. "
+                    "Then I can use the trust score, place completeness, foreigner-friendliness, and summary signals without directly recommending the clinic."
+                )
+            return (
+                "이 병원의 장점을 보려면 먼저 로그인 후 분석하거나 분석 결과를 저장해 주세요. 연결되면 신뢰도 점수, 플레이스 완성도, 외국인 친화도, "
+                "요약 신호를 바탕으로 직접 추천은 피하면서 장점과 확인할 점을 설명해드릴게요."
+            )
+
         if cls._has_any(text, ["가짜", "진짜", "허위", "조작", "fake", "real", "false"]):
             if language == "en":
                 return (

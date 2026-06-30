@@ -121,6 +121,57 @@ def test_chatbot_answers_english_basic_question():
     assert "How do I use Filtory?" in result["suggested_questions"]
 
 
+def test_english_this_does_not_trigger_hi_greeting():
+    strength_result = ChatbotService.answer({"message": "What are this hospital's strengths?", "language": "en"})
+    compare_result = ChatbotService.answer({"message": "Compare this with another hospital.", "language": "en"})
+    trust_result = ChatbotService.answer({"message": "Can I trust this review?", "language": "en"})
+
+    assert strength_result["source"] == "keyword"
+    assert "log in and run or save an analysis" in strength_result["answer"]
+    assert not strength_result["answer"].startswith("Hi!")
+
+    assert compare_result["source"] == "keyword"
+    assert "For comparison" in compare_result["answer"]
+    assert not compare_result["answer"].startswith("Hi!")
+
+    assert trust_result["source"] == "keyword"
+    assert "Use this review as reference" in trust_result["answer"]
+    assert not trust_result["answer"].startswith("Hi!")
+
+
+def test_review_trust_question_gets_review_specific_answer():
+    ko_result = ChatbotService.answer({"message": "이 리뷰 믿어도 돼?"})
+    ko_punctuated_result = ChatbotService.answer({"message": "이 리뷰, 믿을 만한가요?"})
+    en_result = ChatbotService.answer({"message": "Can I trust this review?", "language": "en"})
+
+    assert ko_result["source"] == "keyword"
+    assert "증거가 아니라 참고 정보" in ko_result["answer"]
+    assert "광고성·반복 표현" in ko_result["answer"]
+
+    assert ko_punctuated_result["source"] == "keyword"
+    assert "증거가 아니라 참고 정보" in ko_punctuated_result["answer"]
+
+    assert en_result["source"] == "keyword"
+    assert "Use this review as reference" in en_result["answer"]
+    assert "promotional or repeated" in en_result["answer"]
+
+
+def test_chatbot_api_does_not_treat_this_as_hi():
+    from app import create_app
+
+    client = create_app().test_client()
+    response = client.post(
+        "/api/chatbot/message",
+        json={"message": "Can I trust this review?", "language": "en"},
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "keyword"
+    assert "Use this review as reference" in payload["data"]["answer"]
+    assert not payload["data"]["answer"].startswith("Hi!")
+
+
 def test_chatbot_explains_analysis_in_three_lines():
     result = ChatbotService.answer(
         {

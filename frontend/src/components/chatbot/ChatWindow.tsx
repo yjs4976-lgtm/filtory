@@ -15,6 +15,11 @@ type ChatMessage = {
   text: string
 }
 
+type RecommendedQuestionState = {
+  language: string
+  questions: string[]
+}
+
 function buildChatAnalysisContext() {
   const analysis = readCurrentReviewAnalysis()
 
@@ -43,10 +48,13 @@ export function ChatWindow() {
   const { t, language } = useLanguage()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
+  const [recommendedQuestions, setRecommendedQuestions] = useState<RecommendedQuestionState | null>(null)
   const [isResponding, setIsResponding] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
   const nextMessageId = useRef(1)
   const visibleMessages: ChatMessage[] = [{ id: 0, role: "ai", text: t.chatbot.greeting }, ...messages]
+  const visibleRecommendedQuestions =
+    recommendedQuestions?.language === language ? recommendedQuestions.questions : []
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -70,6 +78,7 @@ export function ChatWindow() {
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: result.data.answer }
       nextMessageId.current += 1
       setMessages((prev) => [...prev, aiMsg])
+      setRecommendedQuestions({ language, questions: result.data.suggested_questions ?? [] })
     } catch {
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: t.chatbot.error }
       nextMessageId.current += 1
@@ -89,7 +98,7 @@ export function ChatWindow() {
         <div ref={endRef} />
       </div>
 
-      <RecommendedQuestions onSelect={send} />
+      <RecommendedQuestions questions={visibleRecommendedQuestions} onSelect={send} />
 
       <div className={styles.chatbotSpacer} />
 
