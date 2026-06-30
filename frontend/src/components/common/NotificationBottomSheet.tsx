@@ -241,7 +241,7 @@ function NotificationSheetCard({
   onNavigate: (href: string) => void
 }) {
   const { t } = useLanguage()
-  const template = t.notificationCenter.cardTemplates[item.type]
+  const template = t.notificationCenter.cardTemplates[item.type] ?? t.notificationCenter.cardTemplates.system
   const title = item.title || template.title
   const message = item.message || template.message
   const actionLabel = item.actionLabel || template.action

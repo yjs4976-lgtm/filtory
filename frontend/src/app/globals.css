@@ -500,7 +500,7 @@ a {
   flex-direction: column;
   gap: 12px;
   margin-top: 14px;
-  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  padding-bottom: 0;
 }
 
 .admin-card-title-row {
@@ -590,9 +590,9 @@ a {
   color: #7b7889;
 }
 
-.admin-status-blocked {
-  background: rgba(255, 182, 201, 0.48);
-  color: #a84f68;
+.admin-status-withdrawn {
+  background: rgba(168, 165, 183, 0.16);
+  color: #6f6b7d;
 }
 
 .admin-role-admin {
@@ -670,6 +670,88 @@ a {
   padding: 18px;
   text-align: center;
   font-weight: 800;
+}
+
+.admin-pagination-area {
+  margin-top: 16px;
+  margin-bottom: calc(36px + env(safe-area-inset-bottom));
+  border: 1px solid rgba(241, 232, 221, 0.95);
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 12px;
+  box-shadow: 0 8px 22px rgba(168, 165, 183, 0.08);
+}
+
+.admin-pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-pagination-button {
+  min-width: 0;
+  flex: 1 1 0;
+  height: 44px;
+  border: 1px solid #f1e8dd;
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-pagination-button-primary {
+  border-color: rgba(220, 207, 255, 0.74);
+  background: #dccfff;
+  color: #1f2540;
+}
+
+.admin-pagination-button:hover:not(:disabled),
+.admin-pagination-button:focus-visible:not(:disabled) {
+  border-color: #dccfff;
+  box-shadow: 0 8px 18px rgba(168, 165, 183, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-pagination-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.admin-pagination-info {
+  min-width: 64px;
+  color: #1f2540;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.admin-page-size-select {
+  width: 132px;
+  height: 36px;
+  display: block;
+  margin: 10px auto 0;
+  border: 1px solid #f1e8dd;
+  border-radius: 12px;
+  background: #fffdf9;
+  color: var(--foreground);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-pagination-range {
+  margin: 8px 0 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .empty-cell {

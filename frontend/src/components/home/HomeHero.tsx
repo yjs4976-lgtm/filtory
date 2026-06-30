@@ -1,94 +1,66 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check, ChevronDown, Search, Sparkles, X } from "lucide-react"
 import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
+import {
+  KOREA_REGION_OPTIONS,
+  getRegionLabel,
+  matchesRegionText,
+  type RegionDistrict,
+  type RegionProvince,
+  type RegionProvinceCode,
+} from "@/lib/regions"
 import { ROUTES } from "@/lib/routes"
-import type { HospitalCategory } from "@/lib/types"
+import type { HospitalCategory, Language } from "@/lib/types"
 import styles from "@/styles/App.module.css"
 
 type AnalyzeMode = "hospital" | "url"
 
-const KOREA_REGION_OPTIONS = {
-  서울: ["강남구", "서초구", "송파구", "마포구", "종로구", "중구", "용산구", "성동구", "광진구", "동대문구", "영등포구"],
-  경기: ["수원시", "성남시", "안양시 동안구", "안양시 만안구", "고양시", "용인시", "부천시", "화성시", "남양주시", "평택시", "안산시"],
-  인천: ["미추홀구", "연수구", "남동구", "부평구", "계양구", "서구"],
-  부산: ["해운대구", "부산진구", "수영구", "동래구", "남구", "연제구"],
-  대구: ["중구", "동구", "서구", "남구", "북구", "수성구", "달서구"],
-  대전: ["동구", "중구", "서구", "유성구", "대덕구"],
-  광주: ["동구", "서구", "남구", "북구", "광산구"],
-  울산: ["중구", "남구", "동구", "북구", "울주군"],
-  세종: ["세종시"],
-  강원: ["춘천시", "원주시", "강릉시", "속초시"],
-  충북: ["청주시", "충주시", "제천시"],
-  충남: ["천안시", "아산시", "서산시", "논산시"],
-  전북: ["전주시", "군산시", "익산시", "정읍시"],
-  전남: ["목포시", "여수시", "순천시", "나주시"],
-  경북: ["포항시", "경주시", "구미시", "경산시"],
-  경남: ["창원시", "김해시", "진주시", "양산시"],
-  제주: ["제주시", "서귀포시"],
-} as const
-
-type Province = keyof typeof KOREA_REGION_OPTIONS
 type DistrictSearchResult = {
-  province: Province
-  district: string
-  label: string
+  province: RegionProvince
+  district: RegionDistrict
 }
 
-const PROVINCE_OPTIONS = Object.keys(KOREA_REGION_OPTIONS) as Province[]
-const REGION_SEARCH_RESULTS = PROVINCE_OPTIONS.flatMap((province) =>
-  KOREA_REGION_OPTIONS[province].map((district) => ({
+const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
+  province.districts.map((district) => ({
     province,
     district,
-    label: `${province} ${district}`,
   }))
 )
 
 export function HomeHero() {
   const router = useRouter()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const currentLanguage: Language = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<HospitalCategory>("derma")
   const [mode, setMode] = useState<AnalyzeMode>("hospital")
   const [hospitalName, setHospitalName] = useState("")
-  const [region, setRegion] = useState("")
   const [naverUrl, setNaverUrl] = useState("")
   const [isRegionSheetOpen, setIsRegionSheetOpen] = useState(false)
   const [regionSearch, setRegionSearch] = useState("")
-  const [selectedProvince, setSelectedProvince] = useState<Province | "">("")
-  const [selectedDistrict, setSelectedDistrict] = useState("")
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<RegionProvinceCode | "">("")
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState("")
   const regionSearchRef = useRef<HTMLInputElement>(null)
 
   const trimmedRegionSearch = regionSearch.trim()
-  const filteredProvinces = useMemo(() => {
-    if (!trimmedRegionSearch) return PROVINCE_OPTIONS
-    return PROVINCE_OPTIONS.filter((province) => province.includes(trimmedRegionSearch))
-  }, [trimmedRegionSearch])
-  const districtOptions = selectedProvince ? KOREA_REGION_OPTIONS[selectedProvince] : []
-  const filteredDistricts = useMemo<DistrictSearchResult[]>(() => {
-    if (!trimmedRegionSearch) {
-      if (!selectedProvince) return []
-      return KOREA_REGION_OPTIONS[selectedProvince].map((district) => ({
+  const filteredProvinces = trimmedRegionSearch
+    ? KOREA_REGION_OPTIONS.filter((province) => matchesRegionText(province, trimmedRegionSearch))
+    : KOREA_REGION_OPTIONS
+  const selectedProvince = KOREA_REGION_OPTIONS.find((province) => province.code === selectedProvinceCode)
+  const districtOptions = selectedProvince?.districts ?? []
+  const filteredDistricts: DistrictSearchResult[] = trimmedRegionSearch
+    ? REGION_SEARCH_RESULTS.filter(({ province, district }) =>
+        matchesRegionText(province, trimmedRegionSearch) || matchesRegionText(district, trimmedRegionSearch)
+      )
+    : selectedProvince?.districts.map((district) => ({
         province: selectedProvince,
         district,
-        label: `${selectedProvince} ${district}`,
-      }))
-    }
-
-    return REGION_SEARCH_RESULTS.filter(({ province, district, label }) =>
-      province.includes(trimmedRegionSearch) ||
-      district.includes(trimmedRegionSearch) ||
-      label.includes(trimmedRegionSearch)
-    )
-  }, [selectedProvince, trimmedRegionSearch])
+      })) ?? []
   const hasRegionSearchResults = filteredProvinces.length > 0 || filteredDistricts.length > 0
-  const selectedRegionLabel = selectedProvince
-    ? selectedDistrict
-      ? `${selectedProvince} ${selectedDistrict}`
-      : selectedProvince
-    : ""
+  const selectedRegionLabel = getRegionLabel(selectedProvinceCode, selectedDistrictCode, currentLanguage)
 
   useEffect(() => {
     if (!isRegionSheetOpen) return
@@ -113,7 +85,7 @@ export function HomeHero() {
     params.set("category", category)
     if (mode === "hospital") {
       if (hospitalName.trim()) params.set("hospital", hospitalName.trim())
-      if (region.trim()) params.set("region", region.trim())
+      if (selectedRegionLabel.trim()) params.set("region", selectedRegionLabel.trim())
     }
     if (mode === "url" && naverUrl.trim()) params.set("naver", naverUrl.trim())
     router.push(`${ROUTES.ANALYZE}?${params.toString()}`)
@@ -124,59 +96,58 @@ export function HomeHero() {
     setIsRegionSheetOpen(true)
   }
 
-  function selectProvince(nextProvince: Province) {
-    setSelectedProvince(nextProvince)
-    setSelectedDistrict("")
-    setRegion(nextProvince)
+  function selectProvince(nextProvince: RegionProvince) {
+    setSelectedProvinceCode(nextProvince.code)
+    setSelectedDistrictCode("")
     setRegionSearch("")
   }
 
   function resetProvinceSelection() {
-    setSelectedProvince("")
-    setSelectedDistrict("")
-    setRegion("")
+    setSelectedProvinceCode("")
+    setSelectedDistrictCode("")
     setRegionSearch("")
   }
 
-  function selectDistrict(nextProvince: Province, nextDistrict: string) {
-    const nextRegion = `${nextProvince} ${nextDistrict}`
-    setSelectedProvince(nextProvince)
-    setSelectedDistrict(nextDistrict)
-    setRegion(nextRegion)
+  function selectDistrict(nextProvince: RegionProvince, nextDistrict: RegionDistrict) {
+    setSelectedProvinceCode(nextProvince.code)
+    setSelectedDistrictCode(nextDistrict.code)
     setIsRegionSheetOpen(false)
   }
 
-  function renderProvinceButton(option: Province) {
-    const isSelected = selectedProvince === option
+  function renderProvinceButton(option: RegionProvince) {
+    const label = option.label[currentLanguage]
+    const isSelected = selectedProvinceCode === option.code
 
     return (
       <button
-        key={option}
+        key={option.code}
         type="button"
         role="option"
         className={`${styles.regionOptionButton} ${isSelected ? styles.regionOptionSelected : ""}`}
         aria-selected={isSelected}
-        aria-label={`${t.home.regionPicker.provinceTitle}: ${option}`}
+        aria-label={`${t.home.regionPicker.provinceTitle}: ${label}`}
         onClick={() => selectProvince(option)}
       >
-        <span>{option}</span>
+        <span>{label}</span>
         {isSelected ? <Check className={styles.iconSm} aria-hidden="true" /> : null}
       </button>
     )
   }
 
-  function renderDistrictButton({ province, district, label }: DistrictSearchResult) {
-    const isSelected = selectedProvince === province && selectedDistrict === district
-    const displayLabel = trimmedRegionSearch ? label : district
+  function renderDistrictButton({ province, district }: DistrictSearchResult) {
+    const provinceLabel = province.label[currentLanguage]
+    const districtLabel = district.label[currentLanguage]
+    const isSelected = selectedProvinceCode === province.code && selectedDistrictCode === district.code
+    const displayLabel = trimmedRegionSearch ? `${provinceLabel} ${districtLabel}` : districtLabel
 
     return (
       <button
-        key={label}
+        key={`${province.code}-${district.code}`}
         type="button"
         role="option"
         className={`${styles.regionOptionButton} ${isSelected ? styles.regionOptionSelected : ""}`}
         aria-selected={isSelected}
-        aria-label={`${t.home.regionPicker.districtTitle}: ${label}`}
+        aria-label={`${t.home.regionPicker.districtTitle}: ${provinceLabel} ${districtLabel}`}
         onClick={() => selectDistrict(province, district)}
       >
         <span>{displayLabel}</span>
@@ -233,7 +204,7 @@ export function HomeHero() {
             <div className={`${styles.regionSelectField} ${isRegionSheetOpen ? styles.regionSelectFieldOpen : ""}`}>
               <input
                 className={styles.input}
-                value={region}
+                value={selectedRegionLabel}
                 readOnly
                 aria-label={t.home.regionPicker.inputAriaLabel}
                 aria-haspopup="dialog"
@@ -332,13 +303,12 @@ export function HomeHero() {
                       <div className={styles.regionOptionGrid}>{districtOptions.map((district) => renderDistrictButton({
                         province: selectedProvince,
                         district,
-                        label: `${selectedProvince} ${district}`,
                       }))}</div>
                     </div>
                   ) : (
                     <div className={styles.regionSection}>
                       <h3>{t.home.regionPicker.selectProvinceTitle}</h3>
-                      <div className={styles.regionOptionGrid}>{PROVINCE_OPTIONS.map(renderProvinceButton)}</div>
+                      <div className={styles.regionOptionGrid}>{KOREA_REGION_OPTIONS.map(renderProvinceButton)}</div>
                     </div>
                   )}
                 </>

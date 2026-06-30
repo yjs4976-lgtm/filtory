@@ -26,7 +26,7 @@ export function AdminUserFilter({ value, onChange }: AdminUserFilterProps) {
           <option value="all">{labels.statusAll}</option>
           <option value="ACTIVE">{labels.statusActive}</option>
           <option value="SUSPENDED">{labels.statusInactive}</option>
-          <option value="WITHDRAWN">{labels.statusBlocked}</option>
+          <option value="WITHDRAWN">{labels.statusWithdrawn}</option>
         </select>
         <select value={value.role ?? "all"} onChange={(event) => onChange({ ...value, role: event.target.value as "all" | UserRole })}>
           <option value="all">{labels.roleAll}</option>
