@@ -1,6 +1,7 @@
 import pytest
 
 from app.services.chatbot_service import ChatbotService
+from app.services.token_service import TokenService
 
 
 def test_chatbot_requires_message():
@@ -311,6 +312,57 @@ def test_chatbot_api_does_not_treat_this_as_hi():
     assert payload["data"]["source"] == "keyword"
     assert "Use this review as reference" in payload["data"]["answer"]
     assert not payload["data"]["answer"].startswith("Hi!")
+
+
+def test_chatbot_api_allows_remote_ai_for_logged_in_user(monkeypatch):
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    ChatbotService._remote_ai_rate_limit_hits.clear()
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.post(
+        "/api/chatbot/message",
+        json={"message": "조금 다른 방식으로 설명해줄래?"},
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "llm"
+    assert payload["data"]["answer"] == "AI fallback answer"
+
+
+def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
+    from app import create_app
+
+    client = create_app().test_client()
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        raise AssertionError("remote AI should not be called")
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    response = client.post(
+        "/api/chatbot/message",
+        json={"message": "조금 다른 방식으로 설명해줄래?"},
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "default"
 
 
 def test_chatbot_explains_analysis_in_three_lines():
