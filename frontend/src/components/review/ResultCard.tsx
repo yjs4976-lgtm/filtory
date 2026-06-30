@@ -14,7 +14,15 @@ import { ResultActionCard } from "@/components/result/ResultActionCard"
 import styles from "@/styles/App.module.css"
 import { ScoreCircle } from "./ScoreCircle"
 
-function ScoreBar({ label, value, tone }) {
+function ScoreBar({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: string
+}) {
   return (
     <div>
       <div className={styles.scoreBarRow}>
@@ -36,6 +44,12 @@ function suspicionScore(level: CurrentReviewAnalysis["adSuspicionLevel"]) {
   if (level === "high") return 85
   if (level === "medium") return 55
   return 20
+}
+
+function signalLevelScore(level: "low" | "medium" | "high") {
+  if (level === "high") return 85
+  if (level === "medium") return 60
+  return 30
 }
 
 function globalAccessibilityScore(result: CurrentReviewAnalysis) {
@@ -138,7 +152,7 @@ function GlobalAccessibilityStars({
   maxScore: number
   language: Language
 }) {
-  const ariaLabel = language === "ko" ? `5점 만점에 ${score}점` : `${score} out of ${maxScore}`
+  const ariaLabel = language === "ko" ? `${maxScore}점 만점에 ${score}점` : `${score} out of ${maxScore}`
 
   return (
     <span className={styles.inlineStarRating} aria-label={ariaLabel} title={ariaLabel}>
@@ -173,6 +187,10 @@ export function ResultCard() {
     const informationCompletenessLabel = formatSignalLevel(informationCompletenessLevel(apiResult), language)
     const accessibility = globalAccessibilityScore(apiResult)
     const accessibilityPercent = globalAccessibilityPercent(apiResult)
+    const globalAccessibilityChecks = Object.entries(apiResult.globalAccessibilityChecks ?? {}) as [
+      keyof NonNullable<CurrentReviewAnalysis["globalAccessibilityChecks"]>,
+      boolean | undefined,
+    ][]
 
     return (
       <div className={styles.resultStack}>
@@ -214,6 +232,12 @@ export function ResultCard() {
                 />
               </span>
             </div>
+            {globalAccessibilityChecks.map(([key, value]) => (
+              <div key={key} className={styles.resultMetricRow}>
+                <span>{t.analyze.globalAccessibilityItems[key]}</span>
+                <strong>{value ? t.analyze.available : t.analyze.missing}</strong>
+              </div>
+            ))}
           </div>
           <p className={styles.mutedText}>{t.result.reference}</p>
         </section>
@@ -223,7 +247,11 @@ export function ResultCard() {
         <section className={`${styles.softCard} ${styles.stackMd}`}>
           <ScoreBar label={t.result.trustScore} value={apiResult.trustScore} tone={styles.fillMint} />
           <ScoreBar label={t.result.adScore} value={suspicionScore(apiResult.adSuspicionLevel)} tone={styles.fillPink} />
-          <ScoreBar label={t.analyze.informationLevel} value={apiResult.informationLevel === "구체적" ? 85 : apiResult.informationLevel === "보통" ? 60 : 30} tone={styles.fillPrimary} />
+          <ScoreBar
+            label={t.analyze.informationLevel}
+            value={signalLevelScore(informationCompletenessLevel(apiResult))}
+            tone={styles.fillPrimary}
+          />
           <ScoreBar label={t.analyze.foreignAccessibility} value={accessibilityPercent} tone={styles.fillGold} />
         </section>
 
