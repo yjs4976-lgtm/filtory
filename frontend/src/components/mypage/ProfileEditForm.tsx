@@ -5,6 +5,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
 import { memberService } from "@/services/memberService"
+import { PasswordField } from "@/components/auth/PasswordField"
 import { EmailVerificationCard } from "./EmailVerificationCard"
 import { ProfileImageUploader } from "./ProfileImageUploader"
 import styles from "@/styles/App.module.css"
@@ -171,34 +172,27 @@ export function ProfileEditForm() {
         {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
 
-      <div className={`${styles.softCard} ${styles.stackSm}`}>
-        <p className={styles.titleSm}>{t.mypage.passwordSection}</p>
-        <p className={styles.mutedText}>{t.mypage.passwordHelp}</p>
-      </div>
+      <PasswordField
+        id="profile-password"
+        label={t.mypage.newPassword}
+        placeholder={t.mypage.newPasswordPlaceholder}
+        value={password}
+        autoComplete="new-password"
+        showLabel={t.auth.showPassword}
+        hideLabel={t.auth.hidePassword}
+        onChange={setPassword}
+      />
 
-      <label className={styles.label} htmlFor="profile-password">
-        {t.mypage.newPassword}
-        <input
-          id="profile-password"
-          className={styles.input}
-          type="password"
-          value={password}
-          autoComplete="new-password"
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
-
-      <label className={styles.label} htmlFor="profile-password-confirm">
-        {t.mypage.newPasswordConfirm}
-        <input
-          id="profile-password-confirm"
-          className={styles.input}
-          type="password"
-          value={passwordConfirm}
-          autoComplete="new-password"
-          onChange={(event) => setPasswordConfirm(event.target.value)}
-        />
-      </label>
+      <PasswordField
+        id="profile-password-confirm"
+        label={t.mypage.newPasswordConfirm}
+        placeholder={t.mypage.newPasswordConfirmPlaceholder}
+        value={passwordConfirm}
+        autoComplete="new-password"
+        showLabel={t.auth.showPassword}
+        hideLabel={t.auth.hidePassword}
+        onChange={setPasswordConfirm}
+      />
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
         {isSubmitting ? t.mypage.saving : t.mypage.saveProfile}
