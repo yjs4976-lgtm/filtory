@@ -1,8 +1,12 @@
+import os
+import time
+
 from app.clients.ai_chatbot_client import AIChatbotClient
 
 
 class ChatbotService:
     MAX_MESSAGE_LENGTH = 800
+    _remote_ai_rate_limit_hits = {}
 
     ANALYSIS_SUGGESTIONS_KO = [
         "분석 결과를 쉽게 설명해줘요.",
@@ -42,7 +46,7 @@ class ChatbotService:
     SUGGESTIONS_EN = GENERAL_SUGGESTIONS_EN
 
     @classmethod
-    def answer(cls, payload):
+    def answer(cls, payload, allow_remote_ai=False, rate_limit_key=None):
         message = str(payload.get("message") or "").strip()
         if not message:
             raise ValueError("message is required")
@@ -78,11 +82,13 @@ class ChatbotService:
                     answer = keyword_answer
                     source = "keyword"
                 else:
-                    ai_answer = cls._answer_by_ai(
-                        message,
-                        language,
-                        cls._safe_analysis_context(analysis_context),
-                    )
+                    ai_answer = None
+                    if allow_remote_ai and not cls._is_remote_ai_rate_limited(rate_limit_key):
+                        ai_answer = cls._answer_by_ai(
+                            message,
+                            language,
+                            cls._safe_analysis_context(analysis_context),
+                        )
                     if ai_answer:
                         answer = ai_answer["answer"]
                         source = ai_answer["source"]
@@ -124,6 +130,39 @@ class ChatbotService:
     @staticmethod
     def _answer_by_ai(message, language, analysis_context=None):
         return AIChatbotClient.answer(message, language=language, analysis_context=analysis_context)
+
+    @classmethod
+    def _is_remote_ai_rate_limited(cls, key):
+        if not key:
+            return True
+
+        now = time.monotonic()
+        window_seconds = cls._remote_ai_rate_limit_window_seconds()
+        max_requests = cls._remote_ai_rate_limit_max_requests()
+        cutoff = now - window_seconds
+        hits = [timestamp for timestamp in cls._remote_ai_rate_limit_hits.get(key, []) if timestamp > cutoff]
+
+        if len(hits) >= max_requests:
+            cls._remote_ai_rate_limit_hits[key] = hits
+            return True
+
+        hits.append(now)
+        cls._remote_ai_rate_limit_hits[key] = hits
+        return False
+
+    @staticmethod
+    def _remote_ai_rate_limit_window_seconds():
+        try:
+            return max(1, int(os.getenv("CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS") or "60"))
+        except (TypeError, ValueError):
+            return 60
+
+    @staticmethod
+    def _remote_ai_rate_limit_max_requests():
+        try:
+            return max(1, int(os.getenv("CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS") or "10"))
+        except (TypeError, ValueError):
+            return 10
 
     @staticmethod
     def _safe_analysis_context(context):
