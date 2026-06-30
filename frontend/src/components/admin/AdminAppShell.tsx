@@ -3,7 +3,7 @@ import { Header } from "@/components/common/Header"
 
 export function AdminAppShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="admin-app-shell">
       <Header title={title} showBack />
       <main className="page admin-page">{children}</main>
       <BottomNav />

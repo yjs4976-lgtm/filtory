@@ -11,6 +11,7 @@ export function AdminUserDetailCard({ user }: AdminUserDetailCardProps) {
   const handleStatusChange = async (status: UserStatus) => {
     await adminUserService.updateUserStatus(user.id, status)
   }
+  const visibleStatus = user.status === "DORMANT" ? "SUSPENDED" : user.status
 
   return (
     <section className="soft-card admin-table-card">
@@ -19,11 +20,10 @@ export function AdminUserDetailCard({ user }: AdminUserDetailCardProps) {
       <p>{user.email}</p>
       <p>가입일 {user.createdAt ?? "-"} · 최근 로그인 {user.lastLoginAt ?? "-"}</p>
       <div className="admin-filter-grid">
-        <select defaultValue={user.status} onChange={(event) => handleStatusChange(event.target.value as UserStatus)}>
-          <option value="ACTIVE">정상</option>
-          <option value="SUSPENDED">정지</option>
-          <option value="WITHDRAWN">탈퇴</option>
-          <option value="DORMANT">휴면</option>
+        <select defaultValue={visibleStatus} onChange={(event) => handleStatusChange(event.target.value as UserStatus)}>
+          <option value="ACTIVE">활성</option>
+          <option value="SUSPENDED">비활성</option>
+          <option value="WITHDRAWN">차단</option>
         </select>
       </div>
     </section>

@@ -48,7 +48,7 @@ export default function AdminUsersPage() {
         {isLoading && <p>불러오는 중...</p>}
         {error && <p className="form-error">{error}</p>}
         <AdminUserFilter value={filters} onChange={setFilters} />
-        {!isLoading && <AdminUserTable users={users} />}
+        {!isLoading && <AdminUserTable users={users} onRefresh={loadData} />}
       </AdminGuard>
     </AdminAppShell>
   )
