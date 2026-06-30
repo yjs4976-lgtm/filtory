@@ -158,6 +158,24 @@ def test_analysis_context_has_priority_over_small_talk_detail_keyword():
     assert "72/100" in result["answer"]
 
 
+def test_chatbot_prefers_localized_ad_suspicion_over_level_key():
+    result = ChatbotService.answer(
+        {
+            "message": "분석 결과 설명해줘",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "trustScore": 72,
+                "adSuspicion": "보통",
+                "adSuspicionLevel": "medium",
+            },
+        }
+    )
+
+    assert result["source"] == "analysis"
+    assert "광고 의심도는 보통으로" in result["answer"]
+    assert "medium" not in result["answer"]
+
+
 def test_chatbot_does_not_directly_recommend_clinic():
     result = ChatbotService.answer({"message": "어느 병원 추천해줘?"})
 

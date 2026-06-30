@@ -536,7 +536,7 @@ class ChatbotService:
                 "foreignerScore",
                 "foreigner_score",
             ),
-            "ad_level": cls._string(context, "adSuspicionLevel", "ad_suspicion_level", "adSuspicion", "ad_suspicion"),
+            "ad_level": cls._string(context, "adSuspicion", "ad_suspicion", "adSuspicionLevel", "ad_suspicion_level"),
             "summary": cls._string(context, "summary", "summary_ko", "summary_en"),
             "reasons": cls._list(context, "detectedReasons", "detected_reasons", "detectedPatterns", "detected_patterns"),
             "suspicious_phrases": cls._list(context, "suspiciousPhrases", "suspicious_phrases"),
@@ -577,6 +577,16 @@ class ChatbotService:
     @staticmethod
     def _format_items(items, fallback):
         return ", ".join(items[:3]) if items else fallback
+
+    @staticmethod
+    def _with_korean_direction_particle(text):
+        if not text:
+            return text
+        last_char = str(text)[-1]
+        if not ("가" <= last_char <= "힣"):
+            return f"{text}로"
+        has_final_consonant = (ord(last_char) - ord("가")) % 28 != 0
+        return f"{text}으로" if has_final_consonant else f"{text}로"
 
     @classmethod
     def _context_hospital_name(cls, context, language):
@@ -621,7 +631,7 @@ class ChatbotService:
         if place_score_text:
             parts.append(f"플레이스 완성도는 {place_score_text}이고")
         if ad_level:
-            parts.append(f"광고 의심도는 {ad_level}로 표시됐어요")
+            parts.append(f"광고 의심도는 {cls._with_korean_direction_particle(ad_level)} 표시됐어요")
         answer = " ".join(parts).rstrip("이고") + "."
         if summary:
             answer += f" 요약하면 {summary}"
