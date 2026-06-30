@@ -15,6 +15,30 @@ type ChatMessage = {
   text: string
 }
 
+function buildChatAnalysisContext() {
+  const analysis = readCurrentReviewAnalysis()
+
+  if (!analysis) return null
+
+  return {
+    hospitalName: analysis.hospitalName,
+    category: analysis.category,
+    trustScore: analysis.trustScore,
+    trustGrade: analysis.trustGrade,
+    trustLevelKey: analysis.trustLevelKey,
+    adSuspicion: analysis.adSuspicion,
+    adSuspicionLevel: analysis.adSuspicionLevel,
+    detectedPatterns: analysis.detectedPatterns,
+    suspiciousPhrases: analysis.suspiciousPhrases,
+    repetitivePhrases: analysis.repetitivePhrases,
+    informationLevel: analysis.informationLevel,
+    summary: analysis.summary,
+    recommendation: analysis.recommendation,
+    modelVersion: analysis.modelVersion,
+    analyzedAt: analysis.analyzedAt,
+  }
+}
+
 export function ChatWindow() {
   const { t, language } = useLanguage()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -41,7 +65,7 @@ export function ChatWindow() {
       const result = await sendChatMessage({
         message: trimmed,
         language,
-        analysisContext: readCurrentReviewAnalysis(),
+        analysisContext: buildChatAnalysisContext(),
       })
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: result.data.answer }
       nextMessageId.current += 1

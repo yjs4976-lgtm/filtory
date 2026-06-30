@@ -56,18 +56,18 @@ class ChatbotService:
         has_context = bool(analysis_context)
         normalized_message = message.lower()
 
-        small_talk_answer = cls._answer_small_talk(normalized_message, language, has_context=has_context)
-        if small_talk_answer:
-            answer = small_talk_answer
-            source = "small_talk"
+        guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
+        if guardrail_answer:
+            answer = guardrail_answer
+            source = "keyword"
+        elif analysis_context and cls._is_analysis_question(normalized_message):
+            answer = cls._answer_from_analysis(normalized_message, analysis_context, language)
+            source = "analysis"
         else:
-            guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
-            if guardrail_answer:
-                answer = guardrail_answer
-                source = "keyword"
-            elif analysis_context and cls._is_analysis_question(normalized_message):
-                answer = cls._answer_from_analysis(normalized_message, analysis_context, language)
-                source = "analysis"
+            small_talk_answer = cls._answer_small_talk(normalized_message, language, has_context=has_context)
+            if small_talk_answer:
+                answer = small_talk_answer
+                source = "small_talk"
             else:
                 keyword_answer = cls._answer_by_keyword(normalized_message, language)
                 if keyword_answer:

@@ -140,6 +140,24 @@ def test_chatbot_explains_analysis_in_three_lines():
     assert "3. 참고 정보" in result["answer"]
 
 
+def test_analysis_context_has_priority_over_small_talk_detail_keyword():
+    result = ChatbotService.answer(
+        {
+            "message": "분석 결과 간단히 설명해줘",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "trustScore": 72,
+                "adSuspicionLevel": "medium",
+                "detectedPatterns": ["광고성 의심 표현 포함"],
+            },
+        }
+    )
+
+    assert result["source"] == "analysis"
+    assert "예시피부과" in result["answer"]
+    assert "72/100" in result["answer"]
+
+
 def test_chatbot_does_not_directly_recommend_clinic():
     result = ChatbotService.answer({"message": "어느 병원 추천해줘?"})
 
