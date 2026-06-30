@@ -1,5 +1,12 @@
+import os
+import time
+
+from app.clients.ai_chatbot_client import AIChatbotClient
+
+
 class ChatbotService:
     MAX_MESSAGE_LENGTH = 800
+    _remote_ai_rate_limit_hits = {}
 
     ANALYSIS_SUGGESTIONS_KO = [
         "분석 결과를 쉽게 설명해줘요.",
@@ -39,7 +46,7 @@ class ChatbotService:
     SUGGESTIONS_EN = GENERAL_SUGGESTIONS_EN
 
     @classmethod
-    def answer(cls, payload):
+    def answer(cls, payload, allow_remote_ai=False, rate_limit_key=None):
         message = str(payload.get("message") or "").strip()
         if not message:
             raise ValueError("message is required")
@@ -55,6 +62,7 @@ class ChatbotService:
         )
         has_context = bool(analysis_context)
         normalized_message = message.lower()
+        model_version = None
 
         guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
         if guardrail_answer:
@@ -74,14 +82,29 @@ class ChatbotService:
                     answer = keyword_answer
                     source = "keyword"
                 else:
-                    answer = cls._default_answer(language, has_context=has_context)
-                    source = "default"
+                    ai_answer = None
+                    if allow_remote_ai and not cls._is_remote_ai_rate_limited(rate_limit_key):
+                        ai_answer = cls._answer_by_ai(
+                            message,
+                            language,
+                            cls._safe_analysis_context(analysis_context),
+                        )
+                    if ai_answer:
+                        answer = ai_answer["answer"]
+                        source = ai_answer["source"]
+                        model_version = ai_answer.get("modelVersion")
+                    else:
+                        answer = cls._default_answer(language, has_context=has_context)
+                        source = "default"
 
-        return {
+        result = {
             "answer": answer,
             "source": source,
             "suggested_questions": cls._suggested_questions(language, has_context=has_context),
         }
+        if model_version:
+            result["modelVersion"] = model_version
+        return result
 
     @staticmethod
     def _normalize_language(value):
@@ -103,6 +126,78 @@ class ChatbotService:
         if has_context:
             return cls.ANALYSIS_SUGGESTIONS_EN if language == "en" else cls.ANALYSIS_SUGGESTIONS_KO
         return cls.GENERAL_SUGGESTIONS_EN if language == "en" else cls.GENERAL_SUGGESTIONS_KO
+
+    @staticmethod
+    def _answer_by_ai(message, language, analysis_context=None):
+        return AIChatbotClient.answer(message, language=language, analysis_context=analysis_context)
+
+    @classmethod
+    def _is_remote_ai_rate_limited(cls, key):
+        if not key:
+            return True
+
+        now = time.monotonic()
+        window_seconds = cls._remote_ai_rate_limit_window_seconds()
+        max_requests = cls._remote_ai_rate_limit_max_requests()
+        cutoff = now - window_seconds
+        hits = [timestamp for timestamp in cls._remote_ai_rate_limit_hits.get(key, []) if timestamp > cutoff]
+
+        if len(hits) >= max_requests:
+            cls._remote_ai_rate_limit_hits[key] = hits
+            return True
+
+        hits.append(now)
+        cls._remote_ai_rate_limit_hits[key] = hits
+        return False
+
+    @staticmethod
+    def _remote_ai_rate_limit_window_seconds():
+        try:
+            return max(1, int(os.getenv("CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS") or "60"))
+        except (TypeError, ValueError):
+            return 60
+
+    @staticmethod
+    def _remote_ai_rate_limit_max_requests():
+        try:
+            return max(1, int(os.getenv("CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS") or "10"))
+        except (TypeError, ValueError):
+            return 10
+
+    @staticmethod
+    def _safe_analysis_context(context):
+        if not isinstance(context, dict):
+            return {}
+
+        allowed_keys = {
+            "hospitalName",
+            "hospital_name",
+            "category",
+            "trustScore",
+            "trust_score",
+            "totalScore",
+            "total_score",
+            "adSuspicion",
+            "ad_suspicion",
+            "adSuspicionLevel",
+            "ad_suspicion_level",
+            "detectedPatterns",
+            "detected_patterns",
+            "suspiciousPhrases",
+            "suspicious_phrases",
+            "repetitivePhrases",
+            "repetitive_phrases",
+            "informationLevel",
+            "information_level",
+            "summary",
+            "recommendation",
+            "modelVersion",
+            "selectedReviewCount",
+            "selected_review_count",
+            "reviewCount",
+            "review_count",
+        }
+        return {key: value for key, value in context.items() if key in allowed_keys}
 
     @classmethod
     def _answer_small_talk(cls, text, language, has_context=False):

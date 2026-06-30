@@ -1,6 +1,7 @@
 import pytest
 
 from app.services.chatbot_service import ChatbotService
+from app.services.token_service import TokenService
 
 
 def test_chatbot_requires_message():
@@ -121,6 +122,147 @@ def test_chatbot_answers_english_basic_question():
     assert "How do I use Filtory?" in result["suggested_questions"]
 
 
+def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
+    def fake_ai_answer(message, language, analysis_context=None):
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    result = ChatbotService.answer(
+        {"message": "조금 다른 방식으로 설명해줄래?"},
+        allow_remote_ai=True,
+        rate_limit_key="member:1",
+    )
+
+    assert result["source"] == "llm"
+    assert result["answer"] == "AI fallback answer"
+    assert result["modelVersion"] == "gemini:test"
+
+
+def test_chatbot_does_not_use_remote_ai_without_login(monkeypatch):
+    def fake_ai_answer(message, language, analysis_context=None):
+        raise AssertionError("remote AI should not be called")
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    result = ChatbotService.answer({"message": "조금 다른 방식으로 설명해줄래?"})
+
+    assert result["source"] == "default"
+
+
+def test_chatbot_remote_ai_rate_limit_falls_back_to_default(monkeypatch):
+    calls = []
+    ChatbotService._remote_ai_rate_limit_hits.clear()
+    monkeypatch.setenv("CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS", "1")
+    monkeypatch.setenv("CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS", "60")
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        calls.append(message)
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    first_result = ChatbotService.answer(
+        {"message": "새로운 표현으로 풀어줄래"},
+        allow_remote_ai=True,
+        rate_limit_key="member:rate-limited",
+    )
+    second_result = ChatbotService.answer(
+        {"message": "새로운 표현으로 풀어줄래"},
+        allow_remote_ai=True,
+        rate_limit_key="member:rate-limited",
+    )
+
+    assert first_result["source"] == "llm"
+    assert second_result["source"] == "default"
+    assert calls == ["새로운 표현으로 풀어줄래"]
+
+
+def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
+    from app.clients.ai_chatbot_client import AIChatbotClient
+
+    monkeypatch.setenv("ENABLE_REMOTE_CHATBOT", "false")
+    monkeypatch.setenv("AI_CHATBOT_API_URL", "http://127.0.0.1:8000/api/chatbot/message")
+
+    assert AIChatbotClient._api_url() is None
+
+
+def test_ai_chatbot_client_sends_internal_token_header(monkeypatch):
+    from app.clients.ai_chatbot_client import AIChatbotClient
+
+    captured_headers = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"answer":"ok","source":"llm","modelVersion":"gemini:test"}'
+
+    def fake_urlopen(request, timeout):
+        captured_headers.update(request.headers)
+        return FakeResponse()
+
+    monkeypatch.setenv("ENABLE_REMOTE_CHATBOT", "true")
+    monkeypatch.setenv("AI_CHATBOT_API_URL", "http://127.0.0.1:8000/api/chatbot/message")
+    monkeypatch.setenv("AI_INTERNAL_TOKEN", "secret-token")
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    result = AIChatbotClient.answer("hello", language="en")
+
+    assert result["source"] == "llm"
+    assert captured_headers["X-internal-token"] == "secret-token"
+
+
+def test_chatbot_filters_analysis_context_before_ai_fallback(monkeypatch):
+    captured_context = {}
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        captured_context.update(analysis_context or {})
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    result = ChatbotService.answer(
+        {
+            "message": "다른 말투로 풀어줄래",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "trustScore": 72,
+                "summary": "구체적인 상담 내용이 있습니다.",
+                "reviewText": "010-1234-5678 진료기록 원문",
+                "phone": "010-1234-5678",
+                "email": "user@example.com",
+                "address": "서울시 상세주소",
+            },
+        },
+        allow_remote_ai=True,
+        rate_limit_key="member:2",
+    )
+
+    assert result["source"] == "llm"
+    assert captured_context == {
+        "hospitalName": "예시피부과",
+        "trustScore": 72,
+        "summary": "구체적인 상담 내용이 있습니다.",
+    }
+
+
 def test_english_this_does_not_trigger_hi_greeting():
     strength_result = ChatbotService.answer({"message": "What are this hospital's strengths?", "language": "en"})
     compare_result = ChatbotService.answer({"message": "Compare this with another hospital.", "language": "en"})
@@ -170,6 +312,57 @@ def test_chatbot_api_does_not_treat_this_as_hi():
     assert payload["data"]["source"] == "keyword"
     assert "Use this review as reference" in payload["data"]["answer"]
     assert not payload["data"]["answer"].startswith("Hi!")
+
+
+def test_chatbot_api_allows_remote_ai_for_logged_in_user(monkeypatch):
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    ChatbotService._remote_ai_rate_limit_hits.clear()
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.post(
+        "/api/chatbot/message",
+        json={"message": "조금 다른 방식으로 설명해줄래?"},
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "llm"
+    assert payload["data"]["answer"] == "AI fallback answer"
+
+
+def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
+    from app import create_app
+
+    client = create_app().test_client()
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        raise AssertionError("remote AI should not be called")
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    response = client.post(
+        "/api/chatbot/message",
+        json={"message": "조금 다른 방식으로 설명해줄래?"},
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "default"
 
 
 def test_chatbot_explains_analysis_in_three_lines():
