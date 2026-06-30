@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, ShieldCheck, Sparkles } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
@@ -14,15 +14,26 @@ import { ResultActionCard } from "@/components/result/ResultActionCard"
 import styles from "@/styles/App.module.css"
 import { ScoreCircle } from "./ScoreCircle"
 
-function ScoreBar({
+type SignalLevel = "low" | "medium" | "high"
+
+function MetricRow({
   label,
   value,
-  tone,
+  valueClassName,
 }: {
   label: string
-  value: number
-  tone: string
+  value: ReactNode
+  valueClassName?: string
 }) {
+  return (
+    <div className={styles.resultMetricRow}>
+      <span>{label}</span>
+      {valueClassName ? <span className={valueClassName}>{value}</span> : <strong>{value}</strong>}
+    </div>
+  )
+}
+
+function ScoreBar({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <div>
       <div className={styles.scoreBarRow}>
@@ -46,7 +57,7 @@ function suspicionScore(level: CurrentReviewAnalysis["adSuspicionLevel"]) {
   return 20
 }
 
-function signalLevelScore(level: "low" | "medium" | "high") {
+function signalLevelScore(level: SignalLevel) {
   if (level === "high") return 85
   if (level === "medium") return 60
   return 30
@@ -87,7 +98,7 @@ function formatTrustLevelKey(level: CurrentReviewAnalysis["trustLevelKey"], lang
   return labels[language][level]
 }
 
-function formatSignalLevel(level: "low" | "medium" | "high" | undefined, language: Language) {
+function formatSignalLevel(level: SignalLevel | undefined, language: Language) {
   const labels = {
     ko: {
       low: "낮음",
@@ -104,14 +115,14 @@ function formatSignalLevel(level: "low" | "medium" | "high" | undefined, languag
   return labels[language][level ?? "medium"]
 }
 
-function informationCompletenessLevel(result: CurrentReviewAnalysis): "low" | "medium" | "high" {
+function informationCompletenessLevel(result: CurrentReviewAnalysis): SignalLevel {
   if (result.informationCompleteness) return result.informationCompleteness
   if (result.informationLevel === "구체적") return "high"
   if (result.informationLevel === "정보 부족") return "low"
   return "medium"
 }
 
-function repetitionLevel(result: CurrentReviewAnalysis): "low" | "medium" | "high" {
+function repetitionLevel(result: CurrentReviewAnalysis): SignalLevel {
   if (result.repetitionLevel) return result.repetitionLevel
   return result.repetitivePhrases.length > 0 ? result.adSuspicionLevel : "low"
 }
@@ -143,7 +154,7 @@ function displayHospitalName(result: CurrentReviewAnalysis, language: Language) 
   return result.hospitalNameKo || result.hospitalName
 }
 
-function GlobalAccessibilityStars({
+function StarRating({
   score,
   maxScore,
   language,
@@ -206,37 +217,21 @@ export function ResultCard() {
             <span>{t.trustLevels[apiResult.trustLevelKey]}</span>
           </div>
           <div className={styles.resultMetricList}>
-            <div className={styles.resultMetricRow}>
-              <span>{t.analyze.trustLevel}</span>
-              <strong>{trustLevelLabel}</strong>
-            </div>
-            <div className={styles.resultMetricRow}>
-              <span>{t.analyze.adSuspicionLevel}</span>
-              <strong>{adSuspicionLabel}</strong>
-            </div>
-            <div className={styles.resultMetricRow}>
-              <span>{t.analyze.repetitivePattern}</span>
-              <strong>{repetitionLabel}</strong>
-            </div>
-            <div className={styles.resultMetricRow}>
-              <span>{t.analyze.infoCompleteness}</span>
-              <strong>{informationCompletenessLabel}</strong>
-            </div>
-            <div className={styles.resultMetricRow}>
-              <span>{t.analyze.foreignAccessibility}</span>
-              <span className={styles.resultMetricValue}>
-                <GlobalAccessibilityStars
-                  score={accessibility.score}
-                  maxScore={accessibility.maxScore}
-                  language={language}
-                />
-              </span>
-            </div>
+            <MetricRow label={t.analyze.trustLevel} value={trustLevelLabel} />
+            <MetricRow label={t.analyze.adSuspicionLevel} value={adSuspicionLabel} />
+            <MetricRow label={t.analyze.repetitivePattern} value={repetitionLabel} />
+            <MetricRow label={t.analyze.infoCompleteness} value={informationCompletenessLabel} />
+            <MetricRow
+              label={t.analyze.foreignAccessibility}
+              value={<StarRating score={accessibility.score} maxScore={accessibility.maxScore} language={language} />}
+              valueClassName={styles.resultMetricValue}
+            />
             {globalAccessibilityChecks.map(([key, value]) => (
-              <div key={key} className={styles.resultMetricRow}>
-                <span>{t.analyze.globalAccessibilityItems[key]}</span>
-                <strong>{value ? t.analyze.available : t.analyze.missing}</strong>
-              </div>
+              <MetricRow
+                key={key}
+                label={t.analyze.globalAccessibilityItems[key]}
+                value={value ? t.analyze.available : t.analyze.missing}
+              />
             ))}
           </div>
           <p className={styles.mutedText}>{t.result.reference}</p>
