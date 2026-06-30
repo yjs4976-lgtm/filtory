@@ -25,15 +25,16 @@ export function LoginForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    const normalizedIdentifier = identifier.trim();
 
-    if (!identifier || !password) {
+    if (!normalizedIdentifier || !password) {
       setError(t.auth.loginIdentifierPasswordRequired);
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await login({ identifier, password });
+      await login({ identifier: normalizedIdentifier, password });
       showToast({
         title: t.auth.loginToastTitle,
         description: t.auth.loginToastDescription,

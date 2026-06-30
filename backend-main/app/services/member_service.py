@@ -42,6 +42,9 @@ class MemberService:
         if payload.get("password"):
             data["password_hash"] = hash_password(payload["password"])
 
+        if data.get("email"):
+            validate_email(data["email"])
+
         if data.get("email") and MemberRepository.get_by_email(data["email"]):
             raise ValueError("Email already exists")
 
@@ -173,7 +176,7 @@ class MemberService:
 
     @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
-        email = payload.get("email")
+        email = _normalize_email(payload.get("email"))
         if not email:
             raise ValueError("email is required")
 
@@ -249,7 +252,7 @@ class MemberService:
             MemberService._fill_missing_social_profile(social_account.member, payload)
             return member_to_dict(social_account.member)
 
-        social_email = payload.get("social_email")
+        social_email = _normalize_email(payload.get("social_email"))
         member = MemberRepository.get_by_email(social_email) if social_email else None
 
         try:
@@ -300,8 +303,9 @@ class MemberService:
             member.profile_img_url = payload["profile_img_url"]
             changed = True
 
-        if not member.email and payload.get("social_email"):
-            member.email = payload["social_email"]
+        social_email = _normalize_email(payload.get("social_email"))
+        if not member.email and social_email:
+            member.email = social_email
             member.email_verified = bool(payload.get("email_verified"))
             changed = True
 
@@ -395,6 +399,8 @@ def _mask_email(email):
 
 
 def _normalize_member_data(data):
+    if "email" in data and data["email"] is not None:
+        data["email"] = _normalize_email(data["email"])
     if "login_id" in data and data["login_id"] is not None:
         data["login_id"] = _normalize_login_id(data["login_id"])
     if "phone" in data:
@@ -416,6 +422,10 @@ def _normalize_nickname(value):
 
 
 def _normalize_login_id(value):
+    return str(value or "").strip().lower()
+
+
+def _normalize_email(value):
     return str(value or "").strip().lower()
 
 

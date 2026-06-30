@@ -10,7 +10,13 @@ class MemberRepository:
 
     @staticmethod
     def get_by_email(email):
-        return Member.query.filter(Member.email == email).first()
+        normalized_email = str(email or "").strip().lower()
+        if not normalized_email:
+            return None
+
+        return Member.query.filter(
+            func.lower(func.trim(Member.email)) == normalized_email
+        ).first()
 
     @staticmethod
     def get_by_login_id(login_id):
@@ -21,13 +27,21 @@ class MemberRepository:
 
     @staticmethod
     def get_by_login_identifier(identifier):
+        members = MemberRepository.list_by_login_identifier(identifier)
+        return members[0] if members else None
+
+    @staticmethod
+    def list_by_login_identifier(identifier):
         normalized_identifier = str(identifier or "").strip().lower()
+        if not normalized_identifier:
+            return []
+
         return Member.query.filter(
             or_(
                 func.lower(func.trim(Member.email)) == normalized_identifier,
                 func.lower(func.trim(Member.login_id)) == normalized_identifier,
             )
-        ).first()
+        ).order_by(Member.id.asc()).all()
 
     @staticmethod
     def get_by_nickname(nickname):

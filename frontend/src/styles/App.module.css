@@ -741,6 +741,70 @@
   gap: 8px;
 }
 
+.emailBuilder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(130px, 0.9fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.emailAt {
+  color: var(--graypurple);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.emailDomainButton {
+  width: 100%;
+  min-height: 43px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--subtle);
+  color: var(--foreground);
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.emailDomainModal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.emailDomainModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.emailDomainGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.emailDomainOption {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--subtle);
+  color: var(--foreground);
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.emailDomainOptionSelected {
+  border-color: var(--primary);
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+}
+
 .formHintSuccess,
 .formHintError {
   display: block;
@@ -2875,6 +2939,16 @@
 
   .inlineField {
     grid-template-columns: 1fr;
+  }
+
+  .emailBuilder {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .emailBuilder .emailDomainButton,
+  .emailBuilder .smallPillButton,
+  .emailBuilder .input:nth-child(3) {
+    grid-column: 1 / -1;
   }
 
   .trustGuideSummary {
