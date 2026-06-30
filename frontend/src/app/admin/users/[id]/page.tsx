@@ -43,7 +43,7 @@ export default function AdminUserDetailPage() {
         <section className="page-title">
           <p className="eyebrow">ADMIN USER DETAIL</p>
           <h1>회원 상세 보기</h1>
-          <p>회원별 분석 기록, 저장 병원, 신고 내역과 관리자 메모를 확인합니다.</p>
+          <p>회원별 분석 기록, 저장 병원, 검토 내역과 관리자 메모를 확인합니다.</p>
         </section>
         {!user || !activity ? (
           <p>불러오는 중...</p>

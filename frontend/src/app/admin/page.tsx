@@ -36,7 +36,7 @@ export default function AdminPage() {
         <section className="page-title">
           <p className="eyebrow">ADMIN</p>
           <h1>관리자 대시보드</h1>
-          <p>Filtory 회원, 리뷰 분석, 신고 리뷰, 병원 정보를 관리합니다.</p>
+          <p>Filtory 회원, 리뷰 분석, 검토 리뷰, 병원 정보를 관리합니다.</p>
         </section>
 
         {summary && <AdminSummaryCards summary={summary} />}
@@ -53,8 +53,8 @@ export default function AdminPage() {
           </Link>
 
           <Link href={ROUTES.ADMIN_REPORTS} className="soft-card admin-menu-card">
-            <strong>신고/의심 리뷰 관리</strong>
-            <p>광고성, 반복 패턴, 신고 리뷰를 검토합니다.</p>
+            <strong>검토/의심 리뷰 관리</strong>
+            <p>광고성, 반복 패턴, 검토 리뷰를 확인합니다.</p>
           </Link>
 
           <Link href={ROUTES.ADMIN_HOSPITALS} className="soft-card admin-menu-card">

@@ -13,6 +13,7 @@ export default function AdminUsersPage() {
   const [filters, setFilters] = useState<AdminUserFilters>({ status: "all", role: "all" })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const paginationResetKey = `${filters.keyword ?? ""}|${filters.status ?? "all"}|${filters.role ?? "all"}`
 
   const loadData = useCallback(async () => {
     try {
@@ -48,7 +49,13 @@ export default function AdminUsersPage() {
         {isLoading && <p>불러오는 중...</p>}
         {error && <p className="form-error">{error}</p>}
         <AdminUserFilter value={filters} onChange={setFilters} />
-        {!isLoading && <AdminUserTable users={users} />}
+        {!isLoading && (
+          <AdminUserTable
+            key={paginationResetKey}
+            users={users}
+            onRefresh={loadData}
+          />
+        )}
       </AdminGuard>
     </AdminAppShell>
   )

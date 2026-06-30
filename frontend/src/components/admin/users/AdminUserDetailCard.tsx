@@ -1,5 +1,6 @@
 "use client"
 
+import { useLanguage } from "@/context/LanguageContext"
 import type { AdminUser, UserStatus } from "@/lib/types"
 import { adminUserService } from "@/services/adminUserService"
 
@@ -8,23 +9,28 @@ interface AdminUserDetailCardProps {
 }
 
 export function AdminUserDetailCard({ user }: AdminUserDetailCardProps) {
+  const { t } = useLanguage()
+  const labels = t.admin.userManagement
   const handleStatusChange = async (status: UserStatus) => {
     await adminUserService.updateUserStatus(user.id, status)
   }
+  const visibleStatus = user.status === "DORMANT" ? "SUSPENDED" : user.status
 
   return (
     <section className="soft-card admin-table-card">
-      <h2>기본 정보</h2>
+      <h2>{labels.manage}</h2>
       <p>{user.nickname} · {user.name}</p>
       <p>{user.email}</p>
-      <p>가입일 {user.createdAt ?? "-"} · 최근 로그인 {user.lastLoginAt ?? "-"}</p>
+      <p>{labels.createdAt} {user.createdAt ?? "-"} · {labels.lastLoginAt} {user.lastLoginAt ?? "-"}</p>
       <div className="admin-filter-grid">
-        <select defaultValue={user.status} onChange={(event) => handleStatusChange(event.target.value as UserStatus)}>
-          <option value="ACTIVE">정상</option>
-          <option value="SUSPENDED">정지</option>
-          <option value="WITHDRAWN">탈퇴</option>
-          <option value="DORMANT">휴면</option>
-        </select>
+        {visibleStatus === "WITHDRAWN" ? (
+          <span className="admin-badge admin-status-withdrawn">{labels.statusWithdrawn}</span>
+        ) : (
+          <select defaultValue={visibleStatus} onChange={(event) => handleStatusChange(event.target.value as UserStatus)}>
+            <option value="ACTIVE">{labels.statusActive}</option>
+            <option value="SUSPENDED">{labels.statusInactive}</option>
+          </select>
+        )}
       </div>
     </section>
   )

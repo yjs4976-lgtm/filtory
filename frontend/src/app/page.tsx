@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { BottomNav } from "@/components/common/BottomNav"
+import { ChatbotIconButton } from "@/components/common/ChatbotIconButton"
 import { Header } from "@/components/common/Header"
 import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import { FeatureGrid } from "@/components/home/FeatureGrid"
@@ -19,10 +20,14 @@ export default function HomePage() {
 
       <main className={`${styles.main} ${styles.stackMd}`}>
         <HomeHero />
-        <FeatureGrid onChatbotOpen={() => setIsChatbotOpen(true)} />
+        <FeatureGrid />
         <RecentAnalysisSection />
         <TrustTipCard />
       </main>
+
+      <div className={styles.homeFloatingChatbot}>
+        <ChatbotIconButton onClick={() => setIsChatbotOpen(true)} expanded={isChatbotOpen} />
+      </div>
 
       <ChatbotModal open={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
 

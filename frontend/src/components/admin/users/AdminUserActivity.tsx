@@ -21,7 +21,7 @@ export function AdminUserActivity({ analysisHistory, savedHospitals, reports }: 
         </article>
         <article>
           <strong>{reports.length}</strong>
-          <span>신고 내역</span>
+          <span>검토 내역</span>
         </article>
       </div>
     </section>

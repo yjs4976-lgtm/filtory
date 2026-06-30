@@ -13,7 +13,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return (
       <LoginRequiredCard
         title="관리자 권한이 필요합니다."
-        description="회원 정보와 신고 내역은 관리자만 확인할 수 있습니다."
+        description="회원 정보와 검토 내역은 관리자만 확인할 수 있습니다."
         showSignup={false}
       />
     )

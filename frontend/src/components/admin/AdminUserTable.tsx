@@ -63,14 +63,17 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
                   </select>
                 </td>
                 <td>
-                  <select
-                    value={user.status}
-                    onChange={(event) => handleStatusChange(user.id, event.target.value as UserStatus)}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                    <option value="WITHDRAWN">WITHDRAWN</option>
-                  </select>
+                  {user.status === "WITHDRAWN" ? (
+                    <span className="admin-badge admin-status-withdrawn">WITHDRAWN</span>
+                  ) : (
+                    <select
+                      value={user.status === "ACTIVE" ? "ACTIVE" : "SUSPENDED"}
+                      onChange={(event) => handleStatusChange(user.id, event.target.value as UserStatus)}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="SUSPENDED">SUSPENDED</option>
+                    </select>
+                  )}
                 </td>
                 <td>{user.createdAt?.slice(0, 10) || "-"}</td>
                 <td>

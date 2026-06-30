@@ -79,7 +79,7 @@ export function WithdrawalForm() {
           <li>분석 기록</li>
           <li>알림 설정</li>
         </ul>
-        <p className={styles.mutedText}>서비스 운영을 위해 신고 내역 일부는 일정 기간 보관될 수 있어요.</p>
+        <p className={styles.mutedText}>서비스 운영을 위해 검토 내역 일부는 일정 기간 보관될 수 있어요.</p>
       </div>
 
       <WithdrawalReasonSelect value={reason} onChange={setReason} />
