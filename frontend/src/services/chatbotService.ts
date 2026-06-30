@@ -8,8 +8,9 @@ export type ChatbotMessagePayload = {
 
 export type ChatbotMessageResponse = {
   answer: string
-  source: "analysis" | "keyword" | "small_talk" | "default"
+  source: "analysis" | "keyword" | "small_talk" | "default" | "llm"
   suggested_questions: string[]
+  modelVersion?: string
 }
 
 export function sendChatMessage(payload: ChatbotMessagePayload) {

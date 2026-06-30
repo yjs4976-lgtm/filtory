@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.chatbot_api import router as chatbot_router
 from app.api.review_analysis_api import router as review_analysis_router
 
 app = FastAPI(
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(review_analysis_router)
+app.include_router(chatbot_router)
 
 
 @app.get("/api/health")

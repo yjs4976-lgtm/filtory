@@ -1,3 +1,6 @@
+from app.clients.ai_chatbot_client import AIChatbotClient
+
+
 class ChatbotService:
     MAX_MESSAGE_LENGTH = 800
 
@@ -55,6 +58,7 @@ class ChatbotService:
         )
         has_context = bool(analysis_context)
         normalized_message = message.lower()
+        model_version = None
 
         guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
         if guardrail_answer:
@@ -74,14 +78,23 @@ class ChatbotService:
                     answer = keyword_answer
                     source = "keyword"
                 else:
-                    answer = cls._default_answer(language, has_context=has_context)
-                    source = "default"
+                    ai_answer = cls._answer_by_ai(message, language, analysis_context)
+                    if ai_answer:
+                        answer = ai_answer["answer"]
+                        source = ai_answer["source"]
+                        model_version = ai_answer.get("modelVersion")
+                    else:
+                        answer = cls._default_answer(language, has_context=has_context)
+                        source = "default"
 
-        return {
+        result = {
             "answer": answer,
             "source": source,
             "suggested_questions": cls._suggested_questions(language, has_context=has_context),
         }
+        if model_version:
+            result["modelVersion"] = model_version
+        return result
 
     @staticmethod
     def _normalize_language(value):
@@ -103,6 +116,10 @@ class ChatbotService:
         if has_context:
             return cls.ANALYSIS_SUGGESTIONS_EN if language == "en" else cls.ANALYSIS_SUGGESTIONS_KO
         return cls.GENERAL_SUGGESTIONS_EN if language == "en" else cls.GENERAL_SUGGESTIONS_KO
+
+    @staticmethod
+    def _answer_by_ai(message, language, analysis_context=None):
+        return AIChatbotClient.answer(message, language=language, analysis_context=analysis_context)
 
     @classmethod
     def _answer_small_talk(cls, text, language, has_context=False):

@@ -121,6 +121,23 @@ def test_chatbot_answers_english_basic_question():
     assert "How do I use Filtory?" in result["suggested_questions"]
 
 
+def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
+    def fake_ai_answer(message, language, analysis_context=None):
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    result = ChatbotService.answer({"message": "조금 다른 방식으로 설명해줄래?"})
+
+    assert result["source"] == "llm"
+    assert result["answer"] == "AI fallback answer"
+    assert result["modelVersion"] == "gemini:test"
+
+
 def test_english_this_does_not_trigger_hi_greeting():
     strength_result = ChatbotService.answer({"message": "What are this hospital's strengths?", "language": "en"})
     compare_result = ChatbotService.answer({"message": "Compare this with another hospital.", "language": "en"})
