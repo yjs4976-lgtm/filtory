@@ -25,6 +25,15 @@ type BackendSignupPayload = {
   marketingAgreed?: boolean;
 };
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeLoginIdentifier(value: string) {
+  const trimmed = value.trim();
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed;
+}
+
 function createMockUser(email: string, nickname = "필터리 사용자", name = nickname): User {
   return {
     id: "mock-user",
@@ -54,10 +63,12 @@ function createMockUser(email: string, nickname = "필터리 사용자", name = 
 
 export const authService = {
   async loginWithIdentifier(identifier: string, password: string) {
+    const normalizedIdentifier = normalizeLoginIdentifier(identifier);
+
     try {
       const result = await apiClient<unknown>("/api/auth/login", {
         method: "POST",
-        body: { identifier, password },
+        body: { identifier: normalizedIdentifier, password },
       });
 
       return {
@@ -75,8 +86,8 @@ export const authService = {
         message: "로그인되었습니다.",
         data: {
           user: createMockUser(
-            identifier.includes("@") ? identifier : "filtory.user@example.com",
-            identifier
+            normalizedIdentifier.includes("@") ? normalizedIdentifier : "filtory.user@example.com",
+            normalizedIdentifier
           ),
         },
       };
@@ -192,7 +203,7 @@ export const authService = {
 
 function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
   return {
-    email: payload.email,
+    email: normalizeEmail(payload.email),
     login_id: payload.loginId,
     password: payload.password,
     nickname: payload.nickname ?? payload.loginId,
