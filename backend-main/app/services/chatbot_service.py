@@ -78,7 +78,11 @@ class ChatbotService:
                     answer = keyword_answer
                     source = "keyword"
                 else:
-                    ai_answer = cls._answer_by_ai(message, language, analysis_context)
+                    ai_answer = cls._answer_by_ai(
+                        message,
+                        language,
+                        cls._safe_analysis_context(analysis_context),
+                    )
                     if ai_answer:
                         answer = ai_answer["answer"]
                         source = ai_answer["source"]
@@ -120,6 +124,41 @@ class ChatbotService:
     @staticmethod
     def _answer_by_ai(message, language, analysis_context=None):
         return AIChatbotClient.answer(message, language=language, analysis_context=analysis_context)
+
+    @staticmethod
+    def _safe_analysis_context(context):
+        if not isinstance(context, dict):
+            return {}
+
+        allowed_keys = {
+            "hospitalName",
+            "hospital_name",
+            "category",
+            "trustScore",
+            "trust_score",
+            "totalScore",
+            "total_score",
+            "adSuspicion",
+            "ad_suspicion",
+            "adSuspicionLevel",
+            "ad_suspicion_level",
+            "detectedPatterns",
+            "detected_patterns",
+            "suspiciousPhrases",
+            "suspicious_phrases",
+            "repetitivePhrases",
+            "repetitive_phrases",
+            "informationLevel",
+            "information_level",
+            "summary",
+            "recommendation",
+            "modelVersion",
+            "selectedReviewCount",
+            "selected_review_count",
+            "reviewCount",
+            "review_count",
+        }
+        return {key: value for key, value in context.items() if key in allowed_keys}
 
     @classmethod
     def _answer_small_talk(cls, text, language, has_context=False):

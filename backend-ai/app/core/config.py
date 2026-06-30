@@ -34,8 +34,8 @@ class Settings:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
         self.gemini_fallback_model = os.getenv("GEMINI_FALLBACK_MODEL") or "gemini-2.5-flash-lite"
-        self.gemini_timeout_seconds = _float_or_default(os.getenv("GEMINI_TIMEOUT_SECONDS"), 20)
-        self.gemini_max_retries = max(0, _int_or_default(os.getenv("GEMINI_MAX_RETRIES"), 2))
+        self.gemini_timeout_seconds = _float_or_default(os.getenv("GEMINI_TIMEOUT_SECONDS"), 5)
+        self.gemini_max_retries = max(0, _int_or_default(os.getenv("GEMINI_MAX_RETRIES"), 0))
 
 
 @lru_cache

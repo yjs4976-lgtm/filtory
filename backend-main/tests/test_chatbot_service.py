@@ -147,6 +147,42 @@ def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
     assert AIChatbotClient._api_url() is None
 
 
+def test_chatbot_filters_analysis_context_before_ai_fallback(monkeypatch):
+    captured_context = {}
+
+    def fake_ai_answer(message, language, analysis_context=None):
+        captured_context.update(analysis_context or {})
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+
+    result = ChatbotService.answer(
+        {
+            "message": "다른 말투로 풀어줄래",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "trustScore": 72,
+                "summary": "구체적인 상담 내용이 있습니다.",
+                "reviewText": "010-1234-5678 진료기록 원문",
+                "phone": "010-1234-5678",
+                "email": "user@example.com",
+                "address": "서울시 상세주소",
+            },
+        }
+    )
+
+    assert result["source"] == "llm"
+    assert captured_context == {
+        "hospitalName": "예시피부과",
+        "trustScore": 72,
+        "summary": "구체적인 상담 내용이 있습니다.",
+    }
+
+
 def test_english_this_does_not_trigger_hi_greeting():
     strength_result = ChatbotService.answer({"message": "What are this hospital's strengths?", "language": "en"})
     compare_result = ChatbotService.answer({"message": "Compare this with another hospital.", "language": "en"})
