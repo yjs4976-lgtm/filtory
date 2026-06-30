@@ -51,8 +51,18 @@ class GeminiChatbotService:
                 except Exception as exc:
                     last_error = exc
                     if not cls._is_retryable_error(exc):
-                        raise RuntimeError("Gemini chatbot request failed") from exc
+                        logger.warning(
+                            "Gemini chatbot request failed with non-retryable error; model=%s: %r",
+                            model,
+                            exc,
+                        )
+                        raise RuntimeError(cls._error_message("Gemini chatbot request failed", exc)) from exc
                     if attempt >= settings.gemini_max_retries:
+                        logger.warning(
+                            "Gemini chatbot request exhausted retries; model=%s: %r",
+                            model,
+                            exc,
+                        )
                         break
                     delay_seconds = min(0.5 * (2 ** attempt), 2.0)
                     logger.warning(
@@ -63,7 +73,7 @@ class GeminiChatbotService:
                     )
                     time.sleep(delay_seconds)
 
-        raise RuntimeError("Gemini chatbot is temporarily unavailable") from last_error
+        raise RuntimeError(cls._error_message("Gemini chatbot is temporarily unavailable", last_error)) from last_error
 
     @staticmethod
     def _build_user_content(payload: ChatbotMessageRequest) -> str:
@@ -84,11 +94,14 @@ class GeminiChatbotService:
 
     @staticmethod
     def _timeout_milliseconds(settings: Settings) -> int:
-        return max(1, int(settings.gemini_timeout_seconds * 1000))
+        return max(10000, int(settings.gemini_timeout_seconds * 1000))
 
     @staticmethod
     def _is_retryable_error(exc: Exception) -> bool:
-        error_text = str(exc).lower()
+        error_text = f"{type(exc).__name__} {repr(exc)} {str(exc)}".lower()
+        status_code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+        if status_code in {429, 500, 502, 503, 504}:
+            return True
         retryable_markers = [
             "429",
             "500",
@@ -103,6 +116,12 @@ class GeminiChatbotService:
             "timeout",
         ]
         return any(marker in error_text for marker in retryable_markers)
+
+    @staticmethod
+    def _error_message(prefix: str, exc: Exception | None) -> str:
+        if exc is None:
+            return prefix
+        return f"{prefix}: {type(exc).__name__}: {exc}"
 
     @staticmethod
     def _extract_text(response: Any) -> str:

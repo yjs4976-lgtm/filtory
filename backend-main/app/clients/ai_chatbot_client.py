@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class AIChatbotClient:
     DEFAULT_URL = "http://127.0.0.1:8000/api/chatbot/message"
-    DEFAULT_TIMEOUT_SECONDS = 8
+    DEFAULT_TIMEOUT_SECONDS = 12
 
     @classmethod
     def answer(cls, message, language="ko", analysis_context=None):
@@ -37,6 +37,13 @@ class AIChatbotClient:
         try:
             with urllib.request.urlopen(request, timeout=cls._timeout_seconds()) as response:
                 body = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            logger.warning(
+                "AI chatbot request failed; using local fallback: status=%s body=%s",
+                exc.code,
+                cls._read_error_body(exc),
+            )
+            return None
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             logger.warning("AI chatbot request failed; using local fallback: %s", exc)
             return None
@@ -69,3 +76,10 @@ class AIChatbotClient:
     @staticmethod
     def _is_enabled(value):
         return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _read_error_body(exc):
+        try:
+            return exc.read().decode("utf-8")[:500]
+        except Exception:
+            return ""
