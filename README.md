@@ -278,12 +278,35 @@ SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_PROFILE_IMAGE_BUCKET=profile-images
 JWT_SECRET_KEY=
+ENABLE_REMOTE_CHATBOT=false
+AI_CHATBOT_API_URL=http://127.0.0.1:8000/api/chatbot/message
+AI_CHATBOT_TIMEOUT_SECONDS=12
+AI_INTERNAL_TOKEN=
+CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS=60
+CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS=10
 
 # backend-ai
 LLM_API_KEY=
 LLM_MODEL=
 TRANSLATION_API_KEY=
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+ENABLE_GEMINI_CHATBOT=false
+GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
+GEMINI_TIMEOUT_SECONDS=10
+GEMINI_MAX_RETRIES=0
+AI_INTERNAL_TOKEN=
 ```
+
+### Gemini Chatbot Safety Notes
+
+Gemini 챗봇은 `backend-main`의 `ENABLE_REMOTE_CHATBOT=true`와 `backend-ai`의 `ENABLE_GEMINI_CHATBOT=true`가 모두 활성화된 경우에만 사용합니다.
+
+운영 배포 시 `backend-ai`의 챗봇 API는 외부 직접 노출을 피하고, `backend-main` 같은 내부 서버에서만 접근하도록 구성해야 합니다. `AI_INTERNAL_TOKEN`을 양쪽 서버에 같은 값으로 설정하면 `backend-main`이 `X-Internal-Token` 헤더를 보내고 `backend-ai`가 이를 검증합니다.
+
+Gemini 호출 비용이 발생할 수 있으므로 `backend-main`은 로그인된 사용자에게만 Gemini fallback을 허용하고, `CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS`와 `CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS`로 사용자별 원격 AI 호출 수를 제한합니다. 비로그인 사용자는 기존 규칙 기반 챗봇 답변만 사용합니다.
+
+사용자가 전달한 분석 컨텍스트는 Gemini 호출 전에 서버에서 허용 필드만 남기도록 필터링합니다. 리뷰 원문, 전화번호, 이메일, 상세 주소 같은 개인정보성 값은 AI 서버로 전달하지 않는 방향을 유지합니다.
 
 ---
 
@@ -377,4 +400,3 @@ compare: 본인 작업 브랜치
 * 자동 크롤링 기능은 초기 MVP 범위에서 제외합니다.
 * AI 분석 결과는 사용자의 판단을 돕기 위한 참고 정보이며, 리뷰의 진위 여부를 100% 단정하지 않습니다.
 * 프로젝트 진행 상황과 세부 기획은 Notion에서 관리합니다.
-
