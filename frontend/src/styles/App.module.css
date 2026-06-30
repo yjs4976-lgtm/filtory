@@ -1757,6 +1757,40 @@
   text-align: center;
 }
 
+.resultMetricList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 340px;
+  margin: 16px auto 0;
+  text-align: left;
+}
+
+.resultMetricRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 9px 12px;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.resultMetricRow strong {
+  color: var(--foreground);
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.resultMetricValue {
+  justify-self: end;
+}
+
 .scoreCircleWrap {
   display: flex;
   justify-content: center;
@@ -1918,6 +1952,24 @@
 
 .fillPrimary {
   background: var(--primary);
+}
+
+.fillGold {
+  background: #e8bf66;
+}
+
+.inlineStarRating {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.inlineStarRating strong {
+  margin-left: 6px;
+  color: var(--foreground);
+  font-size: 13px;
 }
 
 .foreignerRatingCard {

@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import { useToast } from "@/hooks/useToast"
 import {
   getDemoReviewsForHospital,
+  getHospitalDisplayName,
   getRegionLabel,
   hospitalRegions,
   searchDemoHospitals,
@@ -104,6 +105,9 @@ function createApiAnalysisResult({
     id: `analysis-${Date.now()}`,
     userId,
     hospitalName,
+    hospitalNameKo: hospital?.hospitalNameKo,
+    hospitalNameEn: hospital?.hospitalNameEn,
+    hospitalEnglishName: hospital?.hospitalEnglishName,
     category,
     hospitalCategory: categoryToHistoryName[category],
     hospitalAddress: hospital?.address,
@@ -285,6 +289,9 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         id: nextAnalysisResult.id,
         category,
         hospitalName,
+        hospitalNameKo: hospital?.hospitalNameKo,
+        hospitalNameEn: hospital?.hospitalNameEn,
+        hospitalEnglishName: hospital?.hospitalEnglishName,
         reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
@@ -684,7 +691,7 @@ function HospitalResultCard({
   onAnalyze: () => void
   disabled?: boolean
 }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
@@ -692,7 +699,7 @@ function HospitalResultCard({
         <MapPinned className={styles.iconSm} />
       </span>
       <div className={styles.recordBody}>
-        <strong className={styles.recordName}>{hospital.name}</strong>
+        <strong className={styles.recordName}>{getHospitalDisplayName(hospital, language)}</strong>
         <p className={styles.recordDate}>
           {t.categories[hospital.category]} · {regionLabel}
         </p>

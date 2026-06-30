@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { mockAnalysisResult } from "@/lib/mockData"
 import { getTrustLevel } from "@/lib/score"
-import type { CurrentReviewAnalysis } from "@/lib/types"
+import type { CurrentReviewAnalysis, Language } from "@/lib/types"
 import { ChatbotConnectCard } from "@/components/result/ChatbotConnectCard"
 import { ForeignerFriendlyRating } from "@/components/result/ForeignerFriendlyRating"
 import { ResultActionCard } from "@/components/result/ResultActionCard"
@@ -28,10 +28,127 @@ function ScoreBar({ label, value, tone }) {
   )
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
 function suspicionScore(level: CurrentReviewAnalysis["adSuspicionLevel"]) {
   if (level === "high") return 85
   if (level === "medium") return 55
   return 20
+}
+
+function globalAccessibilityScore(result: CurrentReviewAnalysis) {
+  const maxScore = result.globalAccessibilityMaxScore || 5
+  const score = typeof result.globalAccessibilityScore === "number" ? result.globalAccessibilityScore : 3
+  return {
+    score: clamp(Math.round(score), 0, maxScore),
+    maxScore,
+  }
+}
+
+function globalAccessibilityPercent(result: CurrentReviewAnalysis) {
+  const { score, maxScore } = globalAccessibilityScore(result)
+  return Math.round((score / maxScore) * 100)
+}
+
+function formatTrustLevelKey(level: CurrentReviewAnalysis["trustLevelKey"], language: Language) {
+  const labels = {
+    ko: {
+      veryHigh: "매우 높음",
+      high: "높음",
+      caution: "주의",
+      concern: "의심",
+      veryConcern: "매우 의심",
+    },
+    en: {
+      veryHigh: "Very high",
+      high: "High",
+      caution: "Caution",
+      concern: "Suspicious",
+      veryConcern: "Very suspicious",
+    },
+  }
+
+  return labels[language][level]
+}
+
+function formatSignalLevel(level: "low" | "medium" | "high" | undefined, language: Language) {
+  const labels = {
+    ko: {
+      low: "낮음",
+      medium: "보통",
+      high: "높음",
+    },
+    en: {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+    },
+  }
+
+  return labels[language][level ?? "medium"]
+}
+
+function informationCompletenessLevel(result: CurrentReviewAnalysis): "low" | "medium" | "high" {
+  if (result.informationCompleteness) return result.informationCompleteness
+  if (result.informationLevel === "구체적") return "high"
+  if (result.informationLevel === "정보 부족") return "low"
+  return "medium"
+}
+
+function repetitionLevel(result: CurrentReviewAnalysis): "low" | "medium" | "high" {
+  if (result.repetitionLevel) return result.repetitionLevel
+  return result.repetitivePhrases.length > 0 ? result.adSuspicionLevel : "low"
+}
+
+function localizeResultText(text: string, language: Language) {
+  if (language === "ko") return text
+
+  const knownText: Record<string, string> = {
+    "리뷰 전반은 자연스럽지만 일부 광고성 표현이 포함되어 있습니다.":
+      "The review feels mostly natural, but includes some promotional wording.",
+    "참고는 가능하지만, 여러 리뷰와 병원 정보를 함께 확인하는 것이 좋습니다.":
+      "You can use this as a reference, but it is better to compare it with other reviews and clinic information.",
+    "일부 표현이 과하게 긍정적으로 반복됩니다.":
+      "Some overly positive wording appears repeatedly.",
+    "광고성 리뷰에서 자주 보이는 문장이 일부 포함되어 있습니다.":
+      "Some phrases often seen in promotional reviews are included.",
+    "과하게 긍정적인 표현": "Overly positive wording",
+    "광고성 리뷰에서 자주 보이는 문장": "Phrase often seen in promotional reviews",
+  }
+
+  return knownText[text] ?? text
+}
+
+function displayHospitalName(result: CurrentReviewAnalysis, language: Language) {
+  if (language === "en") {
+    return result.hospitalEnglishName || result.hospitalNameEn || result.hospitalName
+  }
+
+  return result.hospitalNameKo || result.hospitalName
+}
+
+function GlobalAccessibilityStars({
+  score,
+  maxScore,
+  language,
+}: {
+  score: number
+  maxScore: number
+  language: Language
+}) {
+  const ariaLabel = language === "ko" ? `5점 만점에 ${score}점` : `${score} out of ${maxScore}`
+
+  return (
+    <span className={styles.inlineStarRating} aria-label={ariaLabel} title={ariaLabel}>
+      <span className={styles.starFilled}>{"★".repeat(score)}</span>
+      <span className={styles.starEmpty}>{"☆".repeat(maxScore - score)}</span>
+      <strong>
+        {score}/{maxScore}
+      </strong>
+    </span>
+  )
 }
 
 export function ResultCard() {
@@ -50,31 +167,53 @@ export function ResultCard() {
   if (apiResult) {
     const trustLevel = getTrustLevel(apiResult.trustScore)
     const categoryLabel = t.categories[apiResult.category]
+    const trustLevelLabel = formatTrustLevelKey(apiResult.trustLevelKey, language)
+    const adSuspicionLabel = formatSignalLevel(apiResult.adSuspicionLevel, language)
+    const repetitionLabel = formatSignalLevel(repetitionLevel(apiResult), language)
+    const informationCompletenessLabel = formatSignalLevel(informationCompletenessLevel(apiResult), language)
+    const accessibility = globalAccessibilityScore(apiResult)
+    const accessibilityPercent = globalAccessibilityPercent(apiResult)
 
     return (
       <div className={styles.resultStack}>
         <section className={`${styles.card} ${styles.scoreCard}`}>
           <p className={styles.mutedText}>
-            {apiResult.hospitalName} · {categoryLabel}
+            {displayHospitalName(apiResult, language)} · {categoryLabel}
           </p>
           <div className={styles.scoreCircleWrap}>
             <ScoreCircle score={apiResult.trustScore} label={t.result.trustScore} />
           </div>
           <div className={styles.trustBadge} style={{ backgroundColor: trustLevel.softColor }}>
             <ShieldCheck className={styles.iconSm} style={{ color: trustLevel.color }} />
-            <span>{apiResult.trustGrade}</span>
+            <span>{t.trustLevels[apiResult.trustLevelKey]}</span>
           </div>
-          <div className={styles.badgeRow}>
-            <span className={styles.neutralPill}>trustLevelKey: {apiResult.trustLevelKey}</span>
-            <span className={styles.neutralPill}>
-              {t.analyze.adSuspicion}: {apiResult.adSuspicion}
-            </span>
-            <span className={styles.neutralPill}>
-              adSuspicionLevel: {apiResult.adSuspicionLevel}
-            </span>
-            <span className={styles.neutralPill}>
-              {t.analyze.modelVersion}: {apiResult.modelVersion}
-            </span>
+          <div className={styles.resultMetricList}>
+            <div className={styles.resultMetricRow}>
+              <span>{t.analyze.trustLevel}</span>
+              <strong>{trustLevelLabel}</strong>
+            </div>
+            <div className={styles.resultMetricRow}>
+              <span>{t.analyze.adSuspicionLevel}</span>
+              <strong>{adSuspicionLabel}</strong>
+            </div>
+            <div className={styles.resultMetricRow}>
+              <span>{t.analyze.repetitivePattern}</span>
+              <strong>{repetitionLabel}</strong>
+            </div>
+            <div className={styles.resultMetricRow}>
+              <span>{t.analyze.infoCompleteness}</span>
+              <strong>{informationCompletenessLabel}</strong>
+            </div>
+            <div className={styles.resultMetricRow}>
+              <span>{t.analyze.foreignAccessibility}</span>
+              <span className={styles.resultMetricValue}>
+                <GlobalAccessibilityStars
+                  score={accessibility.score}
+                  maxScore={accessibility.maxScore}
+                  language={language}
+                />
+              </span>
+            </div>
           </div>
           <p className={styles.mutedText}>{t.result.reference}</p>
         </section>
@@ -85,6 +224,7 @@ export function ResultCard() {
           <ScoreBar label={t.result.trustScore} value={apiResult.trustScore} tone={styles.fillMint} />
           <ScoreBar label={t.result.adScore} value={suspicionScore(apiResult.adSuspicionLevel)} tone={styles.fillPink} />
           <ScoreBar label={t.analyze.informationLevel} value={apiResult.informationLevel === "구체적" ? 85 : apiResult.informationLevel === "보통" ? 60 : 30} tone={styles.fillPrimary} />
+          <ScoreBar label={t.analyze.foreignAccessibility} value={accessibilityPercent} tone={styles.fillGold} />
         </section>
 
         <section className={`${styles.accentCard} ${styles.stackSm}`}>
@@ -92,7 +232,7 @@ export function ResultCard() {
             <Sparkles className={`${styles.iconSm} ${styles.iconPrimary}`} />
             <h2 className={styles.titleSm}>{t.result.summaryTitle}</h2>
           </div>
-          <p className={styles.summaryText}>{apiResult.summary}</p>
+          <p className={styles.summaryText}>{localizeResultText(apiResult.summary, language)}</p>
         </section>
 
         <section className={`${styles.card} ${styles.stackSm}`}>
@@ -100,7 +240,7 @@ export function ResultCard() {
             <Info className={`${styles.iconSm} ${styles.iconPrimary}`} />
             <h2 className={styles.titleSm}>{t.analyze.recommendation}</h2>
           </div>
-          <p className={styles.summaryText}>{apiResult.recommendation}</p>
+          <p className={styles.summaryText}>{localizeResultText(apiResult.recommendation, language)}</p>
         </section>
 
         {apiResult.suspiciousPhrases.length > 0 && (
@@ -112,7 +252,7 @@ export function ResultCard() {
             <div className={styles.badgeRow}>
               {apiResult.suspiciousPhrases.map((phrase) => (
                 <span key={phrase} className={styles.neutralPill}>
-                  {phrase}
+                  {localizeResultText(phrase, language)}
                 </span>
               ))}
             </div>
@@ -128,7 +268,7 @@ export function ResultCard() {
             <div className={styles.badgeRow}>
               {apiResult.repetitivePhrases.map((phrase) => (
                 <span key={phrase} className={styles.neutralPill}>
-                  {phrase}
+                  {localizeResultText(phrase, language)}
                 </span>
               ))}
             </div>
@@ -144,7 +284,7 @@ export function ResultCard() {
             {apiResult.detectedPatterns.map((item) => (
               <li key={item} className={`${styles.listItem} ${styles.bgPeach}`}>
                 <span className={`${styles.listDot} ${styles.fillPrimary}`} />
-                <span>{item}</span>
+                <span>{localizeResultText(item, language)}</span>
               </li>
             ))}
           </ul>
@@ -178,7 +318,7 @@ export function ResultCard() {
   return (
     <div className={styles.resultStack}>
       <section className={`${styles.card} ${styles.scoreCard}`}>
-        <p className={styles.mutedText}>{result.hospital_name}</p>
+        <p className={styles.mutedText}>{language === "en" ? result.hospital_name_en : result.hospital_name}</p>
         <div className={styles.scoreCircleWrap}>
           <ScoreCircle score={result.total_score} label={t.result.totalScore} />
         </div>

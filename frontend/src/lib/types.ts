@@ -26,6 +26,9 @@ export type AnalysisHistoryItem = {
   id: string
   userId?: string | number
   hospitalName: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
   category: HospitalCategory
   hospitalCategory?: HospitalCategory | string
   hospitalAddress?: string
@@ -61,6 +64,9 @@ export type AnalysisHistoryItem = {
 export type HospitalItem = {
   id: string
   name: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
   category: HospitalCategory
   region: HospitalRegionCode
   address: string
@@ -124,10 +130,24 @@ export type ReviewAnalyzeRequest = {
 
 export type ReviewAnalyzeResponse = {
   trustScore: number
+  grade?: string
   trustGrade: string
   trustLevelKey: "veryHigh" | "high" | "caution" | "concern" | "veryConcern"
   adSuspicion: string
   adSuspicionLevel: "low" | "medium" | "high"
+  repetitionLevel?: "low" | "medium" | "high"
+  informationCompleteness?: "low" | "medium" | "high"
+  positiveSignals?: string[]
+  warningSignals?: string[]
+  globalAccessibilityScore?: number
+  globalAccessibilityMaxScore?: number
+  globalAccessibilityChecks?: {
+    googleMapLink?: boolean
+    englishName?: boolean
+    englishGuide?: boolean
+    homepageOrBookingLink?: boolean
+    photoInfo?: boolean
+  }
   detectedPatterns: string[]
   suspiciousPhrases: string[]
   repetitivePhrases: string[]
@@ -141,6 +161,9 @@ export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   id: string
   category: HospitalCategory
   hospitalName: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
   reviewText?: string
   analyzedAt: string
 }
