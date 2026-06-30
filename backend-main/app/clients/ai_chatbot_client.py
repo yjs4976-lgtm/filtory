@@ -48,14 +48,11 @@ class AIChatbotClient:
 
     @classmethod
     def _api_url(cls):
+        if not cls._is_enabled(os.getenv("ENABLE_REMOTE_CHATBOT")):
+            return None
+
         explicit_url = str(os.getenv("AI_CHATBOT_API_URL") or "").strip()
-        if explicit_url:
-            return explicit_url
-
-        if cls._is_enabled(os.getenv("ENABLE_REMOTE_CHATBOT")):
-            return cls.DEFAULT_URL
-
-        return None
+        return explicit_url or cls.DEFAULT_URL
 
     @classmethod
     def _timeout_seconds(cls):

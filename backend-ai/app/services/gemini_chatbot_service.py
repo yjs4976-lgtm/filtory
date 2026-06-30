@@ -27,6 +27,7 @@ class GeminiChatbotService:
         client = genai.Client(api_key=settings.gemini_api_key)
         contents = cls._build_user_content(payload)
         config = types.GenerateContentConfig(
+            http_options=types.HttpOptions(timeout=cls._timeout_milliseconds(settings)),
             system_instruction=CHATBOT_SYSTEM_PROMPT,
             temperature=0.35,
             max_output_tokens=500,
@@ -49,7 +50,9 @@ class GeminiChatbotService:
                     )
                 except Exception as exc:
                     last_error = exc
-                    if not cls._is_retryable_error(exc) or attempt >= settings.gemini_max_retries:
+                    if not cls._is_retryable_error(exc):
+                        raise RuntimeError("Gemini chatbot request failed") from exc
+                    if attempt >= settings.gemini_max_retries:
                         break
                     delay_seconds = min(0.5 * (2 ** attempt), 2.0)
                     logger.warning(
@@ -78,6 +81,10 @@ class GeminiChatbotService:
         if fallback_model and fallback_model not in models:
             models.append(fallback_model)
         return models
+
+    @staticmethod
+    def _timeout_milliseconds(settings: Settings) -> int:
+        return max(1, int(settings.gemini_timeout_seconds * 1000))
 
     @staticmethod
     def _is_retryable_error(exc: Exception) -> bool:

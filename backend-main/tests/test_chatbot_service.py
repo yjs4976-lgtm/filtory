@@ -138,6 +138,15 @@ def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
     assert result["modelVersion"] == "gemini:test"
 
 
+def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
+    from app.clients.ai_chatbot_client import AIChatbotClient
+
+    monkeypatch.setenv("ENABLE_REMOTE_CHATBOT", "false")
+    monkeypatch.setenv("AI_CHATBOT_API_URL", "http://127.0.0.1:8000/api/chatbot/message")
+
+    assert AIChatbotClient._api_url() is None
+
+
 def test_english_this_does_not_trigger_hi_greeting():
     strength_result = ChatbotService.answer({"message": "What are this hospital's strengths?", "language": "en"})
     compare_result = ChatbotService.answer({"message": "Compare this with another hospital.", "language": "en"})
