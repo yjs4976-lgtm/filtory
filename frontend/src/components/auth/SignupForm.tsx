@@ -13,6 +13,17 @@ import { PasswordField } from "./PasswordField";
 import { TermsAgreement } from "./TermsAgreement";
 import styles from "@/styles/App.module.css";
 
+const EMAIL_DOMAINS = [
+  "gmail.com",
+  "naver.com",
+  "kakao.com",
+  "daum.net",
+  "hanmail.net",
+  "outlook.com",
+  "icloud.com",
+];
+const CUSTOM_EMAIL_DOMAIN = "custom";
+
 export function SignupForm() {
   const router = useRouter();
   const { signup } = useAuth();
@@ -21,7 +32,10 @@ export function SignupForm() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [emailLocalPart, setEmailLocalPart] = useState("");
+  const [emailDomain, setEmailDomain] = useState(EMAIL_DOMAINS[0]);
+  const [customEmailDomain, setCustomEmailDomain] = useState("");
+  const [isEmailDomainModalOpen, setIsEmailDomainModalOpen] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [loginIdCheck, setLoginIdCheck] = useState<"idle" | "available" | "unavailable">("idle");
   const [password, setPassword] = useState("");
@@ -37,6 +51,10 @@ export function SignupForm() {
   const loginIdValidation = validateLoginId(loginId, t.auth);
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
+  const selectedEmailDomain = emailDomain === CUSTOM_EMAIL_DOMAIN ? customEmailDomain : emailDomain;
+  const email = emailLocalPart.trim() && selectedEmailDomain.trim()
+    ? `${emailLocalPart.trim()}@${selectedEmailDomain.trim()}`
+    : "";
   const canSubmit =
     Boolean(name.trim()) &&
     Boolean(phone.trim()) &&
@@ -56,13 +74,17 @@ export function SignupForm() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedLoginId = loginId.trim().toLowerCase();
 
-    if (!name || !phone || !email || !loginId || !password || !passwordConfirm) {
+    if (!trimmedName || !trimmedPhone || !normalizedEmail || !normalizedLoginId || !password || !passwordConfirm) {
       setError(t.auth.requiredFields);
       return;
     }
 
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(normalizedEmail)) {
       setError(t.auth.invalidEmail);
       return;
     }
@@ -96,11 +118,11 @@ export function SignupForm() {
       setIsSubmitting(true);
 
       await signup({
-        name,
-        phone,
-        email,
+        name: trimmedName,
+        phone: trimmedPhone,
+        email: normalizedEmail,
         password,
-        loginId,
+        loginId: normalizedLoginId,
         termsAgreed: terms.termsAgreed,
         privacyAgreed: terms.privacyAgreed,
         marketingAgreed: terms.marketingAgreed,
@@ -117,6 +139,11 @@ export function SignupForm() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEmailDomainSelect = (domain: string) => {
+    setEmailDomain(domain);
+    setIsEmailDomainModalOpen(false);
   };
 
   const handleLoginIdCheck = async () => {
@@ -160,17 +187,47 @@ export function SignupForm() {
         />
       </label>
 
-      <label className={styles.label} htmlFor="signup-email">
+      <label className={styles.label} htmlFor="signup-email-local">
         {t.auth.email}
-        <input
-          id="signup-email"
-          className={styles.input}
-          type="email"
-          placeholder="example@email.com"
-          value={email}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-        />
+        <div className={styles.emailBuilder}>
+          <input
+            id="signup-email-local"
+            className={styles.input}
+            type="text"
+            placeholder="example"
+            value={emailLocalPart}
+            autoComplete="username"
+            onChange={(event) => setEmailLocalPart(event.target.value.replace(/\s/g, "").toLowerCase())}
+          />
+          <span className={styles.emailAt}>@</span>
+          {emailDomain === CUSTOM_EMAIL_DOMAIN ? (
+            <input
+              className={styles.input}
+              type="text"
+              placeholder="domain.com"
+              value={customEmailDomain}
+              autoComplete="off"
+              onChange={(event) => setCustomEmailDomain(event.target.value.replace(/\s/g, "").toLowerCase())}
+            />
+          ) : (
+            <button
+              type="button"
+              className={styles.emailDomainButton}
+              onClick={() => setIsEmailDomainModalOpen(true)}
+            >
+              {selectedEmailDomain}
+            </button>
+          )}
+          {emailDomain === CUSTOM_EMAIL_DOMAIN && (
+            <button
+              type="button"
+              className={styles.smallPillButton}
+              onClick={() => setIsEmailDomainModalOpen(true)}
+            >
+              {t.auth.emailDomainList}
+            </button>
+          )}
+        </div>
       </label>
 
       <label className={styles.label} htmlFor="signup-login-id">
@@ -244,6 +301,54 @@ export function SignupForm() {
       <p className={styles.authBottomText}>
         {t.auth.loginPrompt} <Link href={ROUTES.LOGIN}>{t.auth.loginLink}</Link>
       </p>
+
+      {isEmailDomainModalOpen && (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onMouseDown={() => setIsEmailDomainModalOpen(false)}
+        >
+          <section
+            className={`${styles.modalCard} ${styles.emailDomainModal}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="email-domain-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className={styles.emailDomainModalHeader}>
+              <h2 id="email-domain-title" className={styles.titleSm}>
+                {t.auth.emailDomainTitle}
+              </h2>
+              <button
+                type="button"
+                className={styles.smallPillButton}
+                onClick={() => setIsEmailDomainModalOpen(false)}
+              >
+                {t.common.close}
+              </button>
+            </div>
+            <div className={styles.emailDomainGrid}>
+              {EMAIL_DOMAINS.map((domain) => (
+                <button
+                  key={domain}
+                  type="button"
+                  className={`${styles.emailDomainOption} ${emailDomain === domain ? styles.emailDomainOptionSelected : ""}`}
+                  onClick={() => handleEmailDomainSelect(domain)}
+                >
+                  {domain}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`${styles.emailDomainOption} ${emailDomain === CUSTOM_EMAIL_DOMAIN ? styles.emailDomainOptionSelected : ""}`}
+                onClick={() => handleEmailDomainSelect(CUSTOM_EMAIL_DOMAIN)}
+              >
+                {t.auth.emailDomainCustom}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </form>
   );
 }

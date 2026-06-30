@@ -18,11 +18,12 @@ class AuthService:
     @staticmethod
     def register(payload):
         login_id = payload.get("loginId") or payload.get("login_id")
+        email = str(payload.get("email") or "").strip().lower()
         validate_required(
-            {"login_id": login_id, "email": payload.get("email"), "password": payload.get("password")},
+            {"login_id": login_id, "email": email, "password": payload.get("password")},
             ["login_id", "email", "password"],
         )
-        validate_email(payload["email"])
+        validate_email(email)
         validate_password(payload["password"])
 
         if payload.get("termsAgreed") is not True or payload.get("privacyAgreed") is not True:
@@ -34,6 +35,7 @@ class AuthService:
             if key not in {"passwordConfirm"}
         }
         signup_payload["login_id"] = login_id
+        signup_payload["email"] = email
 
         member = MemberService.create_member(signup_payload)
         member_model = MemberRepository.get_by_id(member["id"])
@@ -51,12 +53,15 @@ class AuthService:
             ["identifier", "password"],
         )
 
-        member = MemberRepository.get_by_login_identifier(identifier)
+        member = None
+        for candidate in MemberRepository.list_by_login_identifier(identifier):
+            if not candidate.active or candidate.deleted_at:
+                continue
+            if verify_password(candidate.password_hash, payload["password"]):
+                member = candidate
+                break
 
-        if not member or not member.active or member.deleted_at:
-            raise ValueError("Invalid login ID, email, or password")
-
-        if not verify_password(member.password_hash, payload["password"]):
+        if not member:
             raise ValueError("Invalid login ID, email, or password")
 
         try:
