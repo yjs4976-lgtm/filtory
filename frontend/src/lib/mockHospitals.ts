@@ -24,6 +24,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-skin-001",
     name: "연세밝은피부과",
+    hospitalNameKo: "연세밝은피부과",
+    hospitalNameEn: "Yonsei Bright Skin Clinic",
     category: "derma",
     region: "seoul",
     address: "서울 강남구 테헤란로 123",
@@ -41,6 +43,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-skin-002",
     name: "안양맑은피부의원",
+    hospitalNameKo: "안양맑은피부의원",
+    hospitalNameEn: "Anyang Clear Skin Clinic",
     category: "derma",
     region: "gyeonggi",
     address: "경기도 안양시 동안구 관악대로 77",
@@ -57,6 +61,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-skin-003",
     name: "범계온유피부과",
+    hospitalNameKo: "범계온유피부과",
+    hospitalNameEn: "Beomgye Onyu Skin Clinic",
     category: "derma",
     region: "gyeonggi",
     address: "경기도 안양시 동안구 시민대로 180",
@@ -70,6 +76,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-eye-001",
     name: "밝은눈안과 강남점",
+    hospitalNameKo: "밝은눈안과 강남점",
+    hospitalNameEn: "Bright Eye Clinic Gangnam",
     category: "eye",
     region: "seoul",
     address: "서울 서초구 강남대로 321",
@@ -86,6 +94,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-eye-002",
     name: "해운대센텀안과",
+    hospitalNameKo: "해운대센텀안과",
+    hospitalNameEn: "Haeundae Centum Eye Clinic",
     category: "eye",
     region: "busan",
     address: "부산 해운대구 센텀중앙로 45",
@@ -98,6 +108,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-eye-003",
     name: "범계밝은안과",
+    hospitalNameKo: "범계밝은안과",
+    hospitalNameEn: "Beomgye Bright Eye Clinic",
     category: "eye",
     region: "gyeonggi",
     address: "경기도 안양시 동안구 평촌대로 217",
@@ -111,6 +123,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-dental-001",
     name: "화이트치과의원",
+    hospitalNameKo: "화이트치과의원",
+    hospitalNameEn: "White Dental Clinic",
     category: "dental",
     region: "seoul",
     address: "서울 마포구 양화로 88",
@@ -127,6 +141,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-dental-002",
     name: "대전튼튼치과",
+    hospitalNameKo: "대전튼튼치과",
+    hospitalNameEn: "Daejeon Tuntun Dental Clinic",
     category: "dental",
     region: "daejeon",
     address: "대전 서구 둔산로 100",
@@ -139,6 +155,8 @@ export const demoHospitals: HospitalItem[] = [
   {
     id: "hospital-dental-003",
     name: "강남미소치과",
+    hospitalNameKo: "강남미소치과",
+    hospitalNameEn: "Gangnam Miso Dental Clinic",
     category: "dental",
     region: "seoul",
     address: "서울 강남구 강남대로 456",
@@ -179,6 +197,17 @@ export function getRegionLabel(region: HospitalRegionCode | string, language: La
   const item = hospitalRegions.find((current) => current.code === region)
   if (!item) return region
   return language === "ko" ? item.ko : item.en
+}
+
+export function getHospitalDisplayName(
+  hospital: Pick<HospitalItem, "name" | "hospitalNameKo" | "hospitalNameEn" | "hospitalEnglishName">,
+  language: Language
+) {
+  if (language === "en") {
+    return hospital.hospitalEnglishName || hospital.hospitalNameEn || hospital.name
+  }
+
+  return hospital.hospitalNameKo || hospital.name
 }
 
 export function getDemoReviewsForHospital(hospital: HospitalItem): HospitalReviewItem[] {

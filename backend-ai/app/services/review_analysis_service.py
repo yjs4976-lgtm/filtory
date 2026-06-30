@@ -4,6 +4,7 @@ from collections import Counter
 
 from app.core.config import get_settings
 from app.schemas.review_analysis_schema import ReviewAnalyzeRequest, ReviewAnalyzeResponse
+from app.services.mock_review_analysis_service import MockReviewAnalysisService
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class ReviewAnalysisService:
             else:
                 logger.warning("USE_OPENAI_REVIEW_ANALYZER is true, but OPENAI_API_KEY is missing. Using mock analyzer.")
 
-        return cls.analyze_mock(payload)
+        return MockReviewAnalysisService.analyze(payload)
 
     @classmethod
     def analyze_mock(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
@@ -109,6 +110,15 @@ class ReviewAnalysisService:
             summary=cls._summary(score, ad_suspicion, information_level, detected_patterns),
             recommendation=cls._recommendation(score, ad_suspicion_level, information_level),
             modelVersion=cls.MODEL_VERSION,
+            globalAccessibilityScore=3,
+            globalAccessibilityMaxScore=5,
+            globalAccessibilityChecks={
+                "googleMapLink": True,
+                "englishName": True,
+                "englishGuide": False,
+                "homepageOrBookingLink": True,
+                "photoInfo": False,
+            },
         )
 
     @staticmethod

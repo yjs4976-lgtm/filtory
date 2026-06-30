@@ -14,6 +14,7 @@ HospitalCategory = Literal[
 OutputLanguage = Literal["ko", "en"]
 TrustLevelKey = Literal["veryHigh", "high", "caution", "concern", "veryConcern"]
 SuspicionLevelKey = Literal["low", "medium", "high"]
+MockLevelKey = Literal["low", "medium", "high"]
 
 
 class ReviewAnalyzeRequest(BaseModel):
@@ -36,10 +37,18 @@ class ReviewAnalyzeRequest(BaseModel):
 
 class ReviewAnalyzeResponse(BaseModel):
     trustScore: int = Field(..., ge=0, le=100)
+    grade: str | None = Field(None, description="Mock API compatibility grade such as A, B, C")
     trustGrade: str
     trustLevelKey: TrustLevelKey
     adSuspicion: str
     adSuspicionLevel: SuspicionLevelKey
+    repetitionLevel: MockLevelKey | None = Field(None, description="Mock API compatibility repetition level")
+    informationCompleteness: MockLevelKey | None = Field(None, description="Mock API compatibility information completeness")
+    positiveSignals: list[str] = Field(default_factory=list)
+    warningSignals: list[str] = Field(default_factory=list)
+    globalAccessibilityScore: int | None = Field(None, ge=0, le=5)
+    globalAccessibilityMaxScore: int | None = Field(None, ge=1, le=5)
+    globalAccessibilityChecks: dict[str, bool] = Field(default_factory=dict)
     detectedPatterns: list[str]
     suspiciousPhrases: list[str]
     repetitivePhrases: list[str]

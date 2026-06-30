@@ -14,8 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIReviewAnalysisService:
+    ENABLED = False
+
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest, settings: Settings) -> ReviewAnalyzeResponse:
+        if not cls.ENABLED:
+            raise RuntimeError("OpenAI review analyzer is intentionally disabled for mock API testing")
+
         if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is not configured")
 

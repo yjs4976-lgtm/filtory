@@ -1,5 +1,6 @@
 export const mockAnalysisResult = {
   hospital_name: "클린피부과의원",
+  hospital_name_en: "Clean Skin Clinic",
   category: "피부과",
   total_score: 85,
   trust_score: 85,
