@@ -369,14 +369,27 @@ export type MyReport = {
   adminReply?: string
 }
 
+export type NotificationType =
+  | "analysis_done"
+  | "analysis_saved"
+  | "suspicious_review"
+  | "trust_score_changed"
+  | "review_requested"
+  | "review_in_progress"
+  | "review_resolved"
+  | "info_updated"
+  | "security"
+  | "system"
+
 export type NotificationItem = {
   id: number
   title: string
   message: string
-  type: "ANALYSIS" | "REPORT" | "SAVED_HOSPITAL" | "SECURITY"
+  type: NotificationType
   isRead: boolean
   createdAt: string
   link?: string
+  actionLabel?: string
 }
 
 export type NotificationSettings = {
