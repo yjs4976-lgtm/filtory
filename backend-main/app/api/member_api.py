@@ -139,95 +139,62 @@ def list_member_analysis_history_trash(member_id):
     )
 
 
-@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>", methods=["DELETE"])
+@member_bp.route("/<int:member_id>/analysis-history/trash", methods=["POST"])
 @require_member_or_admin
-def delete_member_analysis_history(member_id, request_id):
-    try:
-        return success_response(
-            AnalysisService.delete_member_history(member_id, request_id, deleted_by=g.current_member.id),
-            "Analysis history moved to trash",
-        )
-    except ValueError as e:
-        return error_response(str(e), 404)
-
-
-@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/trash", methods=["PATCH"])
-@require_member_or_admin
-def move_member_analysis_history_to_trash(member_id, request_id):
-    try:
-        return success_response(
-            AnalysisService.move_member_history_to_trash(member_id, [request_id], deleted_by=g.current_member.id),
-            "Analysis history moved to trash",
-        )
-    except ValueError as e:
-        return error_response(str(e), 404)
-
-
-@member_bp.route("/<int:member_id>/analysis-history/trash", methods=["PATCH"])
-@require_member_or_admin
-def move_member_analysis_histories_to_trash(member_id):
+def move_member_analysis_history_to_trash(member_id):
     payload = request.get_json(silent=True) or {}
+
     try:
         return success_response(
-            AnalysisService.move_member_history_to_trash(member_id, payload.get("ids"), deleted_by=g.current_member.id),
-            "Analysis histories moved to trash",
+            AnalysisService.move_member_history_to_trash(
+                member_id,
+                payload.get("ids"),
+                deleted_by_member_id=g.current_member.id,
+            ),
+            "Analysis history moved to trash",
         )
     except ValueError as e:
-        return error_response(str(e), 400)
+        return error_response(str(e), 404)
 
 
-@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/restore", methods=["PATCH"])
+@member_bp.route("/<int:member_id>/analysis-history/trash/restore", methods=["POST"])
 @require_member_or_admin
-def restore_member_analysis_history(member_id, request_id):
+def restore_member_analysis_history(member_id):
+    payload = request.get_json(silent=True) or {}
+
     try:
         return success_response(
-            AnalysisService.restore_member_history(member_id, [request_id]),
+            AnalysisService.restore_member_history(member_id, payload.get("ids")),
             "Analysis history restored",
         )
     except ValueError as e:
         return error_response(str(e), 404)
 
 
-@member_bp.route("/<int:member_id>/analysis-history/restore", methods=["PATCH"])
+@member_bp.route("/<int:member_id>/analysis-history/trash", methods=["DELETE"])
 @require_member_or_admin
-def restore_member_analysis_histories(member_id):
+def permanently_delete_member_analysis_history(member_id):
     payload = request.get_json(silent=True) or {}
+
     try:
         return success_response(
-            AnalysisService.restore_member_history(member_id, payload.get("ids")),
-            "Analysis histories restored",
-        )
-    except ValueError as e:
-        return error_response(str(e), 400)
-
-
-@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/permanent", methods=["DELETE"])
-@require_member_or_admin
-def permanently_delete_member_analysis_history(member_id, request_id):
-    try:
-        return success_response(
-            AnalysisService.permanently_delete_member_history(member_id, [request_id]),
+            AnalysisService.permanently_delete_member_history(member_id, payload.get("ids")),
             "Analysis history permanently deleted",
         )
     except ValueError as e:
         return error_response(str(e), 404)
 
 
-@member_bp.route("/<int:member_id>/analysis-history/permanent", methods=["DELETE"])
+@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>", methods=["DELETE"])
 @require_member_or_admin
-def permanently_delete_member_analysis_histories(member_id):
-    payload = request.get_json(silent=True) or {}
+def delete_member_analysis_history(member_id, request_id):
     try:
         return success_response(
-            AnalysisService.permanently_delete_member_history(
-                member_id,
-                request_ids=payload.get("ids"),
-                all_trashed=bool(payload.get("all")),
-            ),
-            "Analysis histories permanently deleted",
+            AnalysisService.delete_member_history(member_id, request_id),
+            "Analysis history moved to trash",
         )
     except ValueError as e:
-        return error_response(str(e), 400)
+        return error_response(str(e), 404)
 
 
 @member_bp.route("/<int:member_id>/saved-hospitals", methods=["GET"])

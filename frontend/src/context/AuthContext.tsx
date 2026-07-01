@@ -4,7 +4,7 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/types";
-import { clearAuthSession, saveAuthSession, saveAuthTokens, saveStoredUser } from "@/lib/authStorage";
+import { clearAuthSession, saveAuthSession, saveStoredUser } from "@/lib/authStorage";
 import { authService } from "@/services/authService";
 
 interface AuthContextValue {
@@ -63,10 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         try {
-          const refreshResult = await authService.refresh();
-          if (refreshResult.data) {
-            saveAuthTokens(refreshResult.data);
-          }
+          await authService.refresh();
         } catch {
           // Access token or existing auth cookie may still be enough for /me.
         }

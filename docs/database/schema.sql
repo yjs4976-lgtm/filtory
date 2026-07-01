@@ -566,6 +566,9 @@ on public.analysis_requests(completed_at);
 create index if not exists idx_analysis_requests_deleted_at
 on public.analysis_requests(deleted_at);
 
+create index if not exists idx_analysis_requests_member_deleted_at
+on public.analysis_requests(member_id, deleted_at);
+
 create index if not exists idx_reviews_request_id
 on public.reviews(request_id);
 

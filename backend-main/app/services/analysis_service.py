@@ -48,34 +48,55 @@ class AnalysisService:
         return [AnalysisService._history_item_to_dict(analysis_request) for analysis_request in analysis_requests]
 
     @staticmethod
-    def move_member_history_to_trash(member_id, request_ids, deleted_by=None):
-        request_ids = AnalysisService._normalize_request_ids(request_ids)
-        analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=False)
-        if len(analysis_requests) != len(request_ids):
+    def delete_member_history(member_id, request_id):
+        return AnalysisService.move_member_history_to_trash(
+            member_id,
+            [request_id],
+            deleted_by_member_id=member_id,
+        )
+
+    @staticmethod
+    def move_member_history_to_trash(member_id, request_ids, deleted_by_member_id):
+        normalized_ids = AnalysisService._normalize_request_ids(request_ids)
+        analysis_requests = AnalysisRepository.list_history_by_ids(
+            member_id,
+            normalized_ids,
+            trashed=False,
+        )
+        if len(analysis_requests) != len(normalized_ids):
             raise ValueError("Analysis request not found")
 
+        deleted_at = datetime.now(timezone.utc)
         try:
-            now = datetime.now(timezone.utc)
             for analysis_request in analysis_requests:
-                analysis_request.deleted_at = now
-                analysis_request.deleted_by = deleted_by
+                analysis_request.deleted_at = deleted_at
+                analysis_request.deleted_by = deleted_by_member_id
+
             db.session.commit()
-            return {"ids": [analysis_request.id for analysis_request in analysis_requests]}
+            return {
+                "ids": [analysis_request.id for analysis_request in analysis_requests],
+                "deleted_at": deleted_at.isoformat(),
+            }
         except Exception:
             db.session.rollback()
             raise
 
     @staticmethod
     def restore_member_history(member_id, request_ids):
-        request_ids = AnalysisService._normalize_request_ids(request_ids)
-        analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=True)
-        if len(analysis_requests) != len(request_ids):
+        normalized_ids = AnalysisService._normalize_request_ids(request_ids)
+        analysis_requests = AnalysisRepository.list_history_by_ids(
+            member_id,
+            normalized_ids,
+            trashed=True,
+        )
+        if len(analysis_requests) != len(normalized_ids):
             raise ValueError("Analysis request not found")
 
         try:
             for analysis_request in analysis_requests:
                 analysis_request.deleted_at = None
                 analysis_request.deleted_by = None
+
             db.session.commit()
             return {"ids": [analysis_request.id for analysis_request in analysis_requests]}
         except Exception:
@@ -83,25 +104,29 @@ class AnalysisService:
             raise
 
     @staticmethod
-    def permanently_delete_member_history(member_id, request_ids=None, all_trashed=False):
-        if all_trashed:
+    def permanently_delete_member_history(member_id, request_ids=None):
+        normalized_ids = AnalysisService._normalize_request_ids(request_ids, allow_empty=True)
+        if normalized_ids:
+            analysis_requests = AnalysisRepository.list_history_by_ids(
+                member_id,
+                normalized_ids,
+                trashed=True,
+            )
+            if len(analysis_requests) != len(normalized_ids):
+                raise ValueError("Analysis request not found")
+        else:
             analysis_requests = AnalysisRepository.list_history_by_member(
                 member_id,
                 limit=1000,
                 offset=0,
                 trashed=True,
             )
-        else:
-            request_ids = AnalysisService._normalize_request_ids(request_ids)
-            analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=True)
-            if len(analysis_requests) != len(request_ids):
-                raise ValueError("Analysis request not found")
-
-        deleted_ids = [analysis_request.id for analysis_request in analysis_requests]
 
         try:
+            deleted_ids = [analysis_request.id for analysis_request in analysis_requests]
             for analysis_request in analysis_requests:
                 AnalysisRepository.delete_request(analysis_request)
+
             db.session.commit()
             return {"ids": deleted_ids}
         except Exception:
@@ -109,8 +134,18 @@ class AnalysisService:
             raise
 
     @staticmethod
-    def delete_member_history(member_id, request_id, deleted_by=None):
-        return AnalysisService.move_member_history_to_trash(member_id, [request_id], deleted_by=deleted_by)
+    def hard_delete_member_history(member_id, request_id):
+        analysis_request = AnalysisRepository.get_request_by_id(request_id)
+        if not analysis_request or analysis_request.member_id != member_id:
+            raise ValueError("Analysis request not found")
+
+        try:
+            AnalysisRepository.delete_request(analysis_request)
+            db.session.commit()
+            return {"id": request_id}
+        except Exception:
+            db.session.rollback()
+            raise
 
     @staticmethod
     def analyze_reviews(member_id, payload):
@@ -306,6 +341,36 @@ class AnalysisService:
                 raise ValueError(f"{field} must be between 0 and 100")
 
     @staticmethod
+    def _normalize_request_ids(request_ids, allow_empty=False):
+        if request_ids is None:
+            if allow_empty:
+                return []
+            raise ValueError("ids are required")
+
+        if isinstance(request_ids, (str, int)):
+            request_ids = [request_ids]
+
+        if not isinstance(request_ids, list):
+            raise ValueError("ids must be a list")
+
+        normalized_ids = []
+        for request_id in request_ids:
+            try:
+                numeric_id = int(request_id)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("ids must contain numeric request ids") from exc
+
+            if numeric_id <= 0:
+                raise ValueError("ids must contain positive request ids")
+            if numeric_id not in normalized_ids:
+                normalized_ids.append(numeric_id)
+
+        if not normalized_ids and not allow_empty:
+            raise ValueError("ids are required")
+
+        return normalized_ids
+
+    @staticmethod
     def _history_item_to_dict(analysis_request):
         hospital = analysis_request.hospital
         analysis_result = analysis_request.analysis_result
@@ -346,25 +411,6 @@ class AnalysisService:
             "deleted_at": analysis_request.deleted_at.isoformat() if analysis_request.deleted_at else None,
             "deleted_by": analysis_request.deleted_by,
         }
-
-    @staticmethod
-    def _normalize_request_ids(request_ids):
-        if isinstance(request_ids, (str, int)):
-            request_ids = [request_ids]
-        if not isinstance(request_ids, list) or not request_ids:
-            raise ValueError("ids are required")
-
-        normalized_ids = []
-        for request_id in request_ids:
-            try:
-                normalized_id = int(request_id)
-            except (TypeError, ValueError) as exc:
-                raise ValueError("ids must be numeric") from exc
-            if normalized_id <= 0:
-                raise ValueError("ids must be positive")
-            normalized_ids.append(normalized_id)
-
-        return sorted(set(normalized_ids))
 
     @staticmethod
     def _mark_request_failed(analysis_request, message):

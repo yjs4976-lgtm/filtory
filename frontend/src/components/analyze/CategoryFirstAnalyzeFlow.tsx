@@ -98,6 +98,9 @@ const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental">
 const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
 const PAGE_SIZE = 3
 const MIN_REVIEW_TEXT_LENGTH = 20
+const MAX_REVIEW_IMPORT_FILE_SIZE = 5 * 1024 * 1024
+const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
+const SUPPORTED_REVIEW_FILE_TYPES = new Set(["text/plain", "text/csv", "application/vnd.ms-excel"])
 const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
   province.districts.map((district) => ({
     province,
@@ -165,7 +168,11 @@ function createReviewDraftId() {
 }
 
 function normalizeReviewContent(content: string) {
-  return content.replace(/\s+/g, " ").trim().toLowerCase()
+  return content
+    .replace(/[.,!?~。！？]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
 }
 
 function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
@@ -632,9 +639,19 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const handleScreenshotFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
-    setScreenshotFileNames(files.map((file) => file.name))
-    if (files.length > 0) {
-      setReviewFeedback(t.analyze.reviewInbox.screenshotSelectedFeedback.replace("{count}", String(files.length)))
+    event.target.value = ""
+    const supportedFiles = files.filter(
+      (file) => SUPPORTED_IMAGE_TYPES.has(file.type) && file.size <= MAX_REVIEW_IMPORT_FILE_SIZE
+    )
+    setScreenshotFileNames(supportedFiles.map((file) => file.name))
+
+    if (files.length > supportedFiles.length) {
+      setReviewFeedback(t.analyze.reviewInbox.importUnsupportedFeedback)
+      return
+    }
+
+    if (supportedFiles.length > 0) {
+      setReviewFeedback(t.analyze.reviewInbox.screenshotSelectedFeedback.replace("{count}", String(supportedFiles.length)))
     }
   }
 
@@ -655,8 +672,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setUploadedReviewFileName(file.name)
 
     const fileName = file.name.toLowerCase()
-    if (!fileName.endsWith(".txt") && !fileName.endsWith(".csv")) {
-      setReviewFeedback(t.analyze.reviewInbox.fileUnsupportedFeedback)
+    const isSupportedExtension = fileName.endsWith(".txt") || fileName.endsWith(".csv")
+    const isSupportedType = !file.type || SUPPORTED_REVIEW_FILE_TYPES.has(file.type)
+    if (!isSupportedExtension || !isSupportedType || file.size > MAX_REVIEW_IMPORT_FILE_SIZE) {
+      setReviewFeedback(t.analyze.reviewInbox.importUnsupportedFeedback)
       return
     }
 
@@ -1538,7 +1557,7 @@ function ReviewInputWorkspace({
           id="screenshot-review-files"
           className={styles.visuallyHidden}
           type="file"
-          accept="image/png,image/jpeg,image/jpg,image/*"
+          accept="image/png,image/jpeg,image/webp"
           multiple
           onChange={onScreenshotFileChange}
         />
@@ -1570,7 +1589,7 @@ function ReviewInputWorkspace({
       )}
 
       {screenshotFileNames.length > 0 && (
-        <button type="button" className={styles.reviewImportTextButton} onClick={onReadScreenshotReviews}>
+        <button type="button" className={styles.reviewImportTextButton} disabled onClick={onReadScreenshotReviews}>
           {t.analyze.readScreenshotButton}
         </button>
       )}

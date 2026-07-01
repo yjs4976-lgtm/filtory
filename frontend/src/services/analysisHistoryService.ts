@@ -1,6 +1,5 @@
 import type { AnalysisHistoryItem, HospitalCategory, User } from "@/lib/types"
 import {
-  emptyAnalysisHistoryTrash,
   moveAnalysisHistoryItemsToTrash,
   permanentlyDeleteAnalysisHistoryItems,
   restoreAnalysisHistoryItems,
@@ -26,11 +25,6 @@ function matchesTrust(item: AnalysisHistoryItem, trust: TrustFilter) {
   return true
 }
 
-function toNumericMemberId(memberId: User["id"] | undefined) {
-  const numericMemberId = Number(memberId)
-  return Number.isInteger(numericMemberId) && numericMemberId > 0 ? numericMemberId : null
-}
-
 function filterAndSortHistory(items: AnalysisHistoryItem[], filters: AnalysisHistoryFilters = {}) {
   const keyword = filters.keyword?.trim().toLowerCase() ?? ""
   const category = filters.category ?? "all"
@@ -54,7 +48,7 @@ export const analysisHistoryService = {
     return filterAndSortHistory(history, filters)
   },
 
-  async getAnalysisHistoryTrash(memberId: User["id"] | undefined, filters: AnalysisHistoryFilters = {}) {
+  async getTrashHistory(memberId: User["id"] | undefined, filters: AnalysisHistoryFilters = {}) {
     const history = await getTrashHistory(memberId)
     return filterAndSortHistory(history, filters)
   },
@@ -68,94 +62,83 @@ export const analysisHistoryService = {
   },
 
   async moveAnalysisHistoryToTrash(memberId: User["id"] | undefined, ids: string[]) {
-    const numericMemberId = toNumericMemberId(memberId)
-    const numericIds = ids.map(Number).filter((id) => Number.isInteger(id) && id > 0)
-    if (numericMemberId && numericIds.length > 0) {
+    const numericMemberId = Number(memberId)
+    const requestIds = ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+
+    if (Number.isInteger(numericMemberId) && numericMemberId > 0 && requestIds.length > 0) {
       try {
         await apiClient(`/api/members/${numericMemberId}/analysis-history/trash`, {
-          method: "PATCH",
+          method: "POST",
           auth: true,
-          body: { ids: numericIds },
-        })
-      } catch {
-        // Local-only analysis records are still handled below.
-      }
-    }
-
-    moveAnalysisHistoryItemsToTrash(ids, memberId)
-    return { success: true, ids }
-  },
-
-  async restoreAnalysisHistory(memberId: User["id"] | undefined, ids: string[]) {
-    const numericMemberId = toNumericMemberId(memberId)
-    const numericIds = ids.map(Number).filter((id) => Number.isInteger(id) && id > 0)
-    if (numericMemberId && numericIds.length > 0) {
-      try {
-        await apiClient(`/api/members/${numericMemberId}/analysis-history/restore`, {
-          method: "PATCH",
-          auth: true,
-          body: { ids: numericIds },
-        })
-      } catch {
-        // Local-only analysis records are still handled below.
-      }
-    }
-
-    restoreAnalysisHistoryItems(ids)
-    return { success: true, ids }
-  },
-
-  async permanentlyDeleteAnalysisHistory(memberId: User["id"] | undefined, ids: string[]) {
-    const numericMemberId = toNumericMemberId(memberId)
-    const numericIds = ids.map(Number).filter((id) => Number.isInteger(id) && id > 0)
-    if (numericMemberId && numericIds.length > 0) {
-      try {
-        await apiClient(`/api/members/${numericMemberId}/analysis-history/permanent`, {
-          method: "DELETE",
-          auth: true,
-          body: { ids: numericIds },
-        })
-      } catch {
-        // Local-only analysis records are still handled below.
-      }
-    }
-
-    permanentlyDeleteAnalysisHistoryItems(ids)
-    return { success: true, ids }
-  },
-
-  async emptyAnalysisHistoryTrash(memberId: User["id"] | undefined) {
-    const numericMemberId = toNumericMemberId(memberId)
-    if (numericMemberId) {
-      try {
-        await apiClient(`/api/members/${numericMemberId}/analysis-history/permanent`, {
-          method: "DELETE",
-          auth: true,
-          body: { all: true },
-        })
-      } catch {
-        // Local-only analysis records are still handled below.
-      }
-    }
-
-    emptyAnalysisHistoryTrash()
-    return { success: true }
-  },
-
-  async hardDeleteAnalysisHistory(memberId: User["id"] | undefined, id: string) {
-    const numericMemberId = Number(memberId)
-    const numericRequestId = Number(id)
-    if (Number.isInteger(numericMemberId) && numericMemberId > 0 && Number.isInteger(numericRequestId)) {
-      try {
-        await apiClient(`/api/members/${numericMemberId}/analysis-history/${numericRequestId}/permanent`, {
-          method: "DELETE",
-          auth: true,
+          body: { ids: requestIds },
         })
       } catch {
         // A locally created analysis has no server request to delete yet.
       }
     }
-    permanentlyDeleteAnalysisHistoryItems([id])
-    return { success: true, deletedId: id }
+    moveAnalysisHistoryItemsToTrash(ids, memberId)
+    return { success: true, ids }
+  },
+
+  async restoreAnalysisHistory(memberId: User["id"] | undefined, ids: string[]) {
+    const numericMemberId = Number(memberId)
+    const requestIds = ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+
+    if (Number.isInteger(numericMemberId) && numericMemberId > 0 && requestIds.length > 0) {
+      try {
+        await apiClient(`/api/members/${numericMemberId}/analysis-history/trash/restore`, {
+          method: "POST",
+          auth: true,
+          body: { ids: requestIds },
+        })
+      } catch {
+        // A locally created analysis has no server request to restore yet.
+      }
+    }
+    restoreAnalysisHistoryItems(ids)
+    return { success: true, ids }
+  },
+
+  async hardDeleteAnalysisHistory(memberId: User["id"] | undefined, ids: string[]) {
+    const numericMemberId = Number(memberId)
+    const requestIds = ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+
+    if (Number.isInteger(numericMemberId) && numericMemberId > 0) {
+      try {
+        await apiClient(`/api/members/${numericMemberId}/analysis-history/trash`, {
+          method: "DELETE",
+          auth: true,
+          body: { ids: requestIds },
+        })
+      } catch {
+        // A locally created analysis has no server request to delete yet.
+      }
+    }
+    permanentlyDeleteAnalysisHistoryItems(ids)
+    return { success: true, ids }
+  },
+
+  async emptyTrash(memberId: User["id"] | undefined) {
+    const numericMemberId = Number(memberId)
+    if (Number.isInteger(numericMemberId) && numericMemberId > 0) {
+      try {
+        await apiClient(`/api/members/${numericMemberId}/analysis-history/trash`, {
+          method: "DELETE",
+          auth: true,
+          body: {},
+        })
+      } catch {
+        // A locally created analysis has no server request to delete yet.
+      }
+    }
+    const trash = await getTrashHistory(undefined)
+    permanentlyDeleteAnalysisHistoryItems(trash.map((item) => item.id))
+    return { success: true }
   },
 }

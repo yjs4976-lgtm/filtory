@@ -153,7 +153,6 @@ export const authService = {
     return apiClient<unknown>("/api/auth/refresh", {
       method: "POST",
       auth: true,
-      tokenType: "refresh",
     });
   },
 

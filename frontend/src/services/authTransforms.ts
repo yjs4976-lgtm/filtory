@@ -16,8 +16,6 @@ type BackendUser = Partial<User> & {
 
 type RawLoginResponse = Partial<LoginResponse> & {
   member?: BackendUser
-  access_token?: string | null
-  refresh_token?: string | null
 }
 
 function textOrEmpty(value: unknown) {
@@ -93,7 +91,5 @@ export function normalizeLoginResponse(rawResponse: RawLoginResponse): LoginResp
 
   return {
     user: normalizeUser(user),
-    accessToken: textOrEmpty(rawResponse.accessToken || rawResponse.access_token) || undefined,
-    refreshToken: textOrEmpty(rawResponse.refreshToken || rawResponse.refresh_token) || undefined,
   }
 }

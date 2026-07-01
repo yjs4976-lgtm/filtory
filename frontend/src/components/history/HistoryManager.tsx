@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RotateCcw, ShieldCheck, Trash2 } from "lucide-react"
 import { EmptyState } from "@/components/common/EmptyState"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
@@ -14,16 +14,13 @@ import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
 import { analysisHistoryService, type AnalysisHistorySort } from "@/services/analysisHistoryService"
 import styles from "@/styles/App.module.css"
 
+type HistoryMode = "active" | "trash"
+
 type ConfirmAction = {
   title: string
   description: string
   confirmLabel: string
-  tone?: "danger" | "primary"
   onConfirm: () => Promise<void> | void
-}
-
-type HistoryManagerProps = {
-  mode?: "active" | "trash"
 }
 
 const categoryOptions: Array<"all" | HospitalCategory> = ["all", "derma", "eye", "dental"]
@@ -32,16 +29,16 @@ function selectedText(template: string, count: number) {
   return template.replace("{count}", String(count))
 }
 
-export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
+export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
   const { t } = useLanguage()
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
-  const isTrash = mode === "trash"
+  const isTrashMode = mode === "trash"
   const [keyword, setKeyword] = useState("")
   const [category, setCategory] = useState<"all" | HospitalCategory>("all")
   const [sort, setSort] = useState<AnalysisHistorySort>("latest")
   const [items, setItems] = useState<AnalysisHistoryItem[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [isManageMode, setIsManageMode] = useState(isTrash)
+  const [isManageMode, setIsManageMode] = useState(isTrashMode)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [feedback, setFeedback] = useState("")
@@ -60,8 +57,8 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
       setIsLoading(true)
       setError("")
       const filters = { keyword, category, sort }
-      const nextItems = isTrash
-        ? await analysisHistoryService.getAnalysisHistoryTrash(user?.id, filters)
+      const nextItems = isTrashMode
+        ? await analysisHistoryService.getTrashHistory(user?.id, filters)
         : await analysisHistoryService.getAnalysisHistory(user?.id, filters)
       setItems(nextItems)
       setSelectedIds((current) => current.filter((id) => nextItems.some((item) => item.id === id)))
@@ -70,7 +67,7 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [category, isAuthenticated, isTrash, keyword, sort, t.history.loadFailed, user])
+  }, [category, isAuthenticated, isTrashMode, keyword, sort, t.history.loadFailed, user])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -93,33 +90,31 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
     setConfirmAction(null)
   }
 
-  const moveSelectedToTrash = async () => {
-    await analysisHistoryService.moveAnalysisHistoryToTrash(user?.id, selectedIds)
-    setFeedback(t.history.moveToTrashDone)
+  const afterAction = async (message: string) => {
+    setFeedback(message)
     setSelectedIds([])
     setIsManageMode(false)
     await loadItems()
   }
 
+  const moveSelectedToTrash = async (ids = selectedIds) => {
+    await analysisHistoryService.moveAnalysisHistoryToTrash(user?.id, ids)
+    await afterAction(t.history.moveToTrashDone)
+  }
+
   const restoreSelected = async (ids = selectedIds) => {
     await analysisHistoryService.restoreAnalysisHistory(user?.id, ids)
-    setFeedback(t.history.restoreDone)
-    setSelectedIds([])
-    await loadItems()
+    await afterAction(t.history.restoreDone)
   }
 
   const permanentlyDeleteSelected = async (ids = selectedIds) => {
-    await analysisHistoryService.permanentlyDeleteAnalysisHistory(user?.id, ids)
-    setFeedback(t.history.permanentDeleteDone)
-    setSelectedIds([])
-    await loadItems()
+    await analysisHistoryService.hardDeleteAnalysisHistory(user?.id, ids)
+    await afterAction(t.history.permanentDeleteDone)
   }
 
   const emptyTrash = async () => {
-    await analysisHistoryService.emptyAnalysisHistoryTrash(user?.id)
-    setFeedback(t.history.emptyTrashDone)
-    setSelectedIds([])
-    await loadItems()
+    await analysisHistoryService.emptyTrash(user?.id)
+    await afterAction(t.history.emptyTrashDone)
   }
 
   if (isAuthLoading || isLoading) {
@@ -140,28 +135,31 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
   return (
     <section className={styles.stackMd}>
       <section className={`${styles.card} ${styles.stackSm}`}>
-        <p className={styles.memberEyebrow}>{isTrash ? "TRASH" : "HISTORY"}</p>
-        <h2 className={styles.titleMd}>{isTrash ? t.history.trashTitle : t.history.title}</h2>
-        <p className={styles.bodyText}>{isTrash ? t.history.trashDescription : t.history.description}</p>
+        <p className={styles.memberEyebrow}>{isTrashMode ? "TRASH" : "HISTORY"}</p>
+        <h2 className={styles.titleMd}>{isTrashMode ? t.history.trashTitle : t.history.title}</h2>
+        <p className={styles.bodyText}>{isTrashMode ? t.history.trashDescription : t.history.description}</p>
+        <div className={styles.actionRow}>
+          <Link className={styles.secondaryButton} href={isTrashMode ? ROUTES.HISTORY : ROUTES.HISTORY_TRASH}>
+            {isTrashMode ? t.history.backToHistory : t.history.openTrash}
+          </Link>
+        </div>
       </section>
 
-      {!isTrash && (
-        <HistoryToolbar
-          keyword={keyword}
-          category={category}
-          sort={sort}
-          isManageMode={isManageMode}
-          onKeywordChange={setKeyword}
-          onCategoryChange={setCategory}
-          onSortChange={setSort}
-          onManageToggle={() => {
-            setIsManageMode((current) => !current)
-            setSelectedIds([])
-          }}
-        />
-      )}
+      <HistoryToolbar
+        keyword={keyword}
+        category={category}
+        sort={sort}
+        isManageMode={isManageMode}
+        onKeywordChange={setKeyword}
+        onCategoryChange={setCategory}
+        onSortChange={setSort}
+        onManageToggle={() => {
+          setIsManageMode((current) => !current)
+          setSelectedIds([])
+        }}
+      />
 
-      {isManageMode && !isTrash && (
+      {isManageMode && (
         <section className={`${styles.card} ${styles.stackSm}`}>
           <p className={styles.bodyText}>{selectedText(t.history.selectedCount, selectedIds.length)}</p>
           <div className={styles.historyActionGrid}>
@@ -171,20 +169,50 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
             <button type="button" className={styles.secondaryButton} onClick={clearSelection}>
               {t.history.clearSelection}
             </button>
-            <button
-              type="button"
-              className={styles.dangerButton}
-              disabled={!hasSelection}
-              onClick={() => setConfirmAction({
-                title: t.history.moveToTrashConfirm,
-                description: t.history.moveToTrash,
-                confirmLabel: t.history.moveSelectedToTrash,
-                tone: "danger",
-                onConfirm: moveSelectedToTrash,
-              })}
-            >
-              {t.history.moveSelectedToTrash}
-            </button>
+            {isTrashMode ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={!hasSelection}
+                  onClick={() => setConfirmAction({
+                    title: t.history.restoreConfirm,
+                    description: t.history.restoreDescription,
+                    confirmLabel: t.history.restoreSelected,
+                    onConfirm: () => restoreSelected(),
+                  })}
+                >
+                  {t.history.restoreSelected}
+                </button>
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  disabled={!hasSelection}
+                  onClick={() => setConfirmAction({
+                    title: t.history.permanentDeleteConfirm,
+                    description: t.history.irreversible,
+                    confirmLabel: t.history.permanentDeleteSelected,
+                    onConfirm: () => permanentlyDeleteSelected(),
+                  })}
+                >
+                  {t.history.permanentDeleteSelected}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                disabled={!hasSelection}
+                onClick={() => setConfirmAction({
+                  title: t.history.moveToTrashConfirm,
+                  description: t.history.moveToTrashDescription,
+                  confirmLabel: t.history.moveToTrashSelected,
+                  onConfirm: () => moveSelectedToTrash(),
+                })}
+              >
+                {t.history.moveToTrashSelected}
+              </button>
+            )}
             <button type="button" className={styles.primaryButton} onClick={() => setIsManageMode(false)}>
               {t.history.done}
             </button>
@@ -192,51 +220,21 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
         </section>
       )}
 
-      {isTrash && (
+      {isTrashMode && items.length > 0 && (
         <section className={`${styles.card} ${styles.stackSm}`}>
-          <p className={styles.bodyText}>{selectedText(t.history.selectedCount, selectedIds.length)}</p>
-          <div className={styles.historyActionGrid}>
-            <button type="button" className={styles.secondaryButton} onClick={selectAll}>
-              {t.history.selectAll}
-            </button>
-            <button type="button" className={styles.secondaryButton} onClick={clearSelection}>
-              {t.history.clearSelection}
-            </button>
-            <button type="button" className={styles.secondaryButton} disabled={!hasSelection} onClick={() => restoreSelected()}>
-              {t.history.restoreSelected}
-            </button>
-            <button
-              type="button"
-              className={styles.dangerButton}
-              disabled={!hasSelection}
-              onClick={() => setConfirmAction({
-                title: t.history.permanentDeleteConfirm,
-                description: t.history.irreversible,
-                confirmLabel: t.history.permanentDeleteSelected,
-                tone: "danger",
-                onConfirm: () => permanentlyDeleteSelected(),
-              })}
-            >
-              {t.history.permanentDeleteSelected}
-            </button>
-            <button
-              type="button"
-              className={styles.dangerButton}
-              disabled={items.length === 0}
-              onClick={() => setConfirmAction({
-                title: t.history.emptyTrashConfirm,
-                description: t.history.irreversible,
-                confirmLabel: t.history.emptyTrash,
-                tone: "danger",
-                onConfirm: emptyTrash,
-              })}
-            >
-              {t.history.emptyTrash}
-            </button>
-            <Link className={styles.primaryButton} href={ROUTES.HISTORY}>
-              {t.common.back}
-            </Link>
-          </div>
+          <p className={styles.bodyText}>{t.history.emptyTrashDescription}</p>
+          <button
+            type="button"
+            className={styles.dangerButton}
+            onClick={() => setConfirmAction({
+              title: t.history.emptyTrashConfirm,
+              description: t.history.irreversible,
+              confirmLabel: t.history.emptyTrash,
+              onConfirm: emptyTrash,
+            })}
+          >
+            {t.history.emptyTrash}
+          </button>
         </section>
       )}
 
@@ -245,10 +243,10 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
 
       {!error && items.length === 0 && (
         <EmptyState
-          title={isTrash ? t.history.trashEmptyTitle : t.history.emptyTitle}
-          description={isTrash ? t.history.trashEmptyDescription : t.history.emptyDescription}
-          actionHref={isTrash ? ROUTES.HISTORY : ROUTES.ANALYZE}
-          actionLabel={isTrash ? t.common.back : t.history.emptyAction}
+          title={isTrashMode ? t.history.emptyTrashTitle : t.history.emptyTitle}
+          description={isTrashMode ? t.history.emptyTrashDescription : t.history.emptyDescription}
+          actionHref={isTrashMode ? ROUTES.HISTORY : ROUTES.ANALYZE}
+          actionLabel={isTrashMode ? t.history.backToHistory : t.history.emptyAction}
         />
       )}
 
@@ -258,16 +256,26 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
             <HistoryRecordCard
               key={item.id}
               item={item}
-              selectable={isManageMode || isTrash}
+              mode={mode}
+              selectable={isManageMode}
               checked={selectedIdSet.has(item.id)}
-              isTrash={isTrash}
               onToggle={() => toggleSelected(item.id)}
-              onRestore={() => restoreSelected([item.id])}
+              onMoveToTrash={() => setConfirmAction({
+                title: t.history.moveToTrashConfirm,
+                description: t.history.moveToTrashDescription,
+                confirmLabel: t.history.moveToTrashRecord,
+                onConfirm: () => moveSelectedToTrash([item.id]),
+              })}
+              onRestore={() => setConfirmAction({
+                title: t.history.restoreConfirm,
+                description: t.history.restoreDescription,
+                confirmLabel: t.history.restoreRecord,
+                onConfirm: () => restoreSelected([item.id]),
+              })}
               onPermanentDelete={() => setConfirmAction({
                 title: t.history.permanentDeleteConfirm,
                 description: t.history.irreversible,
-                confirmLabel: t.history.permanentDelete,
-                tone: "danger",
+                confirmLabel: t.history.permanentDeleteRecord,
                 onConfirm: () => permanentlyDeleteSelected([item.id]),
               })}
             />
@@ -291,11 +299,7 @@ export function HistoryManager({ mode = "active" }: HistoryManagerProps) {
                 <button type="button" className={styles.secondaryButton} onClick={() => setConfirmAction(null)}>
                   {t.common.cancel}
                 </button>
-                <button
-                  type="button"
-                  className={confirmAction.tone === "danger" ? styles.dangerButton : styles.primaryButton}
-                  onClick={runConfirmed}
-                >
+                <button type="button" className={styles.dangerButton} onClick={runConfirmed}>
                   {confirmAction.confirmLabel}
                 </button>
               </div>
@@ -364,9 +368,6 @@ function HistoryToolbar({
         <button type="button" className={styles.secondaryButton} onClick={onManageToggle}>
           {isManageMode ? t.history.cancelManage : t.history.manage}
         </button>
-        <Link className={styles.secondaryButton} href={ROUTES.HISTORY_TRASH}>
-          {t.history.trash}
-        </Link>
       </div>
     </section>
   )
@@ -374,18 +375,20 @@ function HistoryToolbar({
 
 function HistoryRecordCard({
   item,
+  mode,
   selectable,
   checked,
-  isTrash,
   onToggle,
+  onMoveToTrash,
   onRestore,
   onPermanentDelete,
 }: {
   item: AnalysisHistoryItem
+  mode: HistoryMode
   selectable: boolean
   checked: boolean
-  isTrash: boolean
   onToggle: () => void
+  onMoveToTrash: () => void
   onRestore: () => void
   onPermanentDelete: () => void
 }) {
@@ -401,6 +404,7 @@ function HistoryRecordCard({
   })
   const date = item.analyzedAt ?? item.createdAt
   const region = item.region || item.hospitalAddress || t.history.regionUnknown
+  const isTrashMode = mode === "trash"
 
   return (
     <article className={`${styles.card} ${styles.stackSm}`}>
@@ -422,9 +426,7 @@ function HistoryRecordCard({
           </div>
           <div className={styles.badgeRow}>
             <span className={styles.neutralPill}>{date}</span>
-            {isTrash && item.deletedAt && (
-              <span className={styles.neutralPill}>{t.history.deletedDate} {item.deletedAt}</span>
-            )}
+            {isTrashMode && item.deletedAt && <span className={styles.neutralPill}>{t.history.deletedAtLabel} {item.deletedAt}</span>}
           </div>
           <div className={styles.metricGrid}>
             <span className={styles.trustMetric}>
@@ -433,16 +435,25 @@ function HistoryRecordCard({
             </span>
             <span>{t.mypage.adSuspicionLabel} {adSuspicionLevel}</span>
           </div>
-          {isTrash && (
+          {selectable && (
             <div className={styles.actionRow}>
-              <button type="button" className={styles.secondaryButton} onClick={onRestore}>
-                <RotateCcw className={styles.iconSm} />
-                {t.history.restore}
-              </button>
-              <button type="button" className={styles.dangerButton} onClick={onPermanentDelete}>
-                <Trash2 className={styles.iconSm} />
-                {t.history.permanentDelete}
-              </button>
+              {isTrashMode ? (
+                <>
+                  <button type="button" className={styles.secondaryButton} onClick={onRestore}>
+                    <RotateCcw className={styles.iconSm} />
+                    {t.history.restoreRecord}
+                  </button>
+                  <button type="button" className={styles.dangerButton} onClick={onPermanentDelete}>
+                    <Trash2 className={styles.iconSm} />
+                    {t.history.permanentDeleteRecord}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className={styles.dangerButton} onClick={onMoveToTrash}>
+                  <Trash2 className={styles.iconSm} />
+                  {t.history.moveToTrashRecord}
+                </button>
+              )}
             </div>
           )}
         </div>

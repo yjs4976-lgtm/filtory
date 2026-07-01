@@ -1,5 +1,5 @@
 -- Analysis history trash support.
--- General deletes set deleted_at; permanent deletes remove the analysis_request row.
+-- Run this once in the Supabase SQL editor before deploying the app code.
 
 alter table public.analysis_requests
 add column if not exists deleted_at timestamp with time zone,

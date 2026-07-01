@@ -40,8 +40,8 @@ export type AnalysisHistoryItem = {
   foreignerFriendlyScore?: number
   createdAt: string
   analyzedAt?: string
-  deletedAt?: string | null
-  deletedBy?: string | number | null
+  deletedAt?: string
+  deletedBy?: string | number
   trustScore?: number
   trustLevel?: string
   adSuspicionScore?: number
@@ -278,8 +278,6 @@ export interface SignupRequest extends SignupPayload {
 
 export interface LoginResponse {
   user: User
-  accessToken?: string
-  refreshToken?: string
 }
 
 export interface FindIdRequest {

@@ -14,6 +14,8 @@ ANALYSIS_REQUEST_FIELDS = {
     "error_message",
     "started_at",
     "completed_at",
+    "deleted_at",
+    "deleted_by",
 }
 
 ANALYSIS_RESULT_FIELDS = {
@@ -53,6 +55,8 @@ def analysis_request_to_dict(analysis_request):
         "error_message": analysis_request.error_message,
         "started_at": _isoformat(analysis_request.started_at),
         "completed_at": _isoformat(analysis_request.completed_at),
+        "deleted_at": _isoformat(analysis_request.deleted_at),
+        "deleted_by": analysis_request.deleted_by,
         "created_at": _isoformat(analysis_request.created_at),
         "updated_at": _isoformat(analysis_request.updated_at),
     }

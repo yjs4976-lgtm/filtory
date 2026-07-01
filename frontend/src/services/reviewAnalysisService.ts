@@ -205,7 +205,10 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     summary: typeof result.summary === "string" ? result.summary : "",
     recommendation: typeof result.recommendation === "string" ? result.recommendation : "",
     evidence,
-    analyzedReviewCount: Array.isArray(payload.reviews) ? payload.reviews.length : payload.reviewText ? 1 : 0,
+    analyzedReviewCount:
+      optionalNumber(result.analyzedReviewCount) ??
+      data.reviewIds?.length ??
+      (Array.isArray(payload.reviews) ? payload.reviews.length : payload.reviewText ? 1 : 0),
     modelVersion: typeof result.modelVersion === "string" ? result.modelVersion : "",
   }
 }
@@ -215,6 +218,7 @@ export const reviewAnalysisService = {
     const analysisPayload = buildAnalysisPayload(payload)
     const response = await apiClient<BackendAnalysisData>("/api/analysis/analyze", {
       method: "POST",
+      auth: true,
       body: analysisPayload,
     })
 

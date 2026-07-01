@@ -31,8 +31,8 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     category,
     createdAt,
     analyzedAt: item.analyzedAt ? String(item.analyzedAt) : undefined,
-    deletedAt: item.deletedAt || item.deleted_at ? String(item.deletedAt ?? item.deleted_at) : null,
-    deletedBy: item.deletedBy || item.deleted_by ? String(item.deletedBy ?? item.deleted_by) : null,
+    deletedAt: item.deletedAt || item.deleted_at ? String(item.deletedAt ?? item.deleted_at) : undefined,
+    deletedBy: item.deletedBy ?? item.deleted_by,
     score: Number(item.score ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
     trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
   } as AnalysisHistoryItem
@@ -91,44 +91,36 @@ export function saveAnalysisHistoryItem(item: AnalysisHistoryItem) {
 }
 
 export function deleteAnalysisHistoryItem(id: string) {
-  const items = readAnalysisHistory()
-  writeAnalysisHistory(items.filter((item) => item.id !== id))
+  moveAnalysisHistoryItemsToTrash([id])
 }
 
-export function moveAnalysisHistoryItemsToTrash(ids: string[], deletedBy?: string | number | null) {
+export function moveAnalysisHistoryItemsToTrash(ids: string[], deletedBy?: string | number) {
   const idSet = new Set(ids)
-  const deletedAt = new Date().toISOString()
   const items = readAnalysisHistory()
-  writeAnalysisHistory(
-    items.map((item) => (
-      idSet.has(item.id)
-        ? { ...item, deletedAt, deletedBy: deletedBy ?? null }
-        : item
-    ))
-  )
+  const deletedAt = new Date().toISOString()
+  writeAnalysisHistory(items.map((item) => (
+    idSet.has(item.id)
+      ? { ...item, deletedAt, deletedBy }
+      : item
+  )))
 }
 
 export function restoreAnalysisHistoryItems(ids: string[]) {
   const idSet = new Set(ids)
   const items = readAnalysisHistory()
-  writeAnalysisHistory(
-    items.map((item) => (
-      idSet.has(item.id)
-        ? { ...item, deletedAt: null, deletedBy: null }
-        : item
-    ))
-  )
+  writeAnalysisHistory(items.map((item) => {
+    if (!idSet.has(item.id)) return item
+    const restoredItem = { ...item }
+    delete restoredItem.deletedAt
+    delete restoredItem.deletedBy
+    return restoredItem
+  }))
 }
 
 export function permanentlyDeleteAnalysisHistoryItems(ids: string[]) {
   const idSet = new Set(ids)
   const items = readAnalysisHistory()
   writeAnalysisHistory(items.filter((item) => !idSet.has(item.id)))
-}
-
-export function emptyAnalysisHistoryTrash() {
-  const items = readAnalysisHistory()
-  writeAnalysisHistory(items.filter((item) => !item.deletedAt))
 }
 
 export function readCurrentReviewAnalysis(): CurrentReviewAnalysis | null {
