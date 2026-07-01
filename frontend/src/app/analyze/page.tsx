@@ -14,7 +14,7 @@ export default function AnalyzePage() {
     <div className={styles.page}>
       <Header title={t.analyze.title} showBack />
 
-      <main className={`${styles.main} ${styles.stackMd}`}>
+      <main className={`${styles.main} ${styles.analyzeMain} ${styles.stackMd}`}>
         <CategoryFirstAnalyzeFlow userId={user?.id} />
         <section className={`${styles.card} ${styles.stackSm}`}>
           <p className={styles.memberEyebrow}>ANALYZE GUIDE</p>

@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from app.services import AnalysisService, AuthService, MemberService, ProfileImageService, SavedHospitalService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
@@ -123,16 +123,111 @@ def list_member_analysis_history(member_id):
     )
 
 
+@member_bp.route("/<int:member_id>/analysis-history/trash", methods=["GET"])
+@require_member_or_admin
+def list_member_analysis_history_trash(member_id):
+    pagination = get_pagination_params(request.args)
+    history = AnalysisService.list_member_history(
+        member_id,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+        trashed=True,
+    )
+    return success_response(
+        data=history,
+        meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(history)),
+    )
+
+
 @member_bp.route("/<int:member_id>/analysis-history/<int:request_id>", methods=["DELETE"])
 @require_member_or_admin
 def delete_member_analysis_history(member_id, request_id):
     try:
         return success_response(
-            AnalysisService.delete_member_history(member_id, request_id),
-            "Analysis history deleted",
+            AnalysisService.delete_member_history(member_id, request_id, deleted_by=g.current_member.id),
+            "Analysis history moved to trash",
         )
     except ValueError as e:
         return error_response(str(e), 404)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/trash", methods=["PATCH"])
+@require_member_or_admin
+def move_member_analysis_history_to_trash(member_id, request_id):
+    try:
+        return success_response(
+            AnalysisService.move_member_history_to_trash(member_id, [request_id], deleted_by=g.current_member.id),
+            "Analysis history moved to trash",
+        )
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/trash", methods=["PATCH"])
+@require_member_or_admin
+def move_member_analysis_histories_to_trash(member_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(
+            AnalysisService.move_member_history_to_trash(member_id, payload.get("ids"), deleted_by=g.current_member.id),
+            "Analysis histories moved to trash",
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/restore", methods=["PATCH"])
+@require_member_or_admin
+def restore_member_analysis_history(member_id, request_id):
+    try:
+        return success_response(
+            AnalysisService.restore_member_history(member_id, [request_id]),
+            "Analysis history restored",
+        )
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/restore", methods=["PATCH"])
+@require_member_or_admin
+def restore_member_analysis_histories(member_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(
+            AnalysisService.restore_member_history(member_id, payload.get("ids")),
+            "Analysis histories restored",
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/<int:request_id>/permanent", methods=["DELETE"])
+@require_member_or_admin
+def permanently_delete_member_analysis_history(member_id, request_id):
+    try:
+        return success_response(
+            AnalysisService.permanently_delete_member_history(member_id, [request_id]),
+            "Analysis history permanently deleted",
+        )
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@member_bp.route("/<int:member_id>/analysis-history/permanent", methods=["DELETE"])
+@require_member_or_admin
+def permanently_delete_member_analysis_histories(member_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(
+            AnalysisService.permanently_delete_member_history(
+                member_id,
+                request_ids=payload.get("ids"),
+                all_trashed=bool(payload.get("all")),
+            ),
+            "Analysis histories permanently deleted",
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
 
 
 @member_bp.route("/<int:member_id>/saved-hospitals", methods=["GET"])

@@ -50,10 +50,13 @@ class AnalysisRequest(db.Model):
     error_message = db.Column(db.Text)
     started_at = db.Column(db.DateTime(timezone=True))
     completed_at = db.Column(db.DateTime(timezone=True))
+    deleted_at = db.Column(db.DateTime(timezone=True))
+    deleted_by = db.Column(db.BigInteger, db.ForeignKey("public.members.id", ondelete="SET NULL"))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
 
-    member = db.relationship("Member", back_populates="analysis_requests")
+    member = db.relationship("Member", back_populates="analysis_requests", foreign_keys=[member_id])
+    deleted_by_member = db.relationship("Member", foreign_keys=[deleted_by])
     hospital = db.relationship("Hospital", back_populates="analysis_requests")
     reviews = db.relationship(
         "Review",

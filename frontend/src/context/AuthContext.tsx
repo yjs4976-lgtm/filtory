@@ -4,6 +4,7 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/types";
+import { clearAuthSession, saveAuthSession, saveAuthTokens, saveStoredUser } from "@/lib/authStorage";
 import { authService } from "@/services/authService";
 
 interface AuthContextValue {
@@ -28,10 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const saveLogin = useCallback((payload: LoginResponse) => {
+    saveAuthSession(payload);
     setUser(payload.user);
   }, []);
 
   const updateUser = useCallback((nextUser: User) => {
+    saveStoredUser(nextUser);
     setUser(nextUser);
   }, []);
 
@@ -51,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 백엔드 로그아웃 실패해도 프론트 로그인 정보는 지워야 함
     }
 
+    clearAuthSession();
     setUser(null);
     router.push(ROUTES.LOGIN);
   }, [router]);
@@ -58,10 +62,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        await authService.refresh();
+        try {
+          const refreshResult = await authService.refresh();
+          if (refreshResult.data) {
+            saveAuthTokens(refreshResult.data);
+          }
+        } catch {
+          // Access token or existing auth cookie may still be enough for /me.
+        }
+
         const meResult = await authService.me();
+        saveStoredUser(meResult.data);
         setUser(meResult.data);
       } catch {
+        clearAuthSession();
         setUser(null);
       } finally {
         setIsLoading(false);

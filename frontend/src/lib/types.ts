@@ -40,6 +40,8 @@ export type AnalysisHistoryItem = {
   foreignerFriendlyScore?: number
   createdAt: string
   analyzedAt?: string
+  deletedAt?: string | null
+  deletedBy?: string | number | null
   trustScore?: number
   trustLevel?: string
   adSuspicionScore?: number
@@ -80,6 +82,8 @@ export type HospitalItem = {
   imageUrl?: string
   treatmentItems?: string
   searchKeywords?: string[]
+  isManual?: boolean
+  manualRegionLabel?: string
 }
 
 export type ReviewImageItem = {
@@ -274,6 +278,8 @@ export interface SignupRequest extends SignupPayload {
 
 export interface LoginResponse {
   user: User
+  accessToken?: string
+  refreshToken?: string
 }
 
 export interface FindIdRequest {

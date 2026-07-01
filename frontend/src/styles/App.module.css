@@ -22,6 +22,10 @@
   padding: 20px 16px calc(104px + env(safe-area-inset-bottom));
 }
 
+.analyzeMain {
+  padding-bottom: calc(136px + env(safe-area-inset-bottom));
+}
+
 .stack {
   display: flex;
   flex-direction: column;
@@ -182,6 +186,7 @@
 .input::placeholder,
 .textarea::placeholder {
   color: var(--graypurple);
+  opacity: 0.64;
 }
 
 .input:focus,
@@ -653,6 +658,75 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.historyActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.filterLabelPill {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--subtle);
+  color: var(--graypurple);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.selectedFilterPanel {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--subtle);
+  padding: 12px;
+}
+
+.selectedHospitalGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hospitalFallbackActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.manualHospitalPrompt {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--subtle);
+  padding: 14px;
+}
+
+.historyRecordLayout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.historyRecordLayout > .stackSm:only-child {
+  grid-column: 1 / -1;
+}
+
+.historyCheckbox {
+  display: inline-flex;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.historyCheckbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--lavender);
 }
 
 .summaryGrid {
@@ -2696,6 +2770,428 @@ button.notificationCard {
   background: var(--lavender-soft);
 }
 
+.reviewSourceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reviewSourceCard {
+  min-width: 0;
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 14px;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.reviewSourceCard:hover {
+  transform: translateY(-1px);
+  border-color: var(--lavender);
+}
+
+.reviewSourceCardActive {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  box-shadow: 0 10px 24px rgba(168, 165, 183, 0.14);
+}
+
+.reviewSourceCard strong,
+.reviewSourceCard small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.reviewSourceCard strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.reviewSourceCard small {
+  margin-top: 5px;
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.reviewSourceDetail {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--subtle);
+  padding: 16px;
+}
+
+.reviewInputWorkspace {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.reviewImportToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reviewImportButton {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.reviewImportButton:hover,
+.reviewImportButton:focus-visible {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  box-shadow: 0 0 0 3px rgba(220, 207, 255, 0.28);
+  outline: none;
+}
+
+.reviewImportHints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  color: var(--graypurple);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.reviewImportTextButton {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mint-soft);
+  color: var(--mint-text);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reviewGuideList {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--graypurple);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reviewDropzone {
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed var(--lavender);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 18px;
+  text-align: center;
+}
+
+.fileNameList {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.fileNameList span,
+.fileNamePill {
+  max-width: 100%;
+  display: inline-flex;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewPasteTextarea {
+  min-height: 220px;
+  resize: vertical;
+  background: #fffefb;
+}
+
+.reviewInputLabel {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.reviewInputFooter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.reviewExampleToggleRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.reviewExampleToggle {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.reviewExampleToggle:hover,
+.reviewExampleToggle:focus-visible {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  box-shadow: 0 0 0 3px rgba(220, 207, 255, 0.28);
+  outline: none;
+}
+
+.reviewExamplePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--subtle);
+  padding: 14px;
+}
+
+.reviewExampleHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reviewExampleTabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.reviewExampleTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.reviewExampleTab {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--graypurple);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.reviewExampleTabActive {
+  border-color: transparent;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+}
+
+.reviewExampleSentenceList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.reviewExampleSentence {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reviewExampleSentence:hover,
+.reviewExampleSentence:focus-visible {
+  border-color: var(--lavender);
+  background: #fffefb;
+  outline: none;
+}
+
+.reviewDetectedText {
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reviewAddButton {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 16px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 10px 22px rgba(168, 165, 183, 0.16);
+}
+
+.reviewAddButton:disabled {
+  background: var(--subtle);
+  color: var(--graypurple);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.reviewInboxSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reviewFeedback {
+  margin: 0;
+  border: 1px solid var(--mint);
+  border-radius: 16px;
+  background: var(--mint-soft);
+  color: var(--mint-text);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.reviewDraftList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewDraftCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 14px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.reviewDraftExcluded {
+  background: var(--subtle);
+  opacity: 0.76;
+}
+
+.reviewDraftHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reviewIncludeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reviewIncludeToggle input {
+  accent-color: var(--lavender);
+}
+
+.reviewEditLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.reviewDraftTextarea {
+  width: 100%;
+  min-height: 108px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--subtle);
+  color: var(--foreground);
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.reviewDraftTextarea:focus {
+  border-color: var(--lavender);
+}
+
+.reviewDeleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  border: 1px solid var(--pink);
+  border-radius: 999px;
+  background: var(--pink-soft);
+  color: var(--pink-text);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .reviewCheckRow {
   display: flex;
   align-items: flex-start;
@@ -4024,6 +4520,7 @@ button.notificationCard {
   }
 
   .actionRow,
+  .historyActionGrid,
   .memberActionGrid,
   .submitBar {
     grid-template-columns: 1fr;
@@ -4033,7 +4530,9 @@ button.notificationCard {
   .filterGrid,
   .metricGrid,
   .resultMetricGrid,
-  .profileChecklistGrid {
+  .profileChecklistGrid,
+  .reviewSourceGrid,
+  .reviewInboxSummaryGrid {
     grid-template-columns: 1fr;
   }
 

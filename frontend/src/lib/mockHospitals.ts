@@ -253,37 +253,77 @@ export function getDemoHospitalById(id: string) {
   return demoHospitals.find((hospital) => hospital.id === id)
 }
 
+function normalizeSearchText(value?: string) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/경기도/g, "경기")
+    .replace(/서울특별시/g, "서울")
+    .replace(/부산광역시/g, "부산")
+    .replace(/대구광역시/g, "대구")
+    .replace(/인천광역시/g, "인천")
+    .replace(/광주광역시/g, "광주")
+    .replace(/대전광역시/g, "대전")
+    .replace(/울산광역시/g, "울산")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function categoryTerms(category?: HospitalCategory) {
+  if (category === "derma") return ["derma", "dermatology", "skin", "skin clinic", "피부과"]
+  if (category === "eye") return ["eye", "ophthalmology", "eye clinic", "안과"]
+  if (category === "dental") return ["dental", "dentistry", "dental clinic", "치과"]
+  return []
+}
+
 export function searchDemoHospitals({
   category,
   region,
   query,
 }: {
-  category: HospitalCategory
+  category?: HospitalCategory
   region?: HospitalRegionCode
   query: string
 }) {
   if (!demoEnabled) return []
-  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedQuery = normalizeSearchText(query)
   const regionLabel = hospitalRegions.find((item) => item.code === region)
-  const regionTerms = [regionLabel?.ko, regionLabel?.en, region].filter(Boolean).map((value) => String(value).toLowerCase())
+  const regionTerms = [regionLabel?.ko, regionLabel?.en, region]
+    .filter(Boolean)
+    .map((value) => normalizeSearchText(String(value)))
+  const categorySearchTerms = categoryTerms(category)
 
-  return demoHospitals.filter((hospital) => {
-    const searchable = [
-      hospital.name,
-      hospital.address,
-      hospital.sourceName,
-      hospital.phone,
-      getRegionLabel(hospital.region, "ko"),
-      getRegionLabel(hospital.region, "en"),
-      ...(hospital.searchKeywords ?? []),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-    const matchesCategory = hospital.category === category
-    const matchesRegion = !region || hospital.region === region || regionTerms.some((term) => searchable.includes(term))
-    const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery)
+  return demoHospitals
+    .map((hospital) => {
+      const hospitalCategoryTerms = categoryTerms(hospital.category)
+      const searchable = [
+        hospital.name,
+        hospital.hospitalNameKo,
+        hospital.hospitalNameEn,
+        hospital.hospitalEnglishName,
+        hospital.address,
+        hospital.sourceName,
+        hospital.phone,
+        getRegionLabel(hospital.region, "ko"),
+        getRegionLabel(hospital.region, "en"),
+        ...hospitalCategoryTerms,
+        ...(hospital.searchKeywords ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+      const normalizedSearchable = normalizeSearchText(searchable)
+      const matchesCategory = !category || hospital.category === category || categorySearchTerms.some((term) => normalizedSearchable.includes(term))
+      const matchesRegion = !region || hospital.region === region || regionTerms.some((term) => normalizedSearchable.includes(term))
+      const matchesQuery = !normalizedQuery || normalizedSearchable.includes(normalizedQuery)
 
-    return matchesCategory && matchesRegion && matchesQuery
-  })
+      if (!normalizedQuery && !matchesCategory && !matchesRegion) return null
+      if (normalizedQuery && !matchesQuery) return null
+
+      return {
+        hospital,
+        score: (matchesQuery ? 100 : 0) + (matchesRegion ? 30 : 0) + (matchesCategory ? 20 : 0),
+      }
+    })
+    .filter((item): item is { hospital: HospitalItem; score: number } => Boolean(item))
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.hospital)
 }

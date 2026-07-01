@@ -150,8 +150,10 @@ export const authService = {
   },
 
   refresh() {
-    return apiClient<null>("/api/auth/refresh", {
+    return apiClient<unknown>("/api/auth/refresh", {
       method: "POST",
+      auth: true,
+      tokenType: "refresh",
     });
   },
 

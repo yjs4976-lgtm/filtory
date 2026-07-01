@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/constants";
+import { readAccessToken, readRefreshToken } from "@/lib/authStorage";
 import type { ApiResponse } from "@/lib/types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -7,6 +8,7 @@ interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
   auth?: boolean;
+  tokenType?: "access" | "refresh";
   headers?: HeadersInit;
 }
 
@@ -39,12 +41,17 @@ export async function apiClient<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { method = "GET", body, headers: customHeaders } = options;
+  const { method = "GET", body, auth = false, tokenType = "access", headers: customHeaders } = options;
 
   const headers = new Headers(customHeaders);
+  const token = tokenType === "refresh" ? readRefreshToken() : readAccessToken();
 
   if (isJsonBody(body) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+
+  if (auth && token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {

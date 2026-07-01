@@ -31,8 +31,8 @@ def error_response(message="error", status_code=400, errors=None):
 
 def auth_success_response(data=None, message="success", status_code=200):
     payload = dict(data or {})
-    access_token = payload.pop("access_token", None)
-    refresh_token = payload.pop("refresh_token", None)
+    access_token = payload.get("access_token")
+    refresh_token = payload.get("refresh_token")
 
     response, code = success_response(payload or None, message, status_code)
     set_auth_cookies(response, access_token, refresh_token)

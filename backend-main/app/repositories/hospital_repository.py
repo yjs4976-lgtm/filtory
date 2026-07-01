@@ -1,4 +1,4 @@
-from sqlalchemy import or_
+from sqlalchemy import case, or_
 
 from app.extensions import db
 from app.models import Hospital
@@ -37,7 +37,13 @@ class HospitalRepository:
             query = query.filter(Hospital.category == category)
 
         if region:
-            query = query.filter(Hospital.region == region)
+            region_pattern = f"%{region}%"
+            query = query.filter(
+                or_(
+                    Hospital.region.ilike(region_pattern),
+                    Hospital.address.ilike(region_pattern),
+                )
+            )
 
         return (
             query
@@ -62,15 +68,39 @@ class HospitalRepository:
                 )
             )
 
-        if category:
+        if not keyword and category:
             query = query.filter(Hospital.category == category)
 
-        if region:
-            query = query.filter(Hospital.region == region)
+        if not keyword and region:
+            region_pattern = f"%{region}%"
+            query = query.filter(
+                or_(
+                    Hospital.region.ilike(region_pattern),
+                    Hospital.address.ilike(region_pattern),
+                )
+            )
+
+        ordering = []
+        if keyword and region:
+            region_pattern = f"%{region}%"
+            ordering.append(
+                case(
+                    (
+                        or_(
+                            Hospital.region.ilike(region_pattern),
+                            Hospital.address.ilike(region_pattern),
+                        ),
+                        0,
+                    ),
+                    else_=1,
+                )
+            )
+        if keyword and category:
+            ordering.append(case((Hospital.category == category, 0), else_=1))
 
         return (
             query
-            .order_by(Hospital.created_at.desc())
+            .order_by(*ordering, Hospital.created_at.desc())
             .limit(limit)
             .offset(offset)
             .all()

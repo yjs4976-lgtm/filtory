@@ -1,15 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ElementType } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Check,
-  ClipboardList,
   ExternalLink,
   FileCheck2,
   FileText,
-  ImageUp,
   LinkIcon,
   LoaderCircle,
   MapPinned,
@@ -52,10 +50,10 @@ import type {
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
+import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import styles from "@/styles/App.module.css"
 
-type SearchMode = "region" | "free"
 type AccessibilityBooleanField = "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
 
 type SelectedAnalyzeRegion = {
@@ -78,7 +76,6 @@ type AccessibilityEnhancementInput = {
   hasPhotos: boolean | null
 }
 
-type ReviewSourceMode = "screenshot" | "manual" | "file"
 type ReviewDraftSource = "manual" | "screenshot" | "file"
 type ReviewDraftStatus = "ready" | "short" | "duplicate"
 
@@ -90,12 +87,15 @@ type ReviewDraft = {
   status: ReviewDraftStatus
 }
 
+type ReviewExampleCategory = "kindness" | "waiting" | "cost" | "consultation" | "aftercare"
+
 const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental"> = {
   derma: "skin",
   eye: "eye",
   dental: "dental",
 }
 
+const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
 const PAGE_SIZE = 3
 const MIN_REVIEW_TEXT_LENGTH = 20
 const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
@@ -265,6 +265,11 @@ function parseReviewFileText(text: string, fileName: string) {
     .filter(Boolean)
 }
 
+function requestScreenshotOcrExtraction() {
+  // TODO: Connect this to the OCR backend when image text extraction is available.
+  return null
+}
+
 function mergeReviewDraftsForAnalysis(drafts: ReviewDraft[]) {
   return drafts.map((draft, index) => `[리뷰 ${index + 1}]\n${draft.content.trim()}`).join("\n\n")
 }
@@ -324,6 +329,31 @@ function buildAccessibilityMetadataPayload(
 
 function toHospitalRegionCode(region?: SelectedAnalyzeRegion | null): HospitalRegionCode | undefined {
   return region ? (region.provinceCode.toLowerCase() as HospitalRegionCode) : undefined
+}
+
+function createManualHospital({
+  keyword,
+  category,
+  region,
+  regionLabel,
+}: {
+  keyword: string
+  category: HospitalCategory
+  region?: HospitalRegionCode
+  regionLabel: string
+}): HospitalItem {
+  return {
+    id: `manual-${Date.now()}`,
+    name: keyword,
+    hospitalNameKo: keyword,
+    category,
+    region: region ?? "seoul",
+    address: regionLabel,
+    reviewCount: 0,
+    isManual: true,
+    manualRegionLabel: regionLabel,
+    searchKeywords: [keyword, regionLabel].filter(Boolean),
+  }
 }
 
 function readStoredAnalyzeRegion(): SelectedAnalyzeRegion | null {
@@ -461,7 +491,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const { showToast } = useToast()
   const currentLanguage = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<HospitalCategory>("derma")
-  const [searchMode, setSearchMode] = useState<SearchMode>("region")
   const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(() => readInitialAnalyzeRegion())
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false)
   const [regionSearch, setRegionSearch] = useState("")
@@ -469,13 +498,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [query, setQuery] = useState("")
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<HospitalItem[]>([])
+  const [isHospitalSearching, setIsHospitalSearching] = useState(false)
+  const [hospitalSearchError, setHospitalSearchError] = useState("")
+  const [searchFiltersRelaxed, setSearchFiltersRelaxed] = useState(false)
   const [hospitalPage, setHospitalPage] = useState(0)
   const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(null)
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([])
   const [reviewPage, setReviewPage] = useState(0)
   const [directHospitalName, setDirectHospitalName] = useState("")
   const [directReviewText, setDirectReviewText] = useState("")
-  const [reviewSourceMode, setReviewSourceMode] = useState<ReviewSourceMode>("manual")
   const [reviewDrafts, setReviewDrafts] = useState<ReviewDraft[]>([])
   const [reviewFeedback, setReviewFeedback] = useState("")
   const [screenshotFileNames, setScreenshotFileNames] = useState<string[]>([])
@@ -493,7 +524,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const reviews = useMemo(() => (selectedHospital ? getDemoReviewsForHospital(selectedHospital) : []), [selectedHospital])
   const selectedReviews = reviews.filter((review) => selectedReviewIds.includes(review.id))
-  const progressStep = analysisResult ? 4 : selectedHospital ? 3 : hasSearched ? 2 : searchMode ? 1 : 0
   const hospitalTotalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
   const visibleHospitals = results.slice(hospitalPage * PAGE_SIZE, hospitalPage * PAGE_SIZE + PAGE_SIZE)
   const reviewTotalPages = Math.max(1, Math.ceil(reviews.length / PAGE_SIZE))
@@ -521,6 +551,9 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const selectedRegionLabel = selectedRegion
     ? getRegionLabel(selectedRegion.provinceCode, selectedRegion.districtCode, currentLanguage)
     : ""
+  const selectedRegionSearchLabel = selectedRegion
+    ? getRegionLabel(selectedRegion.provinceCode, selectedRegion.districtCode, "ko")
+    : ""
   const trimmedRegionSearch = regionSearch.trim()
   const selectedModalProvince = KOREA_REGION_OPTIONS.find((province) => province.code === modalProvinceCode)
   const districtOptions = selectedModalProvince?.districts ?? []
@@ -536,6 +569,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         district,
       })) ?? []
   const hasRegionSearchResults = filteredProvinces.length > 0 || filteredDistricts.length > 0
+  const directHospitalKeyword = query.trim()
 
   useEffect(() => {
     if (!isRegionModalOpen) return
@@ -605,6 +639,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   }
 
   const handleReadScreenshotReviews = () => {
+    requestScreenshotOcrExtraction()
     setReviewFeedback(
       screenshotFileNames.length > 0
         ? t.analyze.reviewInbox.ocrPendingFeedback
@@ -659,25 +694,63 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewFeedback("")
   }
 
-  const handleSearch = () => {
-    const nextResults = searchDemoHospitals({
-      category,
-      region: searchMode === "region" ? toHospitalRegionCode(selectedRegion) : undefined,
-      query: query.trim() || selectedRegionLabel,
-    })
-    setResults(nextResults)
+  const handleSearch = async (options: { withoutFilters?: boolean } = {}) => {
+    const keyword = directHospitalKeyword
+    const nextRegion = options.withoutFilters ? undefined : toHospitalRegionCode(selectedRegion)
+    const nextCategory = options.withoutFilters ? undefined : category
+    const nextRegionLabel = options.withoutFilters ? "" : selectedRegionSearchLabel
+
+    if (options.withoutFilters) {
+      setSelectedRegion(null)
+      writeStoredAnalyzeRegion(null)
+      setSearchFiltersRelaxed(true)
+    } else {
+      setSearchFiltersRelaxed(false)
+    }
+
     setHasSearched(true)
+    setIsHospitalSearching(true)
+    setHospitalSearchError("")
     setHospitalPage(0)
     setSelectedHospital(null)
     setSelectedReviewIds([])
     setReviewPage(0)
     setAnalysisResult(null)
     setIsSaved(false)
+
+    try {
+      const apiResults = await hospitalSearchService.searchHospitals({
+        keyword,
+        category: nextCategory,
+        region: nextRegion,
+        regionLabel: nextRegionLabel,
+      })
+      const fallbackResults = apiResults.length > 0
+        ? []
+        : searchDemoHospitals({
+            category: nextCategory,
+            region: nextRegion,
+            query: keyword || nextRegionLabel,
+          })
+      setResults([...apiResults, ...fallbackResults])
+    } catch {
+      setHospitalSearchError(t.analyze.hospitalSearchFailed)
+      setResults(searchDemoHospitals({
+        category: nextCategory,
+        region: nextRegion,
+        query: keyword || nextRegionLabel,
+      }))
+    } finally {
+      setIsHospitalSearching(false)
+    }
   }
 
   const resetSearchState = () => {
     setHasSearched(false)
     setResults([])
+    setIsHospitalSearching(false)
+    setHospitalSearchError("")
+    setSearchFiltersRelaxed(false)
     setHospitalPage(0)
     setSelectedHospital(null)
     setSelectedReviewIds([])
@@ -688,11 +761,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const handleCategoryChange = (nextCategory: HospitalCategory) => {
     setCategory(nextCategory)
-    resetSearchState()
-  }
-
-  const handleSearchModeChange = (nextMode: SearchMode) => {
-    setSearchMode(nextMode)
     resetSearchState()
   }
 
@@ -731,13 +799,39 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     resetSearchState()
   }
 
+  const handleResetHospitalSearch = () => {
+    setQuery("")
+    setCategory("derma")
+    setSelectedRegion(null)
+    writeStoredAnalyzeRegion(null)
+    resetSearchState()
+  }
+
   const handleOpenReviews = (hospital: HospitalItem) => {
     const nextReviews = getDemoReviewsForHospital(hospital)
     setSelectedHospital(hospital)
+    setDirectHospitalName(hospital.name)
     setSelectedReviewIds(nextReviews.map((review) => review.id))
     setReviewPage(0)
     setAnalysisResult(null)
     setIsSaved(false)
+  }
+
+  const handleSelectManualHospital = () => {
+    if (!directHospitalKeyword) return
+    const manualHospital = createManualHospital({
+      keyword: directHospitalKeyword,
+      category,
+      region: toHospitalRegionCode(selectedRegion),
+      regionLabel: selectedRegionLabel,
+    })
+    setSelectedHospital(manualHospital)
+    setDirectHospitalName(directHospitalKeyword)
+    setSelectedReviewIds([])
+    setReviewPage(0)
+    setAnalysisResult(null)
+    setIsSaved(false)
+    setInputError("")
   }
 
   const handleToggleReview = (reviewId: string) => {
@@ -859,6 +953,20 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     await handleAnalyzeHospitalReviews(selectedHospital, targetReviews)
   }
 
+  const handleFindAgain = () => {
+    setSelectedHospital(null)
+    setDirectHospitalName("")
+    setSelectedReviewIds([])
+    setReviewPage(0)
+    setAnalysisResult(null)
+    setIsSaved(false)
+    setInputError("")
+  }
+
+  const selectedHospitalRegionLabel = selectedHospital?.manualRegionLabel || (
+    selectedHospital ? getHospitalRegionLabel(selectedHospital.region, language) : ""
+  )
+
   const handleSwipe = (direction: "prev" | "next", totalPages: number, setPage: (updater: (page: number) => number) => void) => {
     setPage((page) => {
       if (direction === "prev") return Math.max(0, page - 1)
@@ -901,7 +1009,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setAccessibilityInput(createEmptyAccessibilityEnhancement())
     setDirectHospitalName("")
     setDirectReviewText("")
-    setReviewSourceMode("manual")
     setReviewDrafts([])
     setReviewFeedback("")
     setScreenshotFileNames([])
@@ -950,125 +1057,253 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     )
   }
 
+  const selectedHospitalReviewSection = selectedHospital ? (
+    <section className={`${styles.card} ${styles.stackSm}`}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.reviewListTitle}</h2>
+          <p className={styles.bodyText}>
+            {selectedHospital.name} · {selectedHospitalRegionLabel}
+          </p>
+        </div>
+      </div>
+
+      {reviews.length === 0 ? (
+        <article className={styles.emptyCard}>
+          <h3 className={styles.titleMd}>{t.analyze.noReviews}</h3>
+        </article>
+      ) : (
+        <>
+          <div className={styles.selectionToolbar}>
+            <button type="button" className={styles.smallPillButton} onClick={handleSelectAll}>
+              {t.analyze.selectAll}
+            </button>
+            <button type="button" className={styles.smallPillButton} onClick={handleClearSelection}>
+              {t.analyze.clearSelection}
+            </button>
+            <span className={styles.neutralPill}>
+              {t.analyze.selectedReviews} {selectedReviewIds.length}/{reviews.length}
+            </span>
+          </div>
+          <div
+            className={styles.reviewList}
+            onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+            onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, reviewTotalPages, setReviewPage)}
+          >
+            {visibleReviews.map((review) => (
+              <ReviewCard
+                key={review.id}
+                review={review}
+                checked={selectedReviewIds.includes(review.id)}
+                onToggle={() => handleToggleReview(review.id)}
+              />
+            ))}
+          </div>
+          <PaginationControls
+            currentPage={reviewPage}
+            totalPages={reviewTotalPages}
+            onPrev={() => handleSwipe("prev", reviewTotalPages, setReviewPage)}
+            onNext={() => handleSwipe("next", reviewTotalPages, setReviewPage)}
+          />
+          <div className={styles.actionRow}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              disabled={isAnalyzing || selectedReviews.length === 0}
+              onClick={() => handleAnalyze(selectedReviews)}
+            >
+              {t.analyze.analyzeSelectedReviews}
+            </button>
+            <button type="button" className={styles.primaryButton} disabled={isAnalyzing} onClick={() => handleAnalyze(reviews)}>
+              {t.analyze.analyzeAllReviews}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  ) : null
+
   return (
     <>
     <section className={styles.stackMd}>
-      <div className={`${styles.accentCard} ${styles.stackSm}`}>
-        <h1 className={styles.titleLg}>{t.analyze.flowTitle}</h1>
-        <p className={styles.bodyText}>{t.analyze.flowDescription}</p>
-      </div>
-
-      <ol className={styles.stepProgress}>
-        {t.analyze.steps.map((label, index) => (
-          <li key={label} className={index <= progressStep ? styles.stepActive : ""}>
-            <span>{index + 1}</span>
-            <strong>{label}</strong>
-          </li>
-        ))}
-      </ol>
-
       <section className={`${styles.card} ${styles.stackSm}`}>
         <div>
-          <h2 className={styles.titleMd}>{t.analyze.hospitalBasicInfoTitle}</h2>
-          <p className={styles.bodyText}>{t.analyze.hospitalBasicInfoDescription}</p>
+          <h2 className={styles.titleMd}>{t.analyze.hospitalFinderTitle}</h2>
+          <p className={styles.bodyText}>{t.analyze.hospitalFinderDescription}</p>
         </div>
-        <div className={styles.stackSm}>
-          <h3 className={styles.titleSm}>{t.analyze.selectCategoryTitle}</h3>
-          <CategorySelector selected={category} onSelect={handleCategoryChange} />
-        </div>
-        <section className={`${styles.regionPickerPanel} ${styles.stackSm}`}>
-          <div>
-            <h3 className={styles.titleSm}>{t.analyze.regionSectionTitle}</h3>
-            <p className={styles.bodyText}>
-              {selectedRegion ? t.analyze.selectedRegionLabel : t.analyze.regionSectionDescription}
-            </p>
-          </div>
-          {selectedRegion ? (
-            <div className={styles.regionSelectedRow}>
-              <span className={styles.selectedRegionChip}>
-                {selectedRegionLabel}
-                <button type="button" aria-label={t.analyze.clearRegionAriaLabel} onClick={clearSelectedRegion}>
-                  <X className={styles.iconXs} aria-hidden="true" />
-                </button>
-              </span>
-              <button type="button" className={styles.smallPillButton} onClick={openRegionModal}>
-                {t.analyze.changeRegionButton}
-              </button>
-            </div>
-          ) : (
-            <button type="button" className={styles.secondaryButton} onClick={openRegionModal}>
-              {t.analyze.selectRegionButton}
+        <label className={styles.label} htmlFor="hospital-search">
+          <span className={styles.mutedText}>{t.analyze.searchHelp}</span>
+          <div className={styles.inlineField}>
+            <input
+              id="hospital-search"
+              className={styles.input}
+              type="search"
+              placeholder={t.analyze.hospitalFinderPlaceholder}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void handleSearch()
+              }}
+            />
+            <button type="button" className={styles.smallPillButton} disabled={isHospitalSearching} onClick={() => void handleSearch()}>
+              {isHospitalSearching ? <LoaderCircle className={`${styles.iconXs} ${styles.spin}`} /> : <Search className={styles.iconXs} />}
+              {isHospitalSearching ? t.analyze.hospitalSearching : t.analyze.searchButton}
             </button>
+          </div>
+        </label>
+        <div className={styles.historyActionGrid}>
+          <button type="button" className={styles.secondaryButton} onClick={openRegionModal}>
+            {selectedRegion ? t.analyze.changeRegionButton : t.analyze.selectRegionButton}
+          </button>
+          <span className={styles.filterLabelPill}>{t.analyze.medicalCategoryFilter}</span>
+        </div>
+        <CategorySelector selected={category} onSelect={handleCategoryChange} />
+        <div className={styles.selectedFilterPanel}>
+          <span className={styles.mutedText}>{t.analyze.selectedFilters}</span>
+          <div className={styles.badgeRow}>
+            {searchFiltersRelaxed ? (
+              <span className={styles.neutralPill}>{t.analyze.filtersCleared}</span>
+            ) : (
+              <>
+                {selectedRegion && <span className={styles.neutralPill}>{selectedRegionLabel}</span>}
+                <span className={styles.neutralPill}>{t.categories[category]}</span>
+              </>
+            )}
+            <button
+              type="button"
+              className={styles.smallPillButton}
+              onClick={handleResetHospitalSearch}
+            >
+              {t.analyze.resetFilters}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {hasSearched && (
+        <section className={styles.stackSm}>
+          <h2 className={styles.titleSm}>
+            {t.analyze.searchResultsCount.replace("{count}", String(results.length))}
+          </h2>
+          {hospitalSearchError && (
+            <article className={`${styles.emptyCard} ${styles.stackSm}`}>
+              <h3 className={styles.titleSm}>{t.analyze.hospitalSearchFailed}</h3>
+              <p className={styles.bodyText}>{t.analyze.hospitalSearchRetry}</p>
+            </article>
+          )}
+          {isHospitalSearching ? (
+            <article className={`${styles.emptyCard} ${styles.stackSm}`}>
+              <LoaderCircle className={`${styles.iconLg} ${styles.spin}`} />
+              <h3 className={styles.titleMd}>{t.analyze.hospitalSearching}</h3>
+            </article>
+          ) : results.length === 0 ? (
+            <article className={`${styles.emptyCard} ${styles.stackSm}`}>
+              <h3 className={styles.titleMd}>{t.analyze.noSearchResults}</h3>
+              <p className={styles.bodyText}>{t.analyze.noSearchResultsDescription}</p>
+              <p className={styles.mutedText}>{t.analyze.noSearchResultsFilterHint}</p>
+              <div className={styles.hospitalFallbackActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={!directHospitalKeyword}
+                  onClick={() => void handleSearch({ withoutFilters: true })}
+                >
+                  {t.analyze.searchWithoutFilters}
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={!directHospitalKeyword}
+                  onClick={handleSelectManualHospital}
+                >
+                  {directHospitalKeyword
+                    ? t.analyze.selectHospitalNameDirectly.replace("{hospitalName}", directHospitalKeyword)
+                    : t.analyze.selectEnteredHospitalDirectly}
+                </button>
+              </div>
+            </article>
+          ) : (
+            <>
+              <div
+                className={styles.paginatedPanel}
+                onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+                onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, hospitalTotalPages, setHospitalPage)}
+              >
+                {visibleHospitals.map((hospital) => (
+                  <HospitalResultCard
+                    key={hospital.id}
+                    hospital={hospital}
+                    regionLabel={getHospitalRegionLabel(hospital.region, language)}
+                    onSelect={() => handleOpenReviews(hospital)}
+                  />
+                ))}
+              </div>
+              <PaginationControls
+                currentPage={hospitalPage}
+                totalPages={hospitalTotalPages}
+                onPrev={() => handleSwipe("prev", hospitalTotalPages, setHospitalPage)}
+                onNext={() => handleSwipe("next", hospitalTotalPages, setHospitalPage)}
+              />
+              {directHospitalKeyword && (
+                <article className={`${styles.manualHospitalPrompt} ${styles.stackSm}`}>
+                  <p className={styles.bodyText}>{t.analyze.cantFindHospital}</p>
+                  <button type="button" className={styles.secondaryButton} onClick={handleSelectManualHospital}>
+                    {t.analyze.selectEnteredHospitalDirectly}
+                  </button>
+                </article>
+              )}
+            </>
           )}
         </section>
-        <label className={styles.label} htmlFor="direct-hospital-name">
-          {t.analyze.hospitalLabel}
-          <input
-            id="direct-hospital-name"
-            className={styles.input}
-            type="text"
-            placeholder={t.analyze.hospitalPlaceholder}
-            value={directHospitalName}
-            onChange={(event) => setDirectHospitalName(event.target.value)}
-          />
-        </label>
-        <div className={`${styles.softCard} ${styles.stackSm}`}>
-          <h3 className={styles.titleSm}>{t.analyze.referenceLinksTitle}</h3>
-          <label className={styles.label} htmlFor="hospital-map-url">
-            {t.analyze.hospitalMapLinkLabel}
-            <input
-              id="hospital-map-url"
-              className={styles.input}
-              type="url"
-              placeholder={selectedHospitalMetadata.googleMapUrl || t.analyze.mapUrlPlaceholder}
-              value={accessibilityInput.googleMapUrl}
-              onChange={(event) => handleAccessibilityTextChange("googleMapUrl", event.target.value)}
-            />
-          </label>
-          <label className={styles.label} htmlFor="hospital-homepage-url">
-            {t.analyze.hospitalHomepageLinkLabel}
-            <input
-              id="hospital-homepage-url"
-              className={styles.input}
-              type="url"
-              placeholder={selectedHospitalMetadata.homepageUrl || t.analyze.homepageUrlPlaceholder}
-              value={accessibilityInput.homepageUrl}
-              onChange={(event) => handleAccessibilityTextChange("homepageUrl", event.target.value)}
-            />
-          </label>
-        </div>
-        <AccessibilityEnhancementSection
-          input={accessibilityInput}
-          fallback={selectedHospitalMetadata}
-          onTextChange={handleAccessibilityTextChange}
-          onBooleanChange={handleAccessibilityBooleanChange}
-        />
-      </section>
+      )}
+
+      {selectedHospital && (
+        <section className={`${styles.card} ${styles.stackSm}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2 className={styles.titleMd}>{t.analyze.selectedHospitalTitle}</h2>
+              <p className={styles.bodyText}>
+                {getHospitalDisplayName(selectedHospital, language)}
+              </p>
+            </div>
+            <button type="button" className={styles.smallPillButton} onClick={handleFindAgain}>
+              {t.analyze.findAgain}
+            </button>
+          </div>
+          <div className={styles.selectedHospitalGrid}>
+            {selectedHospitalRegionLabel && <span className={styles.neutralPill}>{selectedHospitalRegionLabel}</span>}
+            <span className={styles.neutralPill}>{t.categories[selectedHospital.category]}</span>
+          </div>
+          {selectedHospital.isManual && <p className={styles.bodyText}>{t.analyze.manualHospitalNotice}</p>}
+          {selectedHospital.address && <p className={styles.recordMeta}>{selectedHospital.address}</p>}
+        </section>
+      )}
+
+      <AccuracyEnhancementSection
+        input={accessibilityInput}
+        fallback={selectedHospitalMetadata}
+        onTextChange={handleAccessibilityTextChange}
+        onBooleanChange={handleAccessibilityBooleanChange}
+      />
 
       <section className={`${styles.card} ${styles.stackSm}`}>
         <div>
           <h2 className={styles.titleMd}>{t.analyze.reviewSourceTitle}</h2>
           <p className={styles.bodyText}>{t.analyze.reviewSourceDescription}</p>
         </div>
-        <ReviewSourceSelector selected={reviewSourceMode} onSelect={setReviewSourceMode} />
-        {reviewSourceMode === "screenshot" && (
-          <ScreenshotReviewUpload
-            fileNames={screenshotFileNames}
-            onFileChange={handleScreenshotFileChange}
-            onReadReviews={handleReadScreenshotReviews}
-          />
-        )}
-        {reviewSourceMode === "manual" && (
-          <DirectReviewInput
-            value={directReviewText}
-            onChange={setDirectReviewText}
-            onAddReviews={handleAddManualReviews}
-          />
-        )}
-        {reviewSourceMode === "file" && (
-          <ReviewFileUpload fileName={uploadedReviewFileName} onFileChange={handleReviewFileChange} />
-        )}
+        <ReviewInputWorkspace
+          value={directReviewText}
+          screenshotFileNames={screenshotFileNames}
+          uploadedReviewFileName={uploadedReviewFileName}
+          onChange={setDirectReviewText}
+          onAddReviews={handleAddManualReviews}
+          onScreenshotFileChange={handleScreenshotFileChange}
+          onReadScreenshotReviews={handleReadScreenshotReviews}
+          onReviewFileChange={handleReviewFileChange}
+        />
       </section>
+
+      {selectedHospitalReviewSection}
 
       <ReviewInbox
         reviews={reviewDrafts}
@@ -1110,155 +1345,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       {analyzeError && (
         <section className={styles.emptyCard}>
           <p className={styles.bodyText}>{analyzeError}</p>
-        </section>
-      )}
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <h2 className={styles.titleMd}>{t.analyze.searchModeTitle}</h2>
-        <div className={styles.searchModeGrid}>
-          <button
-            type="button"
-            className={`${styles.searchModeCard} ${searchMode === "region" ? styles.searchModeCardActive : ""}`}
-            onClick={() => handleSearchModeChange("region")}
-          >
-            <strong>{t.analyze.searchByRegion}</strong>
-            <span>{t.analyze.searchByRegionDesc}</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.searchModeCard} ${searchMode === "free" ? styles.searchModeCardActive : ""}`}
-            onClick={() => handleSearchModeChange("free")}
-          >
-            <strong>{t.analyze.freeSearch}</strong>
-            <span>{t.analyze.freeSearchDesc}</span>
-          </button>
-        </div>
-      </section>
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <h2 className={styles.titleMd}>{t.analyze.searchTitle}</h2>
-        <label className={styles.label} htmlFor="hospital-search">
-          <span className={styles.mutedText}>{t.analyze.searchHelp}</span>
-          <div className={styles.inlineField}>
-            <input
-              id="hospital-search"
-              className={styles.input}
-              type="search"
-              placeholder={t.analyze.searchPlaceholder}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") handleSearch()
-              }}
-            />
-            <button type="button" className={styles.smallPillButton} onClick={handleSearch}>
-              <Search className={styles.iconXs} />
-              {t.analyze.searchButton}
-            </button>
-          </div>
-        </label>
-      </section>
-
-      {hasSearched && (
-        <section className={styles.stackSm}>
-          <h2 className={styles.titleSm}>{t.analyze.searchResults}</h2>
-          {results.length === 0 ? (
-            <article className={`${styles.emptyCard} ${styles.stackSm}`}>
-              <h3 className={styles.titleMd}>{t.analyze.noSearchResults}</h3>
-              <p className={styles.bodyText}>{t.analyze.noSearchResultsDescription}</p>
-            </article>
-          ) : (
-            <>
-              <div
-                className={styles.paginatedPanel}
-                onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
-                onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, hospitalTotalPages, setHospitalPage)}
-              >
-                {visibleHospitals.map((hospital) => (
-                  <HospitalResultCard
-                    key={hospital.id}
-                    hospital={hospital}
-                    regionLabel={getHospitalRegionLabel(hospital.region, language)}
-                    onViewReviews={() => handleOpenReviews(hospital)}
-                    onAnalyze={() => handleAnalyzeHospitalReviews(hospital, getDemoReviewsForHospital(hospital))}
-                    disabled={isAnalyzing}
-                  />
-                ))}
-              </div>
-              <PaginationControls
-                currentPage={hospitalPage}
-                totalPages={hospitalTotalPages}
-                onPrev={() => handleSwipe("prev", hospitalTotalPages, setHospitalPage)}
-                onNext={() => handleSwipe("next", hospitalTotalPages, setHospitalPage)}
-              />
-            </>
-          )}
-        </section>
-      )}
-
-      {selectedHospital && (
-        <section className={`${styles.card} ${styles.stackSm}`}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2 className={styles.titleMd}>{t.analyze.reviewListTitle}</h2>
-              <p className={styles.bodyText}>
-                {selectedHospital.name} · {getHospitalRegionLabel(selectedHospital.region, language)}
-              </p>
-            </div>
-          </div>
-
-          {reviews.length === 0 ? (
-            <article className={styles.emptyCard}>
-              <h3 className={styles.titleMd}>{t.analyze.noReviews}</h3>
-            </article>
-          ) : (
-            <>
-              <div className={styles.selectionToolbar}>
-                <button type="button" className={styles.smallPillButton} onClick={handleSelectAll}>
-                  {t.analyze.selectAll}
-                </button>
-                <button type="button" className={styles.smallPillButton} onClick={handleClearSelection}>
-                  {t.analyze.clearSelection}
-                </button>
-                <span className={styles.neutralPill}>
-                  {t.analyze.selectedReviews} {selectedReviewIds.length}/{reviews.length}
-                </span>
-              </div>
-              <div
-                className={styles.reviewList}
-                onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
-                onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, reviewTotalPages, setReviewPage)}
-              >
-                {visibleReviews.map((review) => (
-                  <ReviewCard
-                    key={review.id}
-                    review={review}
-                    checked={selectedReviewIds.includes(review.id)}
-                    onToggle={() => handleToggleReview(review.id)}
-                  />
-                ))}
-              </div>
-              <PaginationControls
-                currentPage={reviewPage}
-                totalPages={reviewTotalPages}
-                onPrev={() => handleSwipe("prev", reviewTotalPages, setReviewPage)}
-                onNext={() => handleSwipe("next", reviewTotalPages, setReviewPage)}
-              />
-              <div className={styles.actionRow}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  disabled={isAnalyzing || selectedReviews.length === 0}
-                  onClick={() => handleAnalyze(selectedReviews)}
-                >
-                  {t.analyze.analyzeSelectedReviews}
-                </button>
-                <button type="button" className={styles.primaryButton} disabled={isAnalyzing} onClick={() => handleAnalyze(reviews)}>
-                  {t.analyze.analyzeAllReviews}
-                </button>
-              </div>
-            </>
-          )}
         </section>
       )}
 
@@ -1407,120 +1493,93 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   )
 }
 
-function ReviewSourceSelector({
-  selected,
-  onSelect,
+function ReviewInputWorkspace({
+  value,
+  screenshotFileNames,
+  uploadedReviewFileName,
+  onChange,
+  onAddReviews,
+  onScreenshotFileChange,
+  onReadScreenshotReviews,
+  onReviewFileChange,
 }: {
-  selected: ReviewSourceMode
-  onSelect: (mode: ReviewSourceMode) => void
+  value: string
+  screenshotFileNames: string[]
+  uploadedReviewFileName: string
+  onChange: (value: string) => void
+  onAddReviews: () => void
+  onScreenshotFileChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onReadScreenshotReviews: () => void
+  onReviewFileChange: (event: ChangeEvent<HTMLInputElement>) => void
 }) {
   const { t } = useLanguage()
-  const options: Array<{ mode: ReviewSourceMode; icon: ElementType; tone: string }> = [
-    { mode: "screenshot", icon: ImageUp, tone: styles.iconLavender },
-    { mode: "manual", icon: ClipboardList, tone: styles.iconMint },
-    { mode: "file", icon: FileText, tone: styles.iconPeach },
-  ]
+  const [examplesOpen, setExamplesOpen] = useState(false)
+  const [activeExampleCategory, setActiveExampleCategory] = useState<ReviewExampleCategory>("kindness")
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const detectedCount = splitReviewText(value).length
+  const hasReviewText = value.trim().length > 0
+  const reviewExamples = t.analyze.reviewExamples
+  const activeSentences = reviewExamples.sentences[activeExampleCategory]
+
+  const addReviewExample = (sentence: string) => {
+    const nextValue = value.trim() ? `${value.trim()}\n\n${sentence}` : sentence
+    onChange(nextValue)
+    window.requestAnimationFrame(() => textareaRef.current?.focus())
+  }
 
   return (
-    <div className={styles.reviewSourceGrid}>
-      {options.map(({ mode, icon: Icon, tone }) => {
-        const isSelected = selected === mode
-        const copy = t.analyze.reviewSources[mode]
-
-        return (
-          <button
-            key={mode}
-            type="button"
-            className={`${styles.reviewSourceCard} ${isSelected ? styles.reviewSourceCardActive : ""}`}
-            aria-pressed={isSelected}
-            onClick={() => onSelect(mode)}
-          >
-            <span className={`${styles.iconBoxSmall} ${tone}`}>
-              <Icon className={styles.iconSm} aria-hidden="true" />
-            </span>
-            <span>
-              <strong>{copy.title}</strong>
-              <small>{copy.description}</small>
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function ScreenshotReviewUpload({
-  fileNames,
-  onFileChange,
-  onReadReviews,
-}: {
-  fileNames: string[]
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void
-  onReadReviews: () => void
-}) {
-  const { t } = useLanguage()
-
-  return (
-    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
-      <div>
-        <h3 className={styles.titleSm}>{t.analyze.screenshotImportTitle}</h3>
-        <p className={styles.bodyText}>{t.analyze.screenshotImportDescription}</p>
-      </div>
-      <ol className={styles.reviewGuideList}>
-        {t.analyze.screenshotImportSteps.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-      <div className={styles.reviewDropzone}>
-        <UploadCloud className={styles.iconLg} aria-hidden="true" />
-        <label className={styles.secondaryButton} htmlFor="screenshot-review-files">
-          {t.analyze.screenshotSelectButton}
+    <section className={styles.reviewInputWorkspace}>
+      <div className={styles.reviewImportToolbar}>
+        <label className={styles.reviewImportButton} htmlFor="screenshot-review-files">
+          <UploadCloud className={styles.iconXs} aria-hidden="true" />
+          {t.analyze.importImageButton}
         </label>
         <input
           id="screenshot-review-files"
           className={styles.visuallyHidden}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/jpg,image/*"
           multiple
-          onChange={onFileChange}
+          onChange={onScreenshotFileChange}
         />
-        {fileNames.length > 0 ? (
-          <div className={styles.fileNameList}>
-            {fileNames.map((fileName) => (
-              <span key={fileName}>{fileName}</span>
-            ))}
-          </div>
-        ) : (
-          <p className={styles.mutedText}>{t.analyze.noScreenshotSelected}</p>
-        )}
+        <label className={styles.reviewImportButton} htmlFor="review-file-input">
+          <FileText className={styles.iconXs} aria-hidden="true" />
+          {t.analyze.importFileButton}
+        </label>
+        <input
+          id="review-file-input"
+          className={styles.visuallyHidden}
+          type="file"
+          accept=".txt,.csv,text/plain,text/csv"
+          onChange={onReviewFileChange}
+        />
       </div>
-      <button type="button" className={styles.secondaryButton} onClick={onReadReviews}>
-        {t.analyze.readScreenshotButton}
-      </button>
-    </section>
-  )
-}
 
-function DirectReviewInput({
-  value,
-  onChange,
-  onAddReviews,
-}: {
-  value: string
-  onChange: (value: string) => void
-  onAddReviews: () => void
-}) {
-  const { t } = useLanguage()
-
-  return (
-    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
-      <div>
-        <h3 className={styles.titleSm}>{t.analyze.manualImportTitle}</h3>
-        <p className={styles.bodyText}>{t.analyze.manualImportDescription}</p>
+      <div className={styles.reviewImportHints}>
+        <span>{t.analyze.imageImportSupportText}</span>
+        <span>{t.analyze.fileSupportText}</span>
       </div>
+
+      {(screenshotFileNames.length > 0 || uploadedReviewFileName) && (
+        <div className={styles.fileNameList}>
+          {screenshotFileNames.map((fileName) => (
+            <span key={fileName}>{fileName}</span>
+          ))}
+          {uploadedReviewFileName && <span>{uploadedReviewFileName}</span>}
+        </div>
+      )}
+
+      {screenshotFileNames.length > 0 && (
+        <button type="button" className={styles.reviewImportTextButton} onClick={onReadScreenshotReviews}>
+          {t.analyze.readScreenshotButton}
+        </button>
+      )}
+
       <label className={styles.label} htmlFor="direct-review-text">
-        {t.analyze.reviewLabel}
+        <span className={styles.reviewInputLabel}>{t.analyze.reviewTextTitle}</span>
+        <span className={styles.mutedText}>{t.analyze.manualImportDescription}</span>
         <textarea
+          ref={textareaRef}
           id="direct-review-text"
           className={`${styles.textarea} ${styles.reviewPasteTextarea}`}
           placeholder={t.analyze.reviewPlaceholder}
@@ -1528,42 +1587,70 @@ function DirectReviewInput({
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
-      <button type="button" className={styles.secondaryButton} onClick={onAddReviews}>
-        {t.analyze.addToReviewInbox}
-      </button>
-    </section>
-  )
-}
 
-function ReviewFileUpload({
-  fileName,
-  onFileChange,
-}: {
-  fileName: string
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void
-}) {
-  const { t } = useLanguage()
-
-  return (
-    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
-      <div>
-        <h3 className={styles.titleSm}>{t.analyze.fileImportTitle}</h3>
-        <p className={styles.bodyText}>{t.analyze.fileImportDescription}</p>
+      <div className={styles.reviewExampleToggleRow}>
+        <button
+          type="button"
+          className={styles.reviewExampleToggle}
+          aria-expanded={examplesOpen}
+          onClick={() => setExamplesOpen((current) => !current)}
+        >
+          {examplesOpen ? reviewExamples.closeButton : reviewExamples.openButton}
+        </button>
       </div>
-      <div className={styles.reviewDropzone}>
-        <FileText className={styles.iconLg} aria-hidden="true" />
-        <label className={styles.secondaryButton} htmlFor="review-file-input">
-          {t.analyze.fileSelectButton}
-        </label>
-        <input
-          id="review-file-input"
-          className={styles.visuallyHidden}
-          type="file"
-          accept=".txt,.csv,text/plain,text/csv"
-          onChange={onFileChange}
-        />
-        <p className={styles.mutedText}>{t.analyze.fileSupportText}</p>
-        {fileName && <span className={styles.fileNamePill}>{fileName}</span>}
+
+      {examplesOpen && (
+        <section className={styles.reviewExamplePanel}>
+          <div className={styles.reviewExampleHeader}>
+            <div>
+              <h3 className={styles.titleSm}>{reviewExamples.title}</h3>
+              <p className={styles.bodyText}>{reviewExamples.description}</p>
+            </div>
+            <button type="button" className={styles.smallPillButton} onClick={() => setExamplesOpen(false)}>
+              {reviewExamples.closeButton}
+            </button>
+          </div>
+          <div className={styles.reviewExampleTabs} role="tablist" aria-label={reviewExamples.title}>
+            {REVIEW_EXAMPLE_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                role="tab"
+                aria-selected={activeExampleCategory === category}
+                className={`${styles.reviewExampleTab} ${activeExampleCategory === category ? styles.reviewExampleTabActive : ""}`}
+                onClick={() => setActiveExampleCategory(category)}
+              >
+                {reviewExamples.categories[category]}
+              </button>
+            ))}
+          </div>
+          <div className={styles.reviewExampleSentenceList}>
+            {activeSentences.map((sentence) => (
+              <button
+                key={sentence}
+                type="button"
+                className={styles.reviewExampleSentence}
+                onClick={() => addReviewExample(sentence)}
+              >
+                {sentence}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className={styles.reviewInputFooter}>
+        <span className={styles.reviewDetectedText}>
+          {t.analyze.detectedReviewCount.replace("{count}", String(detectedCount))}
+        </span>
+        <button
+          type="button"
+          className={styles.reviewAddButton}
+          disabled={!hasReviewText}
+          onClick={onAddReviews}
+        >
+          {t.analyze.addToReviewQueue}
+        </button>
       </div>
     </section>
   )
@@ -1679,7 +1766,7 @@ function ReviewDraftCard({
   )
 }
 
-function AccessibilityEnhancementSection({
+function AccuracyEnhancementSection({
   input,
   fallback,
   onTextChange,
@@ -1687,54 +1774,89 @@ function AccessibilityEnhancementSection({
 }: {
   input: AccessibilityEnhancementInput
   fallback: Partial<ReviewAnalyzeRequest>
-  onTextChange: (field: "englishName", value: string) => void
+  onTextChange: (field: "googleMapUrl" | "homepageUrl" | "englishName", value: string) => void
   onBooleanChange: (field: AccessibilityBooleanField, value: boolean) => void
 }) {
   const { t } = useLanguage()
   const resolvedBoolean = (field: AccessibilityBooleanField) => input[field] ?? Boolean(fallback[field])
 
   return (
-    <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
-      <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
-        {t.analyze.globalAccessEnhancementTitle}
-      </summary>
-      <p className={styles.bodyText}>{t.analyze.globalAccessEnhancementDescription}</p>
-      <label className={styles.label} htmlFor="access-english-name">
-        {t.analyze.englishNameLabel}
-        <input
-          id="access-english-name"
-          className={styles.input}
-          type="text"
-          placeholder={fallback.englishName || t.analyze.englishNamePlaceholder}
-          value={input.englishName}
-          onChange={(event) => onTextChange("englishName", event.target.value)}
-        />
-      </label>
-      <div className={styles.stackSm}>
-        <label className={styles.reviewCheckRow}>
+    <section className={`${styles.card} ${styles.stackSm}`}>
+      <div>
+        <h2 className={styles.titleMd}>{t.analyze.accuracyEnhancementTitle}</h2>
+        <p className={styles.bodyText}>{t.analyze.accuracyEnhancementDescription}</p>
+      </div>
+
+      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
+        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
+          {t.analyze.locationReservationAccordionTitle}
+        </summary>
+        <p className={styles.bodyText}>{t.analyze.locationReservationAccordionDescription}</p>
+        <label className={styles.label} htmlFor="hospital-map-url">
+          {t.analyze.hospitalMapLinkLabel}
           <input
-            type="checkbox"
-            checked={resolvedBoolean("hasEnglishInfo")}
-            onChange={(event) => onBooleanChange("hasEnglishInfo", event.target.checked)}
+            id="hospital-map-url"
+            className={styles.input}
+            type="url"
+            placeholder={fallback.googleMapUrl || t.analyze.mapUrlPlaceholder}
+            value={input.googleMapUrl}
+            onChange={(event) => onTextChange("googleMapUrl", event.target.value)}
           />
-          <span>{t.analyze.hasEnglishInfoLabel}</span>
         </label>
-        <label className={styles.reviewCheckRow}>
+        <label className={styles.label} htmlFor="hospital-homepage-url">
+          {t.analyze.hospitalHomepageLinkLabel}
           <input
-            type="checkbox"
-            checked={resolvedBoolean("hasEnglishReviews")}
-            onChange={(event) => onBooleanChange("hasEnglishReviews", event.target.checked)}
+            id="hospital-homepage-url"
+            className={styles.input}
+            type="url"
+            placeholder={fallback.homepageUrl || t.analyze.homepageUrlPlaceholder}
+            value={input.homepageUrl}
+            onChange={(event) => onTextChange("homepageUrl", event.target.value)}
           />
-          <span>{t.analyze.hasEnglishReviewsLabel}</span>
         </label>
-        <label className={styles.reviewCheckRow}>
+      </details>
+
+      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
+        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
+          {t.analyze.languageInfoAccordionTitle}
+        </summary>
+        <p className={styles.bodyText}>{t.analyze.languageInfoAccordionDescription}</p>
+        <label className={styles.label} htmlFor="access-english-name">
+          {t.analyze.englishNameLabel}
           <input
-            type="checkbox"
-            checked={resolvedBoolean("hasGooglePhotos")}
-            onChange={(event) => onBooleanChange("hasGooglePhotos", event.target.checked)}
+            id="access-english-name"
+            className={styles.input}
+            type="text"
+            placeholder={fallback.englishName || t.analyze.englishNamePlaceholder}
+            value={input.englishName}
+            onChange={(event) => onTextChange("englishName", event.target.value)}
           />
-          <span>{t.analyze.hasGooglePhotosLabel}</span>
         </label>
+        <div className={styles.stackSm}>
+          <label className={styles.reviewCheckRow}>
+            <input
+              type="checkbox"
+              checked={resolvedBoolean("hasEnglishInfo")}
+              onChange={(event) => onBooleanChange("hasEnglishInfo", event.target.checked)}
+            />
+            <span>{t.analyze.hasEnglishInfoLabel}</span>
+          </label>
+          <label className={styles.reviewCheckRow}>
+            <input
+              type="checkbox"
+              checked={resolvedBoolean("hasEnglishReviews")}
+              onChange={(event) => onBooleanChange("hasEnglishReviews", event.target.checked)}
+            />
+            <span>{t.analyze.hasEnglishReviewsLabel}</span>
+          </label>
+        </div>
+      </details>
+
+      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
+        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
+          {t.analyze.visitReferenceAccordionTitle}
+        </summary>
+        <p className={styles.bodyText}>{t.analyze.visitReferenceAccordionDescription}</p>
         <label className={styles.reviewCheckRow}>
           <input
             type="checkbox"
@@ -1743,23 +1865,19 @@ function AccessibilityEnhancementSection({
           />
           <span>{t.analyze.hasPhotosLabel}</span>
         </label>
-      </div>
-    </details>
+      </details>
+    </section>
   )
 }
 
 function HospitalResultCard({
   hospital,
   regionLabel,
-  onViewReviews,
-  onAnalyze,
-  disabled,
+  onSelect,
 }: {
   hospital: HospitalItem
   regionLabel: string
-  onViewReviews: () => void
-  onAnalyze: () => void
-  disabled?: boolean
+  onSelect: () => void
 }) {
   const { t, language } = useLanguage()
 
@@ -1793,11 +1911,8 @@ function HospitalResultCard({
           <Link className={styles.secondaryButton} href={`${ROUTES.HOSPITAL_DETAIL}/${hospital.id}`}>
             {t.hospital.detail}
           </Link>
-          <button type="button" className={styles.secondaryButton} onClick={onViewReviews}>
-            {t.analyze.viewReviews}
-          </button>
-          <button type="button" className={styles.primaryButton} disabled={disabled} onClick={onAnalyze}>
-            {t.analyze.analyzeHospital}
+          <button type="button" className={styles.primaryButton} onClick={onSelect}>
+            {t.analyze.selectHospital}
           </button>
         </div>
       </div>

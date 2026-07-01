@@ -102,7 +102,7 @@ const defaultForeignerLabels: Record<keyof ForeignerFriendlyCheck, string> = {
   englishName: "병원 영문명 있음",
   englishGuide: "영어 안내 문구 있음",
   reservationLink: "홈페이지/예약 링크 있음",
-  photoInfo: "사진 정보 충분",
+  photoInfo: "이미지 자료 확인 가능",
 }
 
 const defaultForeignerMissingLabels: Record<keyof ForeignerFriendlyCheck, string> = {
@@ -110,7 +110,7 @@ const defaultForeignerMissingLabels: Record<keyof ForeignerFriendlyCheck, string
   englishName: "병원 영문명 부족",
   englishGuide: "영어 안내 문구 부족",
   reservationLink: "홈페이지/예약 링크 부족",
-  photoInfo: "사진 정보 부족",
+  photoInfo: "이미지 자료 확인 필요",
 }
 
 export function calculateForeignerFriendlyScore(

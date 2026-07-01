@@ -485,6 +485,8 @@ create table if not exists public.analysis_requests (
 
   started_at timestamp with time zone,
   completed_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  deleted_by bigint references public.members(id) on delete set null,
 
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
@@ -560,6 +562,9 @@ on public.analysis_requests(created_at);
 
 create index if not exists idx_analysis_requests_completed_at
 on public.analysis_requests(completed_at);
+
+create index if not exists idx_analysis_requests_deleted_at
+on public.analysis_requests(deleted_at);
 
 create index if not exists idx_reviews_request_id
 on public.reviews(request_id);

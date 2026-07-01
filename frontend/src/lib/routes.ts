@@ -12,6 +12,7 @@ export const ROUTES = {
   ANALYZE: "/analyze",
   RESULT: "/result",
   HISTORY: "/history",
+  HISTORY_TRASH: "/history/trash",
   CHATBOT: "/chatbot",
 
   MYPAGE: "/mypage",

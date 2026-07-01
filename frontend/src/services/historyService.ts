@@ -1,5 +1,5 @@
 import { recentAnalyses } from "@/lib/mockData"
-import { readAnalysisHistory } from "@/lib/analysisStorage"
+import { readActiveAnalysisHistory, readTrashedAnalysisHistory } from "@/lib/analysisStorage"
 import type { AnalysisHistoryItem, User } from "@/lib/types"
 import { apiClient } from "./apiClient"
 
@@ -19,13 +19,18 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
         ? Number(item.foreigner_friendly_score ?? item.foreigner_score ?? 0)
         : Number(item.foreignerFriendlyScore),
     createdAt: String(item.createdAt ?? item.created_at ?? item.date ?? ""),
+    deletedAt: item.deletedAt || item.deleted_at ? String(item.deletedAt ?? item.deleted_at) : null,
+    deletedBy: item.deletedBy || item.deleted_by ? String(item.deletedBy ?? item.deleted_by) : null,
     selectedReviewCount: Number(item.selectedReviewCount ?? item.selected_review_count ?? 0),
     totalReviewCount: Number(item.totalReviewCount ?? item.total_review_count ?? 0),
     trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
     trustLevel: item.trustLevel ? String(item.trustLevel) : undefined,
+    adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
     adSuspicionLevel: item.adSuspicionLevel || item.ad_suspicion_level
       ? String(item.adSuspicionLevel ?? item.ad_suspicion_level)
       : undefined,
+    infoCompletenessScore: Number(item.infoCompletenessScore ?? item.info_completeness_score ?? item.placeScore ?? item.place_score ?? 0),
+    globalAccessRating: Number(item.globalAccessRating ?? item.global_access_rating ?? item.foreignerScore ?? item.foreigner_score ?? 0),
     summary: item.summary ? String(item.summary) : undefined,
     detectedReasons: Array.isArray(item.detectedReasons) ? item.detectedReasons.map(String) : [],
     resultStatus: item.resultStatus || item.result_status
@@ -41,7 +46,8 @@ function toMemberId(memberId?: User["id"]) {
 
 export async function getHistory(memberId?: User["id"]): Promise<AnalysisHistoryItem[]> {
   const numericMemberId = toMemberId(memberId)
-  if (!numericMemberId) return readAnalysisHistory()
+  const localHistory = readActiveAnalysisHistory()
+  if (!numericMemberId) return localHistory
 
   try {
     const result = await apiClient<unknown[]>(`/api/members/${numericMemberId}/analysis-history`, {
@@ -49,9 +55,28 @@ export async function getHistory(memberId?: User["id"]): Promise<AnalysisHistory
     })
     const records = Array.isArray(result.data) ? result.data : []
     const normalizedRecords = records.map((item) => normalizeHistoryItem(item as Record<string, unknown>))
-    return normalizedRecords.length > 0 ? normalizedRecords : readAnalysisHistory()
+    return normalizedRecords.length > 0 ? normalizedRecords : localHistory
   } catch {
-    return readAnalysisHistory()
+    if (localHistory.length > 0) return localHistory
+    throw new Error("분석기록 API 조회에 실패했습니다. 로그인 상태나 서버 응답을 확인해주세요.")
+  }
+}
+
+export async function getTrashHistory(memberId?: User["id"]): Promise<AnalysisHistoryItem[]> {
+  const numericMemberId = toMemberId(memberId)
+  const localTrashHistory = readTrashedAnalysisHistory()
+  if (!numericMemberId) return localTrashHistory
+
+  try {
+    const result = await apiClient<unknown[]>(`/api/members/${numericMemberId}/analysis-history/trash`, {
+      auth: true,
+    })
+    const records = Array.isArray(result.data) ? result.data : []
+    const normalizedRecords = records.map((item) => normalizeHistoryItem(item as Record<string, unknown>))
+    return normalizedRecords.length > 0 ? normalizedRecords : localTrashHistory
+  } catch {
+    if (localTrashHistory.length > 0) return localTrashHistory
+    throw new Error("휴지통 API 조회에 실패했습니다. 로그인 상태나 서버 응답을 확인해주세요.")
   }
 }
 

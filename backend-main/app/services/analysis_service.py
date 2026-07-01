@@ -38,27 +38,79 @@ class AnalysisService:
         return analysis_request_to_dict(analysis_request)
 
     @staticmethod
-    def list_member_history(member_id, limit=20, offset=0):
+    def list_member_history(member_id, limit=20, offset=0, trashed=False):
         analysis_requests = AnalysisRepository.list_history_by_member(
             member_id,
             limit=limit,
             offset=offset,
+            trashed=trashed,
         )
         return [AnalysisService._history_item_to_dict(analysis_request) for analysis_request in analysis_requests]
 
     @staticmethod
-    def delete_member_history(member_id, request_id):
-        analysis_request = AnalysisRepository.get_request_by_id(request_id)
-        if not analysis_request or analysis_request.member_id != member_id:
+    def move_member_history_to_trash(member_id, request_ids, deleted_by=None):
+        request_ids = AnalysisService._normalize_request_ids(request_ids)
+        analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=False)
+        if len(analysis_requests) != len(request_ids):
             raise ValueError("Analysis request not found")
 
         try:
-            AnalysisRepository.delete_request(analysis_request)
+            now = datetime.now(timezone.utc)
+            for analysis_request in analysis_requests:
+                analysis_request.deleted_at = now
+                analysis_request.deleted_by = deleted_by
             db.session.commit()
-            return {"id": request_id}
+            return {"ids": [analysis_request.id for analysis_request in analysis_requests]}
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def restore_member_history(member_id, request_ids):
+        request_ids = AnalysisService._normalize_request_ids(request_ids)
+        analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=True)
+        if len(analysis_requests) != len(request_ids):
+            raise ValueError("Analysis request not found")
+
+        try:
+            for analysis_request in analysis_requests:
+                analysis_request.deleted_at = None
+                analysis_request.deleted_by = None
+            db.session.commit()
+            return {"ids": [analysis_request.id for analysis_request in analysis_requests]}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def permanently_delete_member_history(member_id, request_ids=None, all_trashed=False):
+        if all_trashed:
+            analysis_requests = AnalysisRepository.list_history_by_member(
+                member_id,
+                limit=1000,
+                offset=0,
+                trashed=True,
+            )
+        else:
+            request_ids = AnalysisService._normalize_request_ids(request_ids)
+            analysis_requests = AnalysisRepository.list_history_by_ids(member_id, request_ids, trashed=True)
+            if len(analysis_requests) != len(request_ids):
+                raise ValueError("Analysis request not found")
+
+        deleted_ids = [analysis_request.id for analysis_request in analysis_requests]
+
+        try:
+            for analysis_request in analysis_requests:
+                AnalysisRepository.delete_request(analysis_request)
+            db.session.commit()
+            return {"ids": deleted_ids}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def delete_member_history(member_id, request_id, deleted_by=None):
+        return AnalysisService.move_member_history_to_trash(member_id, [request_id], deleted_by=deleted_by)
 
     @staticmethod
     def analyze_reviews(member_id, payload):
@@ -257,20 +309,21 @@ class AnalysisService:
     def _history_item_to_dict(analysis_request):
         hospital = analysis_request.hospital
         analysis_result = analysis_request.analysis_result
+        hospital_category = hospital.category if hospital else "dermatology"
         category = {
             "dermatology": "derma",
             "ophthalmology": "eye",
             "dentistry": "dental",
-        }.get(hospital.category, hospital.category)
+        }.get(hospital_category, hospital_category)
 
         return {
             "id": analysis_request.id,
             "member_id": analysis_request.member_id,
-            "hospital_name": hospital.hospital_name,
-            "hospital_category": hospital.category,
+            "hospital_name": hospital.hospital_name if hospital else "Unknown hospital",
+            "hospital_category": hospital_category,
             "category": category,
-            "hospital_address": hospital.address,
-            "region": hospital.region,
+            "hospital_address": hospital.address if hospital else "",
+            "region": hospital.region if hospital else "",
             "score": analysis_result.total_score if analysis_result and analysis_result.total_score is not None else 0,
             "total_score": analysis_result.total_score if analysis_result else None,
             "trust_score": analysis_result.trust_score if analysis_result else None,
@@ -290,7 +343,28 @@ class AnalysisService:
             "created_at": (
                 analysis_request.completed_at or analysis_request.created_at
             ).isoformat() if (analysis_request.completed_at or analysis_request.created_at) else None,
+            "deleted_at": analysis_request.deleted_at.isoformat() if analysis_request.deleted_at else None,
+            "deleted_by": analysis_request.deleted_by,
         }
+
+    @staticmethod
+    def _normalize_request_ids(request_ids):
+        if isinstance(request_ids, (str, int)):
+            request_ids = [request_ids]
+        if not isinstance(request_ids, list) or not request_ids:
+            raise ValueError("ids are required")
+
+        normalized_ids = []
+        for request_id in request_ids:
+            try:
+                normalized_id = int(request_id)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("ids must be numeric") from exc
+            if normalized_id <= 0:
+                raise ValueError("ids must be positive")
+            normalized_ids.append(normalized_id)
+
+        return sorted(set(normalized_ids))
 
     @staticmethod
     def _mark_request_failed(analysis_request, message):

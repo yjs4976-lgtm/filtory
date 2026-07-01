@@ -49,7 +49,11 @@ class Member(db.Model):
         passive_deletes=True,
     )
     reviews = db.relationship("Review", back_populates="member")
-    analysis_requests = db.relationship("AnalysisRequest", back_populates="member")
+    analysis_requests = db.relationship(
+        "AnalysisRequest",
+        back_populates="member",
+        foreign_keys="AnalysisRequest.member_id",
+    )
     analysis_results = db.relationship("AnalysisResult", back_populates="member")
     subscriptions = db.relationship(
         "MemberSubscription",
