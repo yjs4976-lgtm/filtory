@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, FileText, Info, RotateCcw, ShieldCheck, Sp
 import { useLanguage } from "@/context/LanguageContext"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { mockAnalysisResult } from "@/lib/mockData"
-import { getTrustLevel } from "@/lib/score"
+import { getTrustLevel, normalizeTrustLevelKey } from "@/lib/score"
 import type { CurrentReviewAnalysis, Language } from "@/lib/types"
 import { ChatbotConnectCard } from "@/components/result/ChatbotConnectCard"
 import { ForeignerFriendlyRating } from "@/components/result/ForeignerFriendlyRating"
@@ -78,6 +78,7 @@ function globalAccessibilityPercent(result: CurrentReviewAnalysis) {
 }
 
 function formatTrustLevelKey(level: CurrentReviewAnalysis["trustLevelKey"], language: Language) {
+  const normalizedLevel = normalizeTrustLevelKey(level) ?? "high"
   const labels = {
     ko: {
       veryHigh: "매우 높음",
@@ -95,7 +96,7 @@ function formatTrustLevelKey(level: CurrentReviewAnalysis["trustLevelKey"], lang
     },
   }
 
-  return labels[language][level]
+  return labels[language][normalizedLevel]
 }
 
 function formatSignalLevel(level: SignalLevel | undefined, language: Language) {
@@ -193,6 +194,7 @@ export function ResultCard() {
     const trustLevel = getTrustLevel(apiResult.trustScore)
     const categoryLabel = t.categories[apiResult.category]
     const trustLevelLabel = formatTrustLevelKey(apiResult.trustLevelKey, language)
+    const normalizedTrustLevelKey = normalizeTrustLevelKey(apiResult.trustLevelKey) ?? "high"
     const adSuspicionLabel = formatSignalLevel(apiResult.adSuspicionLevel, language)
     const repetitionLabel = formatSignalLevel(repetitionLevel(apiResult), language)
     const informationCompletenessLabel = formatSignalLevel(informationCompletenessLevel(apiResult), language)
@@ -214,7 +216,7 @@ export function ResultCard() {
           </div>
           <div className={styles.trustBadge} style={{ backgroundColor: trustLevel.softColor }}>
             <ShieldCheck className={styles.iconSm} style={{ color: trustLevel.color }} />
-            <span>{t.trustLevels[apiResult.trustLevelKey]}</span>
+            <span>{t.trustLevels[normalizedTrustLevelKey]}</span>
           </div>
           <div className={styles.resultMetricList}>
             <MetricRow label={t.analyze.trustLevel} value={trustLevelLabel} />

@@ -126,13 +126,41 @@ export type ReviewAnalyzeRequest = {
   reviewText?: string
   reviews?: string[]
   outputLanguage?: Language
+  address?: string
+  phone?: string
+  treatmentItems?: string[]
+  description?: string
+  hasPhotos?: boolean
+  homepageUrl?: string
+  naverPlaceUrl?: string
+  naverPlaceId?: string
+  googleMapUrl?: string
+  googleRegistered?: boolean
+  googlePlaceId?: string
+  englishName?: string
+  hasEnglishInfo?: boolean
+  hasEnglishReviews?: boolean
+  hasGooglePhotos?: boolean
+}
+
+export type ReviewEvidence = {
+  suspiciousPhrases: string[]
+  specificPhrases: string[]
+  repetitivePhrases: string[]
+  warnings: string[]
+  positiveSignals: string[]
+  checkItems: string[]
 }
 
 export type ReviewAnalyzeResponse = {
+  totalScore: number
   trustScore: number
+  adScore: number
+  placeScore: number
+  foreignerScore: number
   grade?: string
   trustGrade: string
-  trustLevelKey: "veryHigh" | "high" | "caution" | "concern" | "veryConcern"
+  trustLevelKey: "very_high" | "high" | "medium" | "low" | "very_low"
   adSuspicion: string
   adSuspicionLevel: "low" | "medium" | "high"
   repetitionLevel?: "low" | "medium" | "high"
@@ -143,8 +171,10 @@ export type ReviewAnalyzeResponse = {
   globalAccessibilityMaxScore?: number
   globalAccessibilityChecks?: {
     googleMapLink?: boolean
+    googlePlaceId?: boolean
     englishName?: boolean
     englishGuide?: boolean
+    englishReviews?: boolean
     homepageOrBookingLink?: boolean
     photoInfo?: boolean
   }
@@ -154,6 +184,8 @@ export type ReviewAnalyzeResponse = {
   informationLevel: string
   summary: string
   recommendation: string
+  evidence: ReviewEvidence
+  analyzedReviewCount: number
   modelVersion: string
 }
 

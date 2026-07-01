@@ -68,16 +68,41 @@ function formatStars(rating = 0) {
   return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`
 }
 
-function adSuspicionScore(level: ReviewAnalyzeResponse["adSuspicionLevel"]) {
-  if (level === "high") return 75
-  if (level === "medium") return 45
-  return 18
-}
-
 function concreteExperienceLevel(informationLevel: string): "low" | "medium" | "high" {
   if (informationLevel === "구체적") return "high"
   if (informationLevel === "보통") return "medium"
   return "low"
+}
+
+function splitTreatmentItems(value?: string) {
+  return (value ?? "")
+    .split(/[,/·]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function buildHospitalMetadataPayload(hospital?: HospitalItem) {
+  if (!hospital) return {}
+
+  const sourceName = hospital.sourceName?.toLowerCase() ?? ""
+  const sourceUrl = hospital.sourceUrl ?? ""
+  const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버")
+  const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
+
+  return {
+    address: hospital.address,
+    phone: hospital.phone,
+    treatmentItems: splitTreatmentItems(hospital.treatmentItems),
+    description: hospital.description,
+    hasPhotos: Boolean(hospital.imageUrl),
+    homepageUrl: hospital.homepageUrl,
+    naverPlaceUrl: isNaverSource ? sourceUrl : undefined,
+    googleMapUrl: hospital.mapUrl,
+    googleRegistered: Boolean(hospital.mapUrl),
+    englishName,
+    hasEnglishInfo: Boolean(englishName),
+    hasGooglePhotos: Boolean(hospital.imageUrl),
+  }
 }
 
 function createApiAnalysisResult({
@@ -97,9 +122,9 @@ function createApiAnalysisResult({
   selectedReviewCount: number
   totalReviewCount: number
 }): ApiAnalysisResult {
-  const foreignAccessibilityStars = hospital
-    ? [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length
-    : 0
+  const foreignAccessibilityStars =
+    response.globalAccessibilityScore ??
+    (hospital ? [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length : 0)
 
   return {
     id: `analysis-${Date.now()}`,
@@ -114,8 +139,8 @@ function createApiAnalysisResult({
     region: hospital?.region,
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
-    score: response.trustScore,
-    foreignerFriendlyScore: foreignAccessibilityStars * 20,
+    score: response.totalScore,
+    foreignerFriendlyScore: response.foreignerScore,
     createdAt: new Date().toISOString(),
     analyzedAt: new Date().toISOString(),
     selectedReviewCount,
@@ -125,7 +150,7 @@ function createApiAnalysisResult({
     trustGrade: response.trustGrade,
     trustLevelKey: response.trustLevelKey,
     adSuspicion: response.adSuspicion,
-    adSuspicionScore: adSuspicionScore(response.adSuspicionLevel),
+    adSuspicionScore: response.adScore,
     adSuspicionLevel: response.adSuspicionLevel,
     repetitivePatternLevel: response.repetitivePhrases.length > 0 ? response.adSuspicionLevel : "low",
     concreteExperienceLevel: concreteExperienceLevel(response.informationLevel),
@@ -137,9 +162,7 @@ function createApiAnalysisResult({
     informationLevel: response.informationLevel,
     recommendation: response.recommendation,
     modelVersion: response.modelVersion,
-    infoCompletenessScore: hospital
-      ? [hospital.address, hospital.phone, hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl].filter(Boolean).length * 20
-      : 0,
+    infoCompletenessScore: response.placeScore,
     globalAccessRating: foreignAccessibilityStars,
     foreignAccessibilityStars,
     reviewCount: selectedReviewCount,
@@ -271,6 +294,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         reviewText,
         reviews: targetReviewTexts,
         outputLanguage: language,
+        ...buildHospitalMetadataPayload(hospital),
       })
 
       const nextAnalysisResult = createApiAnalysisResult({
