@@ -12,9 +12,21 @@ HospitalCategory = Literal[
 ]
 
 OutputLanguage = Literal["ko", "en"]
-TrustLevelKey = Literal["veryHigh", "high", "caution", "concern", "veryConcern"]
+TrustLevelKey = Literal["very_high", "high", "medium", "low", "very_low"]
 SuspicionLevelKey = Literal["low", "medium", "high"]
 MockLevelKey = Literal["low", "medium", "high"]
+InformationLevel = Literal[
+    "매우 구체적",
+    "구체적",
+    "보통",
+    "정보 부족",
+    "매우 부족",
+    "Very specific",
+    "Specific",
+    "Moderate",
+    "Limited",
+    "Very limited",
+]
 
 
 class ReviewAnalyzeRequest(BaseModel):
@@ -23,6 +35,21 @@ class ReviewAnalyzeRequest(BaseModel):
     reviews: list[str] = Field(default_factory=list, description="여러 리뷰를 한 번에 분석할 때 사용")
     hospitalName: str | None = Field(None, description="선택 사항")
     outputLanguage: OutputLanguage = "ko"
+    address: str | None = Field(None, description="병원 주소")
+    phone: str | None = Field(None, description="병원 전화번호")
+    treatmentItems: list[str] = Field(default_factory=list, description="진료 항목")
+    description: str | None = Field(None, description="병원 소개")
+    hasPhotos: bool | None = Field(None, description="사진 정보 보유 여부")
+    homepageUrl: str | None = Field(None, description="병원 홈페이지 또는 예약 URL")
+    naverPlaceUrl: str | None = Field(None, description="네이버 플레이스 URL")
+    naverPlaceId: str | None = Field(None, description="네이버 플레이스 ID")
+    googleMapUrl: str | None = Field(None, description="구글 지도 URL")
+    googleRegistered: bool | None = Field(None, description="구글 지도 등록 여부")
+    googlePlaceId: str | None = Field(None, description="구글 플레이스 ID")
+    englishName: str | None = Field(None, description="영문 병원명")
+    hasEnglishInfo: bool | None = Field(None, description="영문 안내 정보 보유 여부")
+    hasEnglishReviews: bool | None = Field(None, description="영문 리뷰 보유 여부")
+    hasGooglePhotos: bool | None = Field(None, description="구글 사진 정보 보유 여부")
 
     @model_validator(mode="after")
     def require_review_text(self):
@@ -35,14 +62,27 @@ class ReviewAnalyzeRequest(BaseModel):
         return self
 
 
+class ReviewEvidence(BaseModel):
+    suspiciousPhrases: list[str] = Field(default_factory=list)
+    specificPhrases: list[str] = Field(default_factory=list)
+    repetitivePhrases: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    positiveSignals: list[str] = Field(default_factory=list)
+    checkItems: list[str] = Field(default_factory=list)
+
+
 class ReviewAnalyzeResponse(BaseModel):
+    totalScore: int = Field(..., ge=0, le=100)
     trustScore: int = Field(..., ge=0, le=100)
+    adScore: int = Field(..., ge=0, le=100)
+    placeScore: int = Field(..., ge=0, le=100)
+    foreignerScore: int = Field(..., ge=0, le=100)
     grade: str | None = Field(None, description="Mock API compatibility grade such as A, B, C")
     trustGrade: str
     trustLevelKey: TrustLevelKey
     adSuspicion: str
     adSuspicionLevel: SuspicionLevelKey
-    repetitionLevel: MockLevelKey | None = Field(None, description="Mock API compatibility repetition level")
+    repetitionLevel: MockLevelKey = Field(..., description="Repeated phrase level")
     informationCompleteness: MockLevelKey | None = Field(None, description="Mock API compatibility information completeness")
     positiveSignals: list[str] = Field(default_factory=list)
     warningSignals: list[str] = Field(default_factory=list)
@@ -52,7 +92,9 @@ class ReviewAnalyzeResponse(BaseModel):
     detectedPatterns: list[str]
     suspiciousPhrases: list[str]
     repetitivePhrases: list[str]
-    informationLevel: str
+    informationLevel: InformationLevel
     summary: str
     recommendation: str
+    evidence: ReviewEvidence
+    analyzedReviewCount: int = Field(..., ge=0)
     modelVersion: str
