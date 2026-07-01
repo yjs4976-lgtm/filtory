@@ -18,6 +18,18 @@ class HospitalRepository:
         return Hospital.query.filter(Hospital.google_place_id == google_place_id).first()
 
     @staticmethod
+    def get_by_name_category_address(hospital_name, category, address=None):
+        query = Hospital.query.filter(
+            Hospital.hospital_name == hospital_name,
+            Hospital.category == category,
+        )
+
+        if address:
+            query = query.filter(Hospital.address == address)
+
+        return query.first()
+
+    @staticmethod
     def list_by_category(category=None, region=None, limit=20, offset=0):
         query = Hospital.query
 

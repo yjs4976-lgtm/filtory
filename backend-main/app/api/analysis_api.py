@@ -1,10 +1,25 @@
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from app.services import AnalysisService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
+from app.utils.security import require_auth
 
 analysis_bp = Blueprint("analysis", __name__)
+
+
+@analysis_bp.route("/analyze", methods=["POST"])
+@require_auth
+def analyze_reviews():
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        result = AnalysisService.analyze_reviews(g.current_member.id, payload)
+        return success_response(result, "Review analysis complete", 201)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except RuntimeError as e:
+        return error_response(str(e), 502)
 
 
 @analysis_bp.route("/requests", methods=["GET"])

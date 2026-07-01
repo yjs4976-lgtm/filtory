@@ -98,3 +98,57 @@ def extract_analysis_result_data(payload):
         for key in ANALYSIS_RESULT_FIELDS
         if key in payload
     }
+
+
+def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, request_id, review_ids, output_language):
+    evidence_json = {
+        "evidence": ai_response.get("evidence") or {},
+        "recommendation": ai_response.get("recommendation"),
+        "informationLevel": ai_response.get("informationLevel"),
+        "analyzedReviewCount": ai_response.get("analyzedReviewCount"),
+        "rawResponse": ai_response,
+    }
+
+    data = {
+        "member_id": member_id,
+        "hospital_id": hospital_id,
+        "review_id": review_ids[0] if review_ids else None,
+        "request_id": request_id,
+        "total_score": _optional_int(ai_response.get("totalScore")),
+        "trust_score": _optional_int(ai_response.get("trustScore")),
+        "ad_score": _optional_int(ai_response.get("adScore")),
+        "place_score": _optional_int(ai_response.get("placeScore")),
+        "foreigner_score": _optional_int(ai_response.get("foreignerScore")),
+        "trust_level": ai_response.get("trustLevelKey"),
+        "ad_suspicion": ai_response.get("adSuspicionLevel"),
+        "repetition_suspicion": ai_response.get("repetitionLevel"),
+        "evidence_json": evidence_json,
+        "ai_model": ai_response.get("modelVersion"),
+    }
+
+    if output_language == "en":
+        data["summary_en"] = ai_response.get("summary")
+    else:
+        data["summary_ko"] = ai_response.get("summary")
+
+    return data
+
+
+def integrated_analysis_to_dict(analysis_request, analysis_result, hospital, reviews, ai_response):
+    return {
+        "analysisRequestId": analysis_request.id,
+        "analysisResultId": analysis_result.id if analysis_result else None,
+        "hospitalId": hospital.id,
+        "reviewIds": [review.id for review in reviews],
+        "result": ai_response,
+    }
+
+
+def _optional_int(value):
+    if value is None:
+        return None
+
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None

@@ -6,6 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _float_or_default(value, default):
+    try:
+        return float(value) if value else default
+    except (TypeError, ValueError):
+        return default
+
+
 class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -64,3 +71,6 @@ class Config:
     NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
     NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
     NAVER_REDIRECT_URI = os.getenv("NAVER_REDIRECT_URI")
+
+    BACKEND_AI_BASE_URL = os.getenv("BACKEND_AI_BASE_URL", "http://127.0.0.1:8000")
+    BACKEND_AI_TIMEOUT_SECONDS = _float_or_default(os.getenv("BACKEND_AI_TIMEOUT_SECONDS"), 20)
