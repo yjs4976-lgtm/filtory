@@ -7,6 +7,7 @@ import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
 import {
   KOREA_REGION_OPTIONS,
+  SELECTED_REGION_STORAGE_KEY,
   getRegionLabel,
   matchesRegionText,
   type RegionDistrict,
@@ -85,7 +86,22 @@ export function HomeHero() {
     params.set("category", category)
     if (mode === "hospital") {
       if (hospitalName.trim()) params.set("hospital", hospitalName.trim())
-      if (selectedRegionLabel.trim()) params.set("region", selectedRegionLabel.trim())
+      if (selectedRegionLabel.trim()) {
+        params.set("region", selectedRegionLabel.trim())
+        if (selectedProvinceCode && selectedDistrictCode) {
+          window.localStorage.setItem(
+            SELECTED_REGION_STORAGE_KEY,
+            JSON.stringify({
+              provinceCode: selectedProvinceCode,
+              districtCode: selectedDistrictCode,
+            })
+          )
+        } else {
+          window.localStorage.removeItem(SELECTED_REGION_STORAGE_KEY)
+        }
+      } else {
+        window.localStorage.removeItem(SELECTED_REGION_STORAGE_KEY)
+      }
     }
     if (mode === "url" && naverUrl.trim()) params.set("naver", naverUrl.trim())
     router.push(`${ROUTES.ANALYZE}?${params.toString()}`)

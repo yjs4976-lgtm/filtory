@@ -98,7 +98,7 @@ export function formatSignalLevel(level: string | undefined, labels: { low: stri
 }
 
 const defaultForeignerLabels: Record<keyof ForeignerFriendlyCheck, string> = {
-  googleMapLink: "구글맵 링크 있음",
+  googleMapLink: "지도 링크 있음",
   englishName: "병원 영문명 있음",
   englishGuide: "영어 안내 문구 있음",
   reservationLink: "홈페이지/예약 링크 있음",
@@ -106,7 +106,7 @@ const defaultForeignerLabels: Record<keyof ForeignerFriendlyCheck, string> = {
 }
 
 const defaultForeignerMissingLabels: Record<keyof ForeignerFriendlyCheck, string> = {
-  googleMapLink: "구글맵 링크 부족",
+  googleMapLink: "지도 링크 부족",
   englishName: "병원 영문명 부족",
   englishGuide: "영어 안내 문구 부족",
   reservationLink: "홈페이지/예약 링크 부족",

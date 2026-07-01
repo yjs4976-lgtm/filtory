@@ -1,5 +1,7 @@
 import type { Language } from "@/lib/types"
 
+export const SELECTED_REGION_STORAGE_KEY = "filtory-selected-region"
+
 export const KOREA_REGION_OPTIONS = [
   {
     code: "SEOUL",

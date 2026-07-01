@@ -1,12 +1,12 @@
 export const theme = {
   colors: {
-    background: "#FFFCF8",
+    background: "#FFFDF9",
     subtle: "#FFFDF9",
     foreground: "#1F2A44",
-    gray: "#6B7280",
+    gray: "#A8A5B7",
     card: "#FFFFFF",
-    primary: "#DCCCFF",
-    lavender: "#DCCCFF",
+    primary: "#DCCFFF",
+    lavender: "#DCCFFF",
     reviewPink: "#FFB6C9",
     trustMint: "#BDEECF",
     softPeach: "#FFD785",

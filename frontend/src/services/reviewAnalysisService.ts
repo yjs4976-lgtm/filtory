@@ -1,28 +1,227 @@
-import { AI_API_BASE_URL } from "@/lib/constants"
 import type { ReviewAnalyzeRequest, ReviewAnalyzeResponse } from "@/lib/types"
+import { apiClient } from "./apiClient"
 
 const ANALYZE_ERROR_MESSAGE = "분석 중 오류가 발생했어요. 다시 시도해주세요."
 
-function buildAiApiUrl(path: string) {
-  return `${AI_API_BASE_URL.replace(/\/$/, "")}${path}`
+type BackendAnalysisData = {
+  analysisRequestId?: number
+  analysisResultId?: number
+  hospitalId?: number
+  reviewIds?: number[]
+  result?: Partial<ReviewAnalyzeResponse> & Record<string, unknown>
+}
+
+type GlobalAccessibilityChecks = NonNullable<ReviewAnalyzeResponse["globalAccessibilityChecks"]>
+type GlobalAccessibilityCheckKey = keyof GlobalAccessibilityChecks
+
+const GLOBAL_ACCESSIBILITY_DISPLAY_KEYS: GlobalAccessibilityCheckKey[] = [
+  "googleMapLink",
+  "englishName",
+  "englishGuide",
+  "homepageOrBookingLink",
+  "photoInfo",
+]
+
+const GLOBAL_ACCESSIBILITY_CHECK_ALIASES: Record<GlobalAccessibilityCheckKey, string[]> = {
+  googleMapLink: ["googleMapLink", "googleMapUrl", "google_map_url", "googleRegistered", "google_registered"],
+  googlePlaceId: ["googlePlaceId", "google_place_id"],
+  englishName: ["englishName", "english_name"],
+  englishGuide: ["englishGuide", "hasEnglishInfo", "has_english_info"],
+  englishReviews: ["englishReviews", "hasEnglishReviews", "has_english_reviews"],
+  homepageOrBookingLink: [
+    "homepageOrBookingLink",
+    "homepageUrl",
+    "homepage_url",
+    "reservationLink",
+    "hasReservationLink",
+    "has_reservation_link",
+  ],
+  photoInfo: ["photoInfo", "hasGooglePhotos", "has_google_photos", "hasPhotos", "has_photos"],
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string")
+}
+
+function normalizeEvidence(value: unknown): ReviewAnalyzeResponse["evidence"] {
+  const evidence = value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+
+  return {
+    suspiciousPhrases: toStringArray(evidence.suspiciousPhrases),
+    specificPhrases: toStringArray(evidence.specificPhrases),
+    repetitivePhrases: toStringArray(evidence.repetitivePhrases),
+    warnings: toStringArray(evidence.warnings),
+    positiveSignals: toStringArray(evidence.positiveSignals),
+    checkItems: toStringArray(evidence.checkItems),
+  }
+}
+
+function normalizeLevel(value: unknown): "low" | "medium" | "high" {
+  if (value === "low" || value === "medium" || value === "high") return value
+  return "medium"
+}
+
+function normalizeTrustLevel(value: unknown): ReviewAnalyzeResponse["trustLevelKey"] {
+  if (
+    value === "very_high" ||
+    value === "high" ||
+    value === "medium" ||
+    value === "low" ||
+    value === "very_low"
+  ) {
+    return value
+  }
+
+  return "medium"
+}
+
+function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "high" {
+  if (value === "구체적" || value === "high") return "high"
+  if (value === "정보 부족" || value === "low") return "low"
+  return "medium"
+}
+
+function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
+  return {
+    googleMapLink: Boolean(payload.googleMapUrl),
+    englishName: Boolean(payload.englishName),
+    englishGuide: Boolean(payload.hasEnglishInfo),
+    homepageOrBookingLink: Boolean(payload.homepageUrl || payload.naverPlaceUrl),
+    photoInfo: Boolean(payload.hasGooglePhotos || payload.hasPhotos),
+  }
+}
+
+function countTruthy(values: Record<string, boolean>) {
+  return Object.values(values).filter(Boolean).length
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : undefined
+}
+
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value > 0
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+    if (["true", "1", "yes", "y"].includes(normalized)) return true
+    if (["false", "0", "no", "n", ""].includes(normalized)) return false
+  }
+  return undefined
+}
+
+function getAliasedBoolean(source: Record<string, unknown>, key: GlobalAccessibilityCheckKey) {
+  for (const alias of GLOBAL_ACCESSIBILITY_CHECK_ALIASES[key]) {
+    const value = toBoolean(source[alias])
+    if (value !== undefined) return value
+  }
+
+  return undefined
+}
+
+function normalizeApiGlobalAccessibilityChecks(value: unknown) {
+  if (!value || typeof value !== "object") return null
+
+  const source = value as Record<string, unknown>
+  const checks: Partial<GlobalAccessibilityChecks> = {}
+  let hasAnyCheck = false
+
+  for (const key of GLOBAL_ACCESSIBILITY_DISPLAY_KEYS) {
+    const checkValue = getAliasedBoolean(source, key)
+    if (checkValue !== undefined) {
+      checks[key] = checkValue
+      hasAnyCheck = true
+    }
+  }
+
+  return hasAnyCheck ? checks : null
+}
+
+function normalizeGlobalAccessibilityChecks(apiChecks: unknown, fallbackChecks: GlobalAccessibilityChecks) {
+  const normalizedApiChecks = normalizeApiGlobalAccessibilityChecks(apiChecks)
+
+  return GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.reduce<GlobalAccessibilityChecks>((checks, key) => {
+    checks[key] = normalizedApiChecks?.[key] ?? fallbackChecks[key] ?? false
+    return checks
+  }, {})
+}
+
+function buildAnalysisPayload(payload: ReviewAnalyzeRequest): ReviewAnalyzeRequest {
+  if (payload.reviews?.length || !payload.reviewText?.trim()) return payload
+
+  return {
+    ...payload,
+    reviews: [payload.reviewText.trim()],
+  }
+}
+
+function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAnalyzeRequest): ReviewAnalyzeResponse {
+  const result = data.result
+
+  if (!result) {
+    throw new Error(ANALYZE_ERROR_MESSAGE)
+  }
+
+  const evidence = normalizeEvidence(result.evidence)
+  const fallbackGlobalAccessibilityChecks = buildGlobalAccessibilityChecks(payload)
+  const globalAccessibilityChecks = normalizeGlobalAccessibilityChecks(
+    result.globalAccessibilityChecks,
+    fallbackGlobalAccessibilityChecks
+  )
+  const globalAccessibilityMaxScore =
+    optionalNumber(result.globalAccessibilityMaxScore) ?? GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.length
+  const detectedPatterns = toStringArray(result.detectedPatterns)
+  const suspiciousPhrases = toStringArray(result.suspiciousPhrases ?? evidence.suspiciousPhrases)
+  const repetitivePhrases = toStringArray(result.repetitivePhrases ?? evidence.repetitivePhrases)
+
+  return {
+    analysisRequestId: data.analysisRequestId,
+    analysisResultId: data.analysisResultId,
+    hospitalId: data.hospitalId,
+    reviewIds: data.reviewIds,
+    totalScore: Number(result.totalScore ?? 0),
+    trustScore: Number(result.trustScore ?? 0),
+    adScore: Number(result.adScore ?? 0),
+    placeScore: Number(result.placeScore ?? 0),
+    foreignerScore: Number(result.foreignerScore ?? 0),
+    grade: typeof result.grade === "string" ? result.grade : undefined,
+    trustGrade: typeof result.trustGrade === "string" ? result.trustGrade : String(result.trustLevelKey ?? ""),
+    trustLevelKey: normalizeTrustLevel(result.trustLevelKey),
+    adSuspicion: typeof result.adSuspicion === "string" ? result.adSuspicion : String(result.adSuspicionLevel ?? ""),
+    adSuspicionLevel: normalizeLevel(result.adSuspicionLevel),
+    repetitionLevel: normalizeLevel(result.repetitionLevel),
+    informationCompleteness: normalizeInformationCompleteness(result.informationLevel ?? result.informationCompleteness),
+    positiveSignals: toStringArray(result.positiveSignals ?? evidence.positiveSignals),
+    warningSignals: toStringArray(result.warningSignals ?? evidence.warnings),
+    globalAccessibilityScore: optionalNumber(result.globalAccessibilityScore) ?? countTruthy(globalAccessibilityChecks),
+    globalAccessibilityMaxScore,
+    globalAccessibilityChecks,
+    detectedPatterns: detectedPatterns.length > 0 ? detectedPatterns : [...evidence.positiveSignals, ...evidence.warnings],
+    suspiciousPhrases,
+    repetitivePhrases,
+    informationLevel: typeof result.informationLevel === "string" ? result.informationLevel : "",
+    summary: typeof result.summary === "string" ? result.summary : "",
+    recommendation: typeof result.recommendation === "string" ? result.recommendation : "",
+    evidence,
+    analyzedReviewCount: Array.isArray(payload.reviews) ? payload.reviews.length : payload.reviewText ? 1 : 0,
+    modelVersion: typeof result.modelVersion === "string" ? result.modelVersion : "",
+  }
 }
 
 export const reviewAnalysisService = {
   async analyzeReview(payload: ReviewAnalyzeRequest): Promise<ReviewAnalyzeResponse> {
-    const response = await fetch(buildAiApiUrl("/api/reviews/analyze"), {
+    const analysisPayload = buildAnalysisPayload(payload)
+    const response = await apiClient<BackendAnalysisData>("/api/analysis/analyze", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      body: analysisPayload,
     })
 
-    const result = await response.json().catch(() => null)
-
-    if (!response.ok || !result) {
+    if (!response.success) {
       throw new Error(ANALYZE_ERROR_MESSAGE)
     }
 
-    return result as ReviewAnalyzeResponse
+    return normalizeAnalysisResponse(response.data, analysisPayload)
   },
 }

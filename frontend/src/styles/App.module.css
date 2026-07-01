@@ -61,6 +61,61 @@
   background: var(--lavender-soft);
 }
 
+.accessibilityDetails {
+  border-color: var(--lavender);
+  background: linear-gradient(180deg, #ffffff 0%, var(--subtle) 100%);
+  box-shadow: 0 8px 22px rgba(168, 165, 183, 0.12);
+}
+
+.accessibilitySummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--primary-foreground);
+  cursor: pointer;
+  list-style: none;
+}
+
+.accessibilitySummary::-webkit-details-marker {
+  display: none;
+}
+
+.accessibilitySummary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.accessibilityDetails[open] .accessibilitySummary::after {
+  content: "-";
+  background: var(--mint-soft);
+  color: var(--mint-text);
+}
+
+.accessibilityDetails .input {
+  background: #ffffff;
+}
+
+.accessibilityDetails .reviewCheckRow {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.accessibilityDetails .reviewCheckRow input {
+  accent-color: var(--lavender);
+}
+
 .titleLg {
   margin: 0;
   color: var(--foreground);
@@ -490,6 +545,54 @@
 .regionSelectFieldOpen .regionSelectChevron {
   color: var(--primary-foreground);
   transform: translateY(-50%) rotate(180deg);
+}
+
+.regionPickerPanel {
+  border: 1px solid rgba(220, 207, 255, 0.62);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--subtle) 100%);
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(168, 165, 183, 0.1);
+}
+
+.regionSelectedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.selectedRegionChip {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(220, 207, 255, 0.8);
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  padding: 7px 8px 7px 14px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.selectedRegionChip button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--graypurple);
+  cursor: pointer;
+}
+
+.selectedRegionChip button:focus-visible {
+  outline: 3px solid rgba(220, 207, 255, 0.44);
+  outline-offset: 2px;
 }
 
 .featureGrid {
@@ -1468,6 +1571,39 @@
   background: rgba(31, 42, 68, 0.28);
   backdrop-filter: blur(6px);
   padding: 16px;
+}
+
+.regionModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.35);
+  padding: 20px;
+}
+
+.regionModalCard {
+  width: calc(100% - 40px);
+  max-width: 430px;
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  border: 1px solid #f1e8dd;
+  border-radius: 28px;
+  background: #fffdf9;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.regionModalBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
 }
 
 .regionSheet {

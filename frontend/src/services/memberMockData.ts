@@ -266,7 +266,7 @@ export const mockUserInsight: UserInsight = {
   mostAnalyzedCategory: "dental",
   frequentArea: "서울 강남·서초",
   savedHospitalAverageTrustLevel: "신뢰 가능",
-  mainDecisionFactors: ["리뷰 신뢰도", "글로벌 접근성", "광고 의심도"],
+  mainDecisionFactors: ["리뷰 신뢰도", "외국인 방문 편의도", "광고 의심도"],
   summary: "최근 치과를 가장 많이 분석했고, 광고 의심도가 낮은 병원을 주로 저장했어요.",
 }
 

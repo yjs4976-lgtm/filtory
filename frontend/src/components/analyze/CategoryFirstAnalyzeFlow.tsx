@@ -1,19 +1,44 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ElementType } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ExternalLink, FileCheck2, LinkIcon, LoaderCircle, MapPinned, Search, Star } from "lucide-react"
+import {
+  Check,
+  ClipboardList,
+  ExternalLink,
+  FileCheck2,
+  FileText,
+  ImageUp,
+  LinkIcon,
+  LoaderCircle,
+  MapPinned,
+  Pencil,
+  Search,
+  Star,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react"
 import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
 import { useToast } from "@/hooks/useToast"
 import {
   getDemoReviewsForHospital,
   getHospitalDisplayName,
-  getRegionLabel,
-  hospitalRegions,
+  getRegionLabel as getHospitalRegionLabel,
   searchDemoHospitals,
 } from "@/lib/mockHospitals"
+import {
+  KOREA_REGION_OPTIONS,
+  SELECTED_REGION_STORAGE_KEY,
+  getRegionDistrict,
+  getRegionLabel,
+  matchesRegionText,
+  type RegionDistrict,
+  type RegionProvince,
+  type RegionProvinceCode,
+} from "@/lib/regions"
 import { getTrustLevelKey, normalizeTrustLevelKey } from "@/lib/score"
 import { writeCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import type {
@@ -22,6 +47,7 @@ import type {
   HospitalItem,
   HospitalRegionCode,
   HospitalReviewItem,
+  ReviewAnalyzeRequest,
   ReviewAnalyzeResponse,
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
@@ -30,6 +56,39 @@ import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import styles from "@/styles/App.module.css"
 
 type SearchMode = "region" | "free"
+type AccessibilityBooleanField = "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
+
+type SelectedAnalyzeRegion = {
+  provinceCode: RegionProvinceCode
+  districtCode: string
+}
+
+type DistrictSearchResult = {
+  province: RegionProvince
+  district: RegionDistrict
+}
+
+type AccessibilityEnhancementInput = {
+  googleMapUrl: string
+  homepageUrl: string
+  englishName: string
+  hasEnglishInfo: boolean | null
+  hasEnglishReviews: boolean | null
+  hasGooglePhotos: boolean | null
+  hasPhotos: boolean | null
+}
+
+type ReviewSourceMode = "screenshot" | "manual" | "file"
+type ReviewDraftSource = "manual" | "screenshot" | "file"
+type ReviewDraftStatus = "ready" | "short" | "duplicate"
+
+type ReviewDraft = {
+  id: string
+  content: string
+  source: ReviewDraftSource
+  included: boolean
+  status: ReviewDraftStatus
+}
 
 const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental"> = {
   derma: "skin",
@@ -38,6 +97,25 @@ const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental">
 }
 
 const PAGE_SIZE = 3
+const MIN_REVIEW_TEXT_LENGTH = 20
+const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
+  province.districts.map((district) => ({
+    province,
+    district,
+  }))
+)
+
+function createEmptyAccessibilityEnhancement(): AccessibilityEnhancementInput {
+  return {
+    googleMapUrl: "",
+    homepageUrl: "",
+    englishName: "",
+    hasEnglishInfo: null,
+    hasEnglishReviews: null,
+    hasGooglePhotos: null,
+    hasPhotos: null,
+  }
+}
 
 type ApiAnalysisResult = AnalysisHistoryItem & {
   trustGrade?: string
@@ -81,6 +159,116 @@ function splitTreatmentItems(value?: string) {
     .filter(Boolean)
 }
 
+function createReviewDraftId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID()
+  return `review-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeReviewContent(content: string) {
+  return content.replace(/\s+/g, " ").trim().toLowerCase()
+}
+
+function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
+  if (content.trim().length < MIN_REVIEW_TEXT_LENGTH) return "short"
+  if (duplicateCount > 1) return "duplicate"
+  return "ready"
+}
+
+function normalizeReviewDrafts(drafts: ReviewDraft[]) {
+  const counts = drafts.reduce<Record<string, number>>((acc, draft) => {
+    const key = normalizeReviewContent(draft.content)
+    if (key) acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+
+  return drafts.map((draft) => {
+    const key = normalizeReviewContent(draft.content)
+    return {
+      ...draft,
+      status: getReviewDraftStatus(draft.content, key ? counts[key] ?? 1 : 1),
+    }
+  })
+}
+
+function splitReviewText(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return []
+
+  const paragraphParts = trimmed
+    .split(/\n\s*\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (paragraphParts.length > 1) return paragraphParts
+
+  return trimmed
+    .split(/\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function splitCsvLine(line: string) {
+  const cells: string[] = []
+  let current = ""
+  let inQuotes = false
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index]
+    const nextCharacter = line[index + 1]
+
+    if (character === "\"" && nextCharacter === "\"") {
+      current += "\""
+      index += 1
+      continue
+    }
+
+    if (character === "\"") {
+      inQuotes = !inQuotes
+      continue
+    }
+
+    if (character === "," && !inQuotes) {
+      cells.push(current.trim())
+      current = ""
+      continue
+    }
+
+    current += character
+  }
+
+  cells.push(current.trim())
+  return cells
+}
+
+function parseReviewFileText(text: string, fileName: string) {
+  const isCsv = fileName.toLowerCase().endsWith(".csv")
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!isCsv) return lines
+
+  const [headerLine, ...rowLines] = lines
+  if (!headerLine) return []
+
+  const headers = splitCsvLine(headerLine).map((header) => header.trim().toLowerCase())
+  const reviewColumnIndex = headers.findIndex((header) => ["review", "content", "text", "리뷰", "내용"].includes(header))
+  const dataRows = reviewColumnIndex >= 0 ? rowLines : lines
+
+  return dataRows
+    .map((line) => {
+      const cells = splitCsvLine(line)
+      if (reviewColumnIndex >= 0) return cells[reviewColumnIndex] ?? ""
+      return cells.join(" ").trim()
+    })
+    .filter(Boolean)
+}
+
+function mergeReviewDraftsForAnalysis(drafts: ReviewDraft[]) {
+  return drafts.map((draft, index) => `[리뷰 ${index + 1}]\n${draft.content.trim()}`).join("\n\n")
+}
+
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
@@ -101,8 +289,105 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     googleRegistered: Boolean(hospital.mapUrl),
     englishName,
     hasEnglishInfo: Boolean(englishName),
+    hasEnglishReviews: false,
     hasGooglePhotos: Boolean(hospital.imageUrl),
   }
+}
+
+function textOverride(value: string, fallback?: string) {
+  return value.trim() || fallback
+}
+
+function booleanOverride(value: boolean | null, fallback?: boolean) {
+  return value ?? Boolean(fallback)
+}
+
+function buildAccessibilityMetadataPayload(
+  hospital: HospitalItem | undefined,
+  input: AccessibilityEnhancementInput
+): Pick<
+  ReviewAnalyzeRequest,
+  "googleMapUrl" | "homepageUrl" | "englishName" | "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
+> {
+  const fallback = buildHospitalMetadataPayload(hospital)
+
+  return {
+    googleMapUrl: textOverride(input.googleMapUrl, fallback.googleMapUrl),
+    homepageUrl: textOverride(input.homepageUrl, fallback.homepageUrl),
+    englishName: textOverride(input.englishName, fallback.englishName),
+    hasEnglishInfo: booleanOverride(input.hasEnglishInfo, fallback.hasEnglishInfo),
+    hasEnglishReviews: booleanOverride(input.hasEnglishReviews, fallback.hasEnglishReviews),
+    hasGooglePhotos: booleanOverride(input.hasGooglePhotos, fallback.hasGooglePhotos),
+    hasPhotos: booleanOverride(input.hasPhotos, fallback.hasPhotos),
+  }
+}
+
+function toHospitalRegionCode(region?: SelectedAnalyzeRegion | null): HospitalRegionCode | undefined {
+  return region ? (region.provinceCode.toLowerCase() as HospitalRegionCode) : undefined
+}
+
+function readStoredAnalyzeRegion(): SelectedAnalyzeRegion | null {
+  if (typeof window === "undefined") return null
+
+  try {
+    const raw = window.localStorage.getItem(SELECTED_REGION_STORAGE_KEY)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as Partial<SelectedAnalyzeRegion>
+    if (!parsed.provinceCode || !parsed.districtCode) return null
+    if (!getRegionDistrict(parsed.provinceCode, parsed.districtCode)) return null
+
+    return {
+      provinceCode: parsed.provinceCode,
+      districtCode: parsed.districtCode,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeStoredAnalyzeRegion(region: SelectedAnalyzeRegion | null) {
+  if (typeof window === "undefined") return
+
+  if (!region) {
+    window.localStorage.removeItem(SELECTED_REGION_STORAGE_KEY)
+    return
+  }
+
+  window.localStorage.setItem(SELECTED_REGION_STORAGE_KEY, JSON.stringify(region))
+}
+
+function findRegionByLabel(label: string): SelectedAnalyzeRegion | null {
+  const normalizedLabel = label.trim().toLowerCase()
+  if (!normalizedLabel) return null
+
+  for (const province of KOREA_REGION_OPTIONS) {
+    for (const district of province.districts) {
+      const labels = [
+        `${province.label.ko} ${district.label.ko}`,
+        `${province.label.en} ${district.label.en}`,
+      ].map((value) => value.toLowerCase())
+
+      if (labels.includes(normalizedLabel)) {
+        return {
+          provinceCode: province.code,
+          districtCode: district.code,
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+function readInitialAnalyzeRegion(): SelectedAnalyzeRegion | null {
+  if (typeof window === "undefined") return null
+
+  const storedRegion = readStoredAnalyzeRegion()
+  if (storedRegion) return storedRegion
+
+  const queryRegion = new URLSearchParams(window.location.search).get("region")
+  return queryRegion ? findRegionByLabel(queryRegion) : null
 }
 
 function createApiAnalysisResult({
@@ -174,9 +459,13 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const router = useRouter()
   const { t, language } = useLanguage()
   const { showToast } = useToast()
+  const currentLanguage = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<HospitalCategory>("derma")
   const [searchMode, setSearchMode] = useState<SearchMode>("region")
-  const [region, setRegion] = useState<HospitalRegionCode>("seoul")
+  const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(() => readInitialAnalyzeRegion())
+  const [isRegionModalOpen, setIsRegionModalOpen] = useState(false)
+  const [regionSearch, setRegionSearch] = useState("")
+  const [modalProvinceCode, setModalProvinceCode] = useState<RegionProvinceCode | "">("")
   const [query, setQuery] = useState("")
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<HospitalItem[]>([])
@@ -186,12 +475,21 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [reviewPage, setReviewPage] = useState(0)
   const [directHospitalName, setDirectHospitalName] = useState("")
   const [directReviewText, setDirectReviewText] = useState("")
+  const [reviewSourceMode, setReviewSourceMode] = useState<ReviewSourceMode>("manual")
+  const [reviewDrafts, setReviewDrafts] = useState<ReviewDraft[]>([])
+  const [reviewFeedback, setReviewFeedback] = useState("")
+  const [screenshotFileNames, setScreenshotFileNames] = useState<string[]>([])
+  const [uploadedReviewFileName, setUploadedReviewFileName] = useState("")
+  const [accessibilityInput, setAccessibilityInput] = useState<AccessibilityEnhancementInput>(() =>
+    createEmptyAccessibilityEnhancement()
+  )
   const [analysisResult, setAnalysisResult] = useState<ApiAnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState("")
   const [inputError, setInputError] = useState("")
   const [isSaved, setIsSaved] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const regionSearchRef = useRef<HTMLInputElement>(null)
 
   const reviews = useMemo(() => (selectedHospital ? getDemoReviewsForHospital(selectedHospital) : []), [selectedHospital])
   const selectedReviews = reviews.filter((review) => selectedReviewIds.includes(review.id))
@@ -200,12 +498,172 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const visibleHospitals = results.slice(hospitalPage * PAGE_SIZE, hospitalPage * PAGE_SIZE + PAGE_SIZE)
   const reviewTotalPages = Math.max(1, Math.ceil(reviews.length / PAGE_SIZE))
   const visibleReviews = reviews.slice(reviewPage * PAGE_SIZE, reviewPage * PAGE_SIZE + PAGE_SIZE)
+  const reviewInboxSummary = useMemo(() => {
+    const shortCount = reviewDrafts.filter((review) => review.status === "short").length
+    const duplicateCount = reviewDrafts.filter((review) => review.status === "duplicate").length
+    const readyCount = reviewDrafts.filter((review) => review.included && review.status === "ready").length
+
+    return {
+      totalCount: reviewDrafts.length,
+      shortCount,
+      duplicateCount,
+      readyCount,
+    }
+  }, [reviewDrafts])
+  const analysisReadyReviewDrafts = useMemo(
+    () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
+    [reviewDrafts]
+  )
+  const selectedHospitalMetadata = useMemo(
+    () => buildHospitalMetadataPayload(selectedHospital ?? undefined),
+    [selectedHospital]
+  )
+  const selectedRegionLabel = selectedRegion
+    ? getRegionLabel(selectedRegion.provinceCode, selectedRegion.districtCode, currentLanguage)
+    : ""
+  const trimmedRegionSearch = regionSearch.trim()
+  const selectedModalProvince = KOREA_REGION_OPTIONS.find((province) => province.code === modalProvinceCode)
+  const districtOptions = selectedModalProvince?.districts ?? []
+  const filteredProvinces = trimmedRegionSearch
+    ? KOREA_REGION_OPTIONS.filter((province) => matchesRegionText(province, trimmedRegionSearch))
+    : KOREA_REGION_OPTIONS
+  const filteredDistricts: DistrictSearchResult[] = trimmedRegionSearch
+    ? REGION_SEARCH_RESULTS.filter(({ province, district }) =>
+        matchesRegionText(province, trimmedRegionSearch) || matchesRegionText(district, trimmedRegionSearch)
+      )
+    : selectedModalProvince?.districts.map((district) => ({
+        province: selectedModalProvince,
+        district,
+      })) ?? []
+  const hasRegionSearchResults = filteredProvinces.length > 0 || filteredDistricts.length > 0
+
+  useEffect(() => {
+    if (!isRegionModalOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    regionSearchRef.current?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsRegionModalOpen(false)
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [isRegionModalOpen])
+
+  const handleAccessibilityTextChange = (
+    field: "googleMapUrl" | "homepageUrl" | "englishName",
+    value: string
+  ) => {
+    setAccessibilityInput((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleAccessibilityBooleanChange = (field: AccessibilityBooleanField, value: boolean) => {
+    setAccessibilityInput((current) => ({ ...current, [field]: value }))
+  }
+
+  const addReviewDrafts = (contents: string[], source: ReviewDraftSource) => {
+    const nextDrafts = contents
+      .map((content) => content.trim())
+      .filter(Boolean)
+      .map((content) => ({
+        id: createReviewDraftId(),
+        content,
+        source,
+        included: true,
+        status: "ready" as ReviewDraftStatus,
+      }))
+
+    if (nextDrafts.length === 0) return 0
+
+    setReviewDrafts((current) => normalizeReviewDrafts([...current, ...nextDrafts]))
+    setInputError("")
+    return nextDrafts.length
+  }
+
+  const handleAddManualReviews = () => {
+    const addedCount = addReviewDrafts(splitReviewText(directReviewText), "manual")
+    if (addedCount === 0) {
+      setReviewFeedback(t.analyze.reviewInbox.emptyInputFeedback)
+      return
+    }
+
+    setDirectReviewText("")
+    setReviewFeedback(t.analyze.reviewInbox.addedFeedback.replace("{count}", String(addedCount)))
+  }
+
+  const handleScreenshotFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+    setScreenshotFileNames(files.map((file) => file.name))
+    if (files.length > 0) {
+      setReviewFeedback(t.analyze.reviewInbox.screenshotSelectedFeedback.replace("{count}", String(files.length)))
+    }
+  }
+
+  const handleReadScreenshotReviews = () => {
+    setReviewFeedback(
+      screenshotFileNames.length > 0
+        ? t.analyze.reviewInbox.ocrPendingFeedback
+        : t.analyze.reviewInbox.screenshotRequiredFeedback
+    )
+  }
+
+  const handleReviewFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setUploadedReviewFileName(file.name)
+
+    const fileName = file.name.toLowerCase()
+    if (!fileName.endsWith(".txt") && !fileName.endsWith(".csv")) {
+      setReviewFeedback(t.analyze.reviewInbox.fileUnsupportedFeedback)
+      return
+    }
+
+    try {
+      const text = await file.text()
+      const addedCount = addReviewDrafts(parseReviewFileText(text, file.name), "file")
+      setReviewFeedback(
+        addedCount > 0
+          ? t.analyze.reviewInbox.fileAddedFeedback.replace("{count}", String(addedCount))
+          : t.analyze.reviewInbox.fileEmptyFeedback
+      )
+    } catch {
+      setReviewFeedback(t.analyze.reviewInbox.fileReadErrorFeedback)
+    }
+  }
+
+  const handleReviewDraftContentChange = (reviewId: string, content: string) => {
+    setReviewDrafts((current) =>
+      normalizeReviewDrafts(current.map((review) => (review.id === reviewId ? { ...review, content } : review)))
+    )
+  }
+
+  const handleToggleReviewDraft = (reviewId: string) => {
+    setReviewDrafts((current) =>
+      current.map((review) => (review.id === reviewId ? { ...review, included: !review.included } : review))
+    )
+  }
+
+  const handleDeleteReviewDraft = (reviewId: string) => {
+    setReviewDrafts((current) => normalizeReviewDrafts(current.filter((review) => review.id !== reviewId)))
+  }
+
+  const handleClearReviewDrafts = () => {
+    setReviewDrafts([])
+    setReviewFeedback("")
+  }
 
   const handleSearch = () => {
     const nextResults = searchDemoHospitals({
       category,
-      region: searchMode === "region" ? region : undefined,
-      query,
+      region: searchMode === "region" ? toHospitalRegionCode(selectedRegion) : undefined,
+      query: query.trim() || selectedRegionLabel,
     })
     setResults(nextResults)
     setHasSearched(true)
@@ -238,8 +696,38 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     resetSearchState()
   }
 
-  const handleRegionChange = (nextRegion: HospitalRegionCode) => {
-    setRegion(nextRegion)
+  const openRegionModal = () => {
+    setRegionSearch("")
+    setModalProvinceCode(selectedRegion?.provinceCode ?? "")
+    setIsRegionModalOpen(true)
+  }
+
+  const selectProvince = (province: RegionProvince) => {
+    setModalProvinceCode(province.code)
+    setRegionSearch("")
+  }
+
+  const resetProvinceSelection = () => {
+    setModalProvinceCode("")
+    setRegionSearch("")
+  }
+
+  const selectDistrict = (province: RegionProvince, district: RegionDistrict) => {
+    const nextRegion = {
+      provinceCode: province.code,
+      districtCode: district.code,
+    }
+    setSelectedRegion(nextRegion)
+    writeStoredAnalyzeRegion(nextRegion)
+    setIsRegionModalOpen(false)
+    setRegionSearch("")
+    setModalProvinceCode(province.code)
+    resetSearchState()
+  }
+
+  const clearSelectedRegion = () => {
+    setSelectedRegion(null)
+    writeStoredAnalyzeRegion(null)
     resetSearchState()
   }
 
@@ -294,7 +782,9 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         reviewText,
         reviews: targetReviewTexts,
         outputLanguage: language,
+        region: selectedRegionLabel || undefined,
         ...buildHospitalMetadataPayload(hospital),
+        ...buildAccessibilityMetadataPayload(hospital, accessibilityInput),
       })
 
       const nextAnalysisResult = createApiAnalysisResult({
@@ -329,19 +819,25 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const handleAnalyzeDirectReview = async () => {
     const hospitalName = directHospitalName.trim()
-    const reviewText = directReviewText.trim()
     if (isAnalyzing) return
-    if (!hospitalName || !reviewText) {
-      setInputError(t.analyze.inputRequired)
+    if (!hospitalName) {
+      setInputError(t.analyze.hospitalInfoRequired)
+      setAnalyzeError("")
+      return
+    }
+    if (analysisReadyReviewDrafts.length === 0) {
+      setInputError(t.analyze.reviewInboxRequired)
       setAnalyzeError("")
       return
     }
 
+    const targetReviews = analysisReadyReviewDrafts.map((review) => review.content.trim())
     await analyzeWithApi({
       hospitalName,
-      reviewText,
-      selectedReviewCount: 1,
-      totalReviewCount: 1,
+      reviewText: mergeReviewDraftsForAnalysis(analysisReadyReviewDrafts),
+      reviews: targetReviews,
+      selectedReviewCount: targetReviews.length,
+      totalReviewCount: reviewDrafts.length,
     })
   }
 
@@ -402,10 +898,60 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setAnalyzeError("")
     setInputError("")
     setIsSaved(false)
+    setAccessibilityInput(createEmptyAccessibilityEnhancement())
+    setDirectHospitalName("")
+    setDirectReviewText("")
+    setReviewSourceMode("manual")
+    setReviewDrafts([])
+    setReviewFeedback("")
+    setScreenshotFileNames([])
+    setUploadedReviewFileName("")
+    clearSelectedRegion()
     setQuery("")
   }
 
+  const renderProvinceButton = (province: RegionProvince) => {
+    const label = province.label[currentLanguage]
+    const isSelected = modalProvinceCode === province.code
+
+    return (
+      <button
+        key={province.code}
+        type="button"
+        role="option"
+        className={`${styles.regionOptionButton} ${isSelected ? styles.regionOptionSelected : ""}`}
+        aria-selected={isSelected}
+        onClick={() => selectProvince(province)}
+      >
+        <span>{label}</span>
+        {isSelected ? <Check className={styles.iconSm} aria-hidden="true" /> : null}
+      </button>
+    )
+  }
+
+  const renderDistrictButton = ({ province, district }: DistrictSearchResult) => {
+    const provinceLabel = province.label[currentLanguage]
+    const districtLabel = district.label[currentLanguage]
+    const isSelected = selectedRegion?.provinceCode === province.code && selectedRegion.districtCode === district.code
+    const displayLabel = trimmedRegionSearch ? `${provinceLabel} ${districtLabel}` : districtLabel
+
+    return (
+      <button
+        key={`${province.code}-${district.code}`}
+        type="button"
+        role="option"
+        className={`${styles.regionOptionButton} ${isSelected ? styles.regionOptionSelected : ""}`}
+        aria-selected={isSelected}
+        onClick={() => selectDistrict(province, district)}
+      >
+        <span>{displayLabel}</span>
+        {isSelected ? <Check className={styles.iconSm} aria-hidden="true" /> : null}
+      </button>
+    )
+  }
+
   return (
+    <>
     <section className={styles.stackMd}>
       <div className={`${styles.accentCard} ${styles.stackSm}`}>
         <h1 className={styles.titleLg}>{t.analyze.flowTitle}</h1>
@@ -422,15 +968,39 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       </ol>
 
       <section className={`${styles.card} ${styles.stackSm}`}>
-        <h2 className={styles.titleMd}>{t.analyze.selectCategoryTitle}</h2>
-        <CategorySelector selected={category} onSelect={handleCategoryChange} />
-      </section>
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
         <div>
-          <h2 className={styles.titleMd}>{t.analyze.directAnalyzeTitle}</h2>
-          <p className={styles.bodyText}>{t.analyze.directAnalyzeDescription}</p>
+          <h2 className={styles.titleMd}>{t.analyze.hospitalBasicInfoTitle}</h2>
+          <p className={styles.bodyText}>{t.analyze.hospitalBasicInfoDescription}</p>
         </div>
+        <div className={styles.stackSm}>
+          <h3 className={styles.titleSm}>{t.analyze.selectCategoryTitle}</h3>
+          <CategorySelector selected={category} onSelect={handleCategoryChange} />
+        </div>
+        <section className={`${styles.regionPickerPanel} ${styles.stackSm}`}>
+          <div>
+            <h3 className={styles.titleSm}>{t.analyze.regionSectionTitle}</h3>
+            <p className={styles.bodyText}>
+              {selectedRegion ? t.analyze.selectedRegionLabel : t.analyze.regionSectionDescription}
+            </p>
+          </div>
+          {selectedRegion ? (
+            <div className={styles.regionSelectedRow}>
+              <span className={styles.selectedRegionChip}>
+                {selectedRegionLabel}
+                <button type="button" aria-label={t.analyze.clearRegionAriaLabel} onClick={clearSelectedRegion}>
+                  <X className={styles.iconXs} aria-hidden="true" />
+                </button>
+              </span>
+              <button type="button" className={styles.smallPillButton} onClick={openRegionModal}>
+                {t.analyze.changeRegionButton}
+              </button>
+            </div>
+          ) : (
+            <button type="button" className={styles.secondaryButton} onClick={openRegionModal}>
+              {t.analyze.selectRegionButton}
+            </button>
+          )}
+        </section>
         <label className={styles.label} htmlFor="direct-hospital-name">
           {t.analyze.hospitalLabel}
           <input
@@ -442,16 +1012,79 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             onChange={(event) => setDirectHospitalName(event.target.value)}
           />
         </label>
-        <label className={styles.label} htmlFor="direct-review-text">
-          {t.analyze.reviewLabel}
-          <textarea
-            id="direct-review-text"
-            className={styles.textarea}
-            placeholder={t.analyze.reviewPlaceholder}
-            value={directReviewText}
-            onChange={(event) => setDirectReviewText(event.target.value)}
+        <div className={`${styles.softCard} ${styles.stackSm}`}>
+          <h3 className={styles.titleSm}>{t.analyze.referenceLinksTitle}</h3>
+          <label className={styles.label} htmlFor="hospital-map-url">
+            {t.analyze.hospitalMapLinkLabel}
+            <input
+              id="hospital-map-url"
+              className={styles.input}
+              type="url"
+              placeholder={selectedHospitalMetadata.googleMapUrl || t.analyze.mapUrlPlaceholder}
+              value={accessibilityInput.googleMapUrl}
+              onChange={(event) => handleAccessibilityTextChange("googleMapUrl", event.target.value)}
+            />
+          </label>
+          <label className={styles.label} htmlFor="hospital-homepage-url">
+            {t.analyze.hospitalHomepageLinkLabel}
+            <input
+              id="hospital-homepage-url"
+              className={styles.input}
+              type="url"
+              placeholder={selectedHospitalMetadata.homepageUrl || t.analyze.homepageUrlPlaceholder}
+              value={accessibilityInput.homepageUrl}
+              onChange={(event) => handleAccessibilityTextChange("homepageUrl", event.target.value)}
+            />
+          </label>
+        </div>
+        <AccessibilityEnhancementSection
+          input={accessibilityInput}
+          fallback={selectedHospitalMetadata}
+          onTextChange={handleAccessibilityTextChange}
+          onBooleanChange={handleAccessibilityBooleanChange}
+        />
+      </section>
+
+      <section className={`${styles.card} ${styles.stackSm}`}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.reviewSourceTitle}</h2>
+          <p className={styles.bodyText}>{t.analyze.reviewSourceDescription}</p>
+        </div>
+        <ReviewSourceSelector selected={reviewSourceMode} onSelect={setReviewSourceMode} />
+        {reviewSourceMode === "screenshot" && (
+          <ScreenshotReviewUpload
+            fileNames={screenshotFileNames}
+            onFileChange={handleScreenshotFileChange}
+            onReadReviews={handleReadScreenshotReviews}
           />
-        </label>
+        )}
+        {reviewSourceMode === "manual" && (
+          <DirectReviewInput
+            value={directReviewText}
+            onChange={setDirectReviewText}
+            onAddReviews={handleAddManualReviews}
+          />
+        )}
+        {reviewSourceMode === "file" && (
+          <ReviewFileUpload fileName={uploadedReviewFileName} onFileChange={handleReviewFileChange} />
+        )}
+      </section>
+
+      <ReviewInbox
+        reviews={reviewDrafts}
+        summary={reviewInboxSummary}
+        feedback={reviewFeedback}
+        onContentChange={handleReviewDraftContentChange}
+        onToggleIncluded={handleToggleReviewDraft}
+        onDelete={handleDeleteReviewDraft}
+        onClear={handleClearReviewDrafts}
+      />
+
+      <section className={`${styles.card} ${styles.stackSm}`}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.directAnalyzeButton}</h2>
+          <p className={styles.bodyText}>{t.analyze.analysisStartDescription}</p>
+        </div>
         {inputError && <p className={styles.bodyText}>{inputError}</p>}
         <div className={styles.actionRow}>
           <button
@@ -502,24 +1135,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </div>
       </section>
 
-      {searchMode === "region" && (
-        <section className={`${styles.card} ${styles.stackSm}`}>
-          <h2 className={styles.titleMd}>{t.analyze.selectRegionTitle}</h2>
-          <div className={styles.regionGrid}>
-            {hospitalRegions.map((item) => (
-              <button
-                key={item.code}
-                type="button"
-                className={`${styles.regionButton} ${region === item.code ? styles.regionButtonActive : ""}`}
-                onClick={() => handleRegionChange(item.code)}
-              >
-                {language === "ko" ? item.ko : item.en}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       <section className={`${styles.card} ${styles.stackSm}`}>
         <h2 className={styles.titleMd}>{t.analyze.searchTitle}</h2>
         <label className={styles.label} htmlFor="hospital-search">
@@ -563,7 +1178,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
                   <HospitalResultCard
                     key={hospital.id}
                     hospital={hospital}
-                    regionLabel={getRegionLabel(hospital.region, language)}
+                    regionLabel={getHospitalRegionLabel(hospital.region, language)}
                     onViewReviews={() => handleOpenReviews(hospital)}
                     onAnalyze={() => handleAnalyzeHospitalReviews(hospital, getDemoReviewsForHospital(hospital))}
                     disabled={isAnalyzing}
@@ -587,7 +1202,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             <div>
               <h2 className={styles.titleMd}>{t.analyze.reviewListTitle}</h2>
               <p className={styles.bodyText}>
-                {selectedHospital.name} · {getRegionLabel(selectedHospital.region, language)}
+                {selectedHospital.name} · {getHospitalRegionLabel(selectedHospital.region, language)}
               </p>
             </div>
           </div>
@@ -699,6 +1314,437 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </section>
       )}
     </section>
+    {isRegionModalOpen ? (
+      <div className={styles.regionModalBackdrop} role="presentation" onClick={() => setIsRegionModalOpen(false)}>
+        <section
+          className={styles.regionModalCard}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="analyze-region-modal-title"
+          aria-describedby="analyze-region-modal-description"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className={styles.regionSheetHeader}>
+            <div>
+              <h2 id="analyze-region-modal-title" className={styles.regionSheetTitle}>{t.analyze.regionPicker.title}</h2>
+              <p id="analyze-region-modal-description">{t.analyze.regionPicker.description}</p>
+            </div>
+            <button
+              type="button"
+              className={styles.regionSheetCloseButton}
+              aria-label={t.analyze.regionPicker.closeAriaLabel}
+              onClick={() => setIsRegionModalOpen(false)}
+            >
+              <X className={styles.iconMd} aria-hidden="true" />
+            </button>
+          </div>
+
+          <label className={styles.regionSearchField}>
+            <Search className={styles.iconSm} aria-hidden="true" />
+            <input
+              ref={regionSearchRef}
+              value={regionSearch}
+              onChange={(event) => setRegionSearch(event.target.value)}
+              placeholder={t.analyze.regionPicker.searchPlaceholder}
+            />
+          </label>
+
+          {selectedModalProvince ? (
+            <section className={styles.regionSummary} aria-label={t.analyze.regionPicker.selectedTitle}>
+              <div>
+                <p className={styles.regionSummaryLabel}>{t.analyze.regionPicker.selectedTitle}</p>
+                <div className={styles.regionSummaryChips}>
+                  <span className={styles.regionSummaryChip}>{selectedModalProvince.label[currentLanguage]}</span>
+                </div>
+              </div>
+              <button type="button" className={styles.regionBackButton} onClick={resetProvinceSelection}>
+                {t.analyze.regionPicker.changeProvince}
+              </button>
+            </section>
+          ) : null}
+
+          <div className={styles.regionModalBody}>
+            {trimmedRegionSearch ? (
+              hasRegionSearchResults ? (
+                <>
+                  {filteredProvinces.length > 0 ? (
+                    <div className={styles.regionSection}>
+                      <h3>{t.analyze.regionPicker.provinceTitle}</h3>
+                      <div className={styles.regionOptionGrid}>{filteredProvinces.map(renderProvinceButton)}</div>
+                    </div>
+                  ) : null}
+                  {filteredDistricts.length > 0 ? (
+                    <div className={styles.regionSection}>
+                      <h3>{t.analyze.regionPicker.districtTitle}</h3>
+                      <div className={styles.regionOptionGrid}>{filteredDistricts.map(renderDistrictButton)}</div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className={styles.regionNoResults}>{t.analyze.regionPicker.noResults}</p>
+              )
+            ) : selectedModalProvince ? (
+              <div className={styles.regionSection}>
+                <h3>{t.analyze.regionPicker.selectDistrictTitle}</h3>
+                <div className={styles.regionOptionGrid}>
+                  {districtOptions.map((district) => renderDistrictButton({
+                    province: selectedModalProvince,
+                    district,
+                  }))}
+                </div>
+              </div>
+            ) : (
+              <div className={styles.regionSection}>
+                <h3>{t.analyze.regionPicker.selectProvinceTitle}</h3>
+                <div className={styles.regionOptionGrid}>{KOREA_REGION_OPTIONS.map(renderProvinceButton)}</div>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    ) : null}
+    </>
+  )
+}
+
+function ReviewSourceSelector({
+  selected,
+  onSelect,
+}: {
+  selected: ReviewSourceMode
+  onSelect: (mode: ReviewSourceMode) => void
+}) {
+  const { t } = useLanguage()
+  const options: Array<{ mode: ReviewSourceMode; icon: ElementType; tone: string }> = [
+    { mode: "screenshot", icon: ImageUp, tone: styles.iconLavender },
+    { mode: "manual", icon: ClipboardList, tone: styles.iconMint },
+    { mode: "file", icon: FileText, tone: styles.iconPeach },
+  ]
+
+  return (
+    <div className={styles.reviewSourceGrid}>
+      {options.map(({ mode, icon: Icon, tone }) => {
+        const isSelected = selected === mode
+        const copy = t.analyze.reviewSources[mode]
+
+        return (
+          <button
+            key={mode}
+            type="button"
+            className={`${styles.reviewSourceCard} ${isSelected ? styles.reviewSourceCardActive : ""}`}
+            aria-pressed={isSelected}
+            onClick={() => onSelect(mode)}
+          >
+            <span className={`${styles.iconBoxSmall} ${tone}`}>
+              <Icon className={styles.iconSm} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>{copy.title}</strong>
+              <small>{copy.description}</small>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function ScreenshotReviewUpload({
+  fileNames,
+  onFileChange,
+  onReadReviews,
+}: {
+  fileNames: string[]
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onReadReviews: () => void
+}) {
+  const { t } = useLanguage()
+
+  return (
+    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
+      <div>
+        <h3 className={styles.titleSm}>{t.analyze.screenshotImportTitle}</h3>
+        <p className={styles.bodyText}>{t.analyze.screenshotImportDescription}</p>
+      </div>
+      <ol className={styles.reviewGuideList}>
+        {t.analyze.screenshotImportSteps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      <div className={styles.reviewDropzone}>
+        <UploadCloud className={styles.iconLg} aria-hidden="true" />
+        <label className={styles.secondaryButton} htmlFor="screenshot-review-files">
+          {t.analyze.screenshotSelectButton}
+        </label>
+        <input
+          id="screenshot-review-files"
+          className={styles.visuallyHidden}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={onFileChange}
+        />
+        {fileNames.length > 0 ? (
+          <div className={styles.fileNameList}>
+            {fileNames.map((fileName) => (
+              <span key={fileName}>{fileName}</span>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.mutedText}>{t.analyze.noScreenshotSelected}</p>
+        )}
+      </div>
+      <button type="button" className={styles.secondaryButton} onClick={onReadReviews}>
+        {t.analyze.readScreenshotButton}
+      </button>
+    </section>
+  )
+}
+
+function DirectReviewInput({
+  value,
+  onChange,
+  onAddReviews,
+}: {
+  value: string
+  onChange: (value: string) => void
+  onAddReviews: () => void
+}) {
+  const { t } = useLanguage()
+
+  return (
+    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
+      <div>
+        <h3 className={styles.titleSm}>{t.analyze.manualImportTitle}</h3>
+        <p className={styles.bodyText}>{t.analyze.manualImportDescription}</p>
+      </div>
+      <label className={styles.label} htmlFor="direct-review-text">
+        {t.analyze.reviewLabel}
+        <textarea
+          id="direct-review-text"
+          className={`${styles.textarea} ${styles.reviewPasteTextarea}`}
+          placeholder={t.analyze.reviewPlaceholder}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+      <button type="button" className={styles.secondaryButton} onClick={onAddReviews}>
+        {t.analyze.addToReviewInbox}
+      </button>
+    </section>
+  )
+}
+
+function ReviewFileUpload({
+  fileName,
+  onFileChange,
+}: {
+  fileName: string
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void
+}) {
+  const { t } = useLanguage()
+
+  return (
+    <section className={`${styles.reviewSourceDetail} ${styles.stackSm}`}>
+      <div>
+        <h3 className={styles.titleSm}>{t.analyze.fileImportTitle}</h3>
+        <p className={styles.bodyText}>{t.analyze.fileImportDescription}</p>
+      </div>
+      <div className={styles.reviewDropzone}>
+        <FileText className={styles.iconLg} aria-hidden="true" />
+        <label className={styles.secondaryButton} htmlFor="review-file-input">
+          {t.analyze.fileSelectButton}
+        </label>
+        <input
+          id="review-file-input"
+          className={styles.visuallyHidden}
+          type="file"
+          accept=".txt,.csv,text/plain,text/csv"
+          onChange={onFileChange}
+        />
+        <p className={styles.mutedText}>{t.analyze.fileSupportText}</p>
+        {fileName && <span className={styles.fileNamePill}>{fileName}</span>}
+      </div>
+    </section>
+  )
+}
+
+function ReviewInbox({
+  reviews,
+  summary,
+  feedback,
+  onContentChange,
+  onToggleIncluded,
+  onDelete,
+  onClear,
+}: {
+  reviews: ReviewDraft[]
+  summary: { totalCount: number; shortCount: number; duplicateCount: number; readyCount: number }
+  feedback: string
+  onContentChange: (reviewId: string, content: string) => void
+  onToggleIncluded: (reviewId: string) => void
+  onDelete: (reviewId: string) => void
+  onClear: () => void
+}) {
+  const { t } = useLanguage()
+
+  return (
+    <section className={`${styles.card} ${styles.stackSm}`}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.reviewInboxTitle}</h2>
+          <p className={styles.bodyText}>{t.analyze.reviewInboxDescription}</p>
+        </div>
+        {reviews.length > 0 && (
+          <button type="button" className={styles.smallPillButton} onClick={onClear}>
+            {t.analyze.reviewInbox.clearAll}
+          </button>
+        )}
+      </div>
+      <div className={styles.reviewInboxSummaryGrid}>
+        <Metric label={t.analyze.reviewInbox.totalCount} value={summary.totalCount} />
+        <Metric label={t.analyze.reviewInbox.shortCount} value={summary.shortCount} />
+        <Metric label={t.analyze.reviewInbox.duplicateCount} value={summary.duplicateCount} />
+        <Metric label={t.analyze.reviewInbox.readyCount} value={summary.readyCount} />
+      </div>
+      {feedback && <p className={styles.reviewFeedback}>{feedback}</p>}
+      {reviews.length === 0 ? (
+        <article className={`${styles.emptyCard} ${styles.stackSm}`}>
+          <h3 className={styles.titleSm}>{t.analyze.reviewInbox.emptyTitle}</h3>
+          <p className={styles.bodyText}>{t.analyze.reviewInbox.emptyDescription}</p>
+        </article>
+      ) : (
+        <div className={styles.reviewDraftList}>
+          {reviews.map((review, index) => (
+            <ReviewDraftCard
+              key={review.id}
+              review={review}
+              index={index}
+              onContentChange={onContentChange}
+              onToggleIncluded={onToggleIncluded}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ReviewDraftCard({
+  review,
+  index,
+  onContentChange,
+  onToggleIncluded,
+  onDelete,
+}: {
+  review: ReviewDraft
+  index: number
+  onContentChange: (reviewId: string, content: string) => void
+  onToggleIncluded: (reviewId: string) => void
+  onDelete: (reviewId: string) => void
+}) {
+  const { t } = useLanguage()
+
+  return (
+    <article className={`${styles.reviewDraftCard} ${!review.included ? styles.reviewDraftExcluded : ""}`}>
+      <div className={styles.reviewDraftHeader}>
+        <strong>{t.analyze.reviewInbox.reviewNumber.replace("{number}", String(index + 1))}</strong>
+        <div className={styles.badgeRow}>
+          <span className={styles.statusBadge}>{t.analyze.reviewInbox.sourceLabels[review.source]}</span>
+          <span className={styles.statusBadge}>{t.analyze.reviewInbox.statusLabels[review.status]}</span>
+        </div>
+      </div>
+      <label className={styles.reviewIncludeToggle}>
+        <input type="checkbox" checked={review.included} onChange={() => onToggleIncluded(review.id)} />
+        <span>{t.analyze.reviewInbox.includeInAnalysis}</span>
+      </label>
+      <label className={styles.label} htmlFor={`review-draft-${review.id}`}>
+        <span className={styles.reviewEditLabel}>
+          <Pencil className={styles.iconXs} aria-hidden="true" />
+          {t.analyze.reviewInbox.editLabel}
+        </span>
+        <textarea
+          id={`review-draft-${review.id}`}
+          className={styles.reviewDraftTextarea}
+          value={review.content}
+          onChange={(event) => onContentChange(review.id, event.target.value)}
+        />
+      </label>
+      <button type="button" className={styles.reviewDeleteButton} onClick={() => onDelete(review.id)}>
+        <Trash2 className={styles.iconXs} aria-hidden="true" />
+        {t.analyze.reviewInbox.deleteButton}
+      </button>
+    </article>
+  )
+}
+
+function AccessibilityEnhancementSection({
+  input,
+  fallback,
+  onTextChange,
+  onBooleanChange,
+}: {
+  input: AccessibilityEnhancementInput
+  fallback: Partial<ReviewAnalyzeRequest>
+  onTextChange: (field: "englishName", value: string) => void
+  onBooleanChange: (field: AccessibilityBooleanField, value: boolean) => void
+}) {
+  const { t } = useLanguage()
+  const resolvedBoolean = (field: AccessibilityBooleanField) => input[field] ?? Boolean(fallback[field])
+
+  return (
+    <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
+      <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
+        {t.analyze.globalAccessEnhancementTitle}
+      </summary>
+      <p className={styles.bodyText}>{t.analyze.globalAccessEnhancementDescription}</p>
+      <label className={styles.label} htmlFor="access-english-name">
+        {t.analyze.englishNameLabel}
+        <input
+          id="access-english-name"
+          className={styles.input}
+          type="text"
+          placeholder={fallback.englishName || t.analyze.englishNamePlaceholder}
+          value={input.englishName}
+          onChange={(event) => onTextChange("englishName", event.target.value)}
+        />
+      </label>
+      <div className={styles.stackSm}>
+        <label className={styles.reviewCheckRow}>
+          <input
+            type="checkbox"
+            checked={resolvedBoolean("hasEnglishInfo")}
+            onChange={(event) => onBooleanChange("hasEnglishInfo", event.target.checked)}
+          />
+          <span>{t.analyze.hasEnglishInfoLabel}</span>
+        </label>
+        <label className={styles.reviewCheckRow}>
+          <input
+            type="checkbox"
+            checked={resolvedBoolean("hasEnglishReviews")}
+            onChange={(event) => onBooleanChange("hasEnglishReviews", event.target.checked)}
+          />
+          <span>{t.analyze.hasEnglishReviewsLabel}</span>
+        </label>
+        <label className={styles.reviewCheckRow}>
+          <input
+            type="checkbox"
+            checked={resolvedBoolean("hasGooglePhotos")}
+            onChange={(event) => onBooleanChange("hasGooglePhotos", event.target.checked)}
+          />
+          <span>{t.analyze.hasGooglePhotosLabel}</span>
+        </label>
+        <label className={styles.reviewCheckRow}>
+          <input
+            type="checkbox"
+            checked={resolvedBoolean("hasPhotos")}
+            onChange={(event) => onBooleanChange("hasPhotos", event.target.checked)}
+          />
+          <span>{t.analyze.hasPhotosLabel}</span>
+        </label>
+      </div>
+    </details>
   )
 }
 

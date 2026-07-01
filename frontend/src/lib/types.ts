@@ -126,6 +126,7 @@ export type ReviewAnalyzeRequest = {
   reviewText?: string
   reviews?: string[]
   outputLanguage?: Language
+  region?: string
   address?: string
   phone?: string
   treatmentItems?: string[]
@@ -153,6 +154,10 @@ export type ReviewEvidence = {
 }
 
 export type ReviewAnalyzeResponse = {
+  analysisRequestId?: number
+  analysisResultId?: number
+  hospitalId?: number
+  reviewIds?: number[]
   totalScore: number
   trustScore: number
   adScore: number

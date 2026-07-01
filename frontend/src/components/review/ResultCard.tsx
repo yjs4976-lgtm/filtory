@@ -15,6 +15,15 @@ import styles from "@/styles/App.module.css"
 import { ScoreCircle } from "./ScoreCircle"
 
 type SignalLevel = "low" | "medium" | "high"
+type GlobalAccessibilityCheckKey = keyof NonNullable<CurrentReviewAnalysis["globalAccessibilityChecks"]>
+
+const GLOBAL_ACCESSIBILITY_DISPLAY_KEYS: GlobalAccessibilityCheckKey[] = [
+  "googleMapLink",
+  "englishName",
+  "englishGuide",
+  "homepageOrBookingLink",
+  "photoInfo",
+]
 
 function MetricRow({
   label,
@@ -200,10 +209,10 @@ export function ResultCard() {
     const informationCompletenessLabel = formatSignalLevel(informationCompletenessLevel(apiResult), language)
     const accessibility = globalAccessibilityScore(apiResult)
     const accessibilityPercent = globalAccessibilityPercent(apiResult)
-    const globalAccessibilityChecks = Object.entries(apiResult.globalAccessibilityChecks ?? {}) as [
-      keyof NonNullable<CurrentReviewAnalysis["globalAccessibilityChecks"]>,
-      boolean | undefined,
-    ][]
+    const globalAccessibilityChecks = GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.map((key) => [
+      key,
+      apiResult.globalAccessibilityChecks?.[key],
+    ] as const)
 
     return (
       <div className={styles.resultStack}>
