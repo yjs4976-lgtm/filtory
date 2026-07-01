@@ -2659,6 +2659,7 @@ button.notificationCard {
 
 .messageList {
   flex: 0 1 auto;
+  min-height: 0;
   max-height: min(42vh, 360px);
   display: flex;
   flex-direction: column;
@@ -2671,20 +2672,30 @@ button.notificationCard {
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 
 .messageUser {
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .bubbleAi,
 .bubbleUser {
+  min-width: 0;
   max-width: 78%;
+  height: auto;
+  max-height: none;
   border-radius: 16px;
   padding: 10px 16px;
   font-size: 14px;
   line-height: 1.6;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  word-break: keep-all;
 }
 
 .bubbleAi {

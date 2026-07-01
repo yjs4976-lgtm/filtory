@@ -57,10 +57,13 @@ export function ChatWindow() {
     recommendedQuestions?.language === language ? recommendedQuestions.questions : []
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [visibleMessages.length])
+    const frameId = window.requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [messages, isResponding])
 
-  async function send(text) {
+  async function send(text: string) {
     const trimmed = text.trim()
     if (!trimmed || isResponding) return
     const userMsg: ChatMessage = { id: nextMessageId.current, role: "user", text: trimmed }
@@ -75,7 +78,8 @@ export function ChatWindow() {
         language,
         analysisContext: buildChatAnalysisContext(),
       })
-      const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: result.data.answer }
+      const fullAnswer = result.data.answer ?? ""
+      const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: fullAnswer }
       nextMessageId.current += 1
       setMessages((prev) => [...prev, aiMsg])
       setRecommendedQuestions({ language, questions: result.data.suggested_questions ?? [] })
