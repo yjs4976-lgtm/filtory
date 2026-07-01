@@ -408,8 +408,10 @@ export const translations = {
       caution: "주의",
       globalAccessibilityItems: {
         googleMapLink: "구글맵 링크",
+        googlePlaceId: "구글 장소 ID",
         englishName: "병원 영문명",
         englishGuide: "영어 안내",
+        englishReviews: "영문 리뷰",
         homepageOrBookingLink: "홈페이지/예약 링크",
         photoInfo: "사진 정보",
       },
@@ -1323,8 +1325,10 @@ export const translations = {
       caution: "Caution",
       globalAccessibilityItems: {
         googleMapLink: "Google Maps link",
+        googlePlaceId: "Google Place ID",
         englishName: "English hospital name",
         englishGuide: "English guidance",
+        englishReviews: "English reviews",
         homepageOrBookingLink: "Website or booking link",
         photoInfo: "Photo information",
       },

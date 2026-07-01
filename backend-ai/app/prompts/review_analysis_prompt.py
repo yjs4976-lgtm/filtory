@@ -1,11 +1,15 @@
 REVIEW_ANALYSIS_SYSTEM_PROMPT = """
 You are Filtory's review trust analyzer.
 Analyze dermatology, ophthalmology, and dental clinic reviews.
-Return only valid JSON that matches the requested schema.
-Do not diagnose medical conditions. Do not claim the review is definitely fake.
-Use cautious wording such as "may be promotional" or "needs additional checks".
-Focus only on review trust, promotional suspicion, repetition, exaggeration, and information completeness.
-Keep summary and recommendation short, friendly, and useful for a user choosing a clinic.
+Filtory does not recommend hospitals on behalf of users.
+Filtory helps users compare how concrete and review-like their candidate clinic reviews feel.
+Analyze only reviews directly provided by the user. Do not crawl or infer from external platforms.
+Do not claim a review is fake, manipulated, promotional, dangerous, legally problematic, or definitely trustworthy.
+Do not diagnose medical conditions, recommend treatment, or provide legal judgment.
+Use cautious wording such as "may look promotional", "some repeated patterns appear", or "needs additional checks".
+Return only valid JSON that matches the requested schema. Do not add markdown, code fences, or explanations outside JSON.
+The server will calculate totalScore, placeScore, foreignerScore, analyzedReviewCount, and modelVersion.
+Focus on trustScore, adScore, repetitionLevel, informationLevel, evidence, summary, and recommendation.
 """
 
 
@@ -17,13 +21,19 @@ Review text:
 {review_text}
 
 Check:
-1. Trust score from 0 to 100
-2. Five-level trust grade
-3. Promotional suspicion
-4. Suspicious promotional phrases
-5. Repeated or exaggerated phrases
-6. Whether the review has concrete treatment details
-7. Summary and user recommendation
+1. trustScore from 0 to 100. Higher means the review is more concrete and useful as reference information.
+2. adScore from 0 to 100. Higher means stronger promotional or advertising-like suspicion.
+3. repetitionLevel: low, medium, or high.
+4. informationLevel.
+   - If outputLanguage is ko: 매우 구체적, 구체적, 보통, 정보 부족, 매우 부족.
+   - If outputLanguage is en: Very specific, Specific, Moderate, Limited, Very limited.
+5. evidence.suspiciousPhrases: short phrases that may look promotional.
+6. evidence.specificPhrases: short phrases that show concrete visit, consultation, cost, waiting, pain, or process details.
+7. evidence.repetitivePhrases: repeated or exaggerated phrases.
+8. evidence.warnings: cautious warning signals. Do not make definitive claims.
+9. evidence.positiveSignals: concrete signals that can help comparison.
+10. evidence.checkItems: short items the user should verify before choosing a clinic.
+11. summary and recommendation in the requested output language.
 """
 
 
@@ -33,38 +43,32 @@ REVIEW_ANALYSIS_JSON_SCHEMA = {
     "properties": {
         "trustScore": {
             "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
         },
-        "trustGrade": {
-            "type": "string",
-            "enum": ["매우 신뢰", "양호", "주의", "의심", "매우 의심"],
+        "adScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
         },
-        "trustLevelKey": {
-            "type": "string",
-            "enum": ["veryHigh", "high", "caution", "concern", "veryConcern"],
-        },
-        "adSuspicion": {
-            "type": "string",
-            "enum": ["낮음", "보통", "높음"],
-        },
-        "adSuspicionLevel": {
+        "repetitionLevel": {
             "type": "string",
             "enum": ["low", "medium", "high"],
         },
-        "detectedPatterns": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
-        "suspiciousPhrases": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
-        "repetitivePhrases": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
         "informationLevel": {
             "type": "string",
-            "enum": ["구체적", "보통", "정보 부족"],
+            "enum": [
+                "매우 구체적",
+                "구체적",
+                "보통",
+                "정보 부족",
+                "매우 부족",
+                "Very specific",
+                "Specific",
+                "Moderate",
+                "Limited",
+                "Very limited",
+            ],
         },
         "summary": {
             "type": "string",
@@ -72,22 +76,52 @@ REVIEW_ANALYSIS_JSON_SCHEMA = {
         "recommendation": {
             "type": "string",
         },
-        "modelVersion": {
-            "type": "string",
+        "evidence": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "suspiciousPhrases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "specificPhrases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "repetitivePhrases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "positiveSignals": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "checkItems": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+            "required": [
+                "suspiciousPhrases",
+                "specificPhrases",
+                "repetitivePhrases",
+                "warnings",
+                "positiveSignals",
+                "checkItems",
+            ],
         },
     },
     "required": [
         "trustScore",
-        "trustGrade",
-        "trustLevelKey",
-        "adSuspicion",
-        "adSuspicionLevel",
-        "detectedPatterns",
-        "suspiciousPhrases",
-        "repetitivePhrases",
+        "adScore",
+        "repetitionLevel",
         "informationLevel",
         "summary",
         "recommendation",
-        "modelVersion",
+        "evidence",
     ],
 }
