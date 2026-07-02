@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
 import {
   getDemoReviewsForHospital,
@@ -54,6 +55,7 @@ import { ROUTES } from "@/lib/routes"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
+import { ApiClientError } from "@/services/apiClient"
 import styles from "@/styles/App.module.css"
 
 type AccessibilityBooleanField = "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
@@ -638,6 +640,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t, language } = useLanguage()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
   const currentLanguage = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<AnalyzeCategoryFilter>(() => normalizeCategoryParam(searchParams.get("category")))
@@ -1155,6 +1158,29 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setSelectedReviewIds([])
   }
 
+  const requireLoginForAnalysis = useCallback((force = false) => {
+    if (isAuthLoading) {
+      setInputError(t.auth.checkingLogin)
+      setAnalyzeError("")
+      return true
+    }
+
+    if (isAuthenticated && !force) return false
+
+    const queryString = searchParams.toString()
+    const nextPath = `${ROUTES.ANALYZE}${queryString ? `?${queryString}` : ""}`
+
+    setInputError(t.analyze.analysisLoginRequired)
+    setAnalyzeError("")
+    showToast({
+      title: t.analyze.analysisLoginRequired,
+      description: t.auth.loginDescription,
+      tone: "info",
+    })
+    router.push(`${ROUTES.LOGIN}?next=${encodeURIComponent(nextPath)}`)
+    return true
+  }, [isAuthLoading, isAuthenticated, router, searchParams, showToast, t.analyze.analysisLoginRequired, t.auth.checkingLogin, t.auth.loginDescription])
+
   const analyzeWithApi = async ({
     hospital,
     hospitalName,
@@ -1170,6 +1196,8 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     selectedReviewCount: number
     totalReviewCount: number
   }) => {
+    if (requireLoginForAnalysis()) return
+
     setIsAnalyzing(true)
     setAnalyzeError("")
     setInputError("")
@@ -1212,7 +1240,12 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
       router.push(ROUTES.RESULT)
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 401) {
+        requireLoginForAnalysis(true)
+        return
+      }
+
       setAnalyzeError(t.analyze.analyzeError)
     } finally {
       setIsAnalyzing(false)

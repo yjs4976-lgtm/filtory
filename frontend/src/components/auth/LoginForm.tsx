@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
@@ -12,6 +12,7 @@ import styles from "@/styles/App.module.css";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -40,7 +41,8 @@ export function LoginForm() {
         description: t.auth.loginToastDescription,
         tone: "success",
       });
-      router.push(ROUTES.MYPAGE);
+      const nextPath = searchParams.get("next");
+      router.push(nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : ROUTES.MYPAGE);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.auth.loginFailed);
     } finally {

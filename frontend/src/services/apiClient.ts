@@ -10,6 +10,18 @@ interface RequestOptions {
   headers?: HeadersInit;
 }
 
+export class ApiClientError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = "ApiClientError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 function toRequestBody(body: unknown): BodyInit | undefined {
   if (body === undefined || body === null) return undefined;
   if (typeof body === "string") return body;
@@ -57,7 +69,7 @@ export async function apiClient<T>(
   const result = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(result?.message || "요청 처리 중 오류가 발생했습니다.");
+    throw new ApiClientError(result?.message || "요청 처리 중 오류가 발생했습니다.", response.status, result);
   }
 
   if (result && typeof result === "object" && "data" in result) {
