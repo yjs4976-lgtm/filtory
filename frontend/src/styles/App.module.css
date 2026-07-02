@@ -3297,6 +3297,39 @@ button.notificationCard {
   border-radius: inherit;
 }
 
+.mapZoomButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.mapZoomButton:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.hospitalMapFallback {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+  padding: 12px 14px;
+}
+
 .hospitalCardActions {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
