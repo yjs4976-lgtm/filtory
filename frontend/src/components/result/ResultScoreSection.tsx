@@ -10,22 +10,22 @@ type ResultScoreSectionProps = {
   language: Language
 }
 
-const trustSteps: TrustResultKey[] = ["very_safe", "safe", "caution", "risky", "danger"]
+const trustSteps: TrustResultKey[] = ["very_safe", "safe", "normal", "caution", "danger"]
 
 const stepLabels: Record<Language, Record<TrustResultKey, string>> = {
   ko: {
     very_safe: "매우 안전",
     safe: "안전",
+    normal: "보통",
     caution: "주의",
-    risky: "위험",
-    danger: "매우 위험",
+    danger: "위험",
   },
   en: {
     very_safe: "Very safe",
     safe: "Safe",
+    normal: "Normal",
     caution: "Caution",
-    risky: "Risky",
-    danger: "Very risky",
+    danger: "Danger",
   },
 }
 

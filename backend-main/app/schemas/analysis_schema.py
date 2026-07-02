@@ -96,6 +96,9 @@ def analysis_result_to_canonical_dict(analysis_result):
     evidence_json = analysis_result.evidence_json if isinstance(analysis_result.evidence_json, dict) else {}
     raw_response = evidence_json.get("rawResponse")
     raw = raw_response if isinstance(raw_response, dict) else {}
+    evidence = raw.get("evidence") if isinstance(raw.get("evidence"), dict) else evidence_json.get("evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    global_accessibility_checks = raw.get("globalAccessibilityChecks")
     summary = analysis_result.summary_ko or analysis_result.summary_en or raw.get("summary") or ""
 
     return {
@@ -113,11 +116,18 @@ def analysis_result_to_canonical_dict(analysis_result):
             analysis_result.foreigner_score,
         ),
         "globalAccessibilityLevel": raw.get("globalAccessibilityLevel"),
+        "globalAccessibilityMaxScore": _first_present(raw.get("globalAccessibilityMaxScore"), 100),
+        "globalAccessibilityChecks": global_accessibility_checks if isinstance(global_accessibility_checks, dict) else {},
         "detectedPatterns": _string_list(raw.get("detectedPatterns")),
         "suspiciousPhrases": _string_list(raw.get("suspiciousPhrases")),
         "repetitivePhrases": _string_list(raw.get("repetitivePhrases")),
         "positiveSignals": _string_list(raw.get("positiveSignals")),
         "negativeSignals": _string_list(raw.get("negativeSignals")),
+        "warningSignals": _string_list(raw.get("warningSignals") or evidence.get("warnings")),
+        "specificPhrases": _string_list(evidence.get("specificPhrases")),
+        "checkItems": _string_list(evidence.get("checkItems")),
+        "analyzedReviewCount": _first_present(raw.get("analyzedReviewCount"), evidence_json.get("analyzedReviewCount")),
+        "evidence": evidence,
         "summary": summary,
         "recommendation": raw.get("recommendation") or evidence_json.get("recommendation") or "",
         "visitTip": raw.get("visitTip") or "",

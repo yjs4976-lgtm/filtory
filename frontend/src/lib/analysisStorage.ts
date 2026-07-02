@@ -4,6 +4,16 @@ const STORAGE_KEY = "filtory-analysis-history"
 const LEGACY_STORAGE_KEYS = ["analysisHistory", "reviewHistory", "filtory-review-history"]
 const CURRENT_ANALYSIS_KEY = "filtory-current-review-analysis"
 
+function toFiveStarScore(score?: number, maxScore?: number) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return 0
+  const resolvedMax = typeof maxScore === "number" && maxScore > 0
+    ? maxScore
+    : score > 5
+      ? 100
+      : 5
+  return Math.max(0, Math.min(5, Math.round((score / resolvedMax) * 5)))
+}
+
 function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem | null {
   const rawName = item.hospitalName ?? item.hospital_name ?? item.name
   const hospitalName =
@@ -23,6 +33,10 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
   const id = String(item.id ?? "")
 
   if (!id || !hospitalName) return null
+  const globalAccessibilityScore = Number(
+    item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreignerScore ?? item.foreigner_score ?? 0
+  )
+  const globalAccessRating = Number(item.globalAccessRating ?? item.global_access_rating ?? globalAccessibilityScore)
 
   return {
     ...item,
@@ -40,9 +54,8 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
     adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
     informationScore: Number(item.informationScore ?? item.information_score ?? item.placeScore ?? item.place_score ?? 0),
-    globalAccessibilityScore: Number(
-      item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreignerScore ?? item.foreigner_score ?? 0
-    ),
+    globalAccessibilityScore,
+    globalAccessRating: toFiveStarScore(globalAccessRating),
   } as AnalysisHistoryItem
 }
 
@@ -183,7 +196,10 @@ export function writeCurrentReviewAnalysisFromHistory(item: AnalysisHistoryItem)
   const trustScore = item.trustScore ?? item.score ?? 0
   const adSuspicionScore = item.adSuspicionScore ?? 0
   const informationScore = item.informationScore ?? item.infoCompletenessScore ?? 0
-  const globalAccessibilityScore = item.globalAccessibilityScore ?? item.foreignerFriendlyScore ?? item.globalAccessRating ?? 0
+  const globalAccessibilityScore =
+    item.globalAccessibilityScore ??
+    item.foreignerFriendlyScore ??
+    (typeof item.globalAccessRating === "number" ? item.globalAccessRating * 20 : 0)
   const suspiciousPhrases = item.suspiciousPhrases ?? []
   const repetitivePhrases = item.repetitivePhrases ?? []
   const positiveSignals = item.positiveSignals ?? item.trustworthyPhrases ?? []

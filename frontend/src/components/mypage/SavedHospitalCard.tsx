@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { SavedHospital } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface SavedHospitalCardProps {
@@ -44,7 +44,7 @@ export function SavedHospitalCard({ hospital, onAddToCompare, onUnsave }: SavedH
         </span>
         <span>{t.mypage.adSuspicionLabel} {adSuspicionLevel}</span>
         <span>{t.mypage.infoCompletenessLabel} {hospital.infoCompletenessScore}{t.mypage.pointsSuffix}</span>
-        <span>{t.mypage.globalLabel} {formatStars(hospital.globalAccessRating)}</span>
+        <span>{t.mypage.globalLabel} {formatFivePointRating(hospital.globalAccessRating)}</span>
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.RESULT} className={styles.secondaryButton}>

@@ -32,15 +32,6 @@ export function ForeignerFriendlyRating({ checks }: { checks: ForeignerFriendlyC
         <strong className={styles.foreignerScoreText}>{result.score}{t.result.pointsSuffix}</strong>
       </div>
 
-      <div className={styles.foreignerStars} aria-label={`${result.stars}/5`}>
-        {Array.from({ length: 5 }, (_, index) => (
-          <span key={index} className={index < result.stars ? styles.starFilled : styles.starEmpty}>
-            ★
-          </span>
-        ))}
-        <strong>{result.score}{t.result.pointsSuffix}</strong>
-      </div>
-
       <p className={styles.mutedText}>{message}</p>
 
       <div className={styles.foreignerChecklistGrid}>

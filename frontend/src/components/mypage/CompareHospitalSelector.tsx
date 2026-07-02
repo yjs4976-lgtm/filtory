@@ -1,7 +1,7 @@
 "use client"
 
 import type { CompareHospital } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
@@ -33,7 +33,7 @@ export function CompareHospitalSelector({ hospitals, selectedIds, onToggle }: Co
               <span className={styles.recordBody}>
                 <strong className={styles.recordName}>{hospital.hospitalName}</strong>
                 <span className={styles.recordDate}>
-                  {t.mypage.trustScoreLabel} {hospital.trustScore}{language === "ko" ? "점" : " pts"} · {t.mypage.globalAccessLabel} {formatStars(hospital.globalAccessRating)}
+                  {t.mypage.trustScoreLabel} {hospital.trustScore}{language === "ko" ? "점" : " pts"} · {t.mypage.globalAccessLabel} {formatFivePointRating(hospital.globalAccessRating)}
                 </span>
               </span>
               <span className={styles.neutralPill}>{selected ? t.mypage.selected : t.mypage.select}</span>

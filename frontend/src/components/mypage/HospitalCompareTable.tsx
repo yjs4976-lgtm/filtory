@@ -1,5 +1,5 @@
 import type { CompareHospital, HospitalCategory } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface HospitalCompareTableProps {
@@ -46,7 +46,7 @@ export function HospitalCompareTable({ category, hospitals }: HospitalCompareTab
     ["리뷰 신뢰도", (hospital: CompareHospital) => `${hospital.trustScore}점`],
     ["광고 의심 정도", (hospital: CompareHospital) => `${hospital.adSuspicionScore}점`],
     ["정보 완성도", (hospital: CompareHospital) => `${hospital.infoCompletenessScore}점`],
-    ["외국인 방문 편의도", (hospital: CompareHospital) => formatStars(hospital.globalAccessRating)],
+    ["외국인 방문 편의도", (hospital: CompareHospital) => formatFivePointRating(hospital.globalAccessRating)],
     ["리뷰 수", (hospital: CompareHospital) => `${hospital.reviewCount}개`],
     ["최근 리뷰 비율", (hospital: CompareHospital) => `${hospital.recentReviewRatio}%`],
     ["부정 리뷰 비율", (hospital: CompareHospital) => `${hospital.negativeReviewRatio}%`],

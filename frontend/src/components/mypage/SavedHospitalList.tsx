@@ -5,7 +5,7 @@ import { Bookmark } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import type { SavedHospital } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import { SavedHospitalCard } from "./SavedHospitalCard"
 import styles from "@/styles/App.module.css"
 
@@ -55,7 +55,7 @@ export function SavedHospitalList({ hospitals = [], preview = true, onAddToCompa
                     {t.mypage.pointsSuffix}
                   </span>
                   <span className={styles.recordMeta}>
-                    {t.mypage.globalAccess} {formatStars(hospital.globalAccessRating)} · {hospital.address}
+                    {t.mypage.globalAccess} {formatFivePointRating(hospital.globalAccessRating)} · {hospital.address}
                   </span>
                 </span>
               </article>

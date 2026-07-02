@@ -22,10 +22,9 @@ function formatDate(value?: string, locale: string = "ko-KR") {
   })
 }
 
-function formatStars(score?: number) {
+function formatAccessibilityScore(score?: number, pointsSuffix = "점") {
   const safeScore = Math.max(0, Math.min(100, score ?? 0))
-  const filled = Math.round(safeScore / 20)
-  return `${"★".repeat(filled)}${"☆".repeat(5 - filled)}`
+  return `${safeScore}${pointsSuffix}`
 }
 
 export function RecentAnalysisPreview({ records }: RecentAnalysisPreviewProps) {
@@ -71,9 +70,8 @@ export function RecentAnalysisPreview({ records }: RecentAnalysisPreviewProps) {
                 </span>
                 {item.foreignerFriendlyScore !== undefined && (
                   <span className={styles.recordMeta}>
-                    {t.mypage.foreignerFriendliness} {formatStars(item.foreignerFriendlyScore)}{" "}
-                    {item.foreignerFriendlyScore}
-                    {t.mypage.pointsSuffix}
+                    {t.mypage.foreignerFriendliness}{" "}
+                    {formatAccessibilityScore(item.foreignerFriendlyScore, t.mypage.pointsSuffix)}
                   </span>
                 )}
               </span>

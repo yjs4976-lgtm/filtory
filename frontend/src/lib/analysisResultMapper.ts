@@ -1,8 +1,8 @@
 import { getGlobalAccessibilityCheckLabel } from "./displayLabels"
 import type { HospitalCategory, Language } from "./types"
 
-export type TrustResultKey = "very_safe" | "safe" | "caution" | "risky" | "danger"
-export type AdSuspicionLabel = "낮음" | "보통" | "높음"
+export type TrustResultKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
+export type AdSuspicionKey = "low" | "medium" | "high"
 
 export type AnalysisResultViewModel = {
   ids: {
@@ -30,7 +30,8 @@ export type AnalysisResultViewModel = {
     description: string
   }
   ad: {
-    label: AdSuspicionLabel
+    key: AdSuspicionKey
+    label: string
     score: number
     description: string
   }
@@ -103,10 +104,18 @@ function firstValue(...values: unknown[]) {
   return values.find((value) => value !== undefined && value !== null && value !== "")
 }
 
-function numberValue(...values: unknown[]) {
+function scoreValue(...values: unknown[]) {
   for (const value of values) {
     const numeric = Number(value)
     if (Number.isFinite(numeric)) return Math.max(0, Math.min(100, Math.round(numeric)))
+  }
+  return 0
+}
+
+function countValue(...values: unknown[]) {
+  for (const value of values) {
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) return Math.max(0, Math.round(numeric))
   }
   return 0
 }
@@ -162,24 +171,32 @@ function normalizedLevel(value: unknown): string {
   return "보통"
 }
 
-export function deriveAdSuspicionLabel(score: number, value?: unknown): AdSuspicionLabel {
-  const text = stringValue(value)
-  if (text.includes("높") || text.toLowerCase() === "high") return "높음"
-  if (text.includes("낮") || text.toLowerCase() === "low") return "낮음"
-  if (text.includes("보통") || text.toLowerCase() === "medium") return "보통"
-  if (score >= 70) return "높음"
-  if (score >= 40) return "보통"
-  return "낮음"
+export function deriveAdSuspicionKey(score: number, value?: unknown): AdSuspicionKey {
+  const text = stringValue(value).toLowerCase()
+  if (text.includes("높") || text === "high") return "high"
+  if (text.includes("낮") || text === "low") return "low"
+  if (text.includes("보통") || text === "medium") return "medium"
+  if (score >= 70) return "high"
+  if (score >= 40) return "medium"
+  return "low"
 }
 
-function adDescription(label: AdSuspicionLabel, language: Language) {
+function adLabel(key: AdSuspicionKey, language: Language) {
+  const labels: Record<Language, Record<AdSuspicionKey, string>> = {
+    ko: { low: "낮음", medium: "보통", high: "높음" },
+    en: { low: "Low", medium: "Medium", high: "High" },
+  }
+  return labels[language][key]
+}
+
+function adDescription(key: AdSuspicionKey, language: Language) {
   if (language === "en") {
-    if (label === "높음") return "Ad-like wording or repeated patterns may be present, so review carefully."
-    if (label === "보통") return "Some promotional wording may be present. Check the review details together."
+    if (key === "high") return "Ad-like wording or repeated patterns may be present, so review carefully."
+    if (key === "medium") return "Some promotional wording may be present. Check the review details together."
     return "Few repeated or exaggerated promotional expressions were detected."
   }
-  if (label === "높음") return "광고성 문구나 반복 패턴 가능성이 있어 신중히 확인해야 해요."
-  if (label === "보통") return "일부 홍보성 표현이 있을 수 있어 리뷰 내용을 함께 확인해보세요."
+  if (key === "high") return "광고성 문구나 반복 패턴 가능성이 있어 신중히 확인해야 해요."
+  if (key === "medium") return "일부 홍보성 표현이 있을 수 있어 리뷰 내용을 함께 확인해보세요."
   return "반복적이거나 과장된 홍보 표현이 적게 감지됐어요."
 }
 
@@ -194,10 +211,9 @@ export function deriveTrustLevel(
   let key: TrustResultKey | undefined
 
   if (["very_safe", "very_high"].includes(normalizedLevel) || normalizedGrade.includes("매우 안전")) key = "very_safe"
-  if (["safe", "high"].includes(normalizedLevel) || normalizedGrade.includes("안전")) key = key ?? "safe"
-  if (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("주의")) key = key ?? "caution"
-  if (["caution", "low", "risky"].includes(normalizedLevel) && score < 50) key = key ?? "risky"
-  if (["caution", "low", "risky"].includes(normalizedLevel)) key = key ?? "caution"
+  if (["safe", "high"].includes(normalizedLevel) || normalizedGrade === "안전") key = key ?? "safe"
+  if (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("보통")) key = key ?? "normal"
+  if (["caution", "low", "risky"].includes(normalizedLevel) || normalizedGrade.includes("주의")) key = key ?? "caution"
   if (["danger", "very_low"].includes(normalizedLevel)) key = "danger"
 
   key = key ?? scoreToTrustKey(score)
@@ -206,31 +222,31 @@ export function deriveTrustLevel(
     ko: {
       very_safe: "매우 안전",
       safe: "안전",
+      normal: "보통",
       caution: "주의",
-      risky: "위험",
-      danger: "매우 위험",
+      danger: "위험",
     },
     en: {
       very_safe: "Very safe",
       safe: "Safe",
+      normal: "Normal",
       caution: "Caution",
-      risky: "Risky",
-      danger: "Very risky",
+      danger: "Danger",
     },
   }
   const descriptions = {
     ko: {
       very_safe: "구체적인 방문 경험과 신뢰 신호가 충분해요.",
       safe: "전반적으로 신뢰할 만하지만 최신 정보 확인이 필요해요.",
-      caution: "참고할 수는 있지만 일부 정보 확인이 필요해요.",
-      risky: "광고성 표현이나 정보 부족 가능성이 있어 신중한 확인이 필요해요.",
+      normal: "참고할 수는 있지만 일부 정보 확인이 필요해요.",
+      caution: "광고성 표현이나 정보 부족 가능성이 있어 신중한 확인이 필요해요.",
       danger: "리뷰 신뢰도가 낮아 병원 선택 전 추가 확인이 꼭 필요해요.",
     },
     en: {
       very_safe: "There are enough concrete visit details and trust signals.",
       safe: "Overall trustworthy, but recent information is still worth checking.",
-      caution: "Useful as a reference, but some information should be checked.",
-      risky: "Ad-like wording or limited information may require careful checking.",
+      normal: "Useful as a reference, but some information should be checked.",
+      caution: "Ad-like wording or limited information may require careful checking.",
       danger: "Review trust is low, so additional checking is strongly recommended.",
     },
   }
@@ -244,10 +260,10 @@ export function deriveTrustLevel(
 }
 
 function scoreToTrustKey(score: number): TrustResultKey {
-  if (score >= 80) return "very_safe"
-  if (score >= 65) return "safe"
-  if (score >= 50) return "caution"
-  if (score >= 35) return "risky"
+  if (score >= 85) return "very_safe"
+  if (score >= 70) return "safe"
+  if (score >= 50) return "normal"
+  if (score >= 30) return "caution"
   return "danger"
 }
 
@@ -299,24 +315,30 @@ function normalizeScoreMax(score: number, maxScore?: number) {
   return score > 5 ? 100 : 5
 }
 
+function globalAccessRatingToScore(value: unknown) {
+  const numeric = optionalNumber(value)
+  if (numeric === undefined) return undefined
+  return numeric <= 5 ? numeric * 20 : numeric
+}
+
 export function normalizeAnalysisResult(input: unknown, options: { language?: Language } = {}): AnalysisResultViewModel {
   const language = options.language ?? "ko"
   const { root, result } = normalizeInput(input)
   const evidence = pickRecord(result, "evidence")
   const evidenceJson = pickRecord(root, "evidence_json")
-  const totalScore = numberValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
-  const trustScore = numberValue(result.trustScore, result.trust_score, root.trustScore, root.trust_score, totalScore)
-  const adSuspicionScore = numberValue(result.adSuspicionScore, result.adScore, result.ad_score, root.adSuspicionScore, root.ad_score)
-  const informationScore = numberValue(result.informationScore, result.placeScore, result.place_score, root.informationScore, root.infoCompletenessScore)
-  const globalAccessibilityScore = numberValue(
+  const totalScore = scoreValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
+  const trustScore = scoreValue(result.trustScore, result.trust_score, root.trustScore, root.trust_score, totalScore)
+  const adSuspicionScore = scoreValue(result.adSuspicionScore, result.adScore, result.ad_score, root.adSuspicionScore, root.ad_score)
+  const informationScore = scoreValue(result.informationScore, result.placeScore, result.place_score, root.informationScore, root.infoCompletenessScore)
+  const globalAccessibilityScore = scoreValue(
     result.globalAccessibilityScore,
     result.foreignerScore,
     result.foreigner_score,
     root.globalAccessibilityScore,
     root.foreignerFriendlyScore,
-    root.globalAccessRating
+    globalAccessRatingToScore(root.globalAccessRating)
   )
-  const analyzedReviewCount = numberValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
+  const analyzedReviewCount = countValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
   const warningSignals = safeStringArray(result.warningSignals, evidence.warnings, evidenceJson.warnings)
   const detectedPatternSource = safeStringArray(result.detectedPatterns, root.detectedPatterns, root.detectedReasons)
   const referenceWarnings = uniqueValues([...warningSignals, ...detectedPatternSource].filter(isReferenceWarning))
@@ -327,7 +349,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const repetitivePhrases = safeStringArray(result.repetitivePhrases, evidence.repetitivePhrases, root.repetitivePhrases).filter(
     (item) => !isReferenceWarning(item)
   )
-  const adLabel = deriveAdSuspicionLabel(adSuspicionScore, firstValue(result.adSuspicion, result.adSuspicionLevel, root.adSuspicionLevel))
+  const adKey = deriveAdSuspicionKey(adSuspicionScore, firstValue(result.adSuspicion, result.adSuspicionLevel, root.adSuspicionLevel))
   const maxScore = normalizeScoreMax(
     globalAccessibilityScore,
     optionalNumber(firstValue(result.globalAccessibilityMaxScore, root.globalAccessibilityMaxScore))
@@ -359,9 +381,10 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     },
     trust: deriveTrustLevel(trustScore, firstValue(result.trustLevelKey, result.trust_level, root.trustLevelKey, root.trustLevel), result.trustGrade, language),
     ad: {
-      label: adLabel,
+      key: adKey,
+      label: adLabel(adKey, language),
       score: adSuspicionScore,
-      description: adDescription(adLabel, language),
+      description: adDescription(adKey, language),
     },
     repetition: {
       level: normalizedLevel(result.repetitionLevel),

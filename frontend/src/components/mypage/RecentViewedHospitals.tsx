@@ -5,7 +5,7 @@ import { Clock3, MapPin } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import type { RecentViewedHospital } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface RecentViewedHospitalsProps {
@@ -43,7 +43,7 @@ export function RecentViewedHospitals({ hospitals }: RecentViewedHospitalsProps)
                 </span>
                 <span className={styles.recordMeta}>
                   <MapPin className={styles.iconXs} /> {hospital.address} · {t.mypage.globalAccess}{" "}
-                  {formatStars(hospital.globalAccessRating)}
+                  {formatFivePointRating(hospital.globalAccessRating)}
                 </span>
               </span>
             </article>

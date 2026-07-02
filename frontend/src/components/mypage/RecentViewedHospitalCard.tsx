@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import { getTrustLevelByKey, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { RecentViewedHospital } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface RecentViewedHospitalCardProps {
@@ -38,7 +38,7 @@ export function RecentViewedHospitalCard({ hospital, onSave, onDelete }: RecentV
             t.mypage.notAnalyzed
           )}{" "}
           ·{" "}
-          {formatStars(hospital.globalAccessRating)}
+          {formatFivePointRating(hospital.globalAccessRating)}
         </p>
       </div>
       <div className={styles.actionRow}>

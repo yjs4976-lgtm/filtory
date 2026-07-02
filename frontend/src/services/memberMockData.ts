@@ -18,9 +18,9 @@ export const categoryLabels: Record<HospitalCategory, string> = {
   dental: "치과",
 }
 
-export function formatStars(rating = 0) {
+export function formatFivePointRating(rating = 0) {
   const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
-  return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`
+  return `${safeRating}/5`
 }
 
 export const mockAnalysisHistory: AnalysisHistoryItem[] = [

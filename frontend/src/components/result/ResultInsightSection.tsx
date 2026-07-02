@@ -73,7 +73,7 @@ export function ResultInsightSection({ viewModel, language }: ResultInsightSecti
           <h2 className={styles.titleSm}>{label.coreInsight}</h2>
         </div>
         <div className={styles.resultBadgePanel}>
-          <span className={`${styles.resultStatusBadge} ${viewModel.ad.label === "높음" ? styles.resultBadgeHigh : styles.resultBadgeSoft}`}>
+          <span className={`${styles.resultStatusBadge} ${viewModel.ad.key === "high" ? styles.resultBadgeHigh : styles.resultBadgeSoft}`}>
             {label.adSuspicion} {viewModel.ad.label}
           </span>
           <p className={styles.mutedText}>{viewModel.ad.description}</p>

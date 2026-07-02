@@ -15,7 +15,7 @@ import { formatDisplayDate } from "@/lib/dateFormat"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem } from "@/lib/types"
-import { formatStars } from "@/services/memberMockData"
+import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
 interface AnalysisHistoryCardProps {
@@ -67,7 +67,7 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
         </span>
         <span>{t.mypage.adSuspicionLabel} {adSuspicionLevel}</span>
         <span>{t.mypage.infoCompletenessLabel} {item.infoCompletenessScore ?? 0}{t.mypage.pointsSuffix}</span>
-        <span>{t.mypage.globalLabel} {formatStars(item.globalAccessRating)}</span>
+        <span>{t.mypage.globalLabel} {formatFivePointRating(item.globalAccessRating)}</span>
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.RESULT} className={styles.secondaryButton} onClick={viewResult}>

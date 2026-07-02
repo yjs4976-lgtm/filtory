@@ -194,7 +194,7 @@ type ApiAnalysisResult = AnalysisHistoryItem & {
 function trustLevelLabel(t: ReturnType<typeof useLanguage>["t"], level?: string, score?: number) {
   if (typeof score === "number") return t.trustLevels[getTrustLevelKey(score)]
   const trustLevelKey = normalizeTrustLevelKey(level)
-  return trustLevelKey ? t.trustLevels[trustLevelKey] : t.trustLevels.high
+  return trustLevelKey ? t.trustLevels[trustLevelKey] : t.trustLevels.safe
 }
 
 function levelLabel(t: ReturnType<typeof useLanguage>["t"], level?: string) {
@@ -210,9 +210,14 @@ function signalLevelFromValue(level?: string): "low" | "medium" | "high" {
   return "medium"
 }
 
-function formatStars(rating = 0) {
-  const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
-  return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`
+function toFiveStarScore(score?: number, maxScore?: number) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return 0
+  const resolvedMax = typeof maxScore === "number" && maxScore > 0
+    ? maxScore
+    : score > 5
+      ? 100
+      : 5
+  return Math.max(0, Math.min(5, Math.round((score / resolvedMax) * 5)))
 }
 
 function concreteExperienceLevel(informationLevel: string): "low" | "medium" | "high" {
@@ -511,10 +516,14 @@ function createApiAnalysisResult({
   selectedReviewCount: number
   totalReviewCount: number
 }): ApiAnalysisResult {
-  const foreignAccessibilityStars =
+  const globalAccessibilityScore =
     response.globalAccessibilityScore ??
     response.foreignerScore ??
     (hospital ? [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length : 0)
+  const foreignAccessibilityStars = toFiveStarScore(
+    globalAccessibilityScore,
+    response.globalAccessibilityMaxScore
+  )
 
   return {
     id: `analysis-${Date.now()}`,
@@ -534,7 +543,7 @@ function createApiAnalysisResult({
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
     score: response.totalScore,
-    foreignerFriendlyScore: response.globalAccessibilityScore ?? response.foreignerScore,
+    foreignerFriendlyScore: globalAccessibilityScore,
     createdAt: new Date().toISOString(),
     analyzedAt: new Date().toISOString(),
     selectedReviewCount,
@@ -561,7 +570,7 @@ function createApiAnalysisResult({
     visitTip: response.visitTip,
     modelVersion: response.modelVersion,
     infoCompletenessScore: response.informationScore,
-    globalAccessibilityScore: response.globalAccessibilityScore,
+    globalAccessibilityScore,
     globalAccessibilityLevel: response.globalAccessibilityLevel,
     globalAccessRating: foreignAccessibilityStars,
     foreignAccessibilityStars,
@@ -1607,7 +1616,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             <Metric label={t.analyze.modelVersion} value={analysisResult.modelVersion ?? "mock"} />
             <Metric label={t.analyze.repetitivePattern} value={levelLabel(t, analysisResult.repetitivePatternLevel)} />
             <Metric label={t.analyze.concreteExperience} value={levelLabel(t, analysisResult.concreteExperienceLevel)} />
-            <Metric label={t.analyze.foreignAccessibility} value={formatStars(analysisResult.foreignAccessibilityStars)} />
+            <Metric
+              label={t.analyze.foreignAccessibility}
+              value={`${analysisResult.globalAccessibilityScore ?? 0}${t.result.pointsSuffix}`}
+            />
           </div>
           <p className={styles.bodyText}>{analysisResult.summary}</p>
           <div className={styles.badgeRow}>

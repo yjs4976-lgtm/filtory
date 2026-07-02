@@ -5,7 +5,7 @@ Return only one valid JSON object. Do not include markdown, code fences, explana
 All fields in the schema are required. Use empty arrays when no array values exist.
 All score fields must be numbers from 0 to 100.
 Use only the enum values defined in the schema.
-Write Korean summary, recommendation, and visitTip naturally and cautiously.
+Write summary, recommendation, and visitTip naturally and cautiously in the requested output language.
 Do not diagnose, guarantee treatment results, make legal judgments, or directly recommend or condemn a clinic.
 Analyze only the provided review text from a review-trust perspective.
 """.strip()
@@ -34,9 +34,11 @@ Return a JSON object with these exact fields:
 - repetitivePhrases: array of repeated phrases. Empty array if none.
 - positiveSignals: array of signals that increase review trust.
 - negativeSignals: array of signals that lower review trust.
-- summary: Korean 2-3 sentence user-friendly summary.
-- recommendation: Korean 1-2 sentence cautious advice for comparing clinic information.
-- visitTip: Korean 1-2 sentence pre-visit checklist tip.
+- repetitionLevel: one of ["low", "medium", "high"]. Estimate repeated phrase or template-like pattern level.
+- evidence: object with suspiciousPhrases, specificPhrases, repetitivePhrases, warnings, positiveSignals, and checkItems arrays.
+- summary: 2-3 sentence user-friendly summary in the requested output language.
+- recommendation: 1-2 sentence cautious advice for comparing clinic information in the requested output language.
+- visitTip: 1-2 sentence pre-visit checklist tip in the requested output language.
 - modelVersion: "openai-review-analyzer-v1".
 
 Score rules:
@@ -64,11 +66,32 @@ REVIEW_ANALYSIS_JSON_SCHEMA = {
         "informationLevel": {"type": "string", "enum": ["부족", "보통", "충분"]},
         "globalAccessibilityScore": {"type": "integer", "minimum": 0, "maximum": 100},
         "globalAccessibilityLevel": {"type": "string", "enum": ["낮음", "보통", "높음"]},
+        "repetitionLevel": {"type": "string", "enum": ["low", "medium", "high"]},
         "detectedPatterns": {"type": "array", "items": {"type": "string"}},
         "suspiciousPhrases": {"type": "array", "items": {"type": "string"}},
         "repetitivePhrases": {"type": "array", "items": {"type": "string"}},
         "positiveSignals": {"type": "array", "items": {"type": "string"}},
         "negativeSignals": {"type": "array", "items": {"type": "string"}},
+        "evidence": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "suspiciousPhrases": {"type": "array", "items": {"type": "string"}},
+                "specificPhrases": {"type": "array", "items": {"type": "string"}},
+                "repetitivePhrases": {"type": "array", "items": {"type": "string"}},
+                "warnings": {"type": "array", "items": {"type": "string"}},
+                "positiveSignals": {"type": "array", "items": {"type": "string"}},
+                "checkItems": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": [
+                "suspiciousPhrases",
+                "specificPhrases",
+                "repetitivePhrases",
+                "warnings",
+                "positiveSignals",
+                "checkItems",
+            ],
+        },
         "summary": {"type": "string"},
         "recommendation": {"type": "string"},
         "visitTip": {"type": "string"},
@@ -84,11 +107,13 @@ REVIEW_ANALYSIS_JSON_SCHEMA = {
         "informationLevel",
         "globalAccessibilityScore",
         "globalAccessibilityLevel",
+        "repetitionLevel",
         "detectedPatterns",
         "suspiciousPhrases",
         "repetitivePhrases",
         "positiveSignals",
         "negativeSignals",
+        "evidence",
         "summary",
         "recommendation",
         "visitTip",

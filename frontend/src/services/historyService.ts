@@ -3,8 +3,26 @@ import { readActiveAnalysisHistory, readTrashedAnalysisHistory } from "@/lib/ana
 import type { AnalysisHistoryItem, User } from "@/lib/types"
 import { apiClient } from "./apiClient"
 
+function toFiveStarScore(score?: number, maxScore?: number) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return 0
+  const resolvedMax = typeof maxScore === "number" && maxScore > 0
+    ? maxScore
+    : score > 5
+      ? 100
+      : 5
+  return Math.max(0, Math.min(5, Math.round((score / resolvedMax) * 5)))
+}
+
 function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem {
   const deletedBy = item.deletedBy ?? item.deleted_by
+  const globalAccessibilityScore = Number(
+    item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreignerScore ?? item.foreigner_score ?? 0
+  )
+  const globalAccessRating = Number(
+    item.globalAccessRating ??
+      item.global_access_rating ??
+      globalAccessibilityScore
+  )
 
   return {
     id: String(item.id),
@@ -45,21 +63,11 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
       ? String(item.informationLevel ?? item.information_level)
       : undefined,
     infoCompletenessScore: Number(item.infoCompletenessScore ?? item.info_completeness_score ?? item.placeScore ?? item.place_score ?? 0),
-    globalAccessibilityScore: Number(
-      item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreignerScore ?? item.foreigner_score ?? 0
-    ),
+    globalAccessibilityScore,
     globalAccessibilityLevel: item.globalAccessibilityLevel || item.global_accessibility_level
       ? String(item.globalAccessibilityLevel ?? item.global_accessibility_level)
       : undefined,
-    globalAccessRating: Number(
-      item.globalAccessRating ??
-        item.global_access_rating ??
-        item.globalAccessibilityScore ??
-        item.global_accessibility_score ??
-        item.foreignerScore ??
-        item.foreigner_score ??
-        0
-    ),
+    globalAccessRating: toFiveStarScore(globalAccessRating),
     summary: item.summary ? String(item.summary) : undefined,
     suspiciousPhrases: Array.isArray(item.suspiciousPhrases) ? item.suspiciousPhrases.map(String) : [],
     repetitivePhrases: Array.isArray(item.repetitivePhrases) ? item.repetitivePhrases.map(String) : [],

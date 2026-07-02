@@ -1,6 +1,6 @@
 import type { ForeignerFriendlyCheck, ForeignerFriendlyResult } from "./types"
 
-export type TrustLevelKey = "veryHigh" | "high" | "caution" | "concern" | "veryConcern"
+export type TrustLevelKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
 
 export type TrustLevelStandard = {
   key: TrustLevelKey
@@ -11,11 +11,11 @@ export type TrustLevelStandard = {
 }
 
 export const TRUST_LEVEL_STANDARDS: TrustLevelStandard[] = [
-  { key: "veryHigh", min: 90, max: 100, color: "#9B8AFB", softColor: "#F0ECFF" },
-  { key: "high", min: 70, max: 89, color: "#8FD8B5", softColor: "#E9F8F0" },
-  { key: "caution", min: 50, max: 69, color: "#F6C56F", softColor: "#FFF3D7" },
-  { key: "concern", min: 30, max: 49, color: "#F29A7E", softColor: "#FFE9E1" },
-  { key: "veryConcern", min: 0, max: 29, color: "#E989B5", softColor: "#FFEAF2" },
+  { key: "very_safe", min: 85, max: 100, color: "#9B8AFB", softColor: "#F0ECFF" },
+  { key: "safe", min: 70, max: 84, color: "#8FD8B5", softColor: "#E9F8F0" },
+  { key: "normal", min: 50, max: 69, color: "#F6C56F", softColor: "#FFF3D7" },
+  { key: "caution", min: 30, max: 49, color: "#F29A7E", softColor: "#FFE9E1" },
+  { key: "danger", min: 0, max: 29, color: "#E989B5", softColor: "#FFEAF2" },
 ]
 
 export function getScoreTone(score: number) {
@@ -30,7 +30,7 @@ export function clampScore(score: number) {
 
 export function getTrustLevelKey(score: number): TrustLevelKey {
   const safeScore = clampScore(score)
-  return TRUST_LEVEL_STANDARDS.find((level) => safeScore >= level.min && safeScore <= level.max)?.key ?? "veryConcern"
+  return TRUST_LEVEL_STANDARDS.find((level) => safeScore >= level.min && safeScore <= level.max)?.key ?? "danger"
 }
 
 export function getTrustLevel(score: number): TrustLevelStandard {
@@ -46,47 +46,47 @@ export function normalizeTrustLevelKey(level?: string): TrustLevelKey | undefine
   if (!level) return undefined
   const normalized = level.trim().toLowerCase()
   const map: Record<string, TrustLevelKey> = {
-    veryhigh: "veryHigh",
-    "very-high": "veryHigh",
-    "very_high": "veryHigh",
-    verysafe: "veryHigh",
-    "very-safe": "veryHigh",
-    "very_safe": "veryHigh",
-    "매우 안전": "veryHigh",
-    "매우 신뢰": "veryHigh",
-    "very trustworthy": "veryHigh",
-    "highly trustworthy": "veryHigh",
-    high: "high",
-    safe: "high",
-    안전: "high",
-    medium: "caution",
-    normal: "caution",
-    "신뢰 가능": "high",
-    보통: "caution",
-    "trustworthy": "high",
-    "generally trustworthy": "high",
-    low: "concern",
-    caution: "concern",
-    "주의": "concern",
-    "주의 필요": "concern",
-    "needs caution": "concern",
-    concern: "concern",
-    suspicious: "concern",
-    "의심": "concern",
-    "의심 높음": "concern",
-    "high concern": "concern",
-    veryconcern: "veryConcern",
-    "very-concern": "veryConcern",
-    "very_concern": "veryConcern",
-    verylow: "veryConcern",
-    "very_low": "veryConcern",
-    "very-low": "veryConcern",
-    danger: "veryConcern",
-    위험: "veryConcern",
-    verysuspicious: "veryConcern",
-    "very suspicious": "veryConcern",
-    "매우 의심": "veryConcern",
-    "very high concern": "veryConcern",
+    veryhigh: "very_safe",
+    "very-high": "very_safe",
+    "very_high": "very_safe",
+    verysafe: "very_safe",
+    "very-safe": "very_safe",
+    "very_safe": "very_safe",
+    "매우 안전": "very_safe",
+    "매우 신뢰": "very_safe",
+    "very trustworthy": "very_safe",
+    "highly trustworthy": "very_safe",
+    high: "safe",
+    safe: "safe",
+    안전: "safe",
+    medium: "normal",
+    normal: "normal",
+    "신뢰 가능": "safe",
+    보통: "normal",
+    "trustworthy": "safe",
+    "generally trustworthy": "safe",
+    low: "caution",
+    caution: "caution",
+    "주의": "caution",
+    "주의 필요": "caution",
+    "needs caution": "caution",
+    concern: "caution",
+    suspicious: "caution",
+    "의심": "caution",
+    "의심 높음": "caution",
+    "high concern": "caution",
+    veryconcern: "danger",
+    "very-concern": "danger",
+    "very_concern": "danger",
+    verylow: "danger",
+    "very_low": "danger",
+    "very-low": "danger",
+    danger: "danger",
+    위험: "danger",
+    verysuspicious: "danger",
+    "very suspicious": "danger",
+    "매우 의심": "danger",
+    "very high concern": "danger",
   }
 
   return map[normalized]
@@ -94,7 +94,7 @@ export function normalizeTrustLevelKey(level?: string): TrustLevelKey | undefine
 
 export function getTrustLevelKeyFromValue(score?: number, level?: string): TrustLevelKey {
   if (typeof score === "number" && Number.isFinite(score)) return getTrustLevelKey(score)
-  return normalizeTrustLevelKey(level) ?? "high"
+  return normalizeTrustLevelKey(level) ?? "safe"
 }
 
 export function formatSignalLevel(level: string | undefined, labels: { low: string; medium: string; high: string; caution?: string }) {
