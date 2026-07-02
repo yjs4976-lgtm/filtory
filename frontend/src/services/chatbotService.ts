@@ -3,6 +3,7 @@ import { apiClient } from "./apiClient"
 export type ChatbotMessagePayload = {
   message: string
   language?: "ko" | "en"
+  analysisResultId?: number
   analysisContext?: unknown
 }
 

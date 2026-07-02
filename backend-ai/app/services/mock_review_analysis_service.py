@@ -67,7 +67,7 @@ class MockReviewAnalysisService:
 
         data = {
             "trustScore": trust_score,
-            "adScore": ad_score,
+            "adSuspicionScore": ad_score,
             "repetitionLevel": repetition_level,
             "informationLevel": information_level,
             "summary": cls._summary(
@@ -76,6 +76,7 @@ class MockReviewAnalysisService:
                 language=payload.outputLanguage,
             ),
             "recommendation": cls._recommendation(payload.outputLanguage),
+            "visitTip": cls._visit_tip(payload.outputLanguage),
             "evidence": {
                 "suspiciousPhrases": promotional_phrases[:5],
                 "specificPhrases": specific_phrases[:5],
@@ -88,6 +89,7 @@ class MockReviewAnalysisService:
                     else ["Recent reviews", "Cost guidance", "Treatment items", "Booking method"]
                 ),
             },
+            "negativeSignals": cls._warnings(bool(promotional_phrases), bool(repetitive_phrases), payload.outputLanguage),
         }
         normalized = OpenAIReviewAnalysisService.normalize_response_data(
             data=data,
@@ -168,6 +170,12 @@ class MockReviewAnalysisService:
         if language == "en":
             return "Use this as reference information and check recent reviews plus basic clinic details together."
         return "이 결과는 참고 정보로 활용하고, 병원 선택 전 최신 리뷰와 기본 정보를 함께 확인하는 것이 좋습니다."
+
+    @staticmethod
+    def _visit_tip(language: str) -> str:
+        if language == "en":
+            return "Before visiting, confirm treatment items, costs, and booking requirements with the clinic."
+        return "방문 전 진료 항목, 비용 안내, 예약 필요 여부를 병원에 확인해 보세요."
 
     @staticmethod
     def _warnings(has_promotional: bool, has_repetition: bool, language: str) -> list[str]:

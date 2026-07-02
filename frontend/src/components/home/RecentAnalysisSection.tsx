@@ -18,7 +18,7 @@ export function RecentAnalysisSection() {
           <ChevronRight className={styles.iconXs} />
         </a>
       </div>
-      <HistoryList compact />
+      <HistoryList compact previewLimit={5} showPreviewSummary />
     </section>
   )
 }

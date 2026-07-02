@@ -3,13 +3,19 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { MessageCircle, RotateCcw, Settings2, ShieldCheck, Trash2, X } from "lucide-react"
+import { AlertTriangle, ArchiveRestore, CheckSquare2, ChevronRight, MessageCircle, RotateCcw, Settings2, ShieldCheck, Trash2, X } from "lucide-react"
 import { EmptyState } from "@/components/common/EmptyState"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { useAuth } from "@/hooks/useAuth"
 import { useLanguage } from "@/context/LanguageContext"
-import { buildChatbotContextFromAnalysis, writeSelectedChatbotAnalysisContext } from "@/lib/chatbotContext"
+import { writeCurrentReviewAnalysisFromHistory } from "@/lib/analysisStorage"
+import {
+  buildAnalysisChatbotHref,
+  buildChatbotContextFromAnalysis,
+  getAnalysisResultId,
+  writeSelectedChatbotAnalysisContext,
+} from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
@@ -167,6 +173,36 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
     await afterAction(t.history.moveToTrashDone)
   }
 
+  useEffect(() => {
+    if (currentPage <= totalPages) return
+    const timer = window.setTimeout(() => {
+      setCurrentPage(totalPages)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [currentPage, totalPages])
+
+  useEffect(() => {
+    if (!isManagementPanelOpen && !confirmAction) return
+
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      if (confirmAction) {
+        setConfirmAction(null)
+        return
+      }
+      setIsManagementPanelOpen(false)
+    }
+
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [confirmAction, isManagementPanelOpen])
+
   if (isAuthLoading || isLoading) {
     return <LoadingSpinner label={t.history.loading} />
   }
@@ -221,33 +257,73 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
       />
 
       {isManagementPanelOpen && !isTrashMode && (
-        <div className={styles.modalBackdrop} role="presentation" onClick={() => setIsManagementPanelOpen(false)}>
+        <div className={styles.historyModalBackdrop} role="presentation" onClick={() => setIsManagementPanelOpen(false)}>
           <section
-            className={`${styles.modalCard} ${styles.stackSm}`}
+            className={`${styles.historyManagementModal} ${styles.stackMd}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="history-management-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="history-management-title" className={styles.titleMd}>{t.history.manageRecords}</h2>
+            <div className={styles.historyModalHeader}>
+              <span className={`${styles.historyModalIcon} ${styles.historyModalIconLavender}`}>
+                <Settings2 className={styles.iconSm} />
+              </span>
+              <h2 id="history-management-title" className={styles.titleMd}>{t.history.manageRecords}</h2>
+            </div>
             <div className={styles.historyManagementActions}>
-              <Link className={styles.secondaryButton} href={ROUTES.HISTORY_TRASH}>
-                {t.history.viewDeletedRecords}
+              <Link className={styles.historyManagementItem} href={ROUTES.HISTORY_TRASH}>
+                <span className={`${styles.historyManagementItemIcon} ${styles.historyModalIconLavender}`}>
+                  <ArchiveRestore className={styles.iconSm} />
+                </span>
+                <span className={styles.historyManagementItemText}>
+                  <strong>{t.history.viewDeletedRecords}</strong>
+                  <small>{t.history.viewDeletedRecordsDescription}</small>
+                </span>
+                <ChevronRight className={styles.iconSm} />
               </Link>
               <button
                 type="button"
-                className={styles.dangerButton}
-                disabled={histories.length === 0}
-                onClick={() => setConfirmAction({
-                  title: t.history.deleteAllRecordsConfirm,
-                  description: t.history.moveToTrashDescription,
-                  confirmLabel: t.history.deleteAllRecords,
-                  onConfirm: moveAllToTrash,
-                })}
+                className={styles.historyManagementItem}
+                onClick={() => {
+                  setSelectedIds([])
+                  setIsManageMode(true)
+                  setIsManagementPanelOpen(false)
+                }}
               >
-                {t.history.deleteAllRecords}
+                <span className={`${styles.historyManagementItemIcon} ${styles.historyModalIconMint}`}>
+                  <CheckSquare2 className={styles.iconSm} />
+                </span>
+                <span className={styles.historyManagementItemText}>
+                  <strong>{t.history.selectionModeTitle}</strong>
+                  <small>{t.history.selectionModeDescription}</small>
+                </span>
+                <ChevronRight className={styles.iconSm} />
               </button>
-              <button type="button" className={styles.secondaryButton} onClick={() => setIsManagementPanelOpen(false)}>
+              <button
+                type="button"
+                className={styles.historyManagementItem}
+                disabled={histories.length === 0}
+                onClick={() => {
+                  setIsManagementPanelOpen(false)
+                  setConfirmAction({
+                    title: t.history.deleteAllRecordsConfirmTitle,
+                    description: t.history.deleteAllRecordsConfirmDescription,
+                    confirmLabel: t.history.deleteAllRecordsConfirmAction,
+                    onConfirm: moveAllToTrash,
+                  })
+                }}
+              >
+                <span className={`${styles.historyManagementItemIcon} ${styles.historyModalIconPink}`}>
+                  <Trash2 className={styles.iconSm} />
+                </span>
+                <span className={styles.historyManagementItemText}>
+                  <strong>{t.history.deleteAllRecords}</strong>
+                  <small>{t.history.deleteAllRecordsDescription}</small>
+                </span>
+                <ChevronRight className={styles.iconSm} />
+              </button>
+              <button type="button" className={styles.historyModalCloseButton} onClick={() => setIsManagementPanelOpen(false)}>
                 {t.common.close}
               </button>
             </div>
@@ -407,25 +483,26 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
       )}
 
       {confirmAction && (
-        <div className={styles.modalBackdrop} role="presentation" onClick={() => setConfirmAction(null)}>
+        <div className={styles.historyModalBackdrop} role="presentation" onClick={() => setConfirmAction(null)}>
           <section
-            className={styles.modalCard}
+            className={`${styles.historyConfirmModal} ${styles.stackSm}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="history-confirm-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className={styles.stackSm}>
-              <h2 id="history-confirm-title" className={styles.titleMd}>{confirmAction.title}</h2>
-              <p className={styles.bodyText}>{confirmAction.description}</p>
-              <div className={styles.actionRow}>
-                <button type="button" className={styles.secondaryButton} onClick={() => setConfirmAction(null)}>
-                  {t.common.cancel}
-                </button>
-                <button type="button" className={styles.dangerButton} onClick={runConfirmed}>
-                  {confirmAction.confirmLabel}
-                </button>
-              </div>
+            <span className={`${styles.historyModalIcon} ${styles.historyModalIconPeach}`}>
+              <AlertTriangle className={styles.iconSm} />
+            </span>
+            <h2 id="history-confirm-title" className={styles.titleMd}>{confirmAction.title}</h2>
+            <p className={styles.bodyText}>{confirmAction.description}</p>
+            <div className={styles.actionRow}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setConfirmAction(null)}>
+                {t.common.cancel}
+              </button>
+              <button type="button" className={styles.historyConfirmDeleteButton} onClick={runConfirmed}>
+                {confirmAction.confirmLabel}
+              </button>
             </div>
           </section>
         </div>
@@ -559,8 +636,16 @@ function HistoryRecordCard({
   const region = item.region || item.hospitalAddress || t.history.regionUnknown
   const isTrashMode = mode === "trash"
   const askWithResult = () => {
+    const analysisResultId = getAnalysisResultId(item)
+    if (analysisResultId) {
+      router.push(buildAnalysisChatbotHref(analysisResultId))
+      return
+    }
     writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item))
     router.push(ROUTES.CHATBOT)
+  }
+  const viewResult = () => {
+    writeCurrentReviewAnalysisFromHistory(item)
   }
 
   return (
@@ -606,7 +691,7 @@ function HistoryRecordCard({
               </>
             ) : (
               <>
-                <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
+                <Link href={ROUTES.RESULT} className={styles.secondaryButton} onClick={viewResult}>
                   {t.history.viewDetails}
                 </Link>
                 <button type="button" className={styles.secondaryButton} onClick={askWithResult}>

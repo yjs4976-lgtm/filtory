@@ -67,6 +67,11 @@ function normalizeLevel(value: unknown): "low" | "medium" | "high" {
 
 function normalizeTrustLevel(value: unknown): ReviewAnalyzeResponse["trustLevelKey"] {
   if (
+    value === "very_safe" ||
+    value === "safe" ||
+    value === "normal" ||
+    value === "caution" ||
+    value === "danger" ||
     value === "very_high" ||
     value === "high" ||
     value === "medium" ||
@@ -75,12 +80,6 @@ function normalizeTrustLevel(value: unknown): ReviewAnalyzeResponse["trustLevelK
   ) {
     return value
   }
-
-  if (value === "very_safe") return "very_high"
-  if (value === "safe") return "high"
-  if (value === "normal") return "medium"
-  if (value === "caution") return "low"
-  if (value === "danger") return "very_low"
 
   return "medium"
 }
@@ -181,6 +180,12 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
   )
   const globalAccessibilityMaxScore =
     optionalNumber(result.globalAccessibilityMaxScore) ?? GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.length
+  const adSuspicionScore = optionalNumber(result.adSuspicionScore) ?? optionalNumber(result.adScore) ?? 0
+  const informationScore = optionalNumber(result.informationScore) ?? optionalNumber(result.placeScore) ?? 0
+  const globalAccessibilityScore =
+    optionalNumber(result.globalAccessibilityScore) ??
+    optionalNumber(result.foreignerScore) ??
+    countTruthy(globalAccessibilityChecks)
   const detectedPatterns = toStringArray(result.detectedPatterns)
   const suspiciousPhrases = toStringArray(result.suspiciousPhrases ?? evidence.suspiciousPhrases)
   const repetitivePhrases = toStringArray(result.repetitivePhrases ?? evidence.repetitivePhrases)
@@ -192,19 +197,23 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     reviewIds: data.reviewIds,
     totalScore: Number(result.totalScore ?? 0),
     trustScore: Number(result.trustScore ?? 0),
-    adScore: Number(result.adScore ?? 0),
-    placeScore: Number(result.placeScore ?? 0),
-    foreignerScore: Number(result.foreignerScore ?? 0),
+    adScore: adSuspicionScore,
+    placeScore: informationScore,
+    foreignerScore: globalAccessibilityScore,
     grade: typeof result.grade === "string" ? result.grade : undefined,
     trustGrade: typeof result.trustGrade === "string" ? result.trustGrade : String(result.trustLevelKey ?? ""),
     trustLevelKey: normalizeTrustLevel(result.trustLevelKey),
     adSuspicion: typeof result.adSuspicion === "string" ? result.adSuspicion : String(result.adSuspicionLevel ?? ""),
+    adSuspicionScore,
     adSuspicionLevel: normalizeLevel(result.adSuspicionLevel),
     repetitionLevel: normalizeLevel(result.repetitionLevel),
     informationCompleteness: normalizeInformationCompleteness(result.informationLevel ?? result.informationCompleteness),
+    informationScore,
     positiveSignals: toStringArray(result.positiveSignals ?? evidence.positiveSignals),
+    negativeSignals: toStringArray(result.negativeSignals),
     warningSignals: toStringArray(result.warningSignals ?? evidence.warnings),
-    globalAccessibilityScore: optionalNumber(result.globalAccessibilityScore) ?? countTruthy(globalAccessibilityChecks),
+    globalAccessibilityScore,
+    globalAccessibilityLevel: typeof result.globalAccessibilityLevel === "string" ? result.globalAccessibilityLevel : "",
     globalAccessibilityMaxScore,
     globalAccessibilityChecks,
     detectedPatterns: detectedPatterns.length > 0 ? detectedPatterns : [...evidence.positiveSignals, ...evidence.warnings],
@@ -213,6 +222,7 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     informationLevel: typeof result.informationLevel === "string" ? result.informationLevel : "",
     summary: typeof result.summary === "string" ? result.summary : "",
     recommendation: typeof result.recommendation === "string" ? result.recommendation : "",
+    visitTip: typeof result.visitTip === "string" ? result.visitTip : "",
     evidence,
     analyzedReviewCount:
       optionalNumber(result.analyzedReviewCount) ??

@@ -16,6 +16,7 @@ def create_chatbot_message():
         return success_response(
             ChatbotService.answer(
                 payload,
+                member_id=member_id,
                 allow_remote_ai=bool(member_id),
                 rate_limit_key=f"member:{member_id}" if member_id else None,
             )

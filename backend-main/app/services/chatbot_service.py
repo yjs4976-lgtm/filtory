@@ -2,6 +2,8 @@ import os
 import time
 
 from app.clients.ai_chatbot_client import AIChatbotClient
+from app.repositories import AnalysisRepository
+from app.schemas.analysis_schema import analysis_result_to_canonical_dict
 
 
 class ChatbotService:
@@ -21,7 +23,7 @@ class ChatbotService:
         "Why is this score low?",
         "What does ad suspicion mean?",
         "What are the strengths and cautions?",
-        "How should I read foreign visitor convenience?",
+        "How should I read International Visit Convenience?",
         "What should I compare with other clinics?",
     ]
     GENERAL_SUGGESTIONS_KO = [
@@ -45,8 +47,18 @@ class ChatbotService:
     SUGGESTIONS_KO = GENERAL_SUGGESTIONS_KO
     SUGGESTIONS_EN = GENERAL_SUGGESTIONS_EN
 
+    GLOBAL_ACCESSIBILITY_LABELS = {
+        "englishName": "영문 병원명",
+        "englishGuide": "영어 안내",
+        "englishReviews": "영어 리뷰 참고 가능",
+        "googleMapLink": "구글맵 링크",
+        "googlePlaceId": "구글 장소 정보",
+        "homepageOrBookingLink": "홈페이지/예약 링크",
+        "photoInfo": "방문 전 사진 참고자료",
+    }
+
     @classmethod
-    def answer(cls, payload, allow_remote_ai=False, rate_limit_key=None):
+    def answer(cls, payload, member_id=None, allow_remote_ai=False, rate_limit_key=None):
         message = str(payload.get("message") or "").strip()
         if not message:
             raise ValueError("message is required")
@@ -60,6 +72,15 @@ class ChatbotService:
             payload.get("analysis"),
             payload.get("latestAnalysis"),
         )
+        analysis_result_id = cls._optional_positive_int(
+            payload.get("analysisResultId")
+            or payload.get("analysis_result_id")
+            or payload.get("resultId")
+        )
+        if analysis_result_id:
+            if not member_id:
+                raise ValueError("Analysis result not found or not accessible")
+            analysis_context = cls.build_analysis_chat_context(analysis_result_id, member_id)
         has_context = bool(analysis_context)
         normalized_message = message.lower()
         model_version = None
@@ -116,6 +137,111 @@ class ChatbotService:
             if isinstance(value, dict):
                 return value
         return None
+
+    @staticmethod
+    def _optional_positive_int(value):
+        if value in (None, ""):
+            return None
+        try:
+            numeric_value = int(value)
+        except (TypeError, ValueError):
+            return None
+        return numeric_value if numeric_value > 0 else None
+
+    @staticmethod
+    def _member_ids_match(left, right):
+        try:
+            return int(left) == int(right)
+        except (TypeError, ValueError):
+            return False
+
+    @classmethod
+    def build_analysis_chat_context(cls, analysis_result_id, member_id):
+        analysis_result = AnalysisRepository.get_result_with_context_by_id(analysis_result_id)
+        if not analysis_result:
+            raise ValueError("Analysis result not found or not accessible")
+
+        owner_id = analysis_result.member_id
+        if owner_id is None and analysis_result.analysis_request:
+            owner_id = analysis_result.analysis_request.member_id
+        if not cls._member_ids_match(owner_id, member_id):
+            raise ValueError("Analysis result not found or not accessible")
+
+        canonical = analysis_result_to_canonical_dict(analysis_result)
+        evidence_json = analysis_result.evidence_json if isinstance(analysis_result.evidence_json, dict) else {}
+        raw_response = evidence_json.get("rawResponse") if isinstance(evidence_json.get("rawResponse"), dict) else {}
+        evidence = raw_response.get("evidence") if isinstance(raw_response.get("evidence"), dict) else {}
+        hospital = analysis_result.hospital
+        category = cls._category_label(hospital.category if hospital else None)
+        global_checks = raw_response.get("globalAccessibilityChecks")
+        if not isinstance(global_checks, dict):
+            global_checks = {}
+
+        return {
+            "analysisResultId": analysis_result.id,
+            "analysis_result_id": analysis_result.id,
+            "hospitalName": hospital.hospital_name if hospital else "이 병원",
+            "hospital_name": hospital.hospital_name if hospital else "이 병원",
+            "category": category,
+            "totalScore": canonical.get("totalScore"),
+            "total_score": canonical.get("totalScore"),
+            "trustScore": canonical.get("trustScore"),
+            "trust_score": canonical.get("trustScore"),
+            "trustGrade": canonical.get("trustGrade"),
+            "trustLevelKey": canonical.get("trustLevelKey"),
+            "adSuspicionScore": canonical.get("adSuspicionScore"),
+            "ad_suspicion_score": canonical.get("adSuspicionScore"),
+            "adSuspicionLevel": canonical.get("adSuspicionLevel"),
+            "ad_suspicion_level": canonical.get("adSuspicionLevel"),
+            "adSuspicion": canonical.get("adSuspicionLevel"),
+            "informationScore": canonical.get("informationScore"),
+            "information_score": canonical.get("informationScore"),
+            "informationLevel": canonical.get("informationLevel"),
+            "information_level": canonical.get("informationLevel"),
+            "globalAccessibilityScore": canonical.get("globalAccessibilityScore"),
+            "global_accessibility_score": canonical.get("globalAccessibilityScore"),
+            "globalAccessibilityLevel": canonical.get("globalAccessibilityLevel"),
+            "global_accessibility_level": canonical.get("globalAccessibilityLevel"),
+            "summary": canonical.get("summary"),
+            "recommendation": canonical.get("recommendation"),
+            "visitTip": canonical.get("visitTip"),
+            "detectedPatterns": canonical.get("detectedPatterns") or [],
+            "suspiciousPhrases": canonical.get("suspiciousPhrases") or [],
+            "repetitivePhrases": canonical.get("repetitivePhrases") or [],
+            "positiveSignals": canonical.get("positiveSignals") or [],
+            "negativeSignals": canonical.get("negativeSignals") or [],
+            "warningSignals": evidence.get("warnings") or canonical.get("negativeSignals") or [],
+            "checkItems": evidence.get("checkItems") or [],
+            "specificPhrases": evidence.get("specificPhrases") or [],
+            "globalAccessibilityChecks": cls._global_accessibility_check_items(global_checks),
+            "selectedReviewCount": (
+                analysis_result.analysis_request.review_count
+                if analysis_result.analysis_request
+                else canonical.get("analyzedReviewCount")
+            ),
+        }
+
+    @staticmethod
+    def _category_label(category):
+        return {
+            "dermatology": "피부과",
+            "ophthalmology": "안과",
+            "dentistry": "치과",
+            "derma": "피부과",
+            "eye": "안과",
+            "dental": "치과",
+        }.get(category, category or "병원")
+
+    @classmethod
+    def _global_accessibility_check_items(cls, checks):
+        items = []
+        for key, label in cls.GLOBAL_ACCESSIBILITY_LABELS.items():
+            items.append({
+                "key": key,
+                "label": label,
+                "checked": bool(checks.get(key)),
+            })
+        return items
 
     @staticmethod
     def _has_any(text, keywords):
@@ -181,14 +307,29 @@ class ChatbotService:
             "ad_suspicion",
             "adSuspicionLevel",
             "ad_suspicion_level",
+            "adSuspicionScore",
+            "ad_suspicion_score",
             "detectedPatterns",
             "detected_patterns",
             "suspiciousPhrases",
             "suspicious_phrases",
             "repetitivePhrases",
             "repetitive_phrases",
+            "informationScore",
+            "information_score",
             "informationLevel",
             "information_level",
+            "globalAccessibilityScore",
+            "global_accessibility_score",
+            "globalAccessibilityLevel",
+            "global_accessibility_level",
+            "globalAccessibilityChecks",
+            "positiveSignals",
+            "negativeSignals",
+            "warningSignals",
+            "checkItems",
+            "specificPhrases",
+            "visitTip",
             "summary",
             "recommendation",
             "modelVersion",
@@ -219,7 +360,7 @@ class ChatbotService:
 
         if cls._has_any(cleaned, ["뭐해", "누구", "너는", "정체", "who are you", "what are you", "what do you do"]):
             if language == "en":
-                return "I’m Filtory’s free guide chatbot. I explain review trust signals, ad-like wording, place completeness, privacy cautions, and foreign visitor convenience without paid AI tokens."
+                return "I’m Filtory’s free guide chatbot. I explain review trust signals, ad-like wording, place completeness, privacy cautions, and International Visit Convenience without paid AI tokens."
             return "저는 Filtory 무료 안내 챗봇이에요. 유료 AI 토큰 없이 리뷰 신뢰도, 광고성 문구, 플레이스 완성도, 개인정보 주의점, 외국인 방문 편의도 기준을 설명해드려요."
 
         if cls._has_any(
@@ -368,6 +509,8 @@ class ChatbotService:
                 "종합",
                 "총점",
                 "비교",
+                "방문 전",
+                "확인",
                 "result",
                 "score",
                 "why",
@@ -393,6 +536,8 @@ class ChatbotService:
                 "overall",
                 "total",
                 "compare",
+                "before visiting",
+                "check",
             ],
         )
 
@@ -440,12 +585,12 @@ class ChatbotService:
                 "최근 다른 리뷰와 병원 기본 정보가 함께 맞는지 비교해 주세요."
             )
 
-        if cls._has_any(text, ["점수 낮", "낮은 점수", "낮으면", "나쁜 병원", "bad clinic", "low score", "score is low"]):
+        if cls._has_any(text, ["점수 낮", "낮은 점수", "낮으면", "나쁜 병원", "bad clinic", "low score", "score is low"]) and not context:
             if language == "en":
                 return f"A low score does not automatically mean {hospital_name or 'the clinic'} is bad. It means there are caution signals or limited evidence, so compare recent reviews and basic clinic information."
             return f"점수가 낮다고 해서 {hospital_name or '병원'}이 나쁜 병원이라고 단정할 수는 없어요. 주의 신호나 판단 근거 부족이 있다는 뜻에 가깝고, 최근 리뷰와 병원 기본 정보를 추가 확인하는 게 좋습니다."
 
-        if cls._has_any(text, ["점수 높", "높은 점수", "높으면", "무조건 믿", "fully trust", "high score", "score is high"]):
+        if cls._has_any(text, ["점수 높", "높은 점수", "높으면", "무조건 믿", "fully trust", "high score", "score is high"]) and not context:
             if language == "en":
                 return "A high score is a positive reference, not a guarantee. Still compare multiple reviews, recent details, place information, and whether the review matches your situation."
             return "점수가 높아도 무조건 믿어도 된다는 뜻은 아니에요. 긍정적인 참고 신호로 보되, 여러 리뷰, 최신 내용, 병원 기본 정보, 본인 상황과 맞는지를 함께 확인해 주세요."
@@ -458,7 +603,7 @@ class ChatbotService:
             if language == "en":
                 return (
                     "To identify this hospital’s strengths, please log in and run or save an analysis first. "
-                    "Then I can use the trust score, place completeness, foreign visitor convenience, and summary signals without directly recommending the clinic."
+                    "Then I can use the trust score, place completeness, International Visit Convenience, and summary signals without directly recommending the clinic."
                 )
             return (
                 "이 병원의 장점을 보려면 먼저 로그인 후 분석하거나 분석 결과를 저장해 주세요. 연결되면 신뢰도 점수, 플레이스 완성도, 외국인 방문 편의도, "
@@ -534,7 +679,7 @@ class ChatbotService:
         if cls._has_any(text, ["외국", "영어", "구글", "google", "english", "foreigner"]):
             if language == "en":
                 return (
-                    "Foreign visitor convenience looks at signals such as Google Maps presence, English clinic information, "
+                    "International Visit Convenience looks at signals such as Google Maps presence, English clinic information, "
                     "English reviews, and reservation or homepage links."
                 )
             return (
@@ -636,6 +781,9 @@ class ChatbotService:
         if cls._has_any(text, ["외국", "영어", "foreigner", "english"]):
             return cls._analysis_foreigner_answer(analysis, language)
 
+        if cls._has_any(text, ["방문 전", "확인", "준비", "가기 전", "before visiting", "before visit", "check", "prepare"]):
+            return cls._analysis_visit_tip_answer(analysis, language)
+
         if cls._has_any(text, ["플레이스", "완성", "네이버", "place", "naver", "complete"]):
             return cls._analysis_place_answer(analysis, language)
 
@@ -652,19 +800,38 @@ class ChatbotService:
             ),
             "total_score": cls._number(context, "totalScore", "total_score", "score"),
             "trust_score": cls._number(context, "trustScore", "trust_score", "score", "totalScore", "total_score"),
-            "ad_score": cls._number(context, "adScore", "ad_score", "adSuspicionScore", "ad_suspicion_score"),
-            "place_score": cls._number(context, "placeScore", "place_score", "infoCompletenessScore", "info_completeness_score"),
+            "ad_score": cls._number(context, "adSuspicionScore", "ad_suspicion_score", "adScore", "ad_score"),
+            "place_score": cls._number(
+                context,
+                "informationScore",
+                "information_score",
+                "placeScore",
+                "place_score",
+                "infoCompletenessScore",
+                "info_completeness_score",
+            ),
             "foreigner_score": cls._number(
                 context,
+                "globalAccessibilityScore",
+                "global_accessibility_score",
                 "foreignerFriendlyScore",
                 "foreigner_friendly_score",
                 "foreignerScore",
                 "foreigner_score",
             ),
             "ad_level": cls._string(context, "adSuspicion", "ad_suspicion", "adSuspicionLevel", "ad_suspicion_level"),
+            "trust_grade": cls._string(context, "trustGrade", "trust_grade", "trustLevelKey", "trust_level"),
+            "information_level": cls._string(context, "informationLevel", "information_level"),
+            "global_accessibility_level": cls._string(context, "globalAccessibilityLevel", "global_accessibility_level"),
             "summary": cls._string(context, "summary", "summary_ko", "summary_en"),
+            "recommendation": cls._string(context, "recommendation"),
+            "visit_tip": cls._string(context, "visitTip", "visit_tip"),
             "reasons": cls._list(context, "detectedReasons", "detected_reasons", "detectedPatterns", "detected_patterns"),
             "suspicious_phrases": cls._list(context, "suspiciousPhrases", "suspicious_phrases"),
+            "repetitive_phrases": cls._list(context, "repetitivePhrases", "repetitive_phrases"),
+            "warning_signals": cls._list(context, "warningSignals", "warning_signals", "negativeSignals", "negative_signals"),
+            "check_items": cls._list(context, "checkItems", "check_items", "specificPhrases", "specific_phrases"),
+            "global_accessibility_checks": cls._accessibility_checks(context.get("globalAccessibilityChecks")),
             "review_count": cls._number(context, "selectedReviewCount", "selected_review_count", "reviewCount", "review_count"),
         }
 
@@ -694,6 +861,23 @@ class ChatbotService:
             if isinstance(value, list):
                 return [str(item).strip() for item in value if str(item).strip()]
         return []
+
+    @staticmethod
+    def _accessibility_checks(value):
+        if not isinstance(value, list):
+            return []
+        items = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label") or "").strip()
+            if not label:
+                continue
+            items.append({
+                "label": label,
+                "checked": bool(item.get("checked")),
+            })
+        return items
 
     @staticmethod
     def _format_score(score):
@@ -726,7 +910,7 @@ class ChatbotService:
         hospital_name = analysis["hospital_name"]
         total_score_text = cls._format_score(analysis["total_score"])
         trust_score_text = cls._format_score(analysis["trust_score"])
-        place_score_text = cls._format_score(analysis["place_score"])
+        information_score_text = cls._format_score(analysis["place_score"])
         ad_level = analysis["ad_level"]
         summary = analysis["summary"]
         reasons = analysis["reasons"]
@@ -737,8 +921,8 @@ class ChatbotService:
                 parts.append(f"has an overall score of {total_score_text}")
             if trust_score_text:
                 parts.append(f"a trust score of {trust_score_text}")
-            if place_score_text:
-                parts.append(f"and a place completeness score of {place_score_text}")
+            if information_score_text:
+                parts.append(f"and an information completeness score of {information_score_text}")
             if ad_level:
                 parts.append(f"and ad suspicion is {ad_level}")
             answer = " ".join(parts) + "."
@@ -753,8 +937,8 @@ class ChatbotService:
             parts.append(f"종합 점수가 {total_score_text}이고")
         if trust_score_text:
             parts.append(f"신뢰도 점수가 {trust_score_text}이고")
-        if place_score_text:
-            parts.append(f"플레이스 완성도는 {place_score_text}이고")
+        if information_score_text:
+            parts.append(f"정보 완성도는 {information_score_text}이고")
         if ad_level:
             parts.append(f"광고 의심도는 {cls._with_korean_direction_particle(ad_level)} 표시됐어요")
         answer = " ".join(parts).rstrip("이고") + "."
@@ -814,33 +998,41 @@ class ChatbotService:
             return (
                 f"For {hospital_name}, ad suspicion is {analysis['ad_level'] or 'not marked'}. "
                 f"Related signals: {cls._format_items(signals, 'no specific phrase listed')}.{score_part} "
-                "This does not prove advertising or a legal violation; it only means extra checking may be useful."
+                "For this score, higher means more ad-like risk. This does not prove advertising or a legal violation; it only means extra checking may be useful."
             )
 
         score_part = f" 광고 관련 점수는 {score_text}입니다." if score_text else ""
         return (
             f"{hospital_name}의 광고 의심도는 {analysis['ad_level'] or '별도 표시 없음'}입니다. "
             f"관련 신호는 {cls._format_items(signals, '별도 문구 없음')}예요.{score_part} "
-            "광고나 위법이라고 단정하는 건 아니고, 추가 확인이 필요한 참고 신호로 보면 됩니다."
+            "이 점수는 높을수록 광고성 의심 위험이 크다는 뜻이에요. 광고나 위법이라고 단정하는 건 아니고, 추가 확인이 필요한 참고 신호로 보면 됩니다."
         )
 
     @classmethod
     def _analysis_foreigner_answer(cls, analysis, language):
         hospital_name = analysis["hospital_name"]
         score_text = cls._format_score(analysis["foreigner_score"])
+        checked_items = [item["label"] for item in analysis["global_accessibility_checks"] if item["checked"]]
+        missing_items = [item["label"] for item in analysis["global_accessibility_checks"] if not item["checked"]]
         if language == "en":
             if not score_text:
-                return f"{hospital_name} does not have a connected foreign visitor convenience score yet."
+                return f"{hospital_name} does not have a connected International Visit Convenience score yet."
+            checked_text = cls._format_items(checked_items, "no confirmed items")
+            missing_text = cls._format_items(missing_items, "some items were not confirmed")
             return (
-                f"{hospital_name}'s foreign visitor convenience score is {score_text}. "
-                "Check Google Maps, English information, reservation links, and recent English reviews together."
+                f"{hospital_name}'s International Visit Convenience score is {score_text}. "
+                f"Confirmed items: {checked_text}. Unconfirmed items: {missing_text}. "
+                "Unconfirmed does not mean the clinic does not provide them; it only means they were not confirmed in the current analysis result."
             )
 
         if not score_text:
             return f"{hospital_name}의 외국인 방문 편의도 점수는 아직 연결된 결과에서 확인되지 않아요."
+        checked_text = cls._format_items(checked_items, "확인된 항목 없음")
+        missing_text = cls._format_items(missing_items, "일부 항목 미확인")
         return (
             f"{hospital_name}의 외국인 방문 편의도 점수는 {score_text}입니다. "
-            "구글맵 등록, 영어 정보, 예약 링크, 영어 리뷰 여부를 함께 확인해보세요."
+            f"현재 분석 결과에서 확인된 항목은 {checked_text}이고, 미확인 항목은 {missing_text}입니다. "
+            "미확인은 실제로 제공하지 않는다는 뜻이 아니라 현재 분석 데이터 안에서 확인되지 않았다는 의미에 가까워요."
         )
 
     @classmethod
@@ -849,18 +1041,46 @@ class ChatbotService:
         score_text = cls._format_score(analysis["place_score"])
         if language == "en":
             if not score_text:
-                return f"{hospital_name} does not have a connected place completeness score yet."
+                return f"{hospital_name} does not have a connected information completeness score yet."
             return (
-                f"{hospital_name}'s place completeness score is {score_text}. "
-                "This reflects whether basic information such as address, phone, treatment items, photos, homepage, and reservation links is easy to verify."
+                f"{hospital_name}'s information completeness score is {score_text}. "
+                f"Detected information items: {cls._format_items(analysis['check_items'], 'no clear checklist item')}. "
+                "This reflects how much concrete visit, explanation, cost, waiting, and clinic-information detail appeared in the result."
             )
 
         if not score_text:
-            return f"{hospital_name}의 플레이스 완성도 점수는 아직 연결된 결과에서 확인되지 않아요."
+            return f"{hospital_name}의 정보 완성도 점수는 아직 연결된 결과에서 확인되지 않아요."
         return (
-            f"{hospital_name}의 플레이스 완성도 점수는 {score_text}입니다. "
-            "주소, 전화번호, 진료 항목, 사진/영상, 홈페이지, 예약 링크 같은 기본 정보가 잘 갖춰졌는지를 보는 참고 지표예요."
+            f"{hospital_name}의 정보 완성도 점수는 {score_text}입니다. "
+            f"확인된 정보 항목은 {cls._format_items(analysis['check_items'], '뚜렷한 체크 항목 없음')}이에요. "
+            "리뷰와 병원 정보 안에 방문 경험, 설명, 비용, 대기, 진료 정보가 얼마나 구체적으로 담겼는지를 보는 참고 지표예요."
         )
+
+    @classmethod
+    def _analysis_visit_tip_answer(cls, analysis, language):
+        hospital_name = analysis["hospital_name"]
+        visit_tip = analysis["visit_tip"]
+        recommendation = analysis["recommendation"]
+        warnings = analysis["warning_signals"]
+
+        if language == "en":
+            parts = [f"Before visiting {hospital_name}, use the connected analysis as reference."]
+            if visit_tip:
+                parts.append(f"Visit tip: {visit_tip}")
+            if recommendation:
+                parts.append(f"Recommendation: {recommendation}")
+            if warnings:
+                parts.append(f"Signals to check: {cls._format_items(warnings, 'no extra caution signal')}.")
+            return " ".join(parts)
+
+        parts = [f"{hospital_name} 방문 전에는 연결된 분석 결과를 참고 정보로 봐주세요."]
+        if visit_tip:
+            parts.append(f"방문 전 참고: {visit_tip}")
+        if recommendation:
+            parts.append(f"추천 확인 포인트: {recommendation}")
+        if warnings:
+            parts.append(f"함께 볼 주의 신호는 {cls._format_items(warnings, '추가 주의 신호 없음')}입니다.")
+        return " ".join(parts)
 
     @classmethod
     def _analysis_review_count_answer(cls, analysis, language):
@@ -890,7 +1110,7 @@ class ChatbotService:
             if analysis["place_score"] is not None and analysis["place_score"] >= 70:
                 strengths.append("basic place information looks fairly complete")
             if analysis["foreigner_score"] is not None and analysis["foreigner_score"] >= 60:
-                strengths.append("foreigner access signals look usable")
+                strengths.append("International Visit Convenience signals look usable")
             if analysis["summary"]:
                 strengths.append(analysis["summary"])
             return f"For {hospital_name}, " + cls._format_items(strengths, "there is no clear strength signal yet") + "."
@@ -901,7 +1121,7 @@ class ChatbotService:
         if analysis["place_score"] is not None and analysis["place_score"] >= 70:
             strengths.append("병원 기본 정보가 비교적 잘 갖춰져 있어요")
         if analysis["foreigner_score"] is not None and analysis["foreigner_score"] >= 60:
-            strengths.append("외국인 접근성 신호가 어느 정도 갖춰져 있어요")
+            strengths.append("외국인 방문 편의도 신호가 어느 정도 갖춰져 있어요")
         if analysis["summary"]:
             strengths.append(analysis["summary"])
         return f"{hospital_name}의 장점은 {cls._format_items(strengths, '아직 뚜렷한 장점 신호가 부족해요')}."

@@ -67,6 +67,7 @@ def analysis_result_to_dict(analysis_result):
         return None
 
     return {
+        **analysis_result_to_canonical_dict(analysis_result),
         "id": analysis_result.id,
         "member_id": analysis_result.member_id,
         "hospital_id": analysis_result.hospital_id,
@@ -88,6 +89,42 @@ def analysis_result_to_dict(analysis_result):
     }
 
 
+def analysis_result_to_canonical_dict(analysis_result):
+    if analysis_result is None:
+        return {}
+
+    evidence_json = analysis_result.evidence_json if isinstance(analysis_result.evidence_json, dict) else {}
+    raw_response = evidence_json.get("rawResponse")
+    raw = raw_response if isinstance(raw_response, dict) else {}
+    summary = analysis_result.summary_ko or analysis_result.summary_en or raw.get("summary") or ""
+
+    return {
+        "totalScore": _first_present(raw.get("totalScore"), analysis_result.total_score),
+        "trustScore": _first_present(raw.get("trustScore"), analysis_result.trust_score),
+        "trustGrade": raw.get("trustGrade") or raw.get("grade") or "",
+        "trustLevelKey": _first_present(raw.get("trustLevelKey"), analysis_result.trust_level),
+        "adSuspicionScore": _first_present(raw.get("adSuspicionScore"), raw.get("adScore"), analysis_result.ad_score),
+        "adSuspicionLevel": _first_present(raw.get("adSuspicionLevel"), analysis_result.ad_suspicion),
+        "informationScore": _first_present(raw.get("informationScore"), raw.get("placeScore"), analysis_result.place_score),
+        "informationLevel": _first_present(raw.get("informationLevel"), evidence_json.get("informationLevel")),
+        "globalAccessibilityScore": _first_present(
+            raw.get("globalAccessibilityScore"),
+            raw.get("foreignerScore"),
+            analysis_result.foreigner_score,
+        ),
+        "globalAccessibilityLevel": raw.get("globalAccessibilityLevel"),
+        "detectedPatterns": _string_list(raw.get("detectedPatterns")),
+        "suspiciousPhrases": _string_list(raw.get("suspiciousPhrases")),
+        "repetitivePhrases": _string_list(raw.get("repetitivePhrases")),
+        "positiveSignals": _string_list(raw.get("positiveSignals")),
+        "negativeSignals": _string_list(raw.get("negativeSignals")),
+        "summary": summary,
+        "recommendation": raw.get("recommendation") or evidence_json.get("recommendation") or "",
+        "visitTip": raw.get("visitTip") or "",
+        "modelVersion": raw.get("modelVersion") or analysis_result.ai_model or "",
+    }
+
+
 def extract_analysis_request_data(payload):
     return {
         key: payload[key]
@@ -105,10 +142,23 @@ def extract_analysis_result_data(payload):
 
 
 def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, request_id, review_ids, output_language):
+    ad_suspicion_score = _first_present(ai_response.get("adSuspicionScore"), ai_response.get("adScore"))
+    information_score = _first_present(ai_response.get("informationScore"), ai_response.get("placeScore"))
+    global_accessibility_score = _first_present(
+        ai_response.get("globalAccessibilityScore"),
+        ai_response.get("foreignerScore"),
+    )
     evidence_json = {
         "evidence": ai_response.get("evidence") or {},
         "recommendation": ai_response.get("recommendation"),
+        "visitTip": ai_response.get("visitTip"),
         "informationLevel": ai_response.get("informationLevel"),
+        "globalAccessibilityLevel": ai_response.get("globalAccessibilityLevel"),
+        "detectedPatterns": ai_response.get("detectedPatterns") or [],
+        "suspiciousPhrases": ai_response.get("suspiciousPhrases") or [],
+        "repetitivePhrases": ai_response.get("repetitivePhrases") or [],
+        "positiveSignals": ai_response.get("positiveSignals") or [],
+        "negativeSignals": ai_response.get("negativeSignals") or [],
         "analyzedReviewCount": ai_response.get("analyzedReviewCount"),
         "rawResponse": ai_response,
     }
@@ -120,9 +170,9 @@ def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, req
         "request_id": request_id,
         "total_score": _optional_int(ai_response.get("totalScore")),
         "trust_score": _optional_int(ai_response.get("trustScore")),
-        "ad_score": _optional_int(ai_response.get("adScore")),
-        "place_score": _optional_int(ai_response.get("placeScore")),
-        "foreigner_score": _optional_int(ai_response.get("foreignerScore")),
+        "ad_score": _optional_int(ad_suspicion_score),
+        "place_score": _optional_int(information_score),
+        "foreigner_score": _optional_int(global_accessibility_score),
         "trust_level": ai_response.get("trustLevelKey"),
         "ad_suspicion": ai_response.get("adSuspicionLevel"),
         "repetition_suspicion": ai_response.get("repetitionLevel"),
@@ -156,3 +206,16 @@ def _optional_int(value):
         return int(round(float(value)))
     except (TypeError, ValueError):
         return None
+
+
+def _first_present(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _string_list(value):
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]

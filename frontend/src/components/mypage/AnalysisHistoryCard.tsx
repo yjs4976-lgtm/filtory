@@ -4,7 +4,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MessageCircle, ShieldCheck, Trash2 } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
-import { buildChatbotContextFromAnalysis, writeSelectedChatbotAnalysisContext } from "@/lib/chatbotContext"
+import { writeCurrentReviewAnalysisFromHistory } from "@/lib/analysisStorage"
+import {
+  buildAnalysisChatbotHref,
+  buildChatbotContextFromAnalysis,
+  getAnalysisResultId,
+  writeSelectedChatbotAnalysisContext,
+} from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
@@ -31,8 +37,16 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
   })
   const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language)
   const askWithResult = () => {
+    const analysisResultId = getAnalysisResultId(item)
+    if (analysisResultId) {
+      router.push(buildAnalysisChatbotHref(analysisResultId))
+      return
+    }
     writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item))
     router.push(ROUTES.CHATBOT)
+  }
+  const viewResult = () => {
+    writeCurrentReviewAnalysisFromHistory(item)
   }
 
   return (
@@ -56,7 +70,7 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
         <span>{t.mypage.globalLabel} {formatStars(item.globalAccessRating)}</span>
       </div>
       <div className={styles.actionRow}>
-        <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
+        <Link href={ROUTES.RESULT} className={styles.secondaryButton} onClick={viewResult}>
           {t.mypage.viewResult}
         </Link>
         <button type="button" className={styles.secondaryButton} onClick={askWithResult}>

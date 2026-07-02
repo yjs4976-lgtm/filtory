@@ -27,7 +27,7 @@ Return a JSON object with these exact fields:
 - adSuspicionLevel: one of ["낮음", "보통", "높음"].
 - informationScore: 0-100. Higher means more concrete visit, waiting, explanation, cost, staff, and process information.
 - informationLevel: one of ["부족", "보통", "충분"].
-- globalAccessibilityScore: 0-100. Estimate only from provided review and clinic metadata hints about foreign visitor convenience such as English guidance, foreign-language support, reservation/location information, and visit-planning details.
+- globalAccessibilityScore: 0-100. Estimate only from provided review and clinic metadata hints about International Visit Convenience such as English guidance, foreign-language support, reservation/location information, and visit-planning details.
 - globalAccessibilityLevel: one of ["낮음", "보통", "높음"].
 - detectedPatterns: array of important review patterns.
 - suspiciousPhrases: array of promotional or exaggerated phrases. Empty array if none.

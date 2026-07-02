@@ -2,6 +2,7 @@ from app.schemas.admin_schema import admin_member_to_dict
 from app.schemas.analysis_schema import (
     analysis_ai_response_to_result_data,
     analysis_request_to_dict,
+    analysis_result_to_canonical_dict,
     analysis_result_to_dict,
     extract_analysis_request_data,
     extract_analysis_result_data,
@@ -23,6 +24,7 @@ __all__ = [
     "admin_member_to_dict",
     "analysis_ai_response_to_result_data",
     "analysis_request_to_dict",
+    "analysis_result_to_canonical_dict",
     "analysis_result_to_dict",
     "extract_analysis_request_data",
     "extract_analysis_result_data",

@@ -6,6 +6,7 @@ from app.repositories import AnalysisRepository, ReviewRepository
 from app.schemas import (
     analysis_ai_response_to_result_data,
     analysis_request_to_dict,
+    analysis_result_to_canonical_dict,
     analysis_result_to_dict,
     extract_analysis_request_data,
     extract_analysis_result_data,
@@ -380,9 +381,13 @@ class AnalysisService:
             "ophthalmology": "eye",
             "dentistry": "dental",
         }.get(hospital_category, hospital_category)
+        canonical_result = analysis_result_to_canonical_dict(analysis_result)
 
         return {
+            **canonical_result,
             "id": analysis_request.id,
+            "analysisRequestId": analysis_request.id,
+            "analysisResultId": analysis_result.id if analysis_result else None,
             "member_id": analysis_request.member_id,
             "hospital_name": hospital.hospital_name if hospital else "Unknown hospital",
             "hospital_category": hospital_category,
@@ -397,6 +402,14 @@ class AnalysisService:
             "ad_score": analysis_result.ad_score if analysis_result else None,
             "trust_level": analysis_result.trust_level if analysis_result else None,
             "ad_suspicion_level": analysis_result.ad_suspicion if analysis_result else None,
+            "trustGrade": canonical_result.get("trustGrade"),
+            "trustLevelKey": canonical_result.get("trustLevelKey"),
+            "adSuspicionScore": canonical_result.get("adSuspicionScore"),
+            "adSuspicionLevel": canonical_result.get("adSuspicionLevel"),
+            "informationScore": canonical_result.get("informationScore"),
+            "informationLevel": canonical_result.get("informationLevel"),
+            "globalAccessibilityScore": canonical_result.get("globalAccessibilityScore"),
+            "globalAccessibilityLevel": canonical_result.get("globalAccessibilityLevel"),
             "summary": (
                 analysis_result.summary_ko or analysis_result.summary_en
                 if analysis_result

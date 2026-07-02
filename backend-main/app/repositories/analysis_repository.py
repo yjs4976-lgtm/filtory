@@ -13,6 +13,17 @@ class AnalysisRepository:
         return db.session.get(AnalysisResult, result_id)
 
     @staticmethod
+    def get_result_with_context_by_id(result_id):
+        return (
+            AnalysisResult.query.options(
+                joinedload(AnalysisResult.hospital),
+                joinedload(AnalysisResult.analysis_request),
+            )
+            .filter(AnalysisResult.id == result_id)
+            .first()
+        )
+
+    @staticmethod
     def get_result_by_request_id(request_id):
         return AnalysisResult.query.filter(AnalysisResult.request_id == request_id).first()
 

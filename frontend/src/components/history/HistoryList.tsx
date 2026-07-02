@@ -15,13 +15,16 @@ import styles from "@/styles/App.module.css"
 interface HistoryListProps {
   items?: AnalysisHistoryItem[]
   compact?: boolean
+  previewLimit?: number
+  showPreviewSummary?: boolean
 }
 
-export function HistoryList({ items, compact = false }: HistoryListProps) {
+export function HistoryList({ items, compact = false, previewLimit, showPreviewSummary = false }: HistoryListProps) {
   const { user, isAuthenticated, isLoading } = useAuth()
   const { t } = useLanguage()
   const [fetchedRecords, setFetchedRecords] = useState<AnalysisHistoryItem[] | null>(null)
   const records = items ?? fetchedRecords ?? []
+  const visibleRecords = previewLimit ? records.slice(0, previewLimit) : records
   const loading = !items && !isLoading && isAuthenticated && fetchedRecords === null
 
   useEffect(() => {
@@ -74,9 +77,16 @@ export function HistoryList({ items, compact = false }: HistoryListProps) {
 
   return (
     <section className={styles.recordList}>
-      {records.map((item) => (
+      {visibleRecords.map((item) => (
         <HistoryCard key={item.id} item={item} />
       ))}
+      {showPreviewSummary && previewLimit && records.length > previewLimit && (
+        <p className={styles.recentPreviewSummary}>
+          {t.home.recentPreviewSummary
+            .replace("{visible}", String(previewLimit))
+            .replace("{total}", String(records.length))}
+        </p>
+      )}
     </section>
   )
 }

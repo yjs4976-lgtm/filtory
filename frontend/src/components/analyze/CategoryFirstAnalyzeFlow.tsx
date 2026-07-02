@@ -204,6 +204,12 @@ function levelLabel(t: ReturnType<typeof useLanguage>["t"], level?: string) {
   return t.analyze.caution
 }
 
+function signalLevelFromValue(level?: string): "low" | "medium" | "high" {
+  if (level === "high" || level === "높음") return "high"
+  if (level === "low" || level === "낮음") return "low"
+  return "medium"
+}
+
 function formatStars(rating = 0) {
   const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
   return `${"★".repeat(safeRating)}${"☆".repeat(5 - safeRating)}`
@@ -507,10 +513,15 @@ function createApiAnalysisResult({
 }): ApiAnalysisResult {
   const foreignAccessibilityStars =
     response.globalAccessibilityScore ??
+    response.foreignerScore ??
     (hospital ? [hospital.mapUrl, hospital.homepageUrl, hospital.sourceUrl, hospital.phone].filter(Boolean).length : 0)
 
   return {
     id: `analysis-${Date.now()}`,
+    analysisRequestId: response.analysisRequestId,
+    analysisResultId: response.analysisResultId,
+    hospitalId: response.hospitalId,
+    reviewIds: response.reviewIds,
     userId,
     hospitalName,
     hospitalNameKo: hospital?.hospitalNameKo,
@@ -523,7 +534,7 @@ function createApiAnalysisResult({
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
     score: response.totalScore,
-    foreignerFriendlyScore: response.foreignerScore,
+    foreignerFriendlyScore: response.globalAccessibilityScore ?? response.foreignerScore,
     createdAt: new Date().toISOString(),
     analyzedAt: new Date().toISOString(),
     selectedReviewCount,
@@ -533,19 +544,25 @@ function createApiAnalysisResult({
     trustGrade: response.trustGrade,
     trustLevelKey: response.trustLevelKey,
     adSuspicion: response.adSuspicion,
-    adSuspicionScore: response.adScore,
+    adSuspicionScore: response.adSuspicionScore,
     adSuspicionLevel: response.adSuspicionLevel,
-    repetitivePatternLevel: response.repetitivePhrases.length > 0 ? response.adSuspicionLevel : "low",
+    repetitivePatternLevel: response.repetitivePhrases.length > 0 ? signalLevelFromValue(response.adSuspicionLevel) : "low",
     concreteExperienceLevel: concreteExperienceLevel(response.informationLevel),
     summary: response.summary,
     suspiciousPhrases: response.suspiciousPhrases,
     repetitivePhrases: response.repetitivePhrases,
     detectedReasons: response.detectedPatterns,
     detectedPatterns: response.detectedPatterns,
+    positiveSignals: response.positiveSignals,
+    negativeSignals: response.negativeSignals,
     informationLevel: response.informationLevel,
+    informationScore: response.informationScore,
     recommendation: response.recommendation,
+    visitTip: response.visitTip,
     modelVersion: response.modelVersion,
-    infoCompletenessScore: response.placeScore,
+    infoCompletenessScore: response.informationScore,
+    globalAccessibilityScore: response.globalAccessibilityScore,
+    globalAccessibilityLevel: response.globalAccessibilityLevel,
     globalAccessRating: foreignAccessibilityStars,
     foreignAccessibilityStars,
     reviewCount: selectedReviewCount,

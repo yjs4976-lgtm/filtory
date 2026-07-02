@@ -1,17 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { FileText } from "lucide-react"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
-import { buildChatbotContextFromAnalysis, writeSelectedChatbotAnalysisContext } from "@/lib/chatbotContext"
+import {
+  buildAnalysisChatbotHref,
+  buildChatbotContextFromAnalysis,
+  getAnalysisResultId,
+  writeSelectedChatbotAnalysisContext,
+} from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
 import type { AnalysisHistoryItem } from "@/lib/types"
 import { getHistory } from "@/services/historyService"
 import styles from "@/styles/App.module.css"
 
 export function ResultContextCard() {
+  const router = useRouter()
   const { user, isAuthenticated, isLoading } = useAuth()
   const { t, language } = useLanguage()
   const [latest, setLatest] = useState<AnalysisHistoryItem | null>(null)
@@ -41,6 +48,16 @@ export function ResultContextCard() {
     )
   }
 
+  const askWithLatestResult = () => {
+    if (!latest) return
+    const analysisResultId = getAnalysisResultId(latest)
+    if (analysisResultId) {
+      router.push(buildAnalysisChatbotHref(analysisResultId))
+      return
+    }
+    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest))
+  }
+
   return (
     <section className={`${styles.softCard} ${styles.rowBetween}`}>
       <div className={styles.row}>
@@ -60,7 +77,7 @@ export function ResultContextCard() {
         <button
           type="button"
           className={styles.smallPillButton}
-          onClick={() => writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest))}
+          onClick={askWithLatestResult}
         >
           {t.chatbot.askWithResult}
         </button>

@@ -1,4 +1,5 @@
 import type { AnalysisHistoryItem, CurrentReviewAnalysis, HospitalCategory } from "./types"
+import { ROUTES } from "./routes"
 
 export const CHATBOT_CONTEXT_EVENT = "filtory-chatbot-context-change"
 
@@ -14,6 +15,7 @@ export type ChatbotAnalysisContext = {
   trustScore?: number
   trustLevel?: string
   trustLevelKey?: string
+  trustGrade?: string
   summary?: string
   analysisDate?: string
   analyzedAt?: string
@@ -22,13 +24,32 @@ export type ChatbotAnalysisContext = {
   adSuspicionScore?: number
   adSuspicionLevel?: string
   adSuspicion?: string
+  informationScore?: number
+  informationLevel?: string
   infoCompletenessScore?: number
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: string
   globalAccessRating?: number
   recommendation?: string
+  visitTip?: string
   detectedPatterns?: string[]
   suspiciousPhrases?: string[]
   repetitivePhrases?: string[]
+  positiveSignals?: string[]
+  negativeSignals?: string[]
+  modelVersion?: string
   source: "history" | "current"
+}
+
+export function getAnalysisResultId(item: AnalysisHistoryItem | CurrentReviewAnalysis | ChatbotAnalysisContext) {
+  const record = item as unknown as Record<string, unknown>
+  const value = record.analysisResultId ?? record.resultId ?? record.analysis_result_id
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null
+}
+
+export function buildAnalysisChatbotHref(analysisResultId: number) {
+  return `${ROUTES.CHATBOT}?from=analysis&analysisResultId=${analysisResultId}`
 }
 
 function numberFrom(value: unknown) {
@@ -48,32 +69,41 @@ export function buildChatbotContextFromAnalysis(
   const analyzedAt = String(record.analyzedAt ?? record.createdAt ?? "")
   const id = String(record.id ?? record.analysisRequestId ?? "")
   const requestId = record.analysisRequestId === undefined ? id : String(record.analysisRequestId)
-  const resultId = record.analysisResultId === undefined ? undefined : String(record.analysisResultId)
+  const resultId = getAnalysisResultId(item) ?? undefined
 
   return {
     id,
     requestId,
-    resultId,
+    resultId: resultId === undefined ? undefined : String(resultId),
     hospitalName: String(record.hospitalName ?? ""),
     category: item.category,
     score: numberFrom(record.score ?? record.totalScore),
     trustScore: numberFrom(record.trustScore ?? record.score),
     trustLevel: record.trustLevel ? String(record.trustLevel) : undefined,
     trustLevelKey: record.trustLevelKey ? String(record.trustLevelKey) : undefined,
+    trustGrade: record.trustGrade ? String(record.trustGrade) : undefined,
     summary: record.summary ? String(record.summary) : undefined,
     analysisDate: analyzedAt,
     analyzedAt,
-    foreignerFriendlyScore: numberFrom(record.foreignerFriendlyScore ?? record.foreignerScore),
-    foreignerScore: numberFrom(record.foreignerScore ?? record.foreignerFriendlyScore),
+    foreignerFriendlyScore: numberFrom(record.foreignerFriendlyScore ?? record.globalAccessibilityScore ?? record.foreignerScore),
+    foreignerScore: numberFrom(record.foreignerScore ?? record.globalAccessibilityScore ?? record.foreignerFriendlyScore),
     adSuspicionScore: numberFrom(record.adSuspicionScore ?? record.adScore),
     adSuspicionLevel: record.adSuspicionLevel ? String(record.adSuspicionLevel) : undefined,
     adSuspicion: record.adSuspicion ? String(record.adSuspicion) : undefined,
-    infoCompletenessScore: numberFrom(record.infoCompletenessScore ?? record.placeScore),
+    informationScore: numberFrom(record.informationScore ?? record.placeScore ?? record.infoCompletenessScore),
+    informationLevel: record.informationLevel ? String(record.informationLevel) : undefined,
+    infoCompletenessScore: numberFrom(record.infoCompletenessScore ?? record.informationScore ?? record.placeScore),
+    globalAccessibilityScore: numberFrom(record.globalAccessibilityScore ?? record.foreignerScore ?? record.foreignerFriendlyScore),
+    globalAccessibilityLevel: record.globalAccessibilityLevel ? String(record.globalAccessibilityLevel) : undefined,
     globalAccessRating: numberFrom(record.globalAccessRating ?? record.globalAccessibilityScore),
     recommendation: record.recommendation ? String(record.recommendation) : undefined,
+    visitTip: record.visitTip ? String(record.visitTip) : undefined,
     detectedPatterns: stringArrayFrom(record.detectedPatterns ?? record.detectedReasons),
     suspiciousPhrases: stringArrayFrom(record.suspiciousPhrases),
     repetitivePhrases: stringArrayFrom(record.repetitivePhrases),
+    positiveSignals: stringArrayFrom(record.positiveSignals),
+    negativeSignals: stringArrayFrom(record.negativeSignals),
+    modelVersion: record.modelVersion ? String(record.modelVersion) : undefined,
     source,
   }
 }

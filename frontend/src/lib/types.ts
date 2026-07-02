@@ -25,6 +25,10 @@ export type SocialProvider = "google" | "naver" | "kakao"
 export type AnalysisHistoryItem = {
   id: string
   userId?: string | number
+  analysisRequestId?: number
+  analysisResultId?: number
+  hospitalId?: number
+  reviewIds?: number[]
   hospitalName: string
   hospitalNameKo?: string
   hospitalNameEn?: string
@@ -43,10 +47,17 @@ export type AnalysisHistoryItem = {
   deletedAt?: string
   deletedBy?: string | number
   trustScore?: number
+  trustGrade?: string
   trustLevel?: string
+  trustLevelKey?: string
+  adSuspicion?: string
   adSuspicionScore?: number
   adSuspicionLevel?: string
+  informationScore?: number
+  informationLevel?: string
   infoCompletenessScore?: number
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: string
   globalAccessRating?: number
   reviewCount?: number
   selectedReviewCount?: number
@@ -58,7 +69,14 @@ export type AnalysisHistoryItem = {
   summary?: string
   suspiciousPhrases?: string[]
   trustworthyPhrases?: string[]
+  repetitivePhrases?: string[]
+  detectedPatterns?: string[]
   detectedReasons?: string[]
+  positiveSignals?: string[]
+  negativeSignals?: string[]
+  recommendation?: string
+  visitTip?: string
+  modelVersion?: string
   foreignAccessibilityStars?: number
   resultStatus?: "completed" | "pending" | "failed" | string
 }
@@ -164,19 +182,33 @@ export type ReviewAnalyzeResponse = {
   reviewIds?: number[]
   totalScore: number
   trustScore: number
-  adScore: number
-  placeScore: number
-  foreignerScore: number
+  adScore?: number
+  placeScore?: number
+  foreignerScore?: number
   grade?: string
   trustGrade: string
-  trustLevelKey: "very_high" | "high" | "medium" | "low" | "very_low"
-  adSuspicion: string
-  adSuspicionLevel: "low" | "medium" | "high"
+  trustLevelKey:
+    | "very_safe"
+    | "safe"
+    | "normal"
+    | "caution"
+    | "danger"
+    | "very_high"
+    | "high"
+    | "medium"
+    | "low"
+    | "very_low"
+  adSuspicion?: string
+  adSuspicionScore: number
+  adSuspicionLevel: "낮음" | "보통" | "높음" | "low" | "medium" | "high"
   repetitionLevel?: "low" | "medium" | "high"
   informationCompleteness?: "low" | "medium" | "high"
+  informationScore: number
   positiveSignals?: string[]
+  negativeSignals?: string[]
   warningSignals?: string[]
   globalAccessibilityScore?: number
+  globalAccessibilityLevel?: "낮음" | "보통" | "높음" | "low" | "medium" | "high" | string
   globalAccessibilityMaxScore?: number
   globalAccessibilityChecks?: {
     googleMapLink?: boolean
@@ -193,6 +225,7 @@ export type ReviewAnalyzeResponse = {
   informationLevel: string
   summary: string
   recommendation: string
+  visitTip?: string
   evidence: ReviewEvidence
   analyzedReviewCount: number
   modelVersion: string
@@ -354,10 +387,14 @@ export type SavedHospital = {
   category: HospitalCategory
   address: string
   trustScore: number
+  trustLevelKey?: string
   trustLevel: string
   adSuspicionScore: number
   adSuspicionLevel: string
+  informationScore?: number
   infoCompletenessScore: number
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: string
   globalAccessRating: number
   savedAt: string
   lastAnalyzedAt?: string
