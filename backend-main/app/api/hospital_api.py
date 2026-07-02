@@ -27,6 +27,25 @@ def list_hospitals():
         return error_response(str(e), 400)
 
 
+@hospital_bp.route("/search", methods=["GET"])
+def search_hospitals():
+    pagination = get_pagination_params(request.args)
+
+    try:
+        hospitals = HospitalService.search_hospitals(
+            category=request.args.get("category"),
+            region=request.args.get("region"),
+            keyword=request.args.get("q"),
+            limit=pagination["limit"],
+        )
+        return success_response(
+            data=hospitals,
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(hospitals)),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @hospital_bp.route("/", methods=["POST"])
 def create_hospital():
     payload = request.get_json(silent=True) or {}

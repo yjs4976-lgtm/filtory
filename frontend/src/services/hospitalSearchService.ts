@@ -3,17 +3,29 @@ import { apiClient } from "./apiClient"
 
 type BackendHospital = {
   id?: string | number
+  provider?: string | null
+  source_provider?: string | null
+  external_place_id?: string | null
   hospital_name?: string | null
   category?: string | null
   region?: string | null
   address?: string | null
+  road_address?: string | null
   phone?: string | null
   homepage_url?: string | null
+  map_url?: string | null
+  kakao_place_url?: string | null
   google_map_url?: string | null
   naver_place_url?: string | null
+  source_url?: string | null
+  source_name?: string | null
   description?: string | null
   treatment_items?: string | null
   english_name?: string | null
+  latitude?: number | string | null
+  longitude?: number | string | null
+  is_official_hospital?: boolean | null
+  official_source?: string | null
   naver_review_count?: number | null
   google_review_count?: number | null
 }
@@ -38,11 +50,23 @@ function normalizeCategory(category?: string | null): HospitalCategory {
   return "derma"
 }
 
+function toOptionalCoordinate(value: number | string | null | undefined): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : undefined
+}
+
 function toHospitalItem(item: BackendHospital): HospitalItem {
   const reviewCount = Number(item.google_review_count ?? item.naver_review_count ?? 0)
+  const provider = item.provider ?? item.source_provider ?? undefined
+  const safeLatitude = toOptionalCoordinate(item.latitude)
+  const safeLongitude = toOptionalCoordinate(item.longitude)
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),
+    provider,
+    externalPlaceId: item.external_place_id ?? undefined,
     name: String(item.hospital_name ?? "Hospital"),
     hospitalNameKo: item.hospital_name ?? undefined,
     hospitalNameEn: item.english_name ?? undefined,
@@ -50,13 +74,23 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     category: normalizeCategory(item.category),
     region: (item.region || "seoul") as HospitalRegionCode,
     address: item.address ?? "",
+    roadAddress: item.road_address ?? undefined,
     phone: item.phone ?? undefined,
     reviewCount,
-    sourceUrl: item.naver_place_url ?? undefined,
-    mapUrl: item.google_map_url ?? undefined,
+    sourceName: item.source_name ?? provider ?? undefined,
+    sourceUrl: item.source_url ?? item.kakao_place_url ?? item.naver_place_url ?? undefined,
+    mapUrl: item.map_url ?? item.kakao_place_url ?? item.naver_place_url ?? item.google_map_url ?? undefined,
+    kakaoPlaceUrl: item.kakao_place_url ?? undefined,
+    naverPlaceUrl: item.naver_place_url ?? undefined,
+    latitude: safeLatitude,
+    longitude: safeLongitude,
+    lat: safeLatitude,
+    lng: safeLongitude,
     homepageUrl: item.homepage_url ?? undefined,
     description: item.description ?? undefined,
     treatmentItems: item.treatment_items ?? undefined,
+    isOfficialHospital: Boolean(item.is_official_hospital),
+    officialSource: item.official_source ?? undefined,
   }
 }
 
@@ -72,7 +106,7 @@ export const hospitalSearchService = {
     }
 
     const suffix = params.toString() ? `?${params.toString()}` : ""
-    const result = await apiClient<BackendHospital[]>(`/api/hospitals/${suffix}`)
+    const result = await apiClient<BackendHospital[]>(`/api/hospitals/search${suffix}`)
     const records = Array.isArray(result.data) ? result.data : []
 
     return records.map(toHospitalItem)

@@ -9,6 +9,8 @@ type ResultInsightSectionProps = {
   language: Language
 }
 
+const hiddenGlobalAccessibilityCheckKeys = new Set(["googleMapLink", "photoInfo"])
+
 function InsightList({ items, emptyText, tone }: { items: string[]; emptyText: string; tone: string }) {
   if (items.length === 0) {
     return <p className={styles.resultEmptyText}>{emptyText}</p>
@@ -28,6 +30,9 @@ function InsightList({ items, emptyText, tone }: { items: string[]; emptyText: s
 
 export function ResultInsightSection({ viewModel, language }: ResultInsightSectionProps) {
   const referenceSignals = Array.from(new Set([...viewModel.repetition.referenceWarnings, ...viewModel.signals.warningSignals]))
+  const visibleGlobalAccessibilityChecks = viewModel.globalAccessibility.checks.filter(
+    (check) => !hiddenGlobalAccessibilityCheckKeys.has(check.key)
+  )
   const label = {
     ko: {
       coreInsight: "핵심 인사이트",
@@ -116,7 +121,7 @@ export function ResultInsightSection({ viewModel, language }: ResultInsightSecti
           {viewModel.globalAccessibility.label} · {viewModel.globalAccessibility.score}/{viewModel.globalAccessibility.maxScore}
         </p>
         <div className={styles.resultCheckGrid}>
-          {viewModel.globalAccessibility.checks.map((check) => (
+          {visibleGlobalAccessibilityChecks.map((check) => (
             <div key={check.key} className={styles.resultCheckItem}>
               {check.checked ? (
                 <CheckCircle2 className={`${styles.iconXs} ${styles.mintText}`} />

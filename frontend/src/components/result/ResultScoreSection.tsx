@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react"
 import type { AnalysisResultViewModel, TrustResultKey } from "@/lib/analysisResultMapper"
 import { getGlobalAccessibilityLabel } from "@/lib/displayLabels"
+import { getTrustLevelByKey } from "@/lib/score"
 import type { Language } from "@/lib/types"
 import styles from "@/styles/App.module.css"
 
@@ -95,15 +96,20 @@ export function ResultScoreSection({ viewModel, categoryLabel, language }: Resul
           <h2 className={styles.titleSm}>{label.trustTitle}</h2>
         </div>
         <div className={styles.trustStepList}>
-          {trustSteps.map((step) => (
-            <div
-              key={step}
-              className={`${styles.trustStepItem} ${viewModel.trust.key === step ? styles.trustStepActive : ""}`}
-            >
-              <span className={styles.trustStepDot} />
-              <span>{stepLabels[language][step]}</span>
-            </div>
-          ))}
+          {trustSteps.map((step) => {
+            const level = getTrustLevelByKey(step)
+            return (
+              <div
+                key={step}
+                className={`${styles.trustStepItem} ${viewModel.trust.key === step ? styles.trustStepActive : ""}`}
+              >
+                <span className={styles.trustShield} style={{ backgroundColor: level.softColor, color: level.color }}>
+                  <ShieldCheck className={styles.iconSm} />
+                </span>
+                <span>{stepLabels[language][step]}</span>
+              </div>
+            )
+          })}
         </div>
         <div className={styles.trustStageDescription}>
           <strong>{viewModel.trust.label}</strong>

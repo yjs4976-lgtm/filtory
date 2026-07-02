@@ -83,6 +83,8 @@ export type AnalysisHistoryItem = {
 
 export type HospitalItem = {
   id: string
+  provider?: "filtory" | "kakao" | "naver" | "hira" | string
+  externalPlaceId?: string
   name: string
   hospitalNameKo?: string
   hospitalNameEn?: string
@@ -95,10 +97,19 @@ export type HospitalItem = {
   sourceName?: string
   sourceUrl?: string
   mapUrl?: string
+  kakaoPlaceUrl?: string
+  naverPlaceUrl?: string
+  roadAddress?: string
+  latitude?: number
+  longitude?: number
+  lat?: number
+  lng?: number
   homepageUrl?: string
   description?: string
   imageUrl?: string
   treatmentItems?: string
+  isOfficialHospital?: boolean
+  officialSource?: "HIRA" | string
   searchKeywords?: string[]
   isManual?: boolean
   manualRegionLabel?: string
@@ -155,6 +166,12 @@ export type ReviewAnalyzeRequest = {
   description?: string
   hasPhotos?: boolean
   homepageUrl?: string
+  sourceProvider?: string
+  externalPlaceId?: string
+  kakaoPlaceUrl?: string
+  roadAddress?: string
+  latitude?: number
+  longitude?: number
   naverPlaceUrl?: string
   naverPlaceId?: string
   googleMapUrl?: string

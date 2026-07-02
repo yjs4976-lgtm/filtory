@@ -109,11 +109,17 @@ create table if not exists public.hospitals (
 
   naver_place_url text,
   naver_place_id varchar(100),
+  source_provider varchar(20),
+  external_place_id varchar(100),
+  kakao_place_url text,
 
   google_map_url text,
   google_place_id varchar(255),
 
   address text,
+  road_address text,
+  latitude numeric(10, 7),
+  longitude numeric(10, 7),
   phone varchar(50),
   homepage_url text,
 
@@ -128,6 +134,8 @@ create table if not exists public.hospitals (
   english_name varchar(255),
   has_english_info boolean not null default false,
   has_english_reviews boolean not null default false,
+  is_official_hospital boolean not null default false,
+  official_source varchar(20),
 
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
@@ -135,6 +143,14 @@ create table if not exists public.hospitals (
   constraint hospitals_category_check
     check (category in ('dermatology', 'ophthalmology', 'dentistry'))
 );
+
+create unique index if not exists uq_hospitals_source_provider_external_place_id
+on public.hospitals(source_provider, external_place_id)
+where source_provider is not null and external_place_id is not null;
+
+create index if not exists idx_hospitals_latitude_longitude
+on public.hospitals(latitude, longitude)
+where latitude is not null and longitude is not null;
 
 drop trigger if exists trg_hospitals_updated_at on public.hospitals;
 
