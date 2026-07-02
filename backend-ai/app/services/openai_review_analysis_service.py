@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIReviewAnalysisService:
+    MODEL_VERSION = "openai-review-analyzer-v1"
+    FALLBACK_MODEL_VERSION = "openai-review-analyzer-v1-fallback"
+
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest, settings: Settings) -> ReviewAnalyzeResponse:
         if not settings.openai_api_key:
@@ -31,35 +34,39 @@ class OpenAIReviewAnalysisService:
             timeout=settings.openai_timeout_seconds,
             max_retries=0,
         )
-        response = client.responses.create(
-            model=settings.openai_review_model,
-            input=[
-                {
-                    "role": "system",
-                    "content": REVIEW_ANALYSIS_SYSTEM_PROMPT.strip(),
+        try:
+            response = client.responses.create(
+                model=settings.openai_review_model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": REVIEW_ANALYSIS_SYSTEM_PROMPT.strip(),
+                    },
+                    {
+                        "role": "user",
+                        "content": cls._build_user_prompt(payload),
+                    },
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "filtory_review_analysis",
+                        "schema": REVIEW_ANALYSIS_JSON_SCHEMA,
+                        "strict": True,
+                    }
                 },
-                {
-                    "role": "user",
-                    "content": cls._build_user_prompt(payload),
-                },
-            ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "filtory_review_analysis",
-                    "schema": REVIEW_ANALYSIS_JSON_SCHEMA,
-                    "strict": True,
-                }
-            },
-        )
+            )
 
-        raw_text = cls._extract_output_text(response)
-        data = json.loads(raw_text)
-        normalized = cls.normalize_response_data(
-            data=data,
-            payload=payload,
-            model_version=f"openai:{settings.openai_review_model}",
-        )
+            raw_text = cls._extract_output_text(response)
+            data = cls._parse_json_output(raw_text)
+            normalized = cls.normalize_response_data(
+                data=data,
+                payload=payload,
+                model_version=cls.MODEL_VERSION,
+            )
+        except Exception as exc:
+            logger.warning("OpenAI review analysis failed; returning safe fallback: %s", exc)
+            normalized = cls.fallback_response_data(payload)
         return ReviewAnalyzeResponse.model_validate(normalized)
 
     @staticmethod
@@ -98,6 +105,30 @@ class OpenAIReviewAnalysisService:
 
         return "".join(texts)
 
+    @staticmethod
+    def _parse_json_output(raw_text: str) -> dict[str, Any]:
+        text = str(raw_text or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].strip().startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start < 0 or end <= start:
+                raise
+            data = json.loads(text[start : end + 1])
+
+        if not isinstance(data, dict):
+            raise ValueError("OpenAI response JSON must be an object")
+        return data
+
     @classmethod
     def normalize_response_data(
         cls,
@@ -109,25 +140,31 @@ class OpenAIReviewAnalysisService:
             raise ValueError("OpenAI response JSON must be an object")
 
         language = payload.outputLanguage
-        evidence = cls._normalize_evidence(data.get("evidence"), language)
         trust_score = cls._clamp_score(data.get("trustScore"))
-        ad_score = cls._clamp_score(data.get("adScore"))
+        ad_score = cls._clamp_score(data.get("adSuspicionScore", data.get("adScore")))
+        information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
+        global_accessibility_score = cls._clamp_score(
+            data.get("globalAccessibilityScore", cls.calculate_foreigner_score(payload))
+        )
         place_score = cls.calculate_place_score(payload)
         foreigner_score = cls.calculate_foreigner_score(payload)
         total_score = cls.calculate_total_score(
             trust_score=trust_score,
             ad_score=ad_score,
-            place_score=place_score,
-            foreigner_score=foreigner_score,
+            information_score=information_score,
+            global_accessibility_score=global_accessibility_score,
         )
-        repetition_level = cls._normalize_level(data.get("repetitionLevel"))
-        information_level = cls._normalize_information_level(data.get("informationLevel"), language)
+        evidence = cls._normalize_evidence(data, language)
+        repetition_level = cls._repetition_level(data.get("repetitionLevel"), evidence.repetitivePhrases)
+        information_level = cls.information_level(information_score)
         trust_level_key = cls.trust_level_key(trust_score)
         ad_suspicion_level = cls.ad_suspicion_level(ad_score)
+        global_accessibility_level = cls.score_level(global_accessibility_score)
         warning_signals = evidence.warnings
         positive_signals = evidence.positiveSignals
+        negative_signals = cls._normalize_string_list(data.get("negativeSignals")) or warning_signals
 
-        detected_patterns = cls._detected_patterns(
+        detected_patterns = cls._normalize_string_list(data.get("detectedPatterns")) or cls._detected_patterns(
             suspicious_phrases=evidence.suspiciousPhrases,
             repetitive_phrases=evidence.repetitivePhrases,
             warnings=warning_signals,
@@ -138,8 +175,10 @@ class OpenAIReviewAnalysisService:
             "totalScore": total_score,
             "trustScore": trust_score,
             "adScore": ad_score,
+            "adSuspicionScore": ad_score,
             "placeScore": place_score,
             "foreignerScore": foreigner_score,
+            "informationScore": information_score,
             "grade": cls.grade(total_score),
             "trustGrade": cls.trust_grade(trust_level_key, language),
             "trustLevelKey": trust_level_key,
@@ -148,9 +187,11 @@ class OpenAIReviewAnalysisService:
             "repetitionLevel": repetition_level,
             "informationCompleteness": cls.information_completeness(information_level),
             "positiveSignals": positive_signals,
+            "negativeSignals": negative_signals,
             "warningSignals": warning_signals,
-            "globalAccessibilityScore": cls.global_accessibility_score(foreigner_score),
-            "globalAccessibilityMaxScore": 5,
+            "globalAccessibilityScore": global_accessibility_score,
+            "globalAccessibilityLevel": global_accessibility_level,
+            "globalAccessibilityMaxScore": 100,
             "globalAccessibilityChecks": cls.global_accessibility_checks(payload),
             "detectedPatterns": detected_patterns,
             "suspiciousPhrases": evidence.suspiciousPhrases,
@@ -158,10 +199,50 @@ class OpenAIReviewAnalysisService:
             "informationLevel": information_level,
             "summary": cls._short_text(data.get("summary"), 220, language),
             "recommendation": cls._short_text(data.get("recommendation"), 180, language),
+            "visitTip": cls._short_text(data.get("visitTip"), 180, language, fallback_kind="visit_tip"),
             "evidence": evidence.model_dump(),
             "analyzedReviewCount": cls.analyzed_review_count(payload),
             "modelVersion": model_version,
         }
+
+    @classmethod
+    def fallback_response_data(cls, payload: ReviewAnalyzeRequest) -> dict[str, Any]:
+        language = payload.outputLanguage
+        data = {
+            "trustScore": 50,
+            "adSuspicionScore": 50,
+            "informationScore": 40,
+            "globalAccessibilityScore": cls.calculate_foreigner_score(payload),
+            "detectedPatterns": [
+                "분석 결과를 안정적으로 생성하지 못해 기본 기준으로 표시했습니다."
+                if language == "ko"
+                else "A stable analysis could not be generated, so default criteria were used."
+            ],
+            "suspiciousPhrases": [],
+            "repetitivePhrases": [],
+            "positiveSignals": [],
+            "negativeSignals": [
+                "최신 리뷰와 병원 기본 정보를 함께 확인하는 것이 좋습니다."
+                if language == "ko"
+                else "Check recent reviews and basic clinic information together."
+            ],
+            "summary": (
+                "리뷰 분석 결과를 안정적으로 불러오지 못해 기본값으로 표시했습니다."
+                if language == "ko"
+                else "The review analysis could not be loaded reliably, so default values are shown."
+            ),
+            "recommendation": (
+                "병원 선택 전 최신 리뷰, 비용 안내, 진료 항목을 함께 확인해 주세요."
+                if language == "ko"
+                else "Before choosing a clinic, check recent reviews, cost guidance, and treatment items together."
+            ),
+            "visitTip": (
+                "예약 전 진료 가능 항목과 방문 준비 사항을 병원에 확인해 보세요."
+                if language == "ko"
+                else "Before booking, confirm available treatments and visit preparation details with the clinic."
+            ),
+        }
+        return cls.normalize_response_data(data, payload, cls.FALLBACK_MODEL_VERSION)
 
     @staticmethod
     def merge_review_text(payload: ReviewAnalyzeRequest) -> str:
@@ -210,14 +291,14 @@ class OpenAIReviewAnalysisService:
     def calculate_total_score(
         trust_score: int,
         ad_score: int,
-        place_score: int,
-        foreigner_score: int,
+        information_score: int,
+        global_accessibility_score: int,
     ) -> int:
         score = (
             trust_score * 0.45
-            + place_score * 0.25
-            + foreigner_score * 0.15
-            + (100 - ad_score) * 0.15
+            + (100 - ad_score) * 0.20
+            + information_score * 0.20
+            + global_accessibility_score * 0.15
         )
         return OpenAIReviewAnalysisService._clamp_score(score)
 
@@ -240,22 +321,38 @@ class OpenAIReviewAnalysisService:
     @staticmethod
     def trust_level_key(score: int) -> str:
         if score >= 85:
-            return "very_high"
+            return "very_safe"
         if score >= 70:
-            return "high"
+            return "safe"
         if score >= 50:
-            return "medium"
+            return "normal"
         if score >= 30:
-            return "low"
-        return "very_low"
+            return "caution"
+        return "danger"
 
     @staticmethod
     def ad_suspicion_level(score: int) -> str:
         if score >= 70:
-            return "high"
+            return "높음"
         if score >= 40:
-            return "medium"
-        return "low"
+            return "보통"
+        return "낮음"
+
+    @staticmethod
+    def score_level(score: int) -> str:
+        if score >= 70:
+            return "높음"
+        if score >= 40:
+            return "보통"
+        return "낮음"
+
+    @staticmethod
+    def information_level(score: int) -> str:
+        if score >= 70:
+            return "충분"
+        if score >= 40:
+            return "보통"
+        return "부족"
 
     @staticmethod
     def grade(score: int) -> str:
@@ -271,43 +368,36 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def trust_grade(level_key: str, language: str) -> str:
-        if language == "en":
-            labels = {
-                "very_high": "Very high",
-                "high": "High",
-                "medium": "Medium",
-                "low": "Low",
-                "very_low": "Very low",
-            }
-        else:
-            labels = {
-                "very_high": "매우 높음",
-                "high": "높음",
-                "medium": "보통",
-                "low": "낮음",
-                "very_low": "매우 낮음",
-            }
-        return labels.get(level_key, labels["medium"])
+        labels = {
+            "very_safe": "매우 안전",
+            "safe": "안전",
+            "normal": "보통",
+            "caution": "주의",
+            "danger": "위험",
+            "very_high": "매우 안전",
+            "high": "안전",
+            "medium": "보통",
+            "low": "주의",
+            "very_low": "위험",
+        }
+        return labels.get(level_key, labels["normal"])
 
     @staticmethod
     def ad_suspicion(level_key: str, language: str) -> str:
-        if language == "en":
-            labels = {"low": "Low", "medium": "Medium", "high": "High"}
-        else:
-            labels = {"low": "낮음", "medium": "보통", "high": "높음"}
-        return labels.get(level_key, labels["medium"])
+        labels = {"low": "낮음", "medium": "보통", "high": "높음", "낮음": "낮음", "보통": "보통", "높음": "높음"}
+        return labels.get(level_key, labels["보통"])
 
     @staticmethod
     def information_completeness(information_level: str) -> str:
-        if information_level in {"매우 구체적", "구체적", "Very specific", "Specific"}:
+        if information_level in {"충분", "매우 구체적", "구체적", "Very specific", "Specific"}:
             return "high"
-        if information_level in {"정보 부족", "매우 부족", "Limited", "Very limited"}:
+        if information_level in {"부족", "정보 부족", "매우 부족", "Limited", "Very limited"}:
             return "low"
         return "medium"
 
     @staticmethod
     def global_accessibility_score(foreigner_score: int) -> int:
-        return max(0, min(5, round(foreigner_score / 20)))
+        return OpenAIReviewAnalysisService._clamp_score(foreigner_score)
 
     @staticmethod
     def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, bool]:
@@ -337,13 +427,31 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _normalize_evidence(value: Any, language: str) -> ReviewEvidence:
-        data = value if isinstance(value, dict) else {}
+        source = value if isinstance(value, dict) else {}
+        data = source.get("evidence") if isinstance(source.get("evidence"), dict) else source
+        suspicious_phrases = (
+            OpenAIReviewAnalysisService._normalize_string_list(source.get("suspiciousPhrases"))
+            or OpenAIReviewAnalysisService._normalize_string_list(data.get("suspiciousPhrases"))
+        )
+        repetitive_phrases = (
+            OpenAIReviewAnalysisService._normalize_string_list(source.get("repetitivePhrases"))
+            or OpenAIReviewAnalysisService._normalize_string_list(data.get("repetitivePhrases"))
+        )
+        positive_signals = (
+            OpenAIReviewAnalysisService._normalize_string_list(source.get("positiveSignals"))
+            or OpenAIReviewAnalysisService._normalize_string_list(data.get("positiveSignals"))
+        )
+        warnings = (
+            OpenAIReviewAnalysisService._normalize_string_list(source.get("negativeSignals"))
+            or OpenAIReviewAnalysisService._normalize_string_list(source.get("warningSignals"))
+            or OpenAIReviewAnalysisService._normalize_string_list(data.get("warnings"))
+        )
         evidence = ReviewEvidence(
-            suspiciousPhrases=OpenAIReviewAnalysisService._normalize_string_list(data.get("suspiciousPhrases")),
+            suspiciousPhrases=suspicious_phrases,
             specificPhrases=OpenAIReviewAnalysisService._normalize_string_list(data.get("specificPhrases")),
-            repetitivePhrases=OpenAIReviewAnalysisService._normalize_string_list(data.get("repetitivePhrases")),
-            warnings=OpenAIReviewAnalysisService._normalize_string_list(data.get("warnings")),
-            positiveSignals=OpenAIReviewAnalysisService._normalize_string_list(data.get("positiveSignals")),
+            repetitivePhrases=repetitive_phrases,
+            warnings=warnings,
+            positiveSignals=positive_signals,
             checkItems=OpenAIReviewAnalysisService._normalize_string_list(data.get("checkItems")),
         )
 
@@ -387,10 +495,43 @@ class OpenAIReviewAnalysisService:
         return max(0, min(100, score))
 
     @staticmethod
+    def _information_score(value: Any, level: Any) -> int:
+        if value is not None:
+            return OpenAIReviewAnalysisService._clamp_score(value)
+
+        normalized = str(level or "").strip().lower()
+        level_scores = {
+            "충분": 80,
+            "매우 구체적": 90,
+            "구체적": 75,
+            "very specific": 90,
+            "specific": 75,
+            "보통": 55,
+            "moderate": 55,
+            "부족": 30,
+            "정보 부족": 35,
+            "매우 부족": 20,
+            "limited": 35,
+            "very limited": 20,
+        }
+        return level_scores.get(normalized, 50)
+
+    @staticmethod
     def _normalize_level(value: Any) -> str:
         normalized = str(value or "").strip().lower()
         if normalized in {"low", "medium", "high"}:
             return normalized
+        return "low"
+
+    @staticmethod
+    def _repetition_level(value: Any, repetitive_phrases: list[str]) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized in {"low", "medium", "high"}:
+            return normalized
+        if len(repetitive_phrases) >= 4:
+            return "high"
+        if len(repetitive_phrases) >= 2:
+            return "medium"
         return "low"
 
     @staticmethod
@@ -423,12 +564,20 @@ class OpenAIReviewAnalysisService:
         return []
 
     @staticmethod
-    def _short_text(value: Any, max_length: int, language: str) -> str:
+    def _short_text(value: Any, max_length: int, language: str, fallback_kind: str = "summary") -> str:
         text = str(value or "").strip()
         if not text:
-            return (
-                "리뷰의 구체성, 광고성으로 보일 수 있는 표현, 반복 패턴을 기준으로 분석했습니다."
-                if language == "ko"
-                else "The review was analyzed by concreteness, promotional-looking wording, and repetition."
-            )
+            fallbacks = {
+                "summary": (
+                    "리뷰의 구체성, 광고성으로 보일 수 있는 표현, 반복 패턴을 기준으로 분석했습니다."
+                    if language == "ko"
+                    else "The review was analyzed by concreteness, promotional-looking wording, and repetition."
+                ),
+                "visit_tip": (
+                    "방문 전 비용, 진료 항목, 예약 방식을 함께 확인해 보세요."
+                    if language == "ko"
+                    else "Before visiting, check cost guidance, treatment items, and booking method together."
+                ),
+            }
+            return fallbacks.get(fallback_kind, fallbacks["summary"])
         return text[:max_length]

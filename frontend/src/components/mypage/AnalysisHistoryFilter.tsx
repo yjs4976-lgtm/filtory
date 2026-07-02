@@ -1,5 +1,6 @@
 "use client"
 
+import { X } from "lucide-react"
 import type { HospitalCategory } from "@/lib/types"
 import type { AnalysisHistorySort, TrustFilter } from "@/services/analysisHistoryService"
 import { useLanguage } from "@/context/LanguageContext"
@@ -11,10 +12,11 @@ interface AnalysisHistoryFilterProps {
   category: "all" | HospitalCategory
   trust: TrustFilter
   sort: AnalysisHistorySort
-  onKeywordChange: (value: string) => void
+  onKeywordChange: (value: string, isComposing?: boolean) => void
   onCategoryChange: (value: "all" | HospitalCategory) => void
   onTrustChange: (value: TrustFilter) => void
   onSortChange: (value: AnalysisHistorySort) => void
+  onResetSearch: () => void
 }
 
 export function AnalysisHistoryFilter({
@@ -26,6 +28,7 @@ export function AnalysisHistoryFilter({
   onCategoryChange,
   onTrustChange,
   onSortChange,
+  onResetSearch,
 }: AnalysisHistoryFilterProps) {
   const { t } = useLanguage()
 
@@ -33,13 +36,27 @@ export function AnalysisHistoryFilter({
     <section className={`${styles.card} ${styles.stackSm}`}>
       <label className={styles.label} htmlFor="history-keyword">
         {t.mypage.searchHospitalName}
-        <input
-          id="history-keyword"
-          className={styles.input}
-          value={keyword}
-          placeholder={t.mypage.searchHospitalNamePlaceholder}
-          onChange={(event) => onKeywordChange(event.target.value)}
-        />
+        <span className={styles.searchInputField}>
+          <input
+            id="history-keyword"
+            className={styles.input}
+            value={keyword}
+            placeholder={t.mypage.searchHospitalNamePlaceholder}
+            onChange={(event) => {
+              if ((event.nativeEvent as InputEvent).isComposing) {
+                onKeywordChange(event.target.value, true)
+                return
+              }
+              onKeywordChange(event.target.value)
+            }}
+            onCompositionEnd={(event) => onKeywordChange(event.currentTarget.value)}
+          />
+          {keyword && (
+            <button type="button" className={styles.searchClearButton} aria-label={t.history.resetSearch} onClick={onResetSearch}>
+              <X className={styles.iconXs} />
+            </button>
+          )}
+        </span>
       </label>
       <div className={styles.filterGrid}>
         <label className={styles.label}>

@@ -25,14 +25,15 @@ function matchesTrust(item: AnalysisHistoryItem, trust: TrustFilter) {
   return true
 }
 
-function filterAndSortHistory(items: AnalysisHistoryItem[], filters: AnalysisHistoryFilters = {}) {
+export function filterAndSortAnalysisHistory(items: AnalysisHistoryItem[], filters: AnalysisHistoryFilters = {}) {
   const keyword = filters.keyword?.trim().toLowerCase() ?? ""
   const category = filters.category ?? "all"
   const trust = filters.trust ?? "all"
   const sort = filters.sort ?? "latest"
+  const shouldFilterByKeyword = keyword.length >= 2
 
-  return items
-    .filter((item) => !keyword || item.hospitalName.toLowerCase().includes(keyword))
+  return [...items]
+    .filter((item) => !shouldFilterByKeyword || item.hospitalName.toLowerCase().includes(keyword))
     .filter((item) => category === "all" || item.category === category)
     .filter((item) => matchesTrust(item, trust))
     .sort((a, b) => {
@@ -45,12 +46,12 @@ function filterAndSortHistory(items: AnalysisHistoryItem[], filters: AnalysisHis
 export const analysisHistoryService = {
   async getAnalysisHistory(memberId: User["id"] | undefined, filters: AnalysisHistoryFilters = {}) {
     const history = await getHistory(memberId)
-    return filterAndSortHistory(history, filters)
+    return filterAndSortAnalysisHistory(history, filters)
   },
 
   async getTrashHistory(memberId: User["id"] | undefined, filters: AnalysisHistoryFilters = {}) {
     const history = await getTrashHistory(memberId)
-    return filterAndSortHistory(history, filters)
+    return filterAndSortAnalysisHistory(history, filters)
   },
 
   async saveAnalysisHistoryItem(item: AnalysisHistoryItem) {

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { ShieldCheck } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import { formatDisplayDate } from "@/lib/dateFormat"
 import { ROUTES } from "@/lib/routes"
 import { getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem } from "@/lib/types"
@@ -10,9 +11,9 @@ import styles from "@/styles/App.module.css"
 
 export function HistoryCard({ item }: { item: AnalysisHistoryItem }) {
   const router = useRouter()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const name = item.hospitalName
-  const date = item.createdAt || t.mypage.noRecentDate
+  const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language) || t.mypage.noRecentDate
   const trustScore = item.trustScore ?? item.score
   const trustLevel = getTrustLevel(trustScore)
   const trustLevelKey = getTrustLevelKeyFromValue(trustScore, item.trustLevel)

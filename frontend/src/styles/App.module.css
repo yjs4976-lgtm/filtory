@@ -194,6 +194,50 @@
   border-color: var(--primary);
 }
 
+.searchInputField {
+  position: relative;
+  display: block;
+}
+
+.searchInputField .input {
+  padding-right: 44px;
+}
+
+.searchClearButton {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--graypurple);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.searchClearButton:hover {
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+}
+
+.historyCountRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.searchHint {
+  margin: 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .passwordField {
   position: relative;
   display: block;
@@ -666,6 +710,41 @@
   gap: 10px;
 }
 
+.historyManageButtonWrap {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.historyManageButton {
+  width: min(280px, calc(100% - 32px));
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--lavender);
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(168, 165, 183, 0.12);
+}
+
+.historyManageButton:hover {
+  background: var(--card);
+}
+
+.historyManagementActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
 .filterLabelPill {
   min-height: 40px;
   display: inline-flex;
@@ -686,6 +765,263 @@
   border-radius: 18px;
   background: var(--subtle);
   padding: 12px;
+}
+
+.hospitalFinderCard {
+  background: #ffffff;
+  border-color: rgba(220, 207, 255, 0.62);
+}
+
+.hospitalFinderHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.regionFinderButton {
+  min-height: 52px;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.regionFinderButton svg:first-child {
+  color: var(--pink-text);
+}
+
+.regionFinderButton span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finderFieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.categoryChipGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.categoryChipButton {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.categoryChipButton[data-tone="lavender"] svg {
+  color: var(--primary-foreground);
+}
+
+.categoryChipButton[data-tone="mint"] svg {
+  color: var(--mint-text);
+}
+
+.categoryChipButton[data-tone="peach"] svg {
+  color: var(--peach-text);
+}
+
+.categoryChipSelected {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  box-shadow: 0 0 0 3px rgba(220, 207, 255, 0.18);
+}
+
+.selectedConditionCard,
+.selectedHospitalCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--mint);
+  border-radius: 20px;
+  background: var(--mint-soft);
+  padding: 14px;
+}
+
+.selectedHospitalCard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.selectedConditionCard div,
+.selectedHospitalCard div {
+  min-width: 0;
+}
+
+.selectedConditionCard span,
+.selectedConditionCard strong {
+  display: block;
+  min-width: 0;
+}
+
+.selectedConditionCard span {
+  color: var(--mint-text);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.selectedConditionCard strong {
+  margin-top: 3px;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finderDirectSearchText {
+  margin: 0;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.hospitalSearchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.hospitalSearchField input {
+  padding-right: 48px;
+  text-overflow: ellipsis;
+}
+
+.hospitalSearchIconButton {
+  position: absolute;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  cursor: pointer;
+}
+
+.hospitalSearchIconButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.finderTipCard {
+  border: 1px solid rgba(255, 215, 133, 0.62);
+  border-radius: 18px;
+  background: var(--peach-soft);
+  color: var(--foreground);
+  padding: 12px 14px;
+}
+
+.finderTipCard strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--peach-text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.finderTipCard p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.finderResetRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.searchResultHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hospitalNoResultCard .iconBoxSmall {
+  margin-bottom: 2px;
+}
+
+.categorySelectButtonWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.categorySelectButton {
+  width: min(320px, calc(100% - 32px));
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--lavender);
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(168, 165, 183, 0.1);
+}
+
+.categorySelectButton:hover {
+  background: var(--card);
+}
+
+.filterChipButton {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--graypurple);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filterChipButton:hover {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
 }
 
 .selectedHospitalGrid {
@@ -1671,6 +2007,76 @@
   background: #fffdf9;
   padding: 24px;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.categorySheetCard {
+  width: min(430px, calc(100% - 32px));
+  max-height: min(72vh, calc(100dvh - 96px));
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  border: 1px solid #f1e8dd;
+  border-radius: 28px 28px 24px 24px;
+  background: #fffdf9;
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+.categorySheetList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.categorySheetOption {
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.categorySheetOption strong,
+.categorySheetOption small {
+  display: block;
+  min-width: 0;
+}
+
+.categorySheetOption strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.categorySheetOption small {
+  margin-top: 3px;
+  color: var(--graypurple);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.categorySheetOptionSelected {
+  border-color: var(--lavender);
+  background: var(--lavender-soft);
+  box-shadow: 0 0 0 2px rgba(220, 207, 255, 0.24);
+}
+
+@media (min-width: 720px) {
+  .categorySheetCard {
+    align-self: center;
+    border-radius: 28px;
+    padding-bottom: 20px;
+  }
 }
 
 .regionModalBody {
@@ -2715,6 +3121,29 @@ button.notificationCard {
   cursor: default;
 }
 
+.hospitalCardActions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hospitalSelectButton {
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pink);
+  border-radius: 16px;
+  background: var(--pink-soft);
+  color: var(--pink-text);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .paginatedPanel {
   display: flex;
   flex-direction: column;
@@ -2841,8 +3270,8 @@ button.notificationCard {
 }
 
 .reviewImportToolbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2863,6 +3292,27 @@ button.notificationCard {
   cursor: pointer;
   white-space: nowrap;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.reviewImportButton span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reviewImportButton strong,
+.reviewImportButton small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewImportButton small {
+  color: var(--graypurple);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .reviewImportButton:hover,
@@ -3094,8 +3544,30 @@ button.notificationCard {
 
 .reviewInboxSummaryGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.reviewStatusPanel,
+.reviewPreviewPanel,
+.reviewStartPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--subtle);
+  padding: 14px;
+}
+
+.reviewStartPanel {
+  background: #ffffff;
+}
+
+.reviewAnalyzeButton:disabled {
+  background: var(--lavender-soft);
+  color: var(--graypurple);
+  box-shadow: none;
 }
 
 .reviewFeedback {
@@ -3350,6 +3822,31 @@ button.notificationCard {
   flex-wrap: wrap;
   gap: 8px;
   padding: 0 16px 6px;
+}
+
+.chatContextBanner {
+  margin: 2px 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--lavender);
+  border-radius: 18px;
+  background: var(--lavender-soft);
+  color: var(--foreground);
+  padding: 12px;
+  box-shadow: 0 8px 22px rgba(168, 165, 183, 0.12);
+}
+
+.chatContextBanner p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chatContextBanner .smallPillButton {
+  flex-shrink: 0;
 }
 
 .chatbotSpacer {
@@ -4520,10 +5017,20 @@ button.notificationCard {
   }
 
   .actionRow,
+  .hospitalCardActions,
   .historyActionGrid,
   .memberActionGrid,
   .submitBar {
     grid-template-columns: 1fr;
+  }
+
+  .selectedConditionCard {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .selectedConditionCard .smallPillButton {
+    grid-column: 1 / -1;
+    justify-self: flex-start;
   }
 
   .summaryGrid,
@@ -4532,7 +5039,8 @@ button.notificationCard {
   .resultMetricGrid,
   .profileChecklistGrid,
   .reviewSourceGrid,
-  .reviewInboxSummaryGrid {
+  .reviewInboxSummaryGrid,
+  .reviewImportToolbar {
     grid-template-columns: 1fr;
   }
 

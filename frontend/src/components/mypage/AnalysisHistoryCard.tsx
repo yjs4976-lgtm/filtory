@@ -1,8 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { ShieldCheck, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { MessageCircle, ShieldCheck, Trash2 } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
+import { buildChatbotContextFromAnalysis, writeSelectedChatbotAnalysisContext } from "@/lib/chatbotContext"
+import { formatDisplayDate } from "@/lib/dateFormat"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem } from "@/lib/types"
@@ -15,7 +18,8 @@ interface AnalysisHistoryCardProps {
 }
 
 export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps) {
-  const { t } = useLanguage()
+  const router = useRouter()
+  const { t, language } = useLanguage()
   const trustScore = item.trustScore ?? item.score
   const trustLevel = getTrustLevel(trustScore)
   const trustLevelKey = getTrustLevelKeyFromValue(trustScore, item.trustLevel)
@@ -25,7 +29,11 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
     high: t.analyze.high,
     caution: t.analyze.caution,
   })
-  const date = item.analyzedAt ?? item.createdAt
+  const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language)
+  const askWithResult = () => {
+    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item))
+    router.push(ROUTES.CHATBOT)
+  }
 
   return (
     <article className={`${styles.card} ${styles.stackSm}`}>
@@ -51,6 +59,10 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
         <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
           {t.mypage.viewResult}
         </Link>
+        <button type="button" className={styles.secondaryButton} onClick={askWithResult}>
+          <MessageCircle className={styles.iconSm} />
+          {t.chatbot.askWithResult}
+        </button>
         <button type="button" className={styles.dangerButton} onClick={() => onDelete(item.id)}>
           <Trash2 className={styles.iconSm} />
           {t.mypage.deleteRecord}

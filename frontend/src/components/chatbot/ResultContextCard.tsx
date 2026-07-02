@@ -5,13 +5,15 @@ import { FileText } from "lucide-react"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
+import { buildChatbotContextFromAnalysis, writeSelectedChatbotAnalysisContext } from "@/lib/chatbotContext"
+import { formatDisplayDate } from "@/lib/dateFormat"
 import type { AnalysisHistoryItem } from "@/lib/types"
 import { getHistory } from "@/services/historyService"
 import styles from "@/styles/App.module.css"
 
 export function ResultContextCard() {
   const { user, isAuthenticated, isLoading } = useAuth()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [latest, setLatest] = useState<AnalysisHistoryItem | null>(null)
 
   useEffect(() => {
@@ -49,12 +51,20 @@ export function ResultContextCard() {
           <p className={styles.titleSm}>{latest ? latest.hospitalName : t.chatbot.noLinkedResult}</p>
           <p className={styles.mutedText}>
             {latest
-              ? `${latest.score}${t.result.pointsSuffix} · ${latest.createdAt}`
+              ? `${latest.score}${t.result.pointsSuffix} · ${formatDisplayDate(latest.analyzedAt ?? latest.createdAt, language)}`
               : t.chatbot.noLinkedResultDescription}
           </p>
         </div>
       </div>
-      {latest && <button className={styles.smallPillButton}>{t.chatbot.askWithResult}</button>}
+      {latest && (
+        <button
+          type="button"
+          className={styles.smallPillButton}
+          onClick={() => writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest))}
+        >
+          {t.chatbot.askWithResult}
+        </button>
+      )}
     </section>
   )
 }

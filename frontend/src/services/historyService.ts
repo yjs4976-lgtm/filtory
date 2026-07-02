@@ -78,7 +78,7 @@ export async function getTrashHistory(memberId?: User["id"]): Promise<AnalysisHi
     return normalizedRecords.length > 0 ? normalizedRecords : localHistory
   } catch {
     if (localHistory.length > 0) return localHistory
-    throw new Error("휴지통 API 조회에 실패했습니다. 로그인 상태나 서버 응답을 확인해주세요.")
+    throw new Error("삭제한 기록 API 조회에 실패했습니다. 로그인 상태나 서버 응답을 확인해주세요.")
   }
 }
 

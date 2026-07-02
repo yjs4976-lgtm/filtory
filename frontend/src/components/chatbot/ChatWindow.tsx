@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useLanguage } from "@/context/LanguageContext"
+import {
+  CHATBOT_CONTEXT_EVENT,
+  buildChatbotContextFromAnalysis,
+  clearSelectedChatbotAnalysisContext,
+  readSelectedChatbotAnalysisContext,
+  type ChatbotAnalysisContext,
+} from "@/lib/chatbotContext"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { sendChatMessage } from "@/services/chatbotService"
 import { ChatBubble } from "./ChatBubble"
@@ -20,28 +27,12 @@ type RecommendedQuestionState = {
   questions: string[]
 }
 
-function buildChatAnalysisContext() {
+function buildCurrentChatAnalysisContext() {
   const analysis = readCurrentReviewAnalysis()
 
   if (!analysis) return null
 
-  return {
-    hospitalName: analysis.hospitalName,
-    category: analysis.category,
-    trustScore: analysis.trustScore,
-    trustGrade: analysis.trustGrade,
-    trustLevelKey: analysis.trustLevelKey,
-    adSuspicion: analysis.adSuspicion,
-    adSuspicionLevel: analysis.adSuspicionLevel,
-    detectedPatterns: analysis.detectedPatterns,
-    suspiciousPhrases: analysis.suspiciousPhrases,
-    repetitivePhrases: analysis.repetitivePhrases,
-    informationLevel: analysis.informationLevel,
-    summary: analysis.summary,
-    recommendation: analysis.recommendation,
-    modelVersion: analysis.modelVersion,
-    analyzedAt: analysis.analyzedAt,
-  }
+  return buildChatbotContextFromAnalysis(analysis, "current")
 }
 
 export function ChatWindow() {
@@ -49,12 +40,33 @@ export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [recommendedQuestions, setRecommendedQuestions] = useState<RecommendedQuestionState | null>(null)
+  const [selectedAnalysisResult, setSelectedAnalysisResult] = useState<ChatbotAnalysisContext | null>(null)
   const [isResponding, setIsResponding] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const nextMessageId = useRef(1)
   const visibleMessages: ChatMessage[] = [{ id: 0, role: "ai", text: t.chatbot.greeting }, ...messages]
   const visibleRecommendedQuestions =
     recommendedQuestions?.language === language ? recommendedQuestions.questions : []
+
+  useEffect(() => {
+    const syncSelectedContext = () => {
+      setSelectedAnalysisResult(readSelectedChatbotAnalysisContext())
+    }
+
+    syncSelectedContext()
+    window.addEventListener(CHATBOT_CONTEXT_EVENT, syncSelectedContext)
+    window.addEventListener("storage", syncSelectedContext)
+    return () => {
+      window.removeEventListener(CHATBOT_CONTEXT_EVENT, syncSelectedContext)
+      window.removeEventListener("storage", syncSelectedContext)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedAnalysisResult) return
+    inputRef.current?.focus()
+  }, [selectedAnalysisResult])
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -76,7 +88,7 @@ export function ChatWindow() {
       const result = await sendChatMessage({
         message: trimmed,
         language,
-        analysisContext: buildChatAnalysisContext(),
+        analysisContext: selectedAnalysisResult ?? buildCurrentChatAnalysisContext(),
       })
       const fullAnswer = result.data.answer ?? ""
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: fullAnswer }
@@ -104,9 +116,23 @@ export function ChatWindow() {
 
       <RecommendedQuestions questions={visibleRecommendedQuestions} onSelect={send} />
 
+      {selectedAnalysisResult && (
+        <div className={styles.chatContextBanner}>
+          <div>
+            <strong>{selectedAnalysisResult.hospitalName}</strong>
+            <p>
+              {t.chatbot.askingBasedOnResult.replace("{hospitalName}", selectedAnalysisResult.hospitalName)}
+            </p>
+          </div>
+          <button type="button" className={styles.smallPillButton} onClick={clearSelectedChatbotAnalysisContext}>
+            {t.chatbot.clear}
+          </button>
+        </div>
+      )}
+
       <div className={styles.chatbotSpacer} />
 
-      <ChatInput value={input} onChange={setInput} onSubmit={() => send(input)} />
+      <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
     </div>
   )
 }

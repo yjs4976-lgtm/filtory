@@ -13,7 +13,7 @@ class ChatbotService:
         "점수가 낮은 이유가 뭔가요?",
         "광고 의심도는 무슨 뜻인가요?",
         "이 병원의 장점과 주의점은 무엇인가요?",
-        "외국인 친화도는 어떻게 봐야 하나요?",
+        "외국인 방문 편의도는 어떻게 봐야 하나요?",
         "다른 병원과 비교할 때 뭘 봐야 하나요?",
     ]
     ANALYSIS_SUGGESTIONS_EN = [
@@ -21,7 +21,7 @@ class ChatbotService:
         "Why is this score low?",
         "What does ad suspicion mean?",
         "What are the strengths and cautions?",
-        "How should I read foreigner-friendliness?",
+        "How should I read foreign visitor convenience?",
         "What should I compare with other clinics?",
     ]
     GENERAL_SUGGESTIONS_KO = [
@@ -219,8 +219,8 @@ class ChatbotService:
 
         if cls._has_any(cleaned, ["뭐해", "누구", "너는", "정체", "who are you", "what are you", "what do you do"]):
             if language == "en":
-                return "I’m Filtory’s free guide chatbot. I explain review trust signals, ad-like wording, place completeness, privacy cautions, and foreigner-friendliness without paid AI tokens."
-            return "저는 Filtory 무료 안내 챗봇이에요. 유료 AI 토큰 없이 리뷰 신뢰도, 광고성 문구, 플레이스 완성도, 개인정보 주의점, 외국인 친화도 기준을 설명해드려요."
+                return "I’m Filtory’s free guide chatbot. I explain review trust signals, ad-like wording, place completeness, privacy cautions, and foreign visitor convenience without paid AI tokens."
+            return "저는 Filtory 무료 안내 챗봇이에요. 유료 AI 토큰 없이 리뷰 신뢰도, 광고성 문구, 플레이스 완성도, 개인정보 주의점, 외국인 방문 편의도 기준을 설명해드려요."
 
         if cls._has_any(
             cleaned,
@@ -458,10 +458,10 @@ class ChatbotService:
             if language == "en":
                 return (
                     "To identify this hospital’s strengths, please log in and run or save an analysis first. "
-                    "Then I can use the trust score, place completeness, foreigner-friendliness, and summary signals without directly recommending the clinic."
+                    "Then I can use the trust score, place completeness, foreign visitor convenience, and summary signals without directly recommending the clinic."
                 )
             return (
-                "이 병원의 장점을 보려면 먼저 로그인 후 분석하거나 분석 결과를 저장해 주세요. 연결되면 신뢰도 점수, 플레이스 완성도, 외국인 친화도, "
+                "이 병원의 장점을 보려면 먼저 로그인 후 분석하거나 분석 결과를 저장해 주세요. 연결되면 신뢰도 점수, 플레이스 완성도, 외국인 방문 편의도, "
                 "요약 신호를 바탕으로 직접 추천은 피하면서 장점과 확인할 점을 설명해드릴게요."
             )
 
@@ -534,11 +534,11 @@ class ChatbotService:
         if cls._has_any(text, ["외국", "영어", "구글", "google", "english", "foreigner"]):
             if language == "en":
                 return (
-                    "Foreigner friendliness looks at signals such as Google Maps presence, English clinic information, "
+                    "Foreign visitor convenience looks at signals such as Google Maps presence, English clinic information, "
                     "English reviews, and reservation or homepage links."
                 )
             return (
-                "외국인 친화도는 구글맵 등록, 영문 병원명, 영어 안내, 영어 리뷰, 예약/홈페이지 링크 같은 정보를 함께 봅니다."
+                "외국인 방문 편의도는 구글맵 등록, 영문 병원명, 영어 안내, 영어 리뷰, 예약/홈페이지 링크 같은 정보를 함께 봅니다."
             )
 
         if cls._has_any(text, ["번역", "영문", "한국어", "언어", "translate", "translation", "language"]):
@@ -830,16 +830,16 @@ class ChatbotService:
         score_text = cls._format_score(analysis["foreigner_score"])
         if language == "en":
             if not score_text:
-                return f"{hospital_name} does not have a connected foreigner-friendliness score yet."
+                return f"{hospital_name} does not have a connected foreign visitor convenience score yet."
             return (
-                f"{hospital_name}'s foreigner-friendliness score is {score_text}. "
+                f"{hospital_name}'s foreign visitor convenience score is {score_text}. "
                 "Check Google Maps, English information, reservation links, and recent English reviews together."
             )
 
         if not score_text:
-            return f"{hospital_name}의 외국인 친화도 점수는 아직 연결된 결과에서 확인되지 않아요."
+            return f"{hospital_name}의 외국인 방문 편의도 점수는 아직 연결된 결과에서 확인되지 않아요."
         return (
-            f"{hospital_name}의 외국인 친화도 점수는 {score_text}입니다. "
+            f"{hospital_name}의 외국인 방문 편의도 점수는 {score_text}입니다. "
             "구글맵 등록, 영어 정보, 예약 링크, 영어 리뷰 여부를 함께 확인해보세요."
         )
 

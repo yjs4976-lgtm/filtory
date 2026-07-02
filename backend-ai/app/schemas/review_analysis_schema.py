@@ -12,10 +12,23 @@ HospitalCategory = Literal[
 ]
 
 OutputLanguage = Literal["ko", "en"]
-TrustLevelKey = Literal["very_high", "high", "medium", "low", "very_low"]
-SuspicionLevelKey = Literal["low", "medium", "high"]
+TrustLevelKey = Literal[
+    "very_safe",
+    "safe",
+    "normal",
+    "caution",
+    "danger",
+    "very_high",
+    "high",
+    "medium",
+    "low",
+    "very_low",
+]
+SuspicionLevelKey = Literal["낮음", "보통", "높음", "low", "medium", "high"]
 MockLevelKey = Literal["low", "medium", "high"]
 InformationLevel = Literal[
+    "부족",
+    "충분",
     "매우 구체적",
     "구체적",
     "보통",
@@ -75,8 +88,10 @@ class ReviewAnalyzeResponse(BaseModel):
     totalScore: int = Field(..., ge=0, le=100)
     trustScore: int = Field(..., ge=0, le=100)
     adScore: int = Field(..., ge=0, le=100)
+    adSuspicionScore: int | None = Field(None, ge=0, le=100)
     placeScore: int = Field(..., ge=0, le=100)
     foreignerScore: int = Field(..., ge=0, le=100)
+    informationScore: int | None = Field(None, ge=0, le=100)
     grade: str | None = Field(None, description="Mock API compatibility grade such as A, B, C")
     trustGrade: str
     trustLevelKey: TrustLevelKey
@@ -85,9 +100,11 @@ class ReviewAnalyzeResponse(BaseModel):
     repetitionLevel: MockLevelKey = Field(..., description="Repeated phrase level")
     informationCompleteness: MockLevelKey | None = Field(None, description="Mock API compatibility information completeness")
     positiveSignals: list[str] = Field(default_factory=list)
+    negativeSignals: list[str] = Field(default_factory=list)
     warningSignals: list[str] = Field(default_factory=list)
-    globalAccessibilityScore: int | None = Field(None, ge=0, le=5)
-    globalAccessibilityMaxScore: int | None = Field(None, ge=1, le=5)
+    globalAccessibilityScore: int | None = Field(None, ge=0, le=100)
+    globalAccessibilityLevel: SuspicionLevelKey | None = None
+    globalAccessibilityMaxScore: int | None = Field(None, ge=1, le=100)
     globalAccessibilityChecks: dict[str, bool] = Field(default_factory=dict)
     detectedPatterns: list[str]
     suspiciousPhrases: list[str]
@@ -95,6 +112,7 @@ class ReviewAnalyzeResponse(BaseModel):
     informationLevel: InformationLevel
     summary: str
     recommendation: str
+    visitTip: str = ""
     evidence: ReviewEvidence
     analyzedReviewCount: int = Field(..., ge=0)
     modelVersion: str

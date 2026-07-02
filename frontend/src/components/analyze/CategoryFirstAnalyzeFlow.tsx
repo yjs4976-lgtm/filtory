@@ -5,20 +5,22 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Check,
+  ChevronDown,
   ExternalLink,
+  Eye,
   FileCheck2,
-  FileText,
   LinkIcon,
   LoaderCircle,
   MapPinned,
   Pencil,
   Search,
+  Smile,
+  Sparkles,
   Star,
   Trash2,
   UploadCloud,
   X,
 } from "lucide-react"
-import { CategorySelector } from "@/components/review/CategorySelector"
 import { useLanguage } from "@/context/LanguageContext"
 import { useToast } from "@/hooks/useToast"
 import {
@@ -66,6 +68,8 @@ type DistrictSearchResult = {
   district: RegionDistrict
 }
 
+type AnalyzeCategoryFilter = HospitalCategory | null
+
 type AccessibilityEnhancementInput = {
   googleMapUrl: string
   homepageUrl: string
@@ -95,6 +99,12 @@ const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental">
   dental: "dental",
 }
 
+const categoryKeywordMatchers: Record<HospitalCategory, string[]> = {
+  derma: ["피부", "피부과", "derma", "skin"],
+  eye: ["안과", "라식", "라섹", "백내장", "드림렌즈", "eye", "ophthalmology"],
+  dental: ["치과", "교정", "임플란트", "스케일링", "dental", "dentist"],
+}
+
 const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
 const PAGE_SIZE = 3
 const MIN_REVIEW_TEXT_LENGTH = 20
@@ -118,6 +128,56 @@ function createEmptyAccessibilityEnhancement(): AccessibilityEnhancementInput {
     hasGooglePhotos: null,
     hasPhotos: null,
   }
+}
+
+function detectCategoryFromKeyword(keyword: string): HospitalCategory | null {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  if (!normalizedKeyword) return null
+
+  return (Object.entries(categoryKeywordMatchers) as Array<[HospitalCategory, string[]]>).find(([, matchers]) =>
+    matchers.some((matcher) => normalizedKeyword.includes(matcher.toLowerCase()))
+  )?.[0] ?? null
+}
+
+function normalizeHospitalSearchText(value?: string) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+}
+
+function hospitalMatchesRegion(hospital: HospitalItem, region: SelectedAnalyzeRegion | null, regionLabel: string) {
+  if (!region) return true
+  const normalizedRegionLabel = normalizeHospitalSearchText(regionLabel)
+  const normalizedAddress = normalizeHospitalSearchText(hospital.address)
+  const normalizedManualRegion = normalizeHospitalSearchText(hospital.manualRegionLabel)
+  const provinceCode = region.provinceCode.toLowerCase()
+
+  return (
+    hospital.region === provinceCode ||
+    Boolean(normalizedRegionLabel && normalizedAddress.includes(normalizedRegionLabel)) ||
+    Boolean(normalizedRegionLabel && normalizedManualRegion.includes(normalizedRegionLabel))
+  )
+}
+
+function hospitalMatchesKeyword(hospital: HospitalItem, keyword: string) {
+  const normalizedKeyword = normalizeHospitalSearchText(keyword)
+  if (normalizedKeyword.length <= 1) return true
+
+  const searchable = [
+    hospital.name,
+    hospital.hospitalNameKo,
+    hospital.hospitalNameEn,
+    hospital.hospitalEnglishName,
+    hospital.address,
+    hospital.phone,
+    hospital.treatmentItems,
+    ...(hospital.searchKeywords ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+  return normalizeHospitalSearchText(searchable).includes(normalizedKeyword)
 }
 
 type ApiAnalysisResult = AnalysisHistoryItem & {
@@ -379,6 +439,7 @@ function readStoredAnalyzeRegion(): SelectedAnalyzeRegion | null {
       districtCode: parsed.districtCode,
     }
   } catch {
+    window.localStorage.removeItem(SELECTED_REGION_STORAGE_KEY)
     return null
   }
 }
@@ -417,7 +478,7 @@ function findRegionByLabel(label: string): SelectedAnalyzeRegion | null {
   return null
 }
 
-function readInitialAnalyzeRegion(): SelectedAnalyzeRegion | null {
+function readHydratedAnalyzeRegion(): SelectedAnalyzeRegion | null {
   if (typeof window === "undefined") return null
 
   const storedRegion = readStoredAnalyzeRegion()
@@ -497,12 +558,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const { t, language } = useLanguage()
   const { showToast } = useToast()
   const currentLanguage = language === "en" ? "en" : "ko"
-  const [category, setCategory] = useState<HospitalCategory>("derma")
-  const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(() => readInitialAnalyzeRegion())
+  const [category, setCategory] = useState<AnalyzeCategoryFilter>(null)
+  const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false)
+  const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false)
   const [regionSearch, setRegionSearch] = useState("")
   const [modalProvinceCode, setModalProvinceCode] = useState<RegionProvinceCode | "">("")
   const [query, setQuery] = useState("")
+  const [isHospitalQueryComposing, setIsHospitalQueryComposing] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<HospitalItem[]>([])
   const [isHospitalSearching, setIsHospitalSearching] = useState(false)
@@ -531,8 +595,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const reviews = useMemo(() => (selectedHospital ? getDemoReviewsForHospital(selectedHospital) : []), [selectedHospital])
   const selectedReviews = reviews.filter((review) => selectedReviewIds.includes(review.id))
-  const hospitalTotalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
-  const visibleHospitals = results.slice(hospitalPage * PAGE_SIZE, hospitalPage * PAGE_SIZE + PAGE_SIZE)
+  const hospitals = results
   const reviewTotalPages = Math.max(1, Math.ceil(reviews.length / PAGE_SIZE))
   const visibleReviews = reviews.slice(reviewPage * PAGE_SIZE, reviewPage * PAGE_SIZE + PAGE_SIZE)
   const reviewInboxSummary = useMemo(() => {
@@ -547,6 +610,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       readyCount,
     }
   }, [reviewDrafts])
+  const isReviewAnalysisDisabled = isAnalyzing || reviewInboxSummary.totalCount === 0 || reviewInboxSummary.readyCount <= 0
   const analysisReadyReviewDrafts = useMemo(
     () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
     [reviewDrafts]
@@ -577,6 +641,49 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       })) ?? []
   const hasRegionSearchResults = filteredProvinces.length > 0 || filteredDistricts.length > 0
   const directHospitalKeyword = query.trim()
+  const detectedCategory = detectCategoryFromKeyword(directHospitalKeyword)
+  const effectiveSearchCategory = category ?? detectedCategory
+  const hasSelectedSearchCondition = Boolean(isHydrated && selectedRegion) || Boolean(category)
+  const hasShortHospitalKeyword = !isHospitalQueryComposing && directHospitalKeyword.length === 1
+  const hospitalKeywordForFiltering = isHospitalQueryComposing ? "" : directHospitalKeyword
+  const filteredHospitals = useMemo(
+    () =>
+      hospitals.filter(
+        (hospital) =>
+          (!category || hospital.category === category) &&
+          hospitalMatchesRegion(hospital, selectedRegion, selectedRegionSearchLabel) &&
+          hospitalMatchesKeyword(hospital, hospitalKeywordForFiltering)
+      ),
+    [category, hospitalKeywordForFiltering, hospitals, selectedRegion, selectedRegionSearchLabel]
+  )
+  const hospitalTotalPages = Math.max(1, Math.ceil(filteredHospitals.length / PAGE_SIZE))
+  const visibleHospitals = filteredHospitals.slice(hospitalPage * PAGE_SIZE, hospitalPage * PAGE_SIZE + PAGE_SIZE)
+  const searchResultContextLabel = [
+    selectedRegionLabel,
+    category ? t.categories[category] : "",
+  ].filter(Boolean).join(" · ")
+  const searchResultMessage = searchResultContextLabel
+    ? t.analyze.hospitalResultMessageWithCondition.replace("{condition}", searchResultContextLabel)
+    : t.analyze.hospitalResultMessageDefault
+  const hospitalSearchPlaceholder = selectedRegionLabel && !category
+    ? t.analyze.hospitalFinderPlaceholderInRegion.replace("{region}", selectedRegionLabel)
+    : hasSelectedSearchCondition
+      ? t.analyze.hospitalFinderPlaceholderWithCondition
+      : t.analyze.hospitalFinderPlaceholder
+  const categorySheetItems = [
+    { key: "derma" as const, label: t.categories.derma, desc: t.categories.dermaDesc, icon: Sparkles },
+    { key: "eye" as const, label: t.categories.eye, desc: t.categories.eyeDesc, icon: Eye },
+    { key: "dental" as const, label: t.categories.dental, desc: t.categories.dentalDesc, icon: Smile },
+  ]
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSelectedRegion(readHydratedAnalyzeRegion())
+      setIsHydrated(true)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (!isRegionModalOpen) return
@@ -595,6 +702,23 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       window.removeEventListener("keydown", onKeyDown)
     }
   }, [isRegionModalOpen])
+
+  useEffect(() => {
+    if (!isCategorySheetOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsCategorySheetOpen(false)
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [isCategorySheetOpen])
 
   const handleAccessibilityTextChange = (
     field: "googleMapUrl" | "homepageUrl" | "englishName",
@@ -637,9 +761,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewFeedback(t.analyze.reviewInbox.addedFeedback.replace("{count}", String(addedCount)))
   }
 
-  const handleScreenshotFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ""
+  const handleScreenshotFiles = (files: File[]) => {
     const supportedFiles = files.filter(
       (file) => SUPPORTED_IMAGE_TYPES.has(file.type) && file.size <= MAX_REVIEW_IMPORT_FILE_SIZE
     )
@@ -664,9 +786,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     )
   }
 
-  const handleReviewFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ""
+  const handleReviewTextFile = async (file?: File) => {
     if (!file) return
 
     setUploadedReviewFileName(file.name)
@@ -692,6 +812,24 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }
   }
 
+  const handleCombinedReviewImportChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ""
+    if (files.length === 0) return
+
+    if (files.every((file) => SUPPORTED_IMAGE_TYPES.has(file.type))) {
+      handleScreenshotFiles(files)
+      return
+    }
+
+    if (files.length === 1) {
+      await handleReviewTextFile(files[0])
+      return
+    }
+
+    setReviewFeedback(t.analyze.reviewInbox.importUnsupportedFeedback)
+  }
+
   const handleReviewDraftContentChange = (reviewId: string, content: string) => {
     setReviewDrafts((current) =>
       normalizeReviewDrafts(current.map((review) => (review.id === reviewId ? { ...review, content } : review)))
@@ -713,11 +851,23 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewFeedback("")
   }
 
-  const handleSearch = async (options: { withoutFilters?: boolean } = {}) => {
-    const keyword = directHospitalKeyword
-    const nextRegion = options.withoutFilters ? undefined : toHospitalRegionCode(selectedRegion)
-    const nextCategory = options.withoutFilters ? undefined : category
-    const nextRegionLabel = options.withoutFilters ? "" : selectedRegionSearchLabel
+  const handleSearch = async (options: {
+    withoutFilters?: boolean
+    regionOverride?: SelectedAnalyzeRegion | null
+    categoryOverride?: AnalyzeCategoryFilter
+    keywordOverride?: string
+  } = {}) => {
+    const searchKeyword = options.keywordOverride ?? directHospitalKeyword
+    const keyword = searchKeyword.trim().length <= 1 ? "" : searchKeyword.trim()
+    const selectedRegionForSearch = options.regionOverride === undefined ? selectedRegion : options.regionOverride
+    const selectedCategoryForSearch =
+      options.categoryOverride === undefined ? effectiveSearchCategory : options.categoryOverride
+    const regionLabelForSearch = selectedRegionForSearch
+      ? getRegionLabel(selectedRegionForSearch.provinceCode, selectedRegionForSearch.districtCode, "ko")
+      : ""
+    const nextRegion = options.withoutFilters ? undefined : toHospitalRegionCode(selectedRegionForSearch)
+    const nextCategory = options.withoutFilters ? undefined : selectedCategoryForSearch ?? undefined
+    const nextRegionLabel = options.withoutFilters ? "" : regionLabelForSearch
 
     if (options.withoutFilters) {
       setSelectedRegion(null)
@@ -780,7 +930,24 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
   const handleCategoryChange = (nextCategory: HospitalCategory) => {
     setCategory(nextCategory)
-    resetSearchState()
+    setIsCategorySheetOpen(false)
+    void handleSearch({ categoryOverride: nextCategory })
+  }
+
+  const clearSelectedCategory = () => {
+    setCategory(null)
+    if (selectedRegion || directHospitalKeyword.trim().length >= 2) {
+      void handleSearch({ categoryOverride: null })
+    } else {
+      resetSearchState()
+    }
+  }
+
+  const handleHospitalQueryChange = (value: string) => {
+    setQuery(value)
+    setHospitalPage(0)
+    const nextCategory = detectCategoryFromKeyword(value)
+    if (nextCategory) setCategory(nextCategory)
   }
 
   const openRegionModal = () => {
@@ -809,18 +976,22 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setIsRegionModalOpen(false)
     setRegionSearch("")
     setModalProvinceCode(province.code)
-    resetSearchState()
+    void handleSearch({ regionOverride: nextRegion })
   }
 
   const clearSelectedRegion = () => {
     setSelectedRegion(null)
     writeStoredAnalyzeRegion(null)
-    resetSearchState()
+    if (category || directHospitalKeyword.trim().length >= 2) {
+      void handleSearch({ regionOverride: null })
+    } else {
+      resetSearchState()
+    }
   }
 
   const handleResetHospitalSearch = () => {
     setQuery("")
-    setCategory("derma")
+    setCategory(null)
     setSelectedRegion(null)
     writeStoredAnalyzeRegion(null)
     resetSearchState()
@@ -837,10 +1008,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   }
 
   const handleSelectManualHospital = () => {
-    if (!directHospitalKeyword) return
+    if (directHospitalKeyword.length <= 1) return
     const manualHospital = createManualHospital({
       keyword: directHospitalKeyword,
-      category,
+      category: effectiveSearchCategory ?? "derma",
       region: toHospitalRegionCode(selectedRegion),
       regionLabel: selectedRegionLabel,
     })
@@ -889,8 +1060,9 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setIsSaved(false)
 
     try {
+      const resultCategory = hospital?.category ?? effectiveSearchCategory ?? "derma"
       const response = await reviewAnalysisService.analyzeReview({
-        category,
+        category: resultCategory,
         hospitalName,
         reviewText,
         reviews: targetReviewTexts,
@@ -903,7 +1075,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       const nextAnalysisResult = createApiAnalysisResult({
         hospital,
         hospitalName,
-        category,
+        category: resultCategory,
         response,
         userId,
         selectedReviewCount,
@@ -914,7 +1086,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       writeCurrentReviewAnalysis({
         ...response,
         id: nextAnalysisResult.id,
-        category,
+        category: resultCategory,
         hospitalName,
         hospitalNameKo: hospital?.hospitalNameKo,
         hospitalNameEn: hospital?.hospitalNameEn,
@@ -933,13 +1105,13 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const handleAnalyzeDirectReview = async () => {
     const hospitalName = directHospitalName.trim()
     if (isAnalyzing) return
-    if (!hospitalName) {
-      setInputError(t.analyze.hospitalInfoRequired)
+    if (reviewInboxSummary.totalCount === 0 || reviewInboxSummary.readyCount <= 0) {
+      setInputError(t.analyze.reviewInboxRequired)
       setAnalyzeError("")
       return
     }
-    if (analysisReadyReviewDrafts.length === 0) {
-      setInputError(t.analyze.reviewInboxRequired)
+    if (!hospitalName) {
+      setInputError(t.analyze.hospitalInfoRequired)
       setAnalyzeError("")
       return
     }
@@ -1145,49 +1317,107 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   return (
     <>
     <section className={styles.stackMd}>
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div>
+      <section className={`${styles.card} ${styles.hospitalFinderCard} ${styles.stackSm}`}>
+        <div className={styles.hospitalFinderHeader}>
           <h2 className={styles.titleMd}>{t.analyze.hospitalFinderTitle}</h2>
           <p className={styles.bodyText}>{t.analyze.hospitalFinderDescription}</p>
         </div>
+
+        <button type="button" className={styles.regionFinderButton} onClick={openRegionModal}>
+          <MapPinned className={styles.iconSm} aria-hidden="true" />
+          <span>{selectedRegionLabel || t.analyze.regionFinderPrompt}</span>
+          <ChevronDown className={styles.iconXs} aria-hidden="true" />
+        </button>
+
+        <div className={styles.finderFieldGroup}>
+          <span className={styles.mutedText}>{t.analyze.medicalCategoryLabel}</span>
+          <div className={styles.categoryChipGrid} role="group" aria-label={t.analyze.medicalCategoryLabel}>
+            {categorySheetItems.map(({ key, label, icon: Icon }, index) => (
+              <button
+                key={key}
+                type="button"
+                className={`${styles.categoryChipButton} ${category === key ? styles.categoryChipSelected : ""}`}
+                data-tone={index === 0 ? "lavender" : index === 1 ? "mint" : "peach"}
+                aria-pressed={category === key}
+                onClick={() => (category === key ? clearSelectedCategory() : handleCategoryChange(key))}
+              >
+                <Icon className={styles.iconXs} aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hasSelectedSearchCondition ? (
+          <article className={styles.selectedConditionCard}>
+            <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}>
+              <Check className={styles.iconSm} aria-hidden="true" />
+            </span>
+            <div>
+              <span>{selectedRegion && !category ? t.analyze.selectedRegionLabel : t.analyze.selectedConditionTitle}</span>
+              <strong>{searchResultContextLabel}</strong>
+            </div>
+            <button
+              type="button"
+              className={styles.smallPillButton}
+              onClick={() => (selectedRegion ? openRegionModal() : setIsCategorySheetOpen(true))}
+            >
+              {t.analyze.changeConditionButton}
+            </button>
+          </article>
+        ) : (
+          <p className={styles.finderDirectSearchText}>{t.analyze.directHospitalSearchIntro}</p>
+        )}
+
         <label className={styles.label} htmlFor="hospital-search">
-          <span className={styles.mutedText}>{t.analyze.searchHelp}</span>
-          <div className={styles.inlineField}>
+          <span className={styles.mutedText}>{t.analyze.searchNarrowLabel}</span>
+          <div className={styles.hospitalSearchField}>
             <input
               id="hospital-search"
               className={styles.input}
               type="search"
-              placeholder={t.analyze.hospitalFinderPlaceholder}
+              placeholder={hospitalSearchPlaceholder}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onCompositionStart={() => setIsHospitalQueryComposing(true)}
+              onCompositionEnd={(event) => {
+                setIsHospitalQueryComposing(false)
+                handleHospitalQueryChange(event.currentTarget.value)
+              }}
+              onChange={(event) => {
+                if ((event.nativeEvent as InputEvent).isComposing) {
+                  setQuery(event.target.value)
+                  return
+                }
+                handleHospitalQueryChange(event.target.value)
+              }}
               onKeyDown={(event) => {
-                if (event.key === "Enter") void handleSearch()
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  if (!event.nativeEvent.isComposing) void handleSearch()
+                }
               }}
             />
-            <button type="button" className={styles.smallPillButton} disabled={isHospitalSearching} onClick={() => void handleSearch()}>
+            <button
+              type="button"
+              className={styles.hospitalSearchIconButton}
+              aria-label={t.analyze.searchButton}
+              disabled={isHospitalSearching || isHospitalQueryComposing}
+              onClick={() => void handleSearch()}
+            >
               {isHospitalSearching ? <LoaderCircle className={`${styles.iconXs} ${styles.spin}`} /> : <Search className={styles.iconXs} />}
-              {isHospitalSearching ? t.analyze.hospitalSearching : t.analyze.searchButton}
             </button>
           </div>
         </label>
-        <div className={styles.historyActionGrid}>
-          <button type="button" className={styles.secondaryButton} onClick={openRegionModal}>
-            {selectedRegion ? t.analyze.changeRegionButton : t.analyze.selectRegionButton}
-          </button>
-          <span className={styles.filterLabelPill}>{t.analyze.medicalCategoryFilter}</span>
-        </div>
-        <CategorySelector selected={category} onSelect={handleCategoryChange} />
-        <div className={styles.selectedFilterPanel}>
-          <span className={styles.mutedText}>{t.analyze.selectedFilters}</span>
-          <div className={styles.badgeRow}>
-            {searchFiltersRelaxed ? (
-              <span className={styles.neutralPill}>{t.analyze.filtersCleared}</span>
-            ) : (
-              <>
-                {selectedRegion && <span className={styles.neutralPill}>{selectedRegionLabel}</span>}
-                <span className={styles.neutralPill}>{t.categories[category]}</span>
-              </>
-            )}
+
+        {hasShortHospitalKeyword && <p className={styles.reviewDetectedText}>{t.analyze.shortHospitalKeywordGuide}</p>}
+
+        <article className={styles.finderTipCard}>
+          <strong>{hasSearched ? t.analyze.searchTipTitle : t.analyze.usageTipTitle}</strong>
+          <p>{hasSearched ? t.analyze.searchTipDescription : t.analyze.usageTipDescription}</p>
+        </article>
+
+        {(hasSelectedSearchCondition || directHospitalKeyword || searchFiltersRelaxed) && (
+          <div className={styles.finderResetRow}>
             <button
               type="button"
               className={styles.smallPillButton}
@@ -1196,14 +1426,20 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
               {t.analyze.resetFilters}
             </button>
           </div>
-        </div>
+        )}
       </section>
 
       {hasSearched && (
         <section className={styles.stackSm}>
-          <h2 className={styles.titleSm}>
-            {t.analyze.searchResultsCount.replace("{count}", String(results.length))}
-          </h2>
+          <div className={styles.searchResultHeader}>
+            <div>
+              <p className={styles.bodyText}>{searchResultMessage}</p>
+              <h2 className={styles.titleSm}>
+                {t.analyze.searchResultsCount.replace("{count}", String(filteredHospitals.length))}
+              </h2>
+            </div>
+            {searchFiltersRelaxed && <span className={styles.neutralPill}>{t.analyze.filtersCleared}</span>}
+          </div>
           {hospitalSearchError && (
             <article className={`${styles.emptyCard} ${styles.stackSm}`}>
               <h3 className={styles.titleSm}>{t.analyze.hospitalSearchFailed}</h3>
@@ -1215,31 +1451,33 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
               <LoaderCircle className={`${styles.iconLg} ${styles.spin}`} />
               <h3 className={styles.titleMd}>{t.analyze.hospitalSearching}</h3>
             </article>
-          ) : results.length === 0 ? (
+          ) : filteredHospitals.length === 0 && hasShortHospitalKeyword ? (
             <article className={`${styles.emptyCard} ${styles.stackSm}`}>
+              <p className={styles.bodyText}>{t.analyze.shortHospitalKeywordGuide}</p>
+            </article>
+          ) : filteredHospitals.length === 0 ? (
+            <article className={`${styles.emptyCard} ${styles.hospitalNoResultCard} ${styles.stackSm}`}>
+              <span className={`${styles.iconBoxSmall} ${styles.iconPeach}`}>
+                <Search className={styles.iconSm} aria-hidden="true" />
+              </span>
               <h3 className={styles.titleMd}>{t.analyze.noSearchResults}</h3>
               <p className={styles.bodyText}>{t.analyze.noSearchResultsDescription}</p>
-              <p className={styles.mutedText}>{t.analyze.noSearchResultsFilterHint}</p>
-              <div className={styles.hospitalFallbackActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  disabled={!directHospitalKeyword}
-                  onClick={() => void handleSearch({ withoutFilters: true })}
-                >
-                  {t.analyze.searchWithoutFilters}
-                </button>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleResetHospitalSearch}
+              >
+                {t.analyze.resetFilters}
+              </button>
+              {directHospitalKeyword.length >= 2 && (
                 <button
                   type="button"
                   className={styles.primaryButton}
-                  disabled={!directHospitalKeyword}
                   onClick={handleSelectManualHospital}
                 >
-                  {directHospitalKeyword
-                    ? t.analyze.selectHospitalNameDirectly.replace("{hospitalName}", directHospitalKeyword)
-                    : t.analyze.selectEnteredHospitalDirectly}
+                  {t.analyze.selectHospitalNameDirectly.replace("{hospitalName}", directHospitalKeyword)}
                 </button>
-              </div>
+              )}
             </article>
           ) : (
             <>
@@ -1263,30 +1501,20 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
                 onPrev={() => handleSwipe("prev", hospitalTotalPages, setHospitalPage)}
                 onNext={() => handleSwipe("next", hospitalTotalPages, setHospitalPage)}
               />
-              {directHospitalKeyword && (
-                <article className={`${styles.manualHospitalPrompt} ${styles.stackSm}`}>
-                  <p className={styles.bodyText}>{t.analyze.cantFindHospital}</p>
-                  <button type="button" className={styles.secondaryButton} onClick={handleSelectManualHospital}>
-                    {t.analyze.selectEnteredHospitalDirectly}
-                  </button>
-                </article>
-              )}
             </>
           )}
         </section>
       )}
 
       {selectedHospital && (
-        <section className={`${styles.card} ${styles.stackSm}`}>
+        <section className={`${styles.selectedHospitalCard} ${styles.stackSm}`}>
           <div className={styles.sectionHeader}>
             <div>
               <h2 className={styles.titleMd}>{t.analyze.selectedHospitalTitle}</h2>
-              <p className={styles.bodyText}>
-                {getHospitalDisplayName(selectedHospital, language)}
-              </p>
+              <p className={styles.bodyText}>{getHospitalDisplayName(selectedHospital, language)}</p>
             </div>
             <button type="button" className={styles.smallPillButton} onClick={handleFindAgain}>
-              {t.analyze.findAgain}
+              {t.analyze.changeSelectedHospital}
             </button>
           </div>
           <div className={styles.selectedHospitalGrid}>
@@ -1312,46 +1540,27 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </div>
         <ReviewInputWorkspace
           value={directReviewText}
+          reviews={reviewDrafts}
+          summary={reviewInboxSummary}
+          feedback={reviewFeedback}
+          inputError={inputError}
+          isAnalyzing={isAnalyzing}
+          isAnalyzeDisabled={isReviewAnalysisDisabled}
           screenshotFileNames={screenshotFileNames}
           uploadedReviewFileName={uploadedReviewFileName}
           onChange={setDirectReviewText}
           onAddReviews={handleAddManualReviews}
-          onScreenshotFileChange={handleScreenshotFileChange}
           onReadScreenshotReviews={handleReadScreenshotReviews}
-          onReviewFileChange={handleReviewFileChange}
+          onCombinedImportChange={handleCombinedReviewImportChange}
+          onContentChange={handleReviewDraftContentChange}
+          onToggleIncluded={handleToggleReviewDraft}
+          onDelete={handleDeleteReviewDraft}
+          onClear={handleClearReviewDrafts}
+          onStartAnalysis={handleAnalyzeDirectReview}
         />
       </section>
 
       {selectedHospitalReviewSection}
-
-      <ReviewInbox
-        reviews={reviewDrafts}
-        summary={reviewInboxSummary}
-        feedback={reviewFeedback}
-        onContentChange={handleReviewDraftContentChange}
-        onToggleIncluded={handleToggleReviewDraft}
-        onDelete={handleDeleteReviewDraft}
-        onClear={handleClearReviewDrafts}
-      />
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div>
-          <h2 className={styles.titleMd}>{t.analyze.directAnalyzeButton}</h2>
-          <p className={styles.bodyText}>{t.analyze.analysisStartDescription}</p>
-        </div>
-        {inputError && <p className={styles.bodyText}>{inputError}</p>}
-        <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            disabled={isAnalyzing}
-            onClick={handleAnalyzeDirectReview}
-          >
-            {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
-            {isAnalyzing ? t.analyze.submitting : t.analyze.directAnalyzeButton}
-          </button>
-        </div>
-      </section>
 
       {isAnalyzing && (
         <section className={`${styles.emptyCard} ${styles.stackSm}`}>
@@ -1508,28 +1717,97 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </section>
       </div>
     ) : null}
+    {isCategorySheetOpen ? (
+      <div className={styles.regionModalBackdrop} role="presentation" onClick={() => setIsCategorySheetOpen(false)}>
+        <section
+          className={styles.categorySheetCard}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="analyze-category-sheet-title"
+          aria-describedby="analyze-category-sheet-description"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className={styles.regionSheetHeader}>
+            <div>
+              <h2 id="analyze-category-sheet-title" className={styles.regionSheetTitle}>{t.analyze.categorySheetTitle}</h2>
+              <p id="analyze-category-sheet-description">{t.analyze.categorySheetDescription}</p>
+            </div>
+            <button
+              type="button"
+              className={styles.regionSheetCloseButton}
+              aria-label={t.analyze.regionPicker.closeAriaLabel}
+              onClick={() => setIsCategorySheetOpen(false)}
+            >
+              <X className={styles.iconMd} aria-hidden="true" />
+            </button>
+          </div>
+          <div className={styles.categorySheetList}>
+            {categorySheetItems.map(({ key, label, desc, icon: Icon }) => {
+              const isSelected = category === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`${styles.categorySheetOption} ${isSelected ? styles.categorySheetOptionSelected : ""}`}
+                  onClick={() => handleCategoryChange(key)}
+                >
+                  <span className={styles.iconBoxSmall}>
+                    <Icon className={styles.iconSm} aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong>{label}</strong>
+                    <small>{desc}</small>
+                  </span>
+                  {isSelected ? <Check className={styles.iconSm} aria-hidden="true" /> : null}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    ) : null}
     </>
   )
 }
 
 function ReviewInputWorkspace({
   value,
+  reviews,
+  summary,
+  feedback,
+  inputError,
+  isAnalyzing,
+  isAnalyzeDisabled,
   screenshotFileNames,
   uploadedReviewFileName,
   onChange,
   onAddReviews,
-  onScreenshotFileChange,
   onReadScreenshotReviews,
-  onReviewFileChange,
+  onCombinedImportChange,
+  onContentChange,
+  onToggleIncluded,
+  onDelete,
+  onClear,
+  onStartAnalysis,
 }: {
   value: string
+  reviews: ReviewDraft[]
+  summary: { totalCount: number; shortCount: number; duplicateCount: number; readyCount: number }
+  feedback: string
+  inputError: string
+  isAnalyzing: boolean
+  isAnalyzeDisabled: boolean
   screenshotFileNames: string[]
   uploadedReviewFileName: string
   onChange: (value: string) => void
   onAddReviews: () => void
-  onScreenshotFileChange: (event: ChangeEvent<HTMLInputElement>) => void
   onReadScreenshotReviews: () => void
-  onReviewFileChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onCombinedImportChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onContentChange: (reviewId: string, content: string) => void
+  onToggleIncluded: (reviewId: string) => void
+  onDelete: (reviewId: string) => void
+  onClear: () => void
+  onStartAnalysis: () => void
 }) {
   const { t } = useLanguage()
   const [examplesOpen, setExamplesOpen] = useState(false)
@@ -1549,28 +1827,27 @@ function ReviewInputWorkspace({
   return (
     <section className={styles.reviewInputWorkspace}>
       <div className={styles.reviewImportToolbar}>
-        <label className={styles.reviewImportButton} htmlFor="screenshot-review-files">
+        <button type="button" className={styles.reviewImportButton} onClick={() => textareaRef.current?.focus()}>
+          <Pencil className={styles.iconXs} aria-hidden="true" />
+          <span>
+            <strong>{t.analyze.pasteReviewButton}</strong>
+            <small>{t.analyze.pasteReviewSubtext}</small>
+          </span>
+        </button>
+        <label className={styles.reviewImportButton} htmlFor="review-import-input">
           <UploadCloud className={styles.iconXs} aria-hidden="true" />
-          {t.analyze.importImageButton}
+          <span>
+            <strong>{t.analyze.importImageFileButton}</strong>
+            <small>{t.analyze.importImageFileSubtext}</small>
+          </span>
         </label>
         <input
-          id="screenshot-review-files"
+          id="review-import-input"
           className={styles.visuallyHidden}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,.txt,.csv,text/plain,text/csv"
           multiple
-          onChange={onScreenshotFileChange}
-        />
-        <label className={styles.reviewImportButton} htmlFor="review-file-input">
-          <FileText className={styles.iconXs} aria-hidden="true" />
-          {t.analyze.importFileButton}
-        </label>
-        <input
-          id="review-file-input"
-          className={styles.visuallyHidden}
-          type="file"
-          accept=".txt,.csv,text/plain,text/csv"
-          onChange={onReviewFileChange}
+          onChange={onCombinedImportChange}
         />
       </div>
 
@@ -1671,11 +1948,38 @@ function ReviewInputWorkspace({
           {t.analyze.addToReviewQueue}
         </button>
       </div>
+
+      <ReviewStatusPanel
+        reviews={reviews}
+        summary={summary}
+        feedback={feedback}
+        onContentChange={onContentChange}
+        onToggleIncluded={onToggleIncluded}
+        onDelete={onDelete}
+        onClear={onClear}
+      />
+
+      <section className={styles.reviewStartPanel}>
+        <div>
+          <h3 className={styles.titleSm}>{t.analyze.analysisStartTitle}</h3>
+          <p className={styles.bodyText}>{t.analyze.analysisStartDescription}</p>
+        </div>
+        {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
+        <button
+          type="button"
+          className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
+          disabled={isAnalyzeDisabled}
+          onClick={onStartAnalysis}
+        >
+          {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
+          {isAnalyzing ? t.analyze.submitting : t.analyze.directAnalyzeButton}
+        </button>
+      </section>
     </section>
   )
 }
 
-function ReviewInbox({
+function ReviewStatusPanel({
   reviews,
   summary,
   feedback,
@@ -1693,13 +1997,19 @@ function ReviewInbox({
   onClear: () => void
 }) {
   const { t } = useLanguage()
+  const [showAllReviews, setShowAllReviews] = useState(false)
+  const visibleReviews = showAllReviews ? reviews : reviews.slice(0, 3)
 
   return (
-    <section className={`${styles.card} ${styles.stackSm}`}>
+    <section className={styles.reviewStatusPanel}>
       <div className={styles.sectionHeader}>
         <div>
-          <h2 className={styles.titleMd}>{t.analyze.reviewInboxTitle}</h2>
-          <p className={styles.bodyText}>{t.analyze.reviewInboxDescription}</p>
+          <h3 className={styles.titleSm}>{t.analyze.importedReviewsTitle}</h3>
+          {reviews.length > 0 && (
+            <p className={styles.bodyText}>
+              {t.analyze.reviewInbox.importedCount.replace("{count}", String(summary.totalCount))}
+            </p>
+          )}
         </div>
         {reviews.length > 0 && (
           <button type="button" className={styles.smallPillButton} onClick={onClear}>
@@ -1707,31 +2017,44 @@ function ReviewInbox({
           </button>
         )}
       </div>
-      <div className={styles.reviewInboxSummaryGrid}>
-        <Metric label={t.analyze.reviewInbox.totalCount} value={summary.totalCount} />
-        <Metric label={t.analyze.reviewInbox.shortCount} value={summary.shortCount} />
-        <Metric label={t.analyze.reviewInbox.duplicateCount} value={summary.duplicateCount} />
-        <Metric label={t.analyze.reviewInbox.readyCount} value={summary.readyCount} />
-      </div>
+      {reviews.length > 0 && (
+        <div className={styles.reviewInboxSummaryGrid}>
+          <Metric label={t.analyze.reviewInbox.readyCount} value={summary.readyCount} />
+          <Metric label={t.analyze.reviewInbox.shortCount} value={summary.shortCount} />
+          <Metric label={t.analyze.reviewInbox.duplicateCount} value={summary.duplicateCount} />
+        </div>
+      )}
       {feedback && <p className={styles.reviewFeedback}>{feedback}</p>}
       {reviews.length === 0 ? (
         <article className={`${styles.emptyCard} ${styles.stackSm}`}>
           <h3 className={styles.titleSm}>{t.analyze.reviewInbox.emptyTitle}</h3>
           <p className={styles.bodyText}>{t.analyze.reviewInbox.emptyDescription}</p>
+          <p className={styles.mutedText}>{t.analyze.reviewInbox.minimumReviewGuide}</p>
         </article>
       ) : (
-        <div className={styles.reviewDraftList}>
-          {reviews.map((review, index) => (
-            <ReviewDraftCard
-              key={review.id}
-              review={review}
-              index={index}
-              onContentChange={onContentChange}
-              onToggleIncluded={onToggleIncluded}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
+        <section className={styles.reviewPreviewPanel}>
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.titleSm}>{t.analyze.reviewInbox.previewTitle}</h3>
+            {reviews.length > 3 && !showAllReviews && (
+              <button type="button" className={styles.textButton} onClick={() => setShowAllReviews(true)}>
+                {t.analyze.reviewInbox.viewAll}
+              </button>
+            )}
+          </div>
+          <div className={styles.reviewDraftList}>
+            {visibleReviews.map((review, index) => (
+              <ReviewDraftCard
+                key={review.id}
+                review={review}
+                index={index}
+                onContentChange={onContentChange}
+                onToggleIncluded={onToggleIncluded}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+          {!showAllReviews && <p className={styles.mutedText}>{t.analyze.reviewInbox.partialPreviewNotice}</p>}
+        </section>
       )}
     </section>
   )
@@ -1902,7 +2225,7 @@ function HospitalResultCard({
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
-      <span className={`${styles.iconBoxSmall} ${styles.iconLavender}`}>
+      <span className={`${styles.iconBoxSmall} ${styles.iconPink}`}>
         <MapPinned className={styles.iconSm} />
       </span>
       <div className={styles.recordBody}>
@@ -1926,11 +2249,11 @@ function HospitalResultCard({
           {hospital.mapUrl && <SourceLink href={hospital.mapUrl} label={t.analyze.map} />}
           {hospital.homepageUrl && <SourceLink href={hospital.homepageUrl} label={t.analyze.homepage} />}
         </div>
-        <div className={styles.actionRow}>
+        <div className={styles.hospitalCardActions}>
           <Link className={styles.secondaryButton} href={`${ROUTES.HOSPITAL_DETAIL}/${hospital.id}`}>
             {t.hospital.detail}
           </Link>
-          <button type="button" className={styles.primaryButton} onClick={onSelect}>
+          <button type="button" className={styles.hospitalSelectButton} onClick={onSelect}>
             {t.analyze.selectHospital}
           </button>
         </div>

@@ -59,6 +59,9 @@ function normalizeEvidence(value: unknown): ReviewAnalyzeResponse["evidence"] {
 
 function normalizeLevel(value: unknown): "low" | "medium" | "high" {
   if (value === "low" || value === "medium" || value === "high") return value
+  if (value === "낮음") return "low"
+  if (value === "보통") return "medium"
+  if (value === "높음") return "high"
   return "medium"
 }
 
@@ -73,12 +76,18 @@ function normalizeTrustLevel(value: unknown): ReviewAnalyzeResponse["trustLevelK
     return value
   }
 
+  if (value === "very_safe") return "very_high"
+  if (value === "safe") return "high"
+  if (value === "normal") return "medium"
+  if (value === "caution") return "low"
+  if (value === "danger") return "very_low"
+
   return "medium"
 }
 
 function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "high" {
-  if (value === "구체적" || value === "high") return "high"
-  if (value === "정보 부족" || value === "low") return "low"
+  if (value === "충분" || value === "구체적" || value === "매우 구체적" || value === "high") return "high"
+  if (value === "부족" || value === "정보 부족" || value === "매우 부족" || value === "low") return "low"
   return "medium"
 }
 

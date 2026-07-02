@@ -1,5 +1,6 @@
 "use client"
 
+import type { RefObject } from "react"
 import { Send } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
@@ -8,10 +9,12 @@ export function ChatInput({
   value,
   onChange,
   onSubmit,
+  inputRef,
 }: {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
+  inputRef?: RefObject<HTMLInputElement | null>
 }) {
   const { t } = useLanguage()
 
@@ -24,6 +27,7 @@ export function ChatInput({
       className={styles.chatForm}
     >
       <input
+        ref={inputRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={t.chatbot.placeholder}
