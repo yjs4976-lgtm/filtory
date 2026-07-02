@@ -11,6 +11,7 @@ import {
   FileCheck2,
   LinkIcon,
   LoaderCircle,
+  Maximize2,
   MapPinned,
   Pencil,
   Search,
@@ -96,6 +97,8 @@ type ReviewDraft = {
 type KakaoMapInstance = {
   setBounds: (bounds: unknown) => void
   relayout: () => void
+  setCenter: (center: unknown) => void
+  setLevel: (level: number) => void
 }
 
 type KakaoMapsWindow = Window & {
@@ -1690,7 +1693,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             </article>
           ) : (
             <>
-              <HospitalSearchMap hospitals={filteredHospitals} onSelect={handleOpenReviews} />
+              <HospitalSearchMap hospitals={filteredHospitals} selectedHospital={selectedHospital} onSelect={handleOpenReviews} />
               {selectedHospitalSummarySection}
               <div
                 className={styles.paginatedPanel}
@@ -2391,67 +2394,112 @@ function AccuracyEnhancementSection({
 
 function HospitalSearchMap({
   hospitals,
+  selectedHospital,
   onSelect,
 }: {
   hospitals: HospitalItem[]
+  selectedHospital: HospitalItem | null
   onSelect: (hospital: HospitalItem) => void
 }) {
   const { t } = useLanguage()
   const mapRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
+  const mapOpenButtonRef = useRef<HTMLButtonElement | null>(null)
   const onSelectRef = useRef(onSelect)
+  const wasMapModalOpenRef = useRef(false)
+  const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const mapHospitals = useMemo(
     () => hospitals.filter(hasValidKoreaCoordinate),
     [hospitals]
   )
+  const selectedMapHospital = useMemo(() => {
+    if (!selectedHospital || !hasValidKoreaCoordinate(selectedHospital)) return null
+    return mapHospitals.some((hospital) => hospital.id === selectedHospital.id) ? selectedHospital : null
+  }, [mapHospitals, selectedHospital])
   const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY
 
   useEffect(() => {
     onSelectRef.current = onSelect
   }, [onSelect])
 
+  const focusHospitalOnMap = useCallback((hospital: HospitalItem, level = 3) => {
+    const kakaoMaps = (window as KakaoMapsWindow).kakao?.maps
+    const map = mapInstanceRef.current
+    if (!map || !kakaoMaps || !hasValidKoreaCoordinate(hospital)) return false
+
+    const { latitude, longitude } = getHospitalCoordinate(hospital)
+    const position = new kakaoMaps.LatLng(latitude, longitude)
+    map.setCenter(position)
+    map.setLevel(level)
+    return true
+  }, [])
+
   useEffect(() => {
-    if (!mapKey || mapHospitals.length === 0 || !mapRef.current) return
+    if (!mapKey || mapHospitals.length === 0 || !mapRef.current) {
+      setMapStatus("idle")
+      return
+    }
     let resizeObserver: ResizeObserver | null = null
     let isActive = true
+    setMapStatus("loading")
 
     const initializeMap = () => {
       const kakaoMaps = (window as KakaoMapsWindow).kakao?.maps
-      if (!isActive || !kakaoMaps || !mapRef.current) return
-
-      const first = mapHospitals[0]
-      const firstCoordinate = getHospitalCoordinate(first)
-      const center = new kakaoMaps.LatLng(firstCoordinate.latitude ?? 37.5665, firstCoordinate.longitude ?? 126.978)
-      mapRef.current.replaceChildren()
-      const map = new kakaoMaps.Map(mapRef.current, { center, level: 5 })
-      const bounds = new kakaoMaps.LatLngBounds()
-
-      mapHospitals.forEach((hospital) => {
-        if (!hasValidKoreaCoordinate(hospital)) return
-        const { latitude, longitude } = getHospitalCoordinate(hospital)
-        const position = new kakaoMaps.LatLng(latitude, longitude)
-        bounds.extend(position)
-        const marker = new kakaoMaps.Marker({ position, map })
-        kakaoMaps.event.addListener(marker, "click", () => onSelectRef.current(hospital))
-      })
-
-      const fitMapToResults = () => {
-        if (!isActive) return
-        map.relayout()
-        if (mapHospitals.length > 1) map.setBounds(bounds)
+      if (!isActive || !mapRef.current) return
+      if (!kakaoMaps) {
+        setMapStatus("error")
+        return
       }
 
-      window.requestAnimationFrame(() => {
-        window.setTimeout(fitMapToResults, 80)
-      })
+      try {
+        const first = mapHospitals[0]
+        const firstCoordinate = getHospitalCoordinate(first)
+        const center = new kakaoMaps.LatLng(firstCoordinate.latitude ?? 37.5665, firstCoordinate.longitude ?? 126.978)
+        mapRef.current.replaceChildren()
+        const map = new kakaoMaps.Map(mapRef.current, { center, level: 5 })
+        mapInstanceRef.current = map
+        const bounds = new kakaoMaps.LatLngBounds()
 
-      resizeObserver = new ResizeObserver(() => {
-        fitMapToResults()
-      })
-      resizeObserver.observe(mapRef.current)
+        mapHospitals.forEach((hospital) => {
+          if (!hasValidKoreaCoordinate(hospital)) return
+          const { latitude, longitude } = getHospitalCoordinate(hospital)
+          const position = new kakaoMaps.LatLng(latitude, longitude)
+          bounds.extend(position)
+          const marker = new kakaoMaps.Marker({ position, map })
+          kakaoMaps.event.addListener(marker, "click", () => {
+            focusHospitalOnMap(hospital)
+            onSelectRef.current(hospital)
+          })
+        })
+
+        const fitMapToResults = () => {
+          if (!isActive) return
+          map.relayout()
+          if (mapHospitals.length > 1) map.setBounds(bounds)
+        }
+
+        window.requestAnimationFrame(() => {
+          window.setTimeout(fitMapToResults, 80)
+        })
+
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(() => {
+            fitMapToResults()
+          })
+          resizeObserver.observe(mapRef.current)
+        }
+        setMapStatus("ready")
+      } catch {
+        if (isActive) setMapStatus("error")
+      }
     }
 
     const loadKakaoMap = () => {
       ;(window as KakaoMapsWindow).kakao?.maps?.load(initializeMap)
+    }
+    const handleScriptError = () => {
+      if (isActive) setMapStatus("error")
     }
 
     const existingScript = document.getElementById("kakao-map-sdk") as HTMLScriptElement | null
@@ -2460,11 +2508,14 @@ function HospitalSearchMap({
         loadKakaoMap()
       } else {
         existingScript.addEventListener("load", loadKakaoMap, { once: true })
+        existingScript.addEventListener("error", handleScriptError, { once: true })
       }
       return () => {
         isActive = false
+        mapInstanceRef.current = null
         resizeObserver?.disconnect()
         existingScript.removeEventListener("load", loadKakaoMap)
+        existingScript.removeEventListener("error", handleScriptError)
       }
     }
 
@@ -2473,28 +2524,283 @@ function HospitalSearchMap({
     script.async = true
     script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${mapKey}&autoload=false`
     script.onload = loadKakaoMap
+    script.onerror = handleScriptError
     document.head.appendChild(script)
 
     return () => {
       isActive = false
+      mapInstanceRef.current = null
       resizeObserver?.disconnect()
       script.onload = null
+      script.onerror = null
       script.removeEventListener("load", loadKakaoMap)
+      script.removeEventListener("error", handleScriptError)
     }
-  }, [mapHospitals, mapKey])
+  }, [focusHospitalOnMap, mapHospitals, mapKey])
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !selectedMapHospital) return
+    focusHospitalOnMap(selectedMapHospital)
+  }, [focusHospitalOnMap, mapStatus, selectedMapHospital])
+
+  useEffect(() => {
+    if (wasMapModalOpenRef.current && !isMapModalOpen) {
+      mapOpenButtonRef.current?.focus()
+    }
+    wasMapModalOpenRef.current = isMapModalOpen
+  }, [isMapModalOpen])
+
+  const handleZoomSelectedHospital = () => {
+    if (!selectedMapHospital) return
+    focusHospitalOnMap(selectedMapHospital)
+  }
+
+  const handleOpenMapModal = () => {
+    if (mapStatus !== "ready") return
+    setIsMapModalOpen(true)
+  }
 
   if (!mapKey || mapHospitals.length === 0) return null
 
   return (
-    <article className={`${styles.card} ${styles.hospitalMapPanel}`}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <h3 className={styles.titleSm}>{t.analyze.mapPreviewTitle}</h3>
-          <p className={styles.mutedText}>{t.analyze.mapPreviewDescription}</p>
+    <>
+      <article className={`${styles.card} ${styles.hospitalMapPanel}`}>
+        <div className={styles.hospitalMapHeader}>
+          <div className={styles.hospitalMapTitleRow}>
+            <h3 className={styles.titleSm}>{t.analyze.mapPreviewTitle}</h3>
+            <div className={styles.mapActionGroup}>
+              {selectedMapHospital && mapStatus === "ready" && (
+                <button type="button" className={styles.mapZoomButton} onClick={handleZoomSelectedHospital}>
+                  <Eye className={styles.iconXs} aria-hidden="true" />
+                  {t.analyze.mapZoomSelected}
+                </button>
+              )}
+              {mapStatus === "ready" && (
+                <button
+                  ref={mapOpenButtonRef}
+                  type="button"
+                  className={styles.mapZoomButton}
+                  onClick={handleOpenMapModal}
+                >
+                  <Maximize2 className={styles.iconXs} aria-hidden="true" />
+                  {t.analyze.mapOpenLarge}
+                </button>
+              )}
+            </div>
+          </div>
+          <p className={`${styles.mutedText} ${styles.hospitalMapDescription}`}>{t.analyze.mapPreviewDescription}</p>
         </div>
-      </div>
-      <div ref={mapRef} className={styles.hospitalMapCanvas} aria-label={t.analyze.mapPreviewTitle} />
-    </article>
+        <div
+          ref={mapRef}
+          className={styles.hospitalMapCanvas}
+          aria-label={t.analyze.mapPreviewTitle}
+        />
+        {mapStatus === "error" && (
+          <div className={styles.hospitalMapFallback} role="status">
+            {t.analyze.mapPreviewUnavailable}
+          </div>
+        )}
+      </article>
+      {isMapModalOpen && (
+        <HospitalMapModal
+          hospitals={mapHospitals}
+          selectedHospital={selectedMapHospital}
+          onClose={() => setIsMapModalOpen(false)}
+          onSelect={(hospital) => {
+            onSelect(hospital)
+            setIsMapModalOpen(false)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+function HospitalMapModal({
+  hospitals,
+  selectedHospital,
+  onClose,
+  onSelect,
+}: {
+  hospitals: HospitalItem[]
+  selectedHospital: HospitalItem | null
+  onClose: () => void
+  onSelect: (hospital: HospitalItem) => void
+}) {
+  const { t } = useLanguage()
+  const modalRef = useRef<HTMLElement | null>(null)
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const onSelectRef = useRef(onSelect)
+  const selectedMapHospital = selectedHospital && hasValidKoreaCoordinate(selectedHospital) ? selectedHospital : null
+  const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY
+
+  useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
+
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose()
+        return
+      }
+
+      if (event.key !== "Tab") return
+
+      const modal = modalRef.current
+      if (!modal) return
+
+      const focusableElements = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true")
+      const firstElement = focusableElements[0] ?? modal
+      const lastElement = focusableElements[focusableElements.length - 1] ?? modal
+      const activeElement = document.activeElement
+
+      if (!modal.contains(activeElement)) {
+        event.preventDefault()
+        firstElement.focus()
+        return
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+        return
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    if (!mapKey || hospitals.length === 0 || !mapRef.current) return
+
+    let isActive = true
+    const initializeMap = () => {
+      const kakaoMaps = (window as KakaoMapsWindow).kakao?.maps
+      if (!isActive || !kakaoMaps || !mapRef.current) return
+
+      const focusedHospital = selectedMapHospital ?? hospitals[0]
+      const focusedCoordinate = getHospitalCoordinate(focusedHospital)
+      const center = new kakaoMaps.LatLng(focusedCoordinate.latitude ?? 37.5665, focusedCoordinate.longitude ?? 126.978)
+      mapRef.current.replaceChildren()
+      const map = new kakaoMaps.Map(mapRef.current, { center, level: selectedMapHospital ? 3 : 5 })
+      mapInstanceRef.current = map
+      const bounds = new kakaoMaps.LatLngBounds()
+
+      hospitals.forEach((hospital) => {
+        const { latitude, longitude } = getHospitalCoordinate(hospital)
+        const position = new kakaoMaps.LatLng(latitude, longitude)
+        bounds.extend(position)
+        const marker = new kakaoMaps.Marker({ position, map })
+        kakaoMaps.event.addListener(marker, "click", () => onSelectRef.current(hospital))
+      })
+
+      const fitMap = () => {
+        if (!isActive) return
+        map.relayout()
+        if (selectedMapHospital) {
+          const { latitude, longitude } = getHospitalCoordinate(selectedMapHospital)
+          map.setCenter(new kakaoMaps.LatLng(latitude, longitude))
+          map.setLevel(3)
+          return
+        }
+        if (hospitals.length > 1) map.setBounds(bounds)
+      }
+
+      window.requestAnimationFrame(() => {
+        window.setTimeout(fitMap, 120)
+      })
+    }
+
+    const loadKakaoMap = () => {
+      ;(window as KakaoMapsWindow).kakao?.maps?.load(initializeMap)
+    }
+    const handleScriptError = () => {
+      if (mapRef.current) mapRef.current.replaceChildren()
+    }
+    const existingScript = document.getElementById("kakao-map-sdk") as HTMLScriptElement | null
+    if (existingScript) {
+      if ((window as KakaoMapsWindow).kakao?.maps) {
+        loadKakaoMap()
+      } else {
+        existingScript.addEventListener("load", loadKakaoMap, { once: true })
+        existingScript.addEventListener("error", handleScriptError, { once: true })
+      }
+      return () => {
+        isActive = false
+        mapInstanceRef.current = null
+        existingScript.removeEventListener("load", loadKakaoMap)
+        existingScript.removeEventListener("error", handleScriptError)
+      }
+    }
+
+    const script = document.createElement("script")
+    script.id = "kakao-map-sdk"
+    script.async = true
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${mapKey}&autoload=false`
+    script.onload = loadKakaoMap
+    script.onerror = handleScriptError
+    document.head.appendChild(script)
+
+    return () => {
+      isActive = false
+      mapInstanceRef.current = null
+      script.onload = null
+      script.onerror = null
+    }
+  }, [hospitals, mapKey, selectedMapHospital])
+
+  return (
+    <div className={styles.mapModalBackdrop} role="presentation" onClick={onClose}>
+      <section
+        ref={modalRef}
+        className={styles.mapModalCard}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hospital-map-modal-title"
+        aria-describedby="hospital-map-modal-description"
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={styles.mapModalHeader}>
+          <div>
+            <h2 id="hospital-map-modal-title" className={styles.regionSheetTitle}>{t.analyze.mapLargeTitle}</h2>
+            <p id="hospital-map-modal-description">{t.analyze.mapLargeDescription}</p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className={styles.regionSheetCloseButton}
+            aria-label={t.analyze.mapCloseLarge}
+            onClick={onClose}
+          >
+            <X className={styles.iconMd} aria-hidden="true" />
+          </button>
+        </div>
+        <div ref={mapRef} className={styles.hospitalMapModalCanvas} aria-label={t.analyze.mapLargeTitle} />
+      </section>
+    </div>
   )
 }
 

@@ -38,7 +38,7 @@ function buildCurrentChatAnalysisContext() {
   return buildChatbotContextFromAnalysis(analysis, "current")
 }
 
-export function ChatWindow() {
+export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const router = useRouter()
   const { t, language } = useLanguage()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -174,7 +174,13 @@ export function ChatWindow() {
 
       <div className={styles.chatbotSpacer} />
 
-      <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
+      {dockInput ? (
+        <div className={styles.chatInputDock}>
+          <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
+        </div>
+      ) : (
+        <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
+      )}
     </div>
   )
 }
