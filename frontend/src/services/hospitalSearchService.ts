@@ -50,13 +50,18 @@ function normalizeCategory(category?: string | null): HospitalCategory {
   return "derma"
 }
 
+function toOptionalCoordinate(value: number | string | null | undefined): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : undefined
+}
+
 function toHospitalItem(item: BackendHospital): HospitalItem {
   const reviewCount = Number(item.google_review_count ?? item.naver_review_count ?? 0)
   const provider = item.provider ?? item.source_provider ?? undefined
-  const latitude = Number(item.latitude)
-  const longitude = Number(item.longitude)
-  const safeLatitude = Number.isFinite(latitude) ? latitude : undefined
-  const safeLongitude = Number.isFinite(longitude) ? longitude : undefined
+  const safeLatitude = toOptionalCoordinate(item.latitude)
+  const safeLongitude = toOptionalCoordinate(item.longitude)
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),

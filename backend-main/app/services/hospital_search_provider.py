@@ -39,6 +39,7 @@ class HospitalSearchProvider:
         "ophthalmology": "안과",
         "dentistry": "치과",
     }
+    SUPPORTED_CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
     _CACHE = {}
 
     @classmethod
@@ -169,7 +170,7 @@ class HospitalSearchProvider:
         latitude = cls._decimal_or_none(item.get("y"))
         longitude = cls._decimal_or_none(item.get("x"))
         place_url = cls._text(item.get("place_url"))
-        provider_category = cls._category_from_kakao(item.get("category_name"))
+        provider_category = cls._category_from_kakao(item)
 
         return {
             "id": f"kakao:{cls._text(item.get('id'))}",
@@ -177,7 +178,7 @@ class HospitalSearchProvider:
             "source_provider": "kakao",
             "external_place_id": cls._text(item.get("id")),
             "hospital_name": cls._text(item.get("place_name")) or "병원",
-            "category": provider_category or category,
+            "category": provider_category,
             "region": cls._region_from_address(cls._text(item.get("address_name"))),
             "address": cls._text(item.get("address_name")),
             "road_address": cls._text(item.get("road_address_name")),
@@ -195,7 +196,7 @@ class HospitalSearchProvider:
     @classmethod
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
-        provider_category = cls._category_from_naver(item.get("category"))
+        provider_category = cls._category_from_naver(item)
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
 
@@ -205,7 +206,7 @@ class HospitalSearchProvider:
             "source_provider": "naver",
             "external_place_id": cls._stable_id(item),
             "hospital_name": cls._strip_html(item.get("title")) or "병원",
-            "category": provider_category or category,
+            "category": provider_category,
             "region": cls._region_from_address(cls._strip_html(item.get("address"))),
             "address": cls._strip_html(item.get("address")),
             "road_address": cls._strip_html(item.get("roadAddress")),
@@ -272,12 +273,16 @@ class HospitalSearchProvider:
             return None
 
     @classmethod
-    def _category_from_kakao(cls, value):
-        return cls._category_from_text(value)
+    def _category_from_kakao(cls, item):
+        return cls._category_from_text(
+            f"{item.get('category_name') or ''} {item.get('place_name') or ''}"
+        )
 
     @classmethod
-    def _category_from_naver(cls, value):
-        return cls._category_from_text(cls._strip_html(value))
+    def _category_from_naver(cls, item):
+        return cls._category_from_text(
+            f"{cls._strip_html(item.get('category')) or ''} {cls._strip_html(item.get('title')) or ''}"
+        )
 
     @staticmethod
     def _category_from_text(value):
@@ -292,16 +297,21 @@ class HospitalSearchProvider:
 
     @classmethod
     def _matches_requested_category(cls, result_category, requested_category):
-        return not requested_category or not result_category or result_category == requested_category
+        if result_category not in cls.SUPPORTED_CATEGORIES:
+            return False
+        return not requested_category or result_category == requested_category
 
     @classmethod
     def _is_naver_hospital(cls, item):
         category = cls._strip_html(item.get("category")) or ""
         title = cls._strip_html(item.get("title")) or ""
         text = f"{category} {title}"
+        if "한의원" in text:
+            return False
+
         return any(
             keyword in text
-            for keyword in ("병원", "의원", "클리닉", "피부과", "안과", "치과", "한의원")
+            for keyword in ("병원", "의원", "클리닉", "피부과", "안과", "치과")
         )
 
     @staticmethod
