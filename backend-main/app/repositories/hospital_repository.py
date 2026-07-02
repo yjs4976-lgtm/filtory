@@ -18,6 +18,15 @@ class HospitalRepository:
         return Hospital.query.filter(Hospital.google_place_id == google_place_id).first()
 
     @staticmethod
+    def get_by_source_provider_external_place_id(source_provider, external_place_id):
+        if not source_provider or not external_place_id:
+            return None
+        return Hospital.query.filter(
+            Hospital.source_provider == source_provider,
+            Hospital.external_place_id == external_place_id,
+        ).first()
+
+    @staticmethod
     def get_by_name_category_address(hospital_name, category, address=None):
         query = Hospital.query.filter(
             Hospital.hospital_name == hospital_name,
@@ -65,6 +74,7 @@ class HospitalRepository:
                     Hospital.english_name.ilike(pattern),
                     Hospital.region.ilike(pattern),
                     Hospital.address.ilike(pattern),
+                    Hospital.road_address.ilike(pattern),
                 )
             )
 
@@ -77,6 +87,7 @@ class HospitalRepository:
                 or_(
                     Hospital.region.ilike(region_pattern),
                     Hospital.address.ilike(region_pattern),
+                    Hospital.road_address.ilike(region_pattern),
                 )
             )
 
@@ -89,6 +100,7 @@ class HospitalRepository:
                         or_(
                             Hospital.region.ilike(region_pattern),
                             Hospital.address.ilike(region_pattern),
+                            Hospital.road_address.ilike(region_pattern),
                         ),
                         0,
                     ),

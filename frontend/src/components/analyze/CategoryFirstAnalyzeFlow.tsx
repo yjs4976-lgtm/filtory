@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Check,
   ChevronDown,
@@ -91,6 +91,24 @@ type ReviewDraft = {
   status: ReviewDraftStatus
 }
 
+type KakaoMapInstance = {
+  setBounds: (bounds: unknown) => void
+  relayout: () => void
+}
+
+type KakaoMapsWindow = Window & {
+  kakao?: {
+    maps?: {
+      load: (callback: () => void) => void
+      LatLng: new (lat: number, lng: number) => unknown
+      LatLngBounds: new () => { extend: (position: unknown) => void }
+      Map: new (container: HTMLElement, options: { center: unknown; level: number }) => KakaoMapInstance
+      Marker: new (options: { position: unknown; map: unknown }) => unknown
+      event: { addListener: (target: unknown, eventName: string, handler: () => void) => void }
+    }
+  }
+}
+
 type ReviewExampleCategory = "kindness" | "waiting" | "cost" | "consultation" | "aftercare"
 
 const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental"> = {
@@ -139,11 +157,28 @@ function detectCategoryFromKeyword(keyword: string): HospitalCategory | null {
   )?.[0] ?? null
 }
 
+function normalizeCategoryParam(value: string | null): HospitalCategory | null {
+  const normalizedValue = value?.trim().toLowerCase()
+  if (!normalizedValue) return null
+  if (normalizedValue === "derma" || normalizedValue === "eye" || normalizedValue === "dental") {
+    return normalizedValue
+  }
+
+  return detectCategoryFromKeyword(normalizedValue)
+}
+
 function normalizeHospitalSearchText(value?: string) {
   return (value ?? "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ")
+}
+
+function hasValidKoreaCoordinate(hospital: HospitalItem): hospital is HospitalItem & { lat: number; lng: number } {
+  if (typeof hospital.lat !== "number" || typeof hospital.lng !== "number") return false
+  if (!Number.isFinite(hospital.lat) || !Number.isFinite(hospital.lng)) return false
+
+  return hospital.lat >= 32 && hospital.lat <= 39.5 && hospital.lng >= 123 && hospital.lng <= 132
 }
 
 function hospitalMatchesRegion(hospital: HospitalItem, region: SelectedAnalyzeRegion | null, regionLabel: string) {
@@ -352,6 +387,10 @@ function mergeReviewDraftsForAnalysis(drafts: ReviewDraft[]) {
   return drafts.map((draft, index) => `[리뷰 ${index + 1}]\n${draft.content.trim()}`).join("\n\n")
 }
 
+function isInternalHospitalId(id: string) {
+  return /^\d+$/.test(id)
+}
+
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
@@ -362,13 +401,19 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
 
   return {
     address: hospital.address,
+    roadAddress: hospital.roadAddress,
     phone: hospital.phone,
     treatmentItems: splitTreatmentItems(hospital.treatmentItems),
     description: hospital.description,
     hasPhotos: Boolean(hospital.imageUrl),
     homepageUrl: hospital.homepageUrl,
+    sourceProvider: hospital.provider,
+    externalPlaceId: hospital.externalPlaceId,
+    kakaoPlaceUrl: hospital.kakaoPlaceUrl,
     naverPlaceUrl: isNaverSource ? sourceUrl : undefined,
     googleMapUrl: hospital.mapUrl,
+    latitude: hospital.lat,
+    longitude: hospital.lng,
     googleRegistered: Boolean(hospital.mapUrl),
     englishName,
     hasEnglishInfo: Boolean(englishName),
@@ -581,17 +626,18 @@ function createApiAnalysisResult({
 
 export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t, language } = useLanguage()
   const { showToast } = useToast()
   const currentLanguage = language === "en" ? "en" : "ko"
-  const [category, setCategory] = useState<AnalyzeCategoryFilter>(null)
+  const [category, setCategory] = useState<AnalyzeCategoryFilter>(() => normalizeCategoryParam(searchParams.get("category")))
   const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false)
   const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false)
   const [regionSearch, setRegionSearch] = useState("")
   const [modalProvinceCode, setModalProvinceCode] = useState<RegionProvinceCode | "">("")
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(() => searchParams.get("hospital")?.trim() ?? "")
   const [isHospitalQueryComposing, setIsHospitalQueryComposing] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<HospitalItem[]>([])
@@ -618,6 +664,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [isSaved, setIsSaved] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const regionSearchRef = useRef<HTMLInputElement>(null)
+  const initialSearchAppliedRef = useRef(false)
 
   const reviews = useMemo(() => (selectedHospital ? getDemoReviewsForHospital(selectedHospital) : []), [selectedHospital])
   const selectedReviews = reviews.filter((review) => selectedReviewIds.includes(review.id))
@@ -877,7 +924,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewFeedback("")
   }
 
-  const handleSearch = async (options: {
+  const handleSearch = useCallback(async (options: {
     withoutFilters?: boolean
     regionOverride?: SelectedAnalyzeRegion | null
     categoryOverride?: AnalyzeCategoryFilter
@@ -938,7 +985,41 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     } finally {
       setIsHospitalSearching(false)
     }
-  }
+  }, [directHospitalKeyword, effectiveSearchCategory, selectedRegion, t.analyze.hospitalSearchFailed])
+
+  useEffect(() => {
+    if (!isHydrated || initialSearchAppliedRef.current || typeof window === "undefined") return
+
+    initialSearchAppliedRef.current = true
+
+    const hasInitialSearchParams = searchParams.has("hospital") || searchParams.has("category") || searchParams.has("region")
+    if (!hasInitialSearchParams) return
+
+    const initialHospitalKeyword = searchParams.get("hospital")?.trim() ?? ""
+    const initialCategory = normalizeCategoryParam(searchParams.get("category"))
+
+    if (!initialHospitalKeyword) {
+      if (initialCategory || selectedRegion) {
+        const timer = window.setTimeout(() => {
+          void handleSearch({
+            categoryOverride: initialCategory ?? category,
+            regionOverride: selectedRegion,
+          })
+        }, 0)
+        return () => window.clearTimeout(timer)
+      }
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      void handleSearch({
+        keywordOverride: initialHospitalKeyword,
+        categoryOverride: initialCategory ?? detectCategoryFromKeyword(initialHospitalKeyword) ?? category,
+        regionOverride: selectedRegion,
+      })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [category, handleSearch, isHydrated, searchParams, selectedRegion])
 
   const resetSearchState = () => {
     setHasSearched(false)
@@ -1023,7 +1104,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     resetSearchState()
   }
 
-  const handleOpenReviews = (hospital: HospitalItem) => {
+  const handleOpenReviews = useCallback((hospital: HospitalItem) => {
     const nextReviews = getDemoReviewsForHospital(hospital)
     setSelectedHospital(hospital)
     setDirectHospitalName(hospital.name)
@@ -1031,7 +1112,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewPage(0)
     setAnalysisResult(null)
     setIsSaved(false)
-  }
+  }, [])
 
   const handleSelectManualHospital = () => {
     if (directHospitalKeyword.length <= 1) return
@@ -1274,6 +1355,26 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     )
   }
 
+  const selectedHospitalSummarySection = selectedHospital ? (
+    <section className={`${styles.selectedHospitalCard} ${styles.stackSm}`}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h2 className={styles.titleMd}>{t.analyze.selectedHospitalTitle}</h2>
+          <p className={styles.bodyText}>{getHospitalDisplayName(selectedHospital, language)}</p>
+        </div>
+        <button type="button" className={styles.smallPillButton} onClick={handleFindAgain}>
+          {t.analyze.changeSelectedHospital}
+        </button>
+      </div>
+      <div className={styles.selectedHospitalGrid}>
+        {selectedHospitalRegionLabel && <span className={styles.neutralPill}>{selectedHospitalRegionLabel}</span>}
+        <span className={styles.neutralPill}>{t.categories[selectedHospital.category]}</span>
+      </div>
+      {selectedHospital.isManual && <p className={styles.bodyText}>{t.analyze.manualHospitalNotice}</p>}
+      {selectedHospital.address && <p className={styles.recordMeta}>{selectedHospital.address}</p>}
+    </section>
+  ) : null
+
   const selectedHospitalReviewSection = selectedHospital ? (
     <section className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.sectionHeader}>
@@ -1337,6 +1438,45 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
           </div>
         </>
       )}
+    </section>
+  ) : null
+
+  const reviewImportSection = selectedHospital ? (
+    <section className={`${styles.card} ${styles.stackSm}`}>
+      <div>
+        <h2 className={styles.titleMd}>{t.analyze.reviewSourceTitle}</h2>
+        <p className={styles.bodyText}>{t.analyze.reviewSourceDescription}</p>
+      </div>
+      <ReviewInputWorkspace
+        value={directReviewText}
+        reviews={reviewDrafts}
+        summary={reviewInboxSummary}
+        feedback={reviewFeedback}
+        inputError={inputError}
+        isAnalyzing={isAnalyzing}
+        isAnalyzeDisabled={isReviewAnalysisDisabled}
+        screenshotFileNames={screenshotFileNames}
+        uploadedReviewFileName={uploadedReviewFileName}
+        onChange={setDirectReviewText}
+        onAddReviews={handleAddManualReviews}
+        onReadScreenshotReviews={handleReadScreenshotReviews}
+        onCombinedImportChange={handleCombinedReviewImportChange}
+        onContentChange={handleReviewDraftContentChange}
+        onToggleIncluded={handleToggleReviewDraft}
+        onDelete={handleDeleteReviewDraft}
+        onClear={handleClearReviewDrafts}
+        onStartAnalysis={handleAnalyzeDirectReview}
+      />
+    </section>
+  ) : null
+
+  const analyzeGuideSection = selectedHospital ? (
+    <section className={`${styles.card} ${styles.stackSm}`}>
+      <p className={styles.memberEyebrow}>ANALYZE GUIDE</p>
+      <h2 className={styles.titleMd}>{t.about.howTitle}</h2>
+      <ol className={styles.compactList}>
+        {t.about.steps.map((step: string) => <li key={step}>{step}</li>)}
+      </ol>
     </section>
   ) : null
 
@@ -1507,6 +1647,8 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
             </article>
           ) : (
             <>
+              <HospitalSearchMap hospitals={filteredHospitals} onSelect={handleOpenReviews} />
+              {selectedHospitalSummarySection}
               <div
                 className={styles.paginatedPanel}
                 onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
@@ -1532,61 +1674,22 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </section>
       )}
 
-      {selectedHospital && (
-        <section className={`${styles.selectedHospitalCard} ${styles.stackSm}`}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2 className={styles.titleMd}>{t.analyze.selectedHospitalTitle}</h2>
-              <p className={styles.bodyText}>{getHospitalDisplayName(selectedHospital, language)}</p>
-            </div>
-            <button type="button" className={styles.smallPillButton} onClick={handleFindAgain}>
-              {t.analyze.changeSelectedHospital}
-            </button>
-          </div>
-          <div className={styles.selectedHospitalGrid}>
-            {selectedHospitalRegionLabel && <span className={styles.neutralPill}>{selectedHospitalRegionLabel}</span>}
-            <span className={styles.neutralPill}>{t.categories[selectedHospital.category]}</span>
-          </div>
-          {selectedHospital.isManual && <p className={styles.bodyText}>{t.analyze.manualHospitalNotice}</p>}
-          {selectedHospital.address && <p className={styles.recordMeta}>{selectedHospital.address}</p>}
-        </section>
-      )}
-
-      <AccuracyEnhancementSection
-        input={accessibilityInput}
-        fallback={selectedHospitalMetadata}
-        onTextChange={handleAccessibilityTextChange}
-        onBooleanChange={handleAccessibilityBooleanChange}
-      />
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div>
-          <h2 className={styles.titleMd}>{t.analyze.reviewSourceTitle}</h2>
-          <p className={styles.bodyText}>{t.analyze.reviewSourceDescription}</p>
-        </div>
-        <ReviewInputWorkspace
-          value={directReviewText}
-          reviews={reviewDrafts}
-          summary={reviewInboxSummary}
-          feedback={reviewFeedback}
-          inputError={inputError}
-          isAnalyzing={isAnalyzing}
-          isAnalyzeDisabled={isReviewAnalysisDisabled}
-          screenshotFileNames={screenshotFileNames}
-          uploadedReviewFileName={uploadedReviewFileName}
-          onChange={setDirectReviewText}
-          onAddReviews={handleAddManualReviews}
-          onReadScreenshotReviews={handleReadScreenshotReviews}
-          onCombinedImportChange={handleCombinedReviewImportChange}
-          onContentChange={handleReviewDraftContentChange}
-          onToggleIncluded={handleToggleReviewDraft}
-          onDelete={handleDeleteReviewDraft}
-          onClear={handleClearReviewDrafts}
-          onStartAnalysis={handleAnalyzeDirectReview}
-        />
-      </section>
+      {!(hasSearched && !isHospitalSearching && filteredHospitals.length > 0) && selectedHospitalSummarySection}
 
       {selectedHospitalReviewSection}
+
+      {selectedHospital && (
+        <AccuracyEnhancementSection
+          input={accessibilityInput}
+          fallback={selectedHospitalMetadata}
+          onTextChange={handleAccessibilityTextChange}
+          onBooleanChange={handleAccessibilityBooleanChange}
+        />
+      )}
+
+      {reviewImportSection}
+
+      {analyzeGuideSection}
 
       {isAnalyzing && (
         <section className={`${styles.emptyCard} ${styles.stackSm}`}>
@@ -1900,18 +2003,20 @@ function ReviewInputWorkspace({
         </button>
       )}
 
-      <label className={styles.label} htmlFor="direct-review-text">
-        <span className={styles.reviewInputLabel}>{t.analyze.reviewTextTitle}</span>
-        <span className={styles.mutedText}>{t.analyze.manualImportDescription}</span>
-        <textarea
-          ref={textareaRef}
-          id="direct-review-text"
-          className={`${styles.textarea} ${styles.reviewPasteTextarea}`}
-          placeholder={t.analyze.reviewPlaceholder}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </label>
+      <div className={styles.reviewTextHeader}>
+        <label className={styles.reviewInputLabel} htmlFor="direct-review-text">
+          {t.analyze.reviewTextTitle}
+        </label>
+        <p className={styles.reviewTextHelp}>{t.analyze.manualImportDescription}</p>
+      </div>
+      <textarea
+        ref={textareaRef}
+        id="direct-review-text"
+        className={`${styles.textarea} ${styles.reviewPasteTextarea}`}
+        placeholder={t.analyze.reviewPlaceholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
 
       <div className={styles.reviewExampleToggleRow}>
         <button
@@ -2203,7 +2308,7 @@ function AccuracyEnhancementSection({
             onChange={(event) => onTextChange("englishName", event.target.value)}
           />
         </label>
-        <div className={styles.stackSm}>
+        <div className={`${styles.stackSm} ${styles.languageCheckGroup}`}>
           <label className={styles.reviewCheckRow}>
             <input
               type="checkbox"
@@ -2241,6 +2346,113 @@ function AccuracyEnhancementSection({
   )
 }
 
+function HospitalSearchMap({
+  hospitals,
+  onSelect,
+}: {
+  hospitals: HospitalItem[]
+  onSelect: (hospital: HospitalItem) => void
+}) {
+  const { t } = useLanguage()
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const onSelectRef = useRef(onSelect)
+  const mapHospitals = useMemo(
+    () => hospitals.filter(hasValidKoreaCoordinate),
+    [hospitals]
+  )
+  const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY
+
+  useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
+
+  useEffect(() => {
+    if (!mapKey || mapHospitals.length === 0 || !mapRef.current) return
+    let resizeObserver: ResizeObserver | null = null
+    let isActive = true
+
+    const initializeMap = () => {
+      const kakaoMaps = (window as KakaoMapsWindow).kakao?.maps
+      if (!isActive || !kakaoMaps || !mapRef.current) return
+
+      const first = mapHospitals[0]
+      const center = new kakaoMaps.LatLng(first.lat ?? 37.5665, first.lng ?? 126.978)
+      mapRef.current.replaceChildren()
+      const map = new kakaoMaps.Map(mapRef.current, { center, level: 5 })
+      const bounds = new kakaoMaps.LatLngBounds()
+
+      mapHospitals.forEach((hospital) => {
+        if (!hasValidKoreaCoordinate(hospital)) return
+        const position = new kakaoMaps.LatLng(hospital.lat, hospital.lng)
+        bounds.extend(position)
+        const marker = new kakaoMaps.Marker({ position, map })
+        kakaoMaps.event.addListener(marker, "click", () => onSelectRef.current(hospital))
+      })
+
+      const fitMapToResults = () => {
+        if (!isActive) return
+        map.relayout()
+        if (mapHospitals.length > 1) map.setBounds(bounds)
+      }
+
+      window.requestAnimationFrame(() => {
+        window.setTimeout(fitMapToResults, 80)
+      })
+
+      resizeObserver = new ResizeObserver(() => {
+        fitMapToResults()
+      })
+      resizeObserver.observe(mapRef.current)
+    }
+
+    const loadKakaoMap = () => {
+      ;(window as KakaoMapsWindow).kakao?.maps?.load(initializeMap)
+    }
+
+    const existingScript = document.getElementById("kakao-map-sdk") as HTMLScriptElement | null
+    if (existingScript) {
+      if ((window as KakaoMapsWindow).kakao?.maps) {
+        loadKakaoMap()
+      } else {
+        existingScript.addEventListener("load", loadKakaoMap, { once: true })
+      }
+      return () => {
+        isActive = false
+        resizeObserver?.disconnect()
+        existingScript.removeEventListener("load", loadKakaoMap)
+      }
+    }
+
+    const script = document.createElement("script")
+    script.id = "kakao-map-sdk"
+    script.async = true
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${mapKey}&autoload=false`
+    script.onload = loadKakaoMap
+    document.head.appendChild(script)
+
+    return () => {
+      isActive = false
+      resizeObserver?.disconnect()
+      script.onload = null
+      script.removeEventListener("load", loadKakaoMap)
+    }
+  }, [mapHospitals, mapKey])
+
+  if (!mapKey || mapHospitals.length === 0) return null
+
+  return (
+    <article className={`${styles.card} ${styles.hospitalMapPanel}`}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h3 className={styles.titleSm}>{t.analyze.mapPreviewTitle}</h3>
+          <p className={styles.mutedText}>{t.analyze.mapPreviewDescription}</p>
+        </div>
+      </div>
+      <div ref={mapRef} className={styles.hospitalMapCanvas} aria-label={t.analyze.mapPreviewTitle} />
+    </article>
+  )
+}
+
 function HospitalResultCard({
   hospital,
   regionLabel,
@@ -2264,6 +2476,11 @@ function HospitalResultCard({
         </p>
         <p className={styles.recordMeta}>{hospital.address}</p>
         <div className={styles.badgeRow}>
+          {hospital.isOfficialHospital && (
+            <span className={styles.officialPill}>
+              {t.analyze.officialHospitalBadge}
+            </span>
+          )}
           <span className={styles.neutralPill}>
             {t.analyze.reviewCount} {hospital.reviewCount ?? 0}
           </span>
@@ -2279,9 +2496,17 @@ function HospitalResultCard({
           {hospital.homepageUrl && <SourceLink href={hospital.homepageUrl} label={t.analyze.homepage} />}
         </div>
         <div className={styles.hospitalCardActions}>
-          <Link className={styles.secondaryButton} href={`${ROUTES.HOSPITAL_DETAIL}/${hospital.id}`}>
-            {t.hospital.detail}
-          </Link>
+          {isInternalHospitalId(hospital.id) ? (
+            <Link className={styles.secondaryButton} href={`${ROUTES.HOSPITAL_DETAIL}/${hospital.id}`}>
+              {t.hospital.detail}
+            </Link>
+          ) : hospital.mapUrl ? (
+            <a className={styles.secondaryButton} href={hospital.mapUrl} target="_blank" rel="noreferrer">
+              {t.analyze.viewOnMap}
+            </a>
+          ) : (
+            <span className={styles.secondaryButtonDisabled}>{t.analyze.viewOnMap}</span>
+          )}
           <button type="button" className={styles.hospitalSelectButton} onClick={onSelect}>
             {t.analyze.selectHospital}
           </button>

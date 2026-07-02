@@ -120,6 +120,10 @@
   accent-color: var(--lavender);
 }
 
+.languageCheckGroup {
+  margin-top: 6px;
+}
+
 .titleLg {
   margin: 0;
   color: var(--foreground);
@@ -3170,6 +3174,13 @@ button.notificationCard {
   box-shadow: 0 0 0 2px rgba(220, 207, 255, 0.42), 0 8px 18px rgba(168, 165, 183, 0.1);
 }
 
+.categoryPills .categoryButton.categoryActive {
+  border-color: #dccfff;
+  background: rgba(220, 207, 255, 0.28);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 0 2px rgba(220, 207, 255, 0.46), 0 10px 20px rgba(168, 165, 183, 0.12);
+}
+
 .categoryName {
   display: block;
   width: 100%;
@@ -3265,6 +3276,27 @@ button.notificationCard {
   cursor: default;
 }
 
+.hospitalMapPanel {
+  overflow: hidden;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hospitalMapCanvas {
+  width: 100%;
+  height: clamp(220px, 42vw, 320px);
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--subtle);
+  isolation: isolate;
+}
+
+.hospitalMapCanvas > div {
+  border-radius: inherit;
+}
+
 .hospitalCardActions {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -3286,6 +3318,30 @@ button.notificationCard {
   font-size: 13px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.secondaryButtonDisabled {
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--subtle);
+  color: var(--graypurple);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.officialPill {
+  border-radius: 999px;
+  background: var(--mint-soft);
+  color: var(--mint-text);
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .paginatedPanel {
@@ -3539,10 +3595,26 @@ button.notificationCard {
   background: #fffefb;
 }
 
+.reviewTextHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
 .reviewInputLabel {
   color: var(--foreground);
   font-size: 13px;
   font-weight: 900;
+  line-height: 1.35;
+}
+
+.reviewTextHelp {
+  margin: 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .reviewInputFooter {
@@ -4144,12 +4216,12 @@ button.notificationCard {
 }
 
 .trustStepItem {
-  min-height: 64px;
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--subtle);
@@ -4165,15 +4237,14 @@ button.notificationCard {
   color: var(--primary-foreground);
 }
 
-.trustStepDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: var(--graypurple);
+.trustStepItem .trustShield {
+  width: 32px;
+  height: 32px;
+  border-radius: 13px;
 }
 
-.trustStepActive .trustStepDot {
-  background: var(--primary-foreground);
+.trustStepItem:not(.trustStepActive) .trustShield {
+  opacity: 0.74;
 }
 
 .trustStageDescription {

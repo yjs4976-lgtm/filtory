@@ -1,0 +1,211 @@
+import html
+import hashlib
+import json
+import re
+from decimal import Decimal, InvalidOperation
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from flask import current_app
+
+
+class HospitalSearchProvider:
+    KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+    NAVER_LOCAL_URL = "https://openapi.naver.com/v1/search/local.json"
+    KAKAO_CATEGORY_GROUP_CODE = "HP8"
+    CATEGORY_KEYWORDS = {
+        "dermatology": "피부과",
+        "ophthalmology": "안과",
+        "dentistry": "치과",
+    }
+
+    @classmethod
+    def search(cls, *, keyword="", category=None, region=None, limit=10):
+        query = cls._build_query(keyword=keyword, category=category, region=region)
+        if not query:
+            return []
+
+        hospital_only = bool(category or (region and not keyword))
+        kakao_results = cls.search_kakao(
+            query=query,
+            category=category,
+            hospital_only=hospital_only,
+            limit=limit,
+        )
+        if len(kakao_results) >= max(1, min(limit, 5)):
+            return kakao_results[:limit]
+
+        naver_results = cls.search_naver(query=query, category=category, limit=limit - len(kakao_results))
+        return cls._dedupe([*kakao_results, *naver_results])[:limit]
+
+    @classmethod
+    def search_kakao(cls, *, query, category=None, hospital_only=False, limit=10):
+        api_key = current_app.config.get("KAKAO_REST_API_KEY")
+        if not api_key:
+            return []
+
+        params = {
+            "query": query,
+            "size": max(1, min(limit, 15)),
+        }
+        if hospital_only:
+            params["category_group_code"] = cls.KAKAO_CATEGORY_GROUP_CODE
+
+        payload = cls._get_json(
+            f"{cls.KAKAO_KEYWORD_URL}?{urlencode(params)}",
+            {"Authorization": f"KakaoAK {api_key}"},
+        )
+        documents = payload.get("documents") if isinstance(payload, dict) else []
+        if not isinstance(documents, list):
+            return []
+
+        return [cls._from_kakao(item, category) for item in documents if isinstance(item, dict)]
+
+    @classmethod
+    def search_naver(cls, *, query, category=None, limit=10):
+        client_id = current_app.config.get("NAVER_SEARCH_CLIENT_ID")
+        client_secret = current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")
+        if not client_id or not client_secret or limit <= 0:
+            return []
+
+        payload = cls._get_json(
+            f"{cls.NAVER_LOCAL_URL}?{urlencode({'query': query, 'display': max(1, min(limit, 5))})}",
+            {
+                "X-Naver-Client-Id": client_id,
+                "X-Naver-Client-Secret": client_secret,
+            },
+        )
+        items = payload.get("items") if isinstance(payload, dict) else []
+        if not isinstance(items, list):
+            return []
+
+        return [cls._from_naver(item, category) for item in items if isinstance(item, dict)]
+
+    @classmethod
+    def _build_query(cls, *, keyword="", category=None, region=None):
+        category_keyword = cls.CATEGORY_KEYWORDS.get(category or "", "")
+        if not category_keyword and region and not keyword:
+            category_keyword = "병원"
+        parts = [region, keyword, category_keyword]
+        seen = set()
+        cleaned = []
+        for part in parts:
+            value = str(part or "").strip()
+            if not value:
+                continue
+            normalized = value.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            cleaned.append(value)
+        return " ".join(cleaned)
+
+    @staticmethod
+    def _get_json(url, headers):
+        request = Request(url, headers=headers)
+        try:
+            with urlopen(request, timeout=4) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError):
+            return {}
+
+    @classmethod
+    def _from_kakao(cls, item, category):
+        latitude = cls._decimal_or_none(item.get("y"))
+        longitude = cls._decimal_or_none(item.get("x"))
+        place_url = cls._text(item.get("place_url"))
+
+        return {
+            "id": f"kakao:{cls._text(item.get('id'))}",
+            "provider": "kakao",
+            "source_provider": "kakao",
+            "external_place_id": cls._text(item.get("id")),
+            "hospital_name": cls._text(item.get("place_name")) or "병원",
+            "category": category,
+            "region": cls._region_from_address(cls._text(item.get("address_name"))),
+            "address": cls._text(item.get("address_name")),
+            "road_address": cls._text(item.get("road_address_name")),
+            "phone": cls._text(item.get("phone")),
+            "map_url": place_url,
+            "kakao_place_url": place_url,
+            "source_url": place_url,
+            "source_name": "Kakao",
+            "latitude": latitude,
+            "longitude": longitude,
+            "is_official_hospital": False,
+            "official_source": None,
+        }
+
+    @classmethod
+    def _from_naver(cls, item, category):
+        link = cls._text(item.get("link"))
+        return {
+            "id": f"naver:{cls._stable_id(item)}",
+            "provider": "naver",
+            "source_provider": "naver",
+            "external_place_id": cls._stable_id(item),
+            "hospital_name": cls._strip_html(item.get("title")) or "병원",
+            "category": category,
+            "region": cls._region_from_address(cls._strip_html(item.get("address"))),
+            "address": cls._strip_html(item.get("address")),
+            "road_address": cls._strip_html(item.get("roadAddress")),
+            "phone": cls._text(item.get("telephone")),
+            "map_url": link,
+            "naver_place_url": link,
+            "source_url": link,
+            "source_name": "Naver",
+            "latitude": None,
+            "longitude": None,
+            "is_official_hospital": False,
+            "official_source": None,
+        }
+
+    @staticmethod
+    def _dedupe(items):
+        results = []
+        seen = set()
+        for item in items:
+            key = (
+                str(item.get("hospital_name") or "").strip().lower(),
+                str(item.get("road_address") or item.get("address") or "").strip().lower(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(item)
+        return results
+
+    @staticmethod
+    def _text(value):
+        return str(value).strip() if value not in (None, "") else None
+
+    @staticmethod
+    def _strip_html(value):
+        if value in (None, ""):
+            return None
+        return html.unescape(re.sub(r"<[^>]+>", "", str(value))).strip()
+
+    @staticmethod
+    def _stable_id(item):
+        source = "|".join(
+            str(item.get(key) or "")
+            for key in ("title", "roadAddress", "address", "link")
+        )
+        return hashlib.sha1(source.encode("utf-8")).hexdigest()[:16]
+
+    @staticmethod
+    def _decimal_or_none(value):
+        if value in (None, ""):
+            return None
+        try:
+            return float(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _region_from_address(address):
+        if not address:
+            return None
+        parts = str(address).split()
+        return " ".join(parts[:2]) if len(parts) >= 2 else parts[0]

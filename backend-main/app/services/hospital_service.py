@@ -1,6 +1,7 @@
 from app.extensions import db
 from app.repositories import HospitalRepository
 from app.schemas import extract_hospital_data, hospital_to_dict
+from app.services.hospital_search_provider import HospitalSearchProvider
 
 
 class HospitalService:
@@ -28,6 +29,43 @@ class HospitalService:
             hospitals = HospitalRepository.list_by_category(category=category, region=region, limit=limit, offset=offset)
 
         return [hospital_to_dict(hospital) for hospital in hospitals]
+
+    @staticmethod
+    def search_hospitals(category=None, region=None, keyword=None, limit=20):
+        category = HospitalService._normalize_category(category)
+
+        if category and category not in HospitalService.CATEGORIES:
+            raise ValueError("Invalid hospital category")
+
+        local_hospitals = HospitalRepository.search(
+            keyword or "",
+            category=category,
+            region=region,
+            limit=limit,
+            offset=0,
+        )
+        local_results = [
+            {
+                **hospital_to_dict(hospital),
+                "provider": hospital.source_provider or "filtory",
+                "source_provider": hospital.source_provider or "filtory",
+                "source_name": "Filtory",
+                "source_url": hospital.kakao_place_url or hospital.naver_place_url or hospital.google_map_url,
+                "map_url": hospital.kakao_place_url or hospital.naver_place_url or hospital.google_map_url,
+            }
+            for hospital in local_hospitals
+        ]
+
+        if len(local_results) >= limit:
+            return local_results[:limit]
+
+        external_results = HospitalSearchProvider.search(
+            keyword=keyword or "",
+            category=category,
+            region=region,
+            limit=limit - len(local_results),
+        )
+        return HospitalService._dedupe_search_results([*local_results, *external_results])[:limit]
 
     @staticmethod
     def get_hospital(hospital_id):
@@ -73,6 +111,16 @@ class HospitalService:
         google_place_id = payload.get("google_place_id")
         if google_place_id:
             hospital = HospitalRepository.get_by_google_place_id(google_place_id)
+            if hospital:
+                return hospital
+
+        source_provider = payload.get("source_provider")
+        external_place_id = payload.get("external_place_id")
+        if source_provider and external_place_id:
+            hospital = HospitalRepository.get_by_source_provider_external_place_id(
+                source_provider,
+                external_place_id,
+            )
             if hospital:
                 return hospital
 
@@ -129,3 +177,18 @@ class HospitalService:
             return category
 
         return HospitalService.CATEGORY_ALIASES.get(category, category)
+
+    @staticmethod
+    def _dedupe_search_results(items):
+        results = []
+        seen = set()
+        for item in items:
+            key = (
+                str(item.get("hospital_name") or "").strip().lower(),
+                str(item.get("road_address") or item.get("address") or "").strip().lower(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(item)
+        return results

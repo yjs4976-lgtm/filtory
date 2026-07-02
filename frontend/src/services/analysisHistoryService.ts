@@ -9,7 +9,7 @@ import { getTrustLevelKey, type TrustLevelKey } from "@/lib/score"
 import { apiClient } from "./apiClient"
 import { getHistory, getTrashHistory } from "./historyService"
 
-export type AnalysisHistorySort = "latest" | "trust" | "ad"
+export type AnalysisHistorySort = "latest" | "oldest" | "trust" | "ad"
 export type TrustFilter = "all" | TrustLevelKey
 
 export type AnalysisHistoryFilters = {
@@ -39,6 +39,7 @@ export function filterAndSortAnalysisHistory(items: AnalysisHistoryItem[], filte
     .sort((a, b) => {
       if (sort === "trust") return (b.trustScore ?? b.score) - (a.trustScore ?? a.score)
       if (sort === "ad") return (b.adSuspicionScore ?? 0) - (a.adSuspicionScore ?? 0)
+      if (sort === "oldest") return String(a.analyzedAt ?? a.createdAt).localeCompare(String(b.analyzedAt ?? b.createdAt))
       return String(b.analyzedAt ?? b.createdAt).localeCompare(String(a.analyzedAt ?? a.createdAt))
     })
 }

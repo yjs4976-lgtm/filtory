@@ -29,6 +29,7 @@ export function CategorySelector({ selected, onSelect, variant = "grid" }) {
           <button
             key={key}
             type="button"
+            aria-pressed={active}
             onClick={() => onSelect(key)}
             className={[styles.categoryButton, active ? styles.categoryActive : ""].join(" ")}
           >

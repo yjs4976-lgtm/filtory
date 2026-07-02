@@ -83,6 +83,7 @@ export function AnalysisHistoryFilter({
           {t.mypage.sort}
           <select className={styles.input} value={sort} onChange={(event) => onSortChange(event.target.value as AnalysisHistorySort)}>
             <option value="latest">{t.mypage.latestSort}</option>
+            <option value="oldest">{t.mypage.oldestSort}</option>
             <option value="trust">{t.mypage.trustSort}</option>
             <option value="ad">{t.mypage.adSort}</option>
           </select>

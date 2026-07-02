@@ -16,13 +16,6 @@ export default function AnalyzePage() {
 
       <main className={`${styles.main} ${styles.analyzeMain} ${styles.stackMd}`}>
         <CategoryFirstAnalyzeFlow userId={user?.id} />
-        <section className={`${styles.card} ${styles.stackSm}`}>
-          <p className={styles.memberEyebrow}>ANALYZE GUIDE</p>
-          <h2 className={styles.titleMd}>{t.about.howTitle}</h2>
-          <ol className={styles.compactList}>
-            {t.about.steps.map((step: string) => <li key={step}>{step}</li>)}
-          </ol>
-        </section>
       </main>
 
       <BottomNav />

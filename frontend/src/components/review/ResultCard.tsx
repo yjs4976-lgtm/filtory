@@ -64,7 +64,7 @@ export function ResultCard() {
       <ResultActionCard />
       <ResultInsightSection viewModel={viewModel} language={language} />
       <ResultGuideSection viewModel={viewModel} language={language} />
-      <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} />
+      <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} analysisResult={analysisResult} />
     </div>
   )
 }

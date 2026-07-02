@@ -579,6 +579,7 @@ function HistoryToolbar({
           {t.history.sort}
           <select className={styles.input} value={sort} onChange={(event) => onSortChange(event.target.value as AnalysisHistorySort)}>
             <option value="latest">{t.history.latestSort}</option>
+            <option value="oldest">{t.history.oldestSort}</option>
             <option value="trust">{t.history.trustSort}</option>
             <option value="ad">{t.history.adSort}</option>
           </select>
