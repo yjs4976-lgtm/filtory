@@ -2604,6 +2604,7 @@ function HospitalSearchMap({
           onClose={() => setIsMapModalOpen(false)}
           onSelect={(hospital) => {
             onSelect(hospital)
+            setIsMapModalOpen(false)
           }}
         />
       )}
