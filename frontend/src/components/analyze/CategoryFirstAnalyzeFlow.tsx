@@ -2404,7 +2404,9 @@ function HospitalSearchMap({
   const { t } = useLanguage()
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
+  const mapOpenButtonRef = useRef<HTMLButtonElement | null>(null)
   const onSelectRef = useRef(onSelect)
+  const wasMapModalOpenRef = useRef(false)
   const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const mapHospitals = useMemo(
@@ -2541,6 +2543,13 @@ function HospitalSearchMap({
     focusHospitalOnMap(selectedMapHospital)
   }, [focusHospitalOnMap, mapStatus, selectedMapHospital])
 
+  useEffect(() => {
+    if (wasMapModalOpenRef.current && !isMapModalOpen) {
+      mapOpenButtonRef.current?.focus()
+    }
+    wasMapModalOpenRef.current = isMapModalOpen
+  }, [isMapModalOpen])
+
   const handleZoomSelectedHospital = () => {
     if (!selectedMapHospital) return
     focusHospitalOnMap(selectedMapHospital)
@@ -2567,7 +2576,12 @@ function HospitalSearchMap({
                 </button>
               )}
               {mapStatus === "ready" && (
-                <button type="button" className={styles.mapZoomButton} onClick={handleOpenMapModal}>
+                <button
+                  ref={mapOpenButtonRef}
+                  type="button"
+                  className={styles.mapZoomButton}
+                  onClick={handleOpenMapModal}
+                >
                   <Maximize2 className={styles.iconXs} aria-hidden="true" />
                   {t.analyze.mapOpenLarge}
                 </button>
@@ -2578,18 +2592,8 @@ function HospitalSearchMap({
         </div>
         <div
           ref={mapRef}
-          className={`${styles.hospitalMapCanvas} ${mapStatus === "ready" ? styles.hospitalMapCanvasClickable : ""}`}
+          className={styles.hospitalMapCanvas}
           aria-label={t.analyze.mapPreviewTitle}
-          onClick={mapStatus === "ready" ? handleOpenMapModal : undefined}
-          role={mapStatus === "ready" ? "button" : undefined}
-          tabIndex={mapStatus === "ready" ? 0 : undefined}
-          onKeyDown={(event) => {
-            if (mapStatus !== "ready") return
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault()
-              handleOpenMapModal()
-            }
-          }}
         />
         {mapStatus === "error" && (
           <div className={styles.hospitalMapFallback} role="status">
@@ -2626,6 +2630,7 @@ function HospitalMapModal({
   const { t } = useLanguage()
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const onSelectRef = useRef(onSelect)
   const selectedMapHospital = selectedHospital && hasValidKoreaCoordinate(selectedHospital) ? selectedHospital : null
   const mapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY
@@ -2635,11 +2640,21 @@ function HospitalMapModal({
   }, [onSelect])
 
   useEffect(() => {
+    closeButtonRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
     }
     document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener("keydown", handleKeyDown)
+    }
   }, [onClose])
 
   useEffect(() => {
@@ -2728,14 +2743,16 @@ function HospitalMapModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="hospital-map-modal-title"
+        aria-describedby="hospital-map-modal-description"
         onClick={(event) => event.stopPropagation()}
       >
         <div className={styles.mapModalHeader}>
           <div>
             <h2 id="hospital-map-modal-title" className={styles.regionSheetTitle}>{t.analyze.mapLargeTitle}</h2>
-            <p>{t.analyze.mapLargeDescription}</p>
+            <p id="hospital-map-modal-description">{t.analyze.mapLargeDescription}</p>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className={styles.regionSheetCloseButton}
             aria-label={t.analyze.mapCloseLarge}

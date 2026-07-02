@@ -16,11 +16,14 @@ export default function ChatbotPage() {
 
       <div className={styles.chatIntroWrap}>
         <ChatbotHero />
-        <ResultContextCard />
       </div>
 
       <div className={styles.chatWrap}>
-        <ChatWindow />
+        <ChatWindow dockInput />
+      </div>
+
+      <div className={styles.chatResultContextWrap}>
+        <ResultContextCard />
       </div>
 
       <BottomNav />
