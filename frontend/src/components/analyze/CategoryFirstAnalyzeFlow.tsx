@@ -2628,6 +2628,7 @@ function HospitalMapModal({
   onSelect: (hospital: HospitalItem) => void
 }) {
   const { t } = useLanguage()
+  const modalRef = useRef<HTMLElement | null>(null)
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -2648,7 +2649,41 @@ function HospitalMapModal({
     document.body.style.overflow = "hidden"
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose()
+      if (event.key === "Escape") {
+        onClose()
+        return
+      }
+
+      if (event.key !== "Tab") return
+
+      const modal = modalRef.current
+      if (!modal) return
+
+      const focusableElements = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true")
+      const firstElement = focusableElements[0] ?? modal
+      const lastElement = focusableElements[focusableElements.length - 1] ?? modal
+      const activeElement = document.activeElement
+
+      if (!modal.contains(activeElement)) {
+        event.preventDefault()
+        firstElement.focus()
+        return
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+        return
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => {
@@ -2739,11 +2774,13 @@ function HospitalMapModal({
   return (
     <div className={styles.mapModalBackdrop} role="presentation" onClick={onClose}>
       <section
+        ref={modalRef}
         className={styles.mapModalCard}
         role="dialog"
         aria-modal="true"
         aria-labelledby="hospital-map-modal-title"
         aria-describedby="hospital-map-modal-description"
+        tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
         <div className={styles.mapModalHeader}>
