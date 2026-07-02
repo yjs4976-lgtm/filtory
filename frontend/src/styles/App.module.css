@@ -3282,6 +3282,32 @@ button.notificationCard {
   padding: 14px;
 }
 
+.hospitalMapHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hospitalMapTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hospitalMapTitleRow .titleSm {
+  flex: 0 0 auto;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hospitalMapDescription {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hospitalMapCanvas {
   width: 100%;
   height: clamp(220px, 42vw, 320px);
@@ -3293,8 +3319,21 @@ button.notificationCard {
   isolation: isolate;
 }
 
+.hospitalMapCanvasClickable {
+  cursor: zoom-in;
+}
+
 .hospitalMapCanvas > div {
   border-radius: inherit;
+}
+
+.mapActionGroup {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  min-width: 0;
 }
 
 .mapZoomButton {
@@ -3308,9 +3347,9 @@ button.notificationCard {
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 800;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
   white-space: nowrap;
 }
 
@@ -3328,6 +3367,60 @@ button.notificationCard {
   font-weight: 700;
   line-height: 1.55;
   padding: 12px 14px;
+}
+
+.mapModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(31, 42, 68, 0.46);
+  padding: 18px;
+}
+
+.mapModalCard {
+  width: min(1120px, 100%);
+  height: min(760px, calc(100dvh - 36px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--card);
+  padding: 16px;
+  box-shadow: 0 24px 70px rgba(31, 42, 68, 0.26);
+}
+
+.mapModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.mapModalHeader p {
+  margin: 5px 0 0;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.hospitalMapModalCanvas {
+  flex: 1 1 auto;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--subtle);
+  isolation: isolate;
+}
+
+.hospitalMapModalCanvas > div {
+  border-radius: inherit;
 }
 
 .hospitalCardActions {
@@ -5507,6 +5600,35 @@ button.notificationCard {
   .categoryPills .categoryButton {
     min-height: 48px;
     padding: 10px 8px;
+  }
+
+  .hospitalMapTitleRow {
+    gap: 8px;
+  }
+
+  .mapActionGroup {
+    gap: 5px;
+  }
+
+  .mapZoomButton {
+    font-size: 11px;
+    gap: 4px;
+    min-height: 30px;
+    padding: 0 8px;
+  }
+
+  .mapModalBackdrop {
+    padding: 10px;
+  }
+
+  .mapModalCard {
+    height: calc(100dvh - 20px);
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .hospitalMapModalCanvas {
+    min-height: 260px;
   }
 }
 
