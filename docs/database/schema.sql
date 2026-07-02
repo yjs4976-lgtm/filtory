@@ -144,7 +144,7 @@ create table if not exists public.hospitals (
     check (category in ('dermatology', 'ophthalmology', 'dentistry'))
 );
 
-create index if not exists idx_hospitals_source_provider_external_place_id
+create unique index if not exists uq_hospitals_source_provider_external_place_id
 on public.hospitals(source_provider, external_place_id)
 where source_provider is not null and external_place_id is not null;
 

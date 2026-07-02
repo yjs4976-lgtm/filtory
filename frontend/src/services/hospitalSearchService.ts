@@ -53,8 +53,10 @@ function normalizeCategory(category?: string | null): HospitalCategory {
 function toHospitalItem(item: BackendHospital): HospitalItem {
   const reviewCount = Number(item.google_review_count ?? item.naver_review_count ?? 0)
   const provider = item.provider ?? item.source_provider ?? undefined
-  const lat = Number(item.latitude)
-  const lng = Number(item.longitude)
+  const latitude = Number(item.latitude)
+  const longitude = Number(item.longitude)
+  const safeLatitude = Number.isFinite(latitude) ? latitude : undefined
+  const safeLongitude = Number.isFinite(longitude) ? longitude : undefined
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),
@@ -75,8 +77,10 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     mapUrl: item.map_url ?? item.kakao_place_url ?? item.naver_place_url ?? item.google_map_url ?? undefined,
     kakaoPlaceUrl: item.kakao_place_url ?? undefined,
     naverPlaceUrl: item.naver_place_url ?? undefined,
-    lat: Number.isFinite(lat) ? lat : undefined,
-    lng: Number.isFinite(lng) ? lng : undefined,
+    latitude: safeLatitude,
+    longitude: safeLongitude,
+    lat: safeLatitude,
+    lng: safeLongitude,
     homepageUrl: item.homepage_url ?? undefined,
     description: item.description ?? undefined,
     treatmentItems: item.treatment_items ?? undefined,

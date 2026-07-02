@@ -174,11 +174,21 @@ function normalizeHospitalSearchText(value?: string) {
     .replace(/\s+/g, " ")
 }
 
-function hasValidKoreaCoordinate(hospital: HospitalItem): hospital is HospitalItem & { lat: number; lng: number } {
-  if (typeof hospital.lat !== "number" || typeof hospital.lng !== "number") return false
-  if (!Number.isFinite(hospital.lat) || !Number.isFinite(hospital.lng)) return false
+type HospitalWithCoordinate = HospitalItem & { latitude: number; longitude: number }
 
-  return hospital.lat >= 32 && hospital.lat <= 39.5 && hospital.lng >= 123 && hospital.lng <= 132
+function getHospitalCoordinate(hospital: HospitalItem) {
+  return {
+    latitude: hospital.latitude ?? hospital.lat,
+    longitude: hospital.longitude ?? hospital.lng,
+  }
+}
+
+function hasValidKoreaCoordinate(hospital: HospitalItem): hospital is HospitalWithCoordinate {
+  const { latitude, longitude } = getHospitalCoordinate(hospital)
+  if (typeof latitude !== "number" || typeof longitude !== "number") return false
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false
+
+  return latitude >= 32 && latitude <= 39.5 && longitude >= 123 && longitude <= 132
 }
 
 function hospitalMatchesRegion(hospital: HospitalItem, region: SelectedAnalyzeRegion | null, regionLabel: string) {
@@ -412,8 +422,8 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     kakaoPlaceUrl: hospital.kakaoPlaceUrl,
     naverPlaceUrl: isNaverSource ? sourceUrl : undefined,
     googleMapUrl: hospital.mapUrl,
-    latitude: hospital.lat,
-    longitude: hospital.lng,
+    latitude: hospital.latitude ?? hospital.lat,
+    longitude: hospital.longitude ?? hospital.lng,
     googleRegistered: Boolean(hospital.mapUrl),
     englishName,
     hasEnglishInfo: Boolean(englishName),
@@ -2376,14 +2386,16 @@ function HospitalSearchMap({
       if (!isActive || !kakaoMaps || !mapRef.current) return
 
       const first = mapHospitals[0]
-      const center = new kakaoMaps.LatLng(first.lat ?? 37.5665, first.lng ?? 126.978)
+      const firstCoordinate = getHospitalCoordinate(first)
+      const center = new kakaoMaps.LatLng(firstCoordinate.latitude ?? 37.5665, firstCoordinate.longitude ?? 126.978)
       mapRef.current.replaceChildren()
       const map = new kakaoMaps.Map(mapRef.current, { center, level: 5 })
       const bounds = new kakaoMaps.LatLngBounds()
 
       mapHospitals.forEach((hospital) => {
         if (!hasValidKoreaCoordinate(hospital)) return
-        const position = new kakaoMaps.LatLng(hospital.lat, hospital.lng)
+        const { latitude, longitude } = getHospitalCoordinate(hospital)
+        const position = new kakaoMaps.LatLng(latitude, longitude)
         bounds.extend(position)
         const marker = new kakaoMaps.Marker({ position, map })
         kakaoMaps.event.addListener(marker, "click", () => onSelectRef.current(hospital))

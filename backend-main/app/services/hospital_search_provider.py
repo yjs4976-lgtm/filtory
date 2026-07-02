@@ -2,6 +2,7 @@ import html
 import hashlib
 import json
 import re
+import time
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -14,33 +15,63 @@ class HospitalSearchProvider:
     KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
     NAVER_LOCAL_URL = "https://openapi.naver.com/v1/search/local.json"
     KAKAO_CATEGORY_GROUP_CODE = "HP8"
+    REGION_LABELS = {
+        "seoul": "서울",
+        "busan": "부산",
+        "incheon": "인천",
+        "daegu": "대구",
+        "daejeon": "대전",
+        "gwangju": "광주",
+        "ulsan": "울산",
+        "sejong": "세종",
+        "gyeonggi": "경기",
+        "gangwon": "강원",
+        "chungbuk": "충북",
+        "chungnam": "충남",
+        "jeonbuk": "전북",
+        "jeonnam": "전남",
+        "gyeongbuk": "경북",
+        "gyeongnam": "경남",
+        "jeju": "제주",
+    }
     CATEGORY_KEYWORDS = {
         "dermatology": "피부과",
         "ophthalmology": "안과",
         "dentistry": "치과",
     }
+    _CACHE = {}
 
     @classmethod
     def search(cls, *, keyword="", category=None, region=None, limit=10):
-        query = cls._build_query(keyword=keyword, category=category, region=region)
+        limit = max(1, int(limit or 10))
+        search_region = cls.REGION_LABELS.get(str(region or "").strip().lower(), region)
+        query = cls._build_query(keyword=keyword, category=category, region=search_region)
         if not query:
             return []
 
-        hospital_only = bool(category or (region and not keyword))
+        cache_key = cls._cache_key(query=query, category=category, limit=limit)
+        cached_results = cls._get_cached(cache_key)
+        if cached_results is not None:
+            return cached_results[:limit]
+
         kakao_results = cls.search_kakao(
             query=query,
             category=category,
-            hospital_only=hospital_only,
             limit=limit,
         )
-        if len(kakao_results) >= max(1, min(limit, 5)):
-            return kakao_results[:limit]
+        if len(kakao_results) >= limit:
+            results = kakao_results[:limit]
+            cls._set_cached(cache_key, results)
+            return results
 
-        naver_results = cls.search_naver(query=query, category=category, limit=limit - len(kakao_results))
-        return cls._dedupe([*kakao_results, *naver_results])[:limit]
+        remaining_limit = max(0, limit - len(kakao_results))
+        naver_results = cls.search_naver(query=query, category=category, limit=remaining_limit)
+        results = cls._dedupe([*kakao_results, *naver_results])[:limit]
+        cls._set_cached(cache_key, results)
+        return results
 
     @classmethod
-    def search_kakao(cls, *, query, category=None, hospital_only=False, limit=10):
+    def search_kakao(cls, *, query, category=None, limit=10):
         api_key = current_app.config.get("KAKAO_REST_API_KEY")
         if not api_key:
             return []
@@ -48,9 +79,8 @@ class HospitalSearchProvider:
         params = {
             "query": query,
             "size": max(1, min(limit, 15)),
+            "category_group_code": cls.KAKAO_CATEGORY_GROUP_CODE,
         }
-        if hospital_only:
-            params["category_group_code"] = cls.KAKAO_CATEGORY_GROUP_CODE
 
         payload = cls._get_json(
             f"{cls.KAKAO_KEYWORD_URL}?{urlencode(params)}",
@@ -60,7 +90,16 @@ class HospitalSearchProvider:
         if not isinstance(documents, list):
             return []
 
-        return [cls._from_kakao(item, category) for item in documents if isinstance(item, dict)]
+        results = []
+        for item in documents:
+            if not isinstance(item, dict):
+                continue
+            if item.get("category_group_code") != cls.KAKAO_CATEGORY_GROUP_CODE:
+                continue
+            result = cls._from_kakao(item, category)
+            if cls._matches_requested_category(result.get("category"), category):
+                results.append(result)
+        return results
 
     @classmethod
     def search_naver(cls, *, query, category=None, limit=10):
@@ -80,7 +119,14 @@ class HospitalSearchProvider:
         if not isinstance(items, list):
             return []
 
-        return [cls._from_naver(item, category) for item in items if isinstance(item, dict)]
+        results = []
+        for item in items:
+            if not isinstance(item, dict) or not cls._is_naver_hospital(item):
+                continue
+            result = cls._from_naver(item, category)
+            if cls._matches_requested_category(result.get("category"), category):
+                results.append(result)
+        return results
 
     @classmethod
     def _build_query(cls, *, keyword="", category=None, region=None):
@@ -104,10 +150,18 @@ class HospitalSearchProvider:
     @staticmethod
     def _get_json(url, headers):
         request = Request(url, headers=headers)
+        timeout = current_app.config.get("HOSPITAL_SEARCH_TIMEOUT_SECONDS", 4)
         try:
-            with urlopen(request, timeout=4) as response:
+            with urlopen(request, timeout=timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError):
+        except HTTPError as exc:
+            current_app.logger.warning("Hospital search provider request failed: status=%s", exc.code)
+            return {}
+        except (URLError, TimeoutError, OSError) as exc:
+            current_app.logger.warning("Hospital search provider unavailable: %s", type(exc).__name__)
+            return {}
+        except json.JSONDecodeError:
+            current_app.logger.warning("Hospital search provider returned invalid JSON")
             return {}
 
     @classmethod
@@ -115,6 +169,7 @@ class HospitalSearchProvider:
         latitude = cls._decimal_or_none(item.get("y"))
         longitude = cls._decimal_or_none(item.get("x"))
         place_url = cls._text(item.get("place_url"))
+        provider_category = cls._category_from_kakao(item.get("category_name"))
 
         return {
             "id": f"kakao:{cls._text(item.get('id'))}",
@@ -122,7 +177,7 @@ class HospitalSearchProvider:
             "source_provider": "kakao",
             "external_place_id": cls._text(item.get("id")),
             "hospital_name": cls._text(item.get("place_name")) or "병원",
-            "category": category,
+            "category": provider_category or category,
             "region": cls._region_from_address(cls._text(item.get("address_name"))),
             "address": cls._text(item.get("address_name")),
             "road_address": cls._text(item.get("road_address_name")),
@@ -140,13 +195,17 @@ class HospitalSearchProvider:
     @classmethod
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
+        provider_category = cls._category_from_naver(item.get("category"))
+        longitude = cls._naver_coordinate(item.get("mapx"))
+        latitude = cls._naver_coordinate(item.get("mapy"))
+
         return {
             "id": f"naver:{cls._stable_id(item)}",
             "provider": "naver",
             "source_provider": "naver",
             "external_place_id": cls._stable_id(item),
             "hospital_name": cls._strip_html(item.get("title")) or "병원",
-            "category": category,
+            "category": provider_category or category,
             "region": cls._region_from_address(cls._strip_html(item.get("address"))),
             "address": cls._strip_html(item.get("address")),
             "road_address": cls._strip_html(item.get("roadAddress")),
@@ -155,8 +214,8 @@ class HospitalSearchProvider:
             "naver_place_url": link,
             "source_url": link,
             "source_name": "Naver",
-            "latitude": None,
-            "longitude": None,
+            "latitude": latitude,
+            "longitude": longitude,
             "is_official_hospital": False,
             "official_source": None,
         }
@@ -202,6 +261,74 @@ class HospitalSearchProvider:
             return float(Decimal(str(value)))
         except (InvalidOperation, ValueError):
             return None
+
+    @staticmethod
+    def _naver_coordinate(value):
+        if value in (None, ""):
+            return None
+        try:
+            return float(Decimal(str(value)) / Decimal("10000000"))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @classmethod
+    def _category_from_kakao(cls, value):
+        return cls._category_from_text(value)
+
+    @classmethod
+    def _category_from_naver(cls, value):
+        return cls._category_from_text(cls._strip_html(value))
+
+    @staticmethod
+    def _category_from_text(value):
+        text = str(value or "").lower()
+        if any(keyword in text for keyword in ("피부", "derma", "skin")):
+            return "dermatology"
+        if any(keyword in text for keyword in ("안과", "안경", "ophthalm", "eye")):
+            return "ophthalmology"
+        if any(keyword in text for keyword in ("치과", "dental", "dentist")):
+            return "dentistry"
+        return None
+
+    @classmethod
+    def _matches_requested_category(cls, result_category, requested_category):
+        return not requested_category or not result_category or result_category == requested_category
+
+    @classmethod
+    def _is_naver_hospital(cls, item):
+        category = cls._strip_html(item.get("category")) or ""
+        title = cls._strip_html(item.get("title")) or ""
+        text = f"{category} {title}"
+        return any(
+            keyword in text
+            for keyword in ("병원", "의원", "클리닉", "피부과", "안과", "치과", "한의원")
+        )
+
+    @staticmethod
+    def _cache_key(*, query, category, limit):
+        return (
+            str(query or "").strip().lower(),
+            str(category or "").strip().lower(),
+            int(limit or 10),
+        )
+
+    @classmethod
+    def _get_cached(cls, key):
+        cached = cls._CACHE.get(key)
+        if not cached:
+            return None
+        expires_at, results = cached
+        if expires_at < time.monotonic():
+            cls._CACHE.pop(key, None)
+            return None
+        return list(results)
+
+    @classmethod
+    def _set_cached(cls, key, results):
+        ttl = current_app.config.get("HOSPITAL_SEARCH_CACHE_TTL_SECONDS", 300)
+        if ttl <= 0:
+            return
+        cls._CACHE[key] = (time.monotonic() + ttl, list(results))
 
     @staticmethod
     def _region_from_address(address):

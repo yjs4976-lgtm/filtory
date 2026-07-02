@@ -100,6 +100,8 @@ export type HospitalItem = {
   kakaoPlaceUrl?: string
   naverPlaceUrl?: string
   roadAddress?: string
+  latitude?: number
+  longitude?: number
   lat?: number
   lng?: number
   homepageUrl?: string

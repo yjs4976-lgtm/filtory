@@ -11,7 +11,7 @@ add column if not exists longitude numeric(10, 7),
 add column if not exists is_official_hospital boolean not null default false,
 add column if not exists official_source varchar(20);
 
-create index if not exists idx_hospitals_source_provider_external_place_id
+create unique index if not exists uq_hospitals_source_provider_external_place_id
 on public.hospitals(source_provider, external_place_id)
 where source_provider is not null and external_place_id is not null;
 
