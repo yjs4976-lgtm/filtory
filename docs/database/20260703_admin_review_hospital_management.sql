@@ -69,6 +69,26 @@ create table if not exists public.admin_review_moderation_cases (
     )
 );
 
+update public.admin_review_moderation_cases
+set status = 'resolved'
+where status in ('rejected', 'ignored', 'hidden');
+
+alter table public.admin_review_moderation_cases
+drop constraint if exists admin_review_moderation_cases_review_report_id_fkey;
+
+alter table public.admin_review_moderation_cases
+add constraint admin_review_moderation_cases_review_report_id_fkey
+foreign key (review_report_id)
+references public.review_reports(id)
+on delete cascade;
+
+alter table public.admin_review_moderation_cases
+drop constraint if exists admin_review_moderation_cases_status_check;
+
+alter table public.admin_review_moderation_cases
+add constraint admin_review_moderation_cases_status_check
+check (status in ('pending', 'reviewing', 'resolved'));
+
 drop trigger if exists trg_admin_review_moderation_cases_updated_at
 on public.admin_review_moderation_cases;
 
@@ -98,14 +118,27 @@ on public.admin_review_moderation_cases(review_report_id);
 create index if not exists idx_admin_review_moderation_cases_assigned_admin
 on public.admin_review_moderation_cases(assigned_admin_member_id);
 
-create unique index if not exists uq_admin_review_moderation_cases_open_review_type
+drop index if exists public.uq_admin_review_moderation_cases_open_review_type;
+
+drop index if exists public.uq_admin_review_moderation_cases_open_analysis_type;
+
+drop index if exists public.uq_admin_review_moderation_cases_open_report_type;
+
+create unique index uq_admin_review_moderation_cases_open_review_type
 on public.admin_review_moderation_cases(review_id, case_type)
 where review_id is not null
+  and review_report_id is null
   and status in ('pending', 'reviewing');
 
-create unique index if not exists uq_admin_review_moderation_cases_open_analysis_type
+create unique index uq_admin_review_moderation_cases_open_analysis_type
 on public.admin_review_moderation_cases(analysis_result_id, case_type)
 where analysis_result_id is not null
+  and review_report_id is null
+  and status in ('pending', 'reviewing');
+
+create unique index uq_admin_review_moderation_cases_open_report_type
+on public.admin_review_moderation_cases(review_report_id, case_type)
+where review_report_id is not null
   and status in ('pending', 'reviewing');
 
 alter table public.admin_review_moderation_cases

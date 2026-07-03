@@ -5,6 +5,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token
 
 from app.api.admin_api import admin_bp
+from app.repositories import AdminRepository
 from app.repositories.member_repository import MemberRepository
 from app.services import AdminService
 
@@ -72,3 +73,27 @@ def test_admin_hospitals_returns_total_count_for_second_page(app, client, monkey
     assert body["meta"]["page"] == 2
     assert body["meta"]["per_page"] == 20
     assert body["meta"]["count"] == 25
+
+
+def test_review_case_dedupe_prefers_user_report_over_analysis_result():
+    source = AdminRepository._review_case_dedupe_source(
+        {
+            "review_id": 7,
+            "analysis_result_id": 10,
+            "review_report_id": 55,
+        }
+    )
+
+    assert source == ("review_report_id", 55)
+
+
+def test_review_case_dedupe_uses_analysis_result_for_automatic_case():
+    source = AdminRepository._review_case_dedupe_source(
+        {
+            "review_id": 7,
+            "analysis_result_id": 10,
+            "review_report_id": None,
+        }
+    )
+
+    assert source == ("analysis_result_id", 10)

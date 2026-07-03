@@ -181,31 +181,46 @@ class AdminRepository:
 
     @staticmethod
     def create_review_case_if_absent(data):
-        target_filters = []
-        if data.get("review_id"):
-            target_filters.append(AdminReviewModerationCase.review_id == data["review_id"])
-        if data.get("analysis_result_id"):
-            target_filters.append(AdminReviewModerationCase.analysis_result_id == data["analysis_result_id"])
-        if data.get("review_report_id"):
-            target_filters.append(AdminReviewModerationCase.review_report_id == data["review_report_id"])
-
-        if not target_filters:
+        dedupe_source = AdminRepository._review_case_dedupe_source(data)
+        if not dedupe_source:
             return None
 
-        existing = (
-            AdminReviewModerationCase.query.filter(
-                AdminReviewModerationCase.case_type == data["case_type"],
-                AdminReviewModerationCase.status.in_(("pending", "reviewing")),
-                or_(*target_filters),
-            )
-            .first()
+        source_field, source_value = dedupe_source
+        query = AdminReviewModerationCase.query.filter(
+            AdminReviewModerationCase.case_type == data["case_type"],
+            AdminReviewModerationCase.status.in_(("pending", "reviewing")),
         )
+
+        if source_field == "review_report_id":
+            query = query.filter(AdminReviewModerationCase.review_report_id == source_value)
+        elif source_field == "analysis_result_id":
+            query = query.filter(
+                AdminReviewModerationCase.analysis_result_id == source_value,
+                AdminReviewModerationCase.review_report_id.is_(None),
+            )
+        elif source_field == "review_id":
+            query = query.filter(
+                AdminReviewModerationCase.review_id == source_value,
+                AdminReviewModerationCase.review_report_id.is_(None),
+            )
+
+        existing = query.first()
         if existing:
             return existing
 
         review_case = AdminReviewModerationCase(**data)
         db.session.add(review_case)
         return review_case
+
+    @staticmethod
+    def _review_case_dedupe_source(data):
+        if data.get("review_report_id"):
+            return "review_report_id", data["review_report_id"]
+        if data.get("analysis_result_id"):
+            return "analysis_result_id", data["analysis_result_id"]
+        if data.get("review_id"):
+            return "review_id", data["review_id"]
+        return None
 
     @staticmethod
     def get_hospital_by_id(hospital_id):
