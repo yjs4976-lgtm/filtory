@@ -107,6 +107,11 @@ export type HospitalItem = {
   googleMapUrl?: string
   roadAddress?: string
   googlePlaceId?: string
+  googleRegistered?: boolean
+  hasEnglishInfo?: boolean
+  hasEnglishReviews?: boolean
+  englishReviews?: boolean
+  hasGooglePhotos?: boolean
   latitude?: number
   longitude?: number
   lat?: number

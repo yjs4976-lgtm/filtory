@@ -5,7 +5,7 @@ import re
 import time
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from flask import current_app
@@ -211,6 +211,7 @@ class HospitalSearchProvider:
     @classmethod
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
+        place_url = cls._verified_naver_place_url(link)
         provider_category = cls._category_from_naver(item) or category
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
@@ -226,9 +227,9 @@ class HospitalSearchProvider:
             "address": cls._strip_html(item.get("address")),
             "road_address": cls._strip_html(item.get("roadAddress")),
             "phone": cls._text(item.get("telephone")),
-            "map_url": link,
-            "naver_place_url": link,
-            "naver_place_id": cls._naver_place_id_from_link(link),
+            "map_url": place_url,
+            "naver_place_url": place_url,
+            "naver_place_id": cls._naver_place_id_from_link(place_url),
             "source_url": link,
             "source_name": "Naver",
             "latitude": latitude,
@@ -336,6 +337,21 @@ class HospitalSearchProvider:
         match = re.search(r"(?:placeId|id)=(\d+)", text)
         if match:
             return match.group(1)
+
+        return None
+
+    @staticmethod
+    def _verified_naver_place_url(link):
+        if not link:
+            return None
+
+        try:
+            hostname = (urlparse(link).hostname or "").lower()
+        except ValueError:
+            return None
+
+        if hostname == "map.naver.com" or hostname.endswith(".place.naver.com"):
+            return link
 
         return None
 

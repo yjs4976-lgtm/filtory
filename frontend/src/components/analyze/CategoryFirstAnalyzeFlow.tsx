@@ -454,11 +454,16 @@ function isSameHref(left?: string, right?: string) {
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
-  const sourceName = hospital.sourceName?.toLowerCase() ?? ""
-  const sourceUrl = hospital.sourceUrl ?? ""
-  const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버")
   const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
   const googleMapUrl = hospital.googleMapUrl
+  const naverPlaceUrl =
+    hospital.naverPlaceUrl && isVerifiedNaverPlaceUrl(hospital.naverPlaceUrl)
+      ? hospital.naverPlaceUrl
+      : undefined
+  const hasEnglishInfo = hospital.hasEnglishInfo ?? Boolean(englishName)
+  const hasEnglishReviews = hospital.hasEnglishReviews ?? hospital.englishReviews ?? false
+  const hasGooglePhotos = hospital.hasGooglePhotos ?? Boolean(hospital.imageUrl)
+  const googleRegistered = hospital.googleRegistered ?? Boolean(hospital.googlePlaceId || googleMapUrl)
 
   return {
     address: hospital.address,
@@ -471,7 +476,7 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     sourceProvider: hospital.provider,
     externalPlaceId: hospital.externalPlaceId,
     kakaoPlaceUrl: hospital.kakaoPlaceUrl,
-    naverPlaceUrl: isNaverSource ? sourceUrl : undefined,
+    naverPlaceUrl,
     naverRating: hospital.naverRating,
     naverReviewCount: hospital.naverReviewCount,
     googleRating: hospital.googleRating,
@@ -480,12 +485,12 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     googlePlaceId: hospital.googlePlaceId,
     latitude: hospital.latitude ?? hospital.lat,
     longitude: hospital.longitude ?? hospital.lng,
-    googleRegistered: Boolean(hospital.googlePlaceId || googleMapUrl),
+    googleRegistered,
     englishName,
-    hasEnglishInfo: Boolean(englishName),
-    hasEnglishReviews: false,
-    englishReviews: false,
-    hasGooglePhotos: Boolean(hospital.imageUrl),
+    hasEnglishInfo,
+    hasEnglishReviews,
+    englishReviews: hasEnglishReviews,
+    hasGooglePhotos,
   }
 }
 

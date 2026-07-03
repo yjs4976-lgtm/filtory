@@ -17,6 +17,7 @@ type BackendHospital = {
   kakao_place_url?: string | null
   google_map_url?: string | null
   google_place_id?: string | null
+  google_registered?: boolean | null
   naver_place_url?: string | null
   naver_place_id?: string | null
   source_url?: string | null
@@ -32,6 +33,9 @@ type BackendHospital = {
   naver_review_count?: number | null
   google_rating?: number | string | null
   google_review_count?: number | null
+  has_english_info?: boolean | null
+  has_english_reviews?: boolean | null
+  has_google_photos?: boolean | null
 }
 
 type SearchParams = {
@@ -95,6 +99,11 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     naverPlaceId: item.naver_place_id ?? undefined,
     googleMapUrl: item.google_map_url ?? undefined,
     googlePlaceId: item.google_place_id ?? undefined,
+    googleRegistered: item.google_registered ?? undefined,
+    hasEnglishInfo: item.has_english_info ?? undefined,
+    hasEnglishReviews: item.has_english_reviews ?? undefined,
+    englishReviews: item.has_english_reviews ?? undefined,
+    hasGooglePhotos: item.has_google_photos ?? undefined,
     latitude: safeLatitude,
     longitude: safeLongitude,
     lat: safeLatitude,
