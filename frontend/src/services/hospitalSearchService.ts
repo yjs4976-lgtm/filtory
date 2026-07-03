@@ -65,6 +65,27 @@ function normalizeCategory(category?: string | null): HospitalCategory {
   return "derma"
 }
 
+function isVerifiedNaverPlaceUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return false
+
+  try {
+    const hostname = new URL(value).hostname.toLowerCase()
+    return hostname === "map.naver.com" || hostname.endsWith(".place.naver.com")
+  } catch {
+    return false
+  }
+}
+
+function normalizeSourceUrl(item: BackendHospital, provider: string) {
+  if (provider.toLowerCase() === "naver") {
+    if (isVerifiedNaverPlaceUrl(item.source_url)) return item.source_url ?? undefined
+    if (isVerifiedNaverPlaceUrl(item.naver_place_url)) return item.naver_place_url ?? undefined
+    return undefined
+  }
+
+  return item.source_url ?? item.kakao_place_url ?? item.naver_place_url ?? undefined
+}
+
 function toOptionalCoordinate(value: number | string | null | undefined): number | undefined {
   if (value === null || value === undefined || value === "") return undefined
 
@@ -108,7 +129,7 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     googleRating,
     googleReviewCount: item.google_review_count ?? undefined,
     sourceName: item.source_name ?? provider ?? undefined,
-    sourceUrl: item.source_url ?? item.kakao_place_url ?? item.naver_place_url ?? undefined,
+    sourceUrl: normalizeSourceUrl(item, provider ?? ""),
     mapUrl: item.map_url ?? item.kakao_place_url ?? item.naver_place_url ?? item.google_map_url ?? undefined,
     kakaoPlaceUrl: item.kakao_place_url ?? undefined,
     naverPlaceUrl: item.naver_place_url ?? undefined,

@@ -57,6 +57,7 @@ const {
   formatHistoryRegionLabel,
   getEnglishRegionLabelFromKorean,
   getHistoryHospitalName,
+  getHistoryMetaText,
   getHistoryRegionLabel,
 } = loadTypeScriptModule(path.join(projectRoot, "src/lib/historyDisplay.ts"))
 
@@ -105,6 +106,77 @@ assert.equal(
     "en"
   ),
   "Example Clinic"
+)
+
+assert.equal(
+  getHistoryHospitalName(
+    {
+      hospitalNameKo: "예시피부과",
+    },
+    "en"
+  ),
+  "예시피부과"
+)
+
+assert.equal(
+  getHistoryMetaText(
+    {
+      categoryKoLabel: "피부과",
+      regionKoLabel: "서울 강남구",
+      roadAddress: "서울 강남구 테헤란로 1",
+    },
+    "ko",
+    "피부과"
+  ),
+  "피부과 · 서울 강남구"
+)
+
+assert.equal(
+  getHistoryMetaText(
+    {
+      categoryKoLabel: "피부과",
+      roadAddress: "서울 강남구 테헤란로 1",
+    },
+    "ko",
+    "피부과"
+  ),
+  "피부과 · 서울 강남구"
+)
+
+assert.equal(
+  getHistoryMetaText(
+    {
+      hospitalNameKo: "CNP차앤박피부과 분당서현점",
+      categoryKoLabel: "피부과",
+    },
+    "ko",
+    "피부과"
+  ),
+  "피부과 · 분당서현점"
+)
+
+assert.equal(
+  getHistoryMetaText(
+    {
+      hospitalNameKo: "CNP차앤박피부과 분당서현점",
+      categoryEnLabel: "Skin Clinic",
+    },
+    "en",
+    "Skin Clinic"
+  ),
+  "Skin Clinic · Bundang Seohyeon"
+)
+
+assert.equal(
+  getHistoryMetaText(
+    {
+      hospitalNameKo: "플란치과의원 경기수원점",
+      categoryEnLabel: "Dental Clinic",
+    },
+    "en",
+    "Dental Clinic"
+  ),
+  "Dental Clinic · Gyeonggi Suwon"
 )
 
 assert.equal(

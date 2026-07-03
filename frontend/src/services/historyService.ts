@@ -65,9 +65,9 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
     regionDistrictCode: item.regionDistrictCode || item.region_district_code
       ? String(item.regionDistrictCode ?? item.region_district_code)
       : undefined,
-    sourceName: item.sourceName ? String(item.sourceName) : undefined,
-    sourceUrl: item.sourceUrl ? String(item.sourceUrl) : undefined,
-    score: Number(item.score ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
+    sourceName: item.sourceName || item.source_name ? String(item.sourceName ?? item.source_name) : undefined,
+    sourceUrl: item.sourceUrl || item.source_url ? String(item.sourceUrl ?? item.source_url) : undefined,
+    score: Number(item.score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
     foreignerFriendlyScore:
       item.foreignerFriendlyScore === undefined
         ? Number(item.foreigner_friendly_score ?? item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreigner_score ?? 0)
@@ -75,7 +75,7 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
     createdAt: String(item.createdAt ?? item.created_at ?? item.date ?? ""),
     selectedReviewCount: Number(item.selectedReviewCount ?? item.selected_review_count ?? 0),
     totalReviewCount: Number(item.totalReviewCount ?? item.total_review_count ?? 0),
-    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
+    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
     trustLevel: item.trustLevel || item.trustLevelKey || item.trust_level
       ? String(item.trustLevel ?? item.trustLevelKey ?? item.trust_level)
       : undefined,

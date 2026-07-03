@@ -79,8 +79,8 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     regionDistrictCode: item.regionDistrictCode || item.region_district_code
       ? String(item.regionDistrictCode ?? item.region_district_code)
       : undefined,
-    score: Number(item.score ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
-    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
+    score: Number(item.score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
+    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
     adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
     informationScore: Number(item.informationScore ?? item.information_score ?? item.placeScore ?? item.place_score ?? 0),
     globalAccessibilityScore,

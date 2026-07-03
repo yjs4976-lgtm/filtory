@@ -382,6 +382,16 @@ class AnalysisService:
     def _history_item_to_dict(analysis_request):
         hospital = analysis_request.hospital
         analysis_result = analysis_request.analysis_result
+        request_options = (
+            analysis_request.request_options_json
+            if isinstance(analysis_request.request_options_json, dict)
+            else {}
+        )
+        hospital_metadata = (
+            request_options.get("hospitalMetadata")
+            if isinstance(request_options.get("hospitalMetadata"), dict)
+            else {}
+        )
         hospital_category = hospital.category if hospital else "dermatology"
         category = {
             "dermatology": "derma",
@@ -389,6 +399,22 @@ class AnalysisService:
             "dentistry": "dental",
         }.get(hospital_category, hospital_category)
         canonical_result = analysis_result_to_canonical_dict(analysis_result)
+        hospital_name = hospital.hospital_name if hospital else "Unknown hospital"
+        hospital_english_name = AnalysisService._first_present(
+            hospital_metadata.get("englishName"),
+            hospital_metadata.get("english_name"),
+            hospital.english_name if hospital else None,
+        )
+        hospital_road_address = AnalysisService._first_present(
+            hospital.road_address if hospital else None,
+            hospital_metadata.get("roadAddress"),
+            hospital_metadata.get("road_address"),
+        )
+        hospital_address = AnalysisService._first_present(
+            hospital_road_address,
+            hospital.address if hospital else None,
+            hospital_metadata.get("address"),
+        )
 
         return {
             **canonical_result,
@@ -396,17 +422,35 @@ class AnalysisService:
             "analysisRequestId": analysis_request.id,
             "analysisResultId": analysis_result.id if analysis_result else None,
             "member_id": analysis_request.member_id,
-            "hospital_name": hospital.hospital_name if hospital else "Unknown hospital",
+            "hospital_name": hospital_name,
+            "hospitalName": hospital_name,
+            "hospital_name_ko": hospital_name,
+            "hospitalNameKo": hospital_name,
+            "hospital_name_en": hospital_english_name,
+            "hospitalNameEn": hospital_english_name,
+            "hospital_english_name": hospital_english_name,
+            "hospitalEnglishName": hospital_english_name,
+            "english_name": hospital_english_name,
+            "englishName": hospital_english_name,
             "hospital_category": hospital_category,
             "category": category,
-            "hospital_address": hospital.address if hospital else "",
+            "hospital_address": hospital_address or "",
+            "hospitalAddress": hospital_address or "",
+            "road_address": hospital_road_address,
+            "roadAddress": hospital_road_address,
+            "address": hospital.address if hospital else hospital_metadata.get("address"),
             "region": hospital.region if hospital else "",
             "score": analysis_result.total_score if analysis_result and analysis_result.total_score is not None else 0,
             "total_score": analysis_result.total_score if analysis_result else None,
+            "totalScore": analysis_result.total_score if analysis_result else None,
             "trust_score": analysis_result.trust_score if analysis_result else None,
+            "trustScore": analysis_result.trust_score if analysis_result else None,
             "foreigner_score": analysis_result.foreigner_score if analysis_result else None,
+            "foreignerFriendlyScore": analysis_result.foreigner_score if analysis_result else None,
             "place_score": analysis_result.place_score if analysis_result else None,
+            "placeScore": analysis_result.place_score if analysis_result else None,
             "ad_score": analysis_result.ad_score if analysis_result else None,
+            "adScore": analysis_result.ad_score if analysis_result else None,
             "trust_level": analysis_result.trust_level if analysis_result else None,
             "ad_suspicion_level": analysis_result.ad_suspicion if analysis_result else None,
             "trustGrade": canonical_result.get("trustGrade"),

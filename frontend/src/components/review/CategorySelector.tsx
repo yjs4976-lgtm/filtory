@@ -1,13 +1,14 @@
 "use client"
 
-import { Eye, Smile, Sparkles } from "lucide-react"
+import { Eye, Sparkles } from "lucide-react"
+import { ToothIcon } from "@/components/common/ToothIcon"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 const meta = {
   derma: { icon: Sparkles, box: styles.iconPink },
   eye: { icon: Eye, box: styles.iconLavender },
-  dental: { icon: Smile, box: styles.iconMint },
+  dental: { icon: ToothIcon, box: styles.iconMint },
 }
 
 export function CategorySelector({ selected, onSelect, variant = "grid" }) {

@@ -230,7 +230,7 @@ class HospitalSearchProvider:
             "map_url": place_url,
             "naver_place_url": place_url,
             "naver_place_id": cls._naver_place_id_from_link(place_url),
-            "source_url": link,
+            "source_url": place_url,
             "source_name": "Naver",
             "latitude": latitude,
             "longitude": longitude,

@@ -79,6 +79,11 @@ class GeminiChatbotService:
     def _build_user_content(payload: ChatbotMessageRequest) -> str:
         data: dict[str, Any] = {
             "language": payload.language,
+            "answerLanguageInstruction": (
+                "Answer only in English. Translate or omit Korean context snippets; do not copy Korean phrases."
+                if payload.language == "en"
+                else "한국어로만 답변하세요. 영어 문맥 조각은 의미만 한국어로 풀거나 생략하고 영어 문구를 그대로 섞지 마세요."
+            ),
             "userMessage": payload.message,
             "analysisContext": payload.analysisContext or {},
         }

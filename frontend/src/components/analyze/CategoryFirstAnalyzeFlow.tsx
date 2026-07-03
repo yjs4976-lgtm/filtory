@@ -15,13 +15,13 @@ import {
   MapPinned,
   Pencil,
   Search,
-  Smile,
   Sparkles,
   Star,
   Trash2,
   UploadCloud,
   X,
 } from "lucide-react"
+import { ToothIcon } from "@/components/common/ToothIcon"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
@@ -426,7 +426,11 @@ function buildNaverPlaceHref(hospital: HospitalItem, isNaverSource: boolean) {
   const directUrl = hospital.naverPlaceUrl || (isNaverSource ? hospital.sourceUrl : undefined)
   if (directUrl && isVerifiedNaverPlaceUrl(directUrl)) return withNaverReviewPath(directUrl)
 
-  const query = [hospital.hospitalNameKo || hospital.name, hospital.roadAddress || hospital.address]
+  const regionLabel =
+    hospital.regionKoLabel ||
+    hospital.manualRegionLabel ||
+    extractRegionLabelFromAddress(hospital.roadAddress || hospital.address)
+  const query = [hospital.hospitalNameKo || hospital.name, regionLabel]
     .filter(Boolean)
     .join(" ")
     .trim()
@@ -673,6 +677,7 @@ function createApiAnalysisResult({
   userId,
   selectedReviewCount,
   totalReviewCount,
+  accessibilityInput,
 }: {
   hospital?: HospitalItem
   hospitalName: string
@@ -684,6 +689,7 @@ function createApiAnalysisResult({
   userId?: string | number
   selectedReviewCount: number
   totalReviewCount: number
+  accessibilityInput?: AccessibilityEnhancementInput
 }): ApiAnalysisResult {
   const globalAccessibilityScore =
     response.globalAccessibilityScore ??
@@ -697,6 +703,11 @@ function createApiAnalysisResult({
   const hospitalRegionKoLabel = hospital?.regionKoLabel ||
     extractRegionLabelFromAddress(hospital?.manualRegionLabel || hospitalAddress)
   const hospitalRegionEnLabel = hospital?.regionEnLabel || getEnglishRegionLabelFromKorean(hospitalRegionKoLabel)
+  const hospitalEnglishName =
+    accessibilityInput?.englishName.trim() ||
+    hospital?.hospitalEnglishName ||
+    hospital?.hospitalNameEn ||
+    hospital?.englishName
 
   return {
     id: `analysis-${Date.now()}`,
@@ -707,9 +718,9 @@ function createApiAnalysisResult({
     userId,
     hospitalName,
     hospitalNameKo: hospital?.hospitalNameKo,
-    hospitalNameEn: hospital?.hospitalNameEn,
-    hospitalEnglishName: hospital?.hospitalEnglishName,
-    englishName: hospital?.englishName,
+    hospitalNameEn: hospitalEnglishName,
+    hospitalEnglishName,
+    englishName: hospitalEnglishName,
     category,
     categoryKoLabel,
     categoryEnLabel,
@@ -888,7 +899,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const categorySheetItems = [
     { key: "derma" as const, label: t.categories.derma, desc: t.categories.dermaDesc, icon: Sparkles },
     { key: "eye" as const, label: t.categories.eye, desc: t.categories.eyeDesc, icon: Eye },
-    { key: "dental" as const, label: t.categories.dental, desc: t.categories.dentalDesc, icon: Smile },
+    { key: "dental" as const, label: t.categories.dental, desc: t.categories.dentalDesc, icon: ToothIcon },
   ]
 
   useEffect(() => {
@@ -1383,6 +1394,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         userId,
         selectedReviewCount,
         totalReviewCount,
+        accessibilityInput,
       })
 
       setAnalysisResult(nextAnalysisResult)
@@ -1396,11 +1408,18 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         hospitalAddress: nextAnalysisResult.hospitalAddress,
         roadAddress: nextAnalysisResult.roadAddress,
         address: nextAnalysisResult.address,
+        region: nextAnalysisResult.region,
+        regionId: nextAnalysisResult.regionId,
+        regionLabel: nextAnalysisResult.regionLabel,
+        regionKoLabel: nextAnalysisResult.regionKoLabel,
+        regionEnLabel: nextAnalysisResult.regionEnLabel,
+        regionProvinceCode: nextAnalysisResult.regionProvinceCode,
+        regionDistrictCode: nextAnalysisResult.regionDistrictCode,
         hospitalName,
         hospitalNameKo: hospital?.hospitalNameKo,
-        hospitalNameEn: hospital?.hospitalNameEn,
-        hospitalEnglishName: hospital?.hospitalEnglishName,
-        englishName: hospital?.englishName,
+        hospitalNameEn: nextAnalysisResult.hospitalNameEn,
+        hospitalEnglishName: nextAnalysisResult.hospitalEnglishName,
+        englishName: nextAnalysisResult.englishName,
         reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })

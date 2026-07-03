@@ -1,4 +1,5 @@
 import os
+import re
 import time
 
 from app.clients.ai_chatbot_client import AIChatbotClient
@@ -56,6 +57,15 @@ class ChatbotService:
         "homepageOrBookingLink": "홈페이지/예약 링크",
         "photoInfo": "방문 전 사진 참고자료",
     }
+    GLOBAL_ACCESSIBILITY_LABELS_EN = {
+        "englishName": "English clinic name",
+        "englishGuide": "English guidance",
+        "englishReviews": "English reviews available",
+        "googleMapLink": "Map location information",
+        "googlePlaceId": "Google place information",
+        "homepageOrBookingLink": "Website or booking link",
+        "photoInfo": "Photos available before visiting",
+    }
 
     @classmethod
     def answer(cls, payload, member_id=None, allow_remote_ai=False, rate_limit_key=None):
@@ -65,7 +75,7 @@ class ChatbotService:
         if len(message) > cls.MAX_MESSAGE_LENGTH:
             raise ValueError("message is too long")
 
-        language = cls._normalize_language(payload.get("language"))
+        language = cls._detect_message_language(message) or cls._normalize_language(payload.get("language"))
         analysis_context = cls._first_dict(
             payload.get("analysis_context"),
             payload.get("analysisContext"),
@@ -108,7 +118,7 @@ class ChatbotService:
                         ai_answer = cls._answer_by_ai(
                             message,
                             language,
-                            cls._safe_analysis_context(analysis_context),
+                            cls._safe_analysis_context(analysis_context, language),
                         )
                     if ai_answer:
                         answer = ai_answer["answer"]
@@ -130,6 +140,20 @@ class ChatbotService:
     @staticmethod
     def _normalize_language(value):
         return "en" if value == "en" else "ko"
+
+    @staticmethod
+    def _detect_message_language(message):
+        hangul_count = sum(1 for char in message if "가" <= char <= "힣")
+        latin_count = sum(1 for char in message if ("a" <= char.lower() <= "z"))
+        if hangul_count > 0:
+            if re.search(r"[가-힣](랑|은|는|이|가|을|를|에|에서|으로|로|도|만|하고|이랑)\b|뭐|왜|어떻게|해줘|인가|야\??|나요\??", message):
+                return "ko"
+            stripped = str(message or "").lstrip(" \t\r\n\"'([{")
+            starts_with_english = bool(stripped) and ("a" <= stripped[0].lower() <= "z")
+            return "en" if starts_with_english and latin_count >= max(12, hangul_count * 2) else "ko"
+        if latin_count > 0 and latin_count > hangul_count:
+            return "en"
+        return None
 
     @staticmethod
     def _first_dict(*values):
@@ -172,6 +196,25 @@ class ChatbotService:
         raw_response = evidence_json.get("rawResponse") if isinstance(evidence_json.get("rawResponse"), dict) else {}
         evidence = raw_response.get("evidence") if isinstance(raw_response.get("evidence"), dict) else {}
         hospital = analysis_result.hospital
+        request_options = (
+            analysis_result.analysis_request.request_options_json
+            if analysis_result.analysis_request and isinstance(analysis_result.analysis_request.request_options_json, dict)
+            else {}
+        )
+        hospital_metadata = (
+            request_options.get("hospitalMetadata")
+            if isinstance(request_options.get("hospitalMetadata"), dict)
+            else {}
+        )
+        hospital_name = hospital.hospital_name if hospital else "이 병원"
+        hospital_english_name = cls._string(hospital_metadata, "englishName", "english_name")
+        if not hospital_english_name and hospital:
+            hospital_english_name = hospital.english_name
+        hospital_address = (
+            hospital.road_address or hospital.address
+            if hospital
+            else cls._string(hospital_metadata, "roadAddress", "road_address", "address")
+        )
         category = cls._category_label(hospital.category if hospital else None)
         global_checks = raw_response.get("globalAccessibilityChecks")
         if not isinstance(global_checks, dict):
@@ -180,8 +223,18 @@ class ChatbotService:
         return {
             "analysisResultId": analysis_result.id,
             "analysis_result_id": analysis_result.id,
-            "hospitalName": hospital.hospital_name if hospital else "이 병원",
-            "hospital_name": hospital.hospital_name if hospital else "이 병원",
+            "hospitalName": hospital_name,
+            "hospital_name": hospital_name,
+            "hospitalNameKo": hospital_name,
+            "hospital_name_ko": hospital_name,
+            "hospitalNameEn": hospital_english_name,
+            "hospital_name_en": hospital_english_name,
+            "hospitalEnglishName": hospital_english_name,
+            "hospital_english_name": hospital_english_name,
+            "englishName": hospital_english_name,
+            "english_name": hospital_english_name,
+            "hospitalAddress": hospital_address,
+            "hospital_address": hospital_address,
             "category": category,
             "totalScore": canonical.get("totalScore"),
             "total_score": canonical.get("totalScore"),
@@ -203,6 +256,8 @@ class ChatbotService:
             "globalAccessibilityLevel": canonical.get("globalAccessibilityLevel"),
             "global_accessibility_level": canonical.get("globalAccessibilityLevel"),
             "summary": canonical.get("summary"),
+            "summary_ko": analysis_result.summary_ko,
+            "summary_en": analysis_result.summary_en,
             "recommendation": canonical.get("recommendation"),
             "visitTip": canonical.get("visitTip"),
             "detectedPatterns": canonical.get("detectedPatterns") or [],
@@ -239,6 +294,8 @@ class ChatbotService:
             items.append({
                 "key": key,
                 "label": label,
+                "labelKo": label,
+                "labelEn": cls.GLOBAL_ACCESSIBILITY_LABELS_EN.get(key, label),
                 "checked": bool(checks.get(key)),
             })
         return items
@@ -290,14 +347,22 @@ class ChatbotService:
         except (TypeError, ValueError):
             return 10
 
-    @staticmethod
-    def _safe_analysis_context(context):
+    @classmethod
+    def _safe_analysis_context(cls, context, language=None):
         if not isinstance(context, dict):
             return {}
 
         allowed_keys = {
             "hospitalName",
             "hospital_name",
+            "hospitalNameKo",
+            "hospital_name_ko",
+            "hospitalNameEn",
+            "hospital_name_en",
+            "hospitalEnglishName",
+            "hospital_english_name",
+            "englishName",
+            "english_name",
             "category",
             "trustScore",
             "trust_score",
@@ -338,7 +403,31 @@ class ChatbotService:
             "reviewCount",
             "review_count",
         }
-        return {key: value for key, value in context.items() if key in allowed_keys}
+        text_keys = {"summary", "recommendation", "visitTip"}
+        list_keys = {
+            "detectedPatterns",
+            "detected_patterns",
+            "suspiciousPhrases",
+            "suspicious_phrases",
+            "repetitivePhrases",
+            "repetitive_phrases",
+            "positiveSignals",
+            "negativeSignals",
+            "warningSignals",
+            "checkItems",
+            "specificPhrases",
+        }
+        safe_context = {}
+        for key, value in context.items():
+            if key not in allowed_keys:
+                continue
+            if language and key in text_keys and isinstance(value, str) and not cls._language_matches(value, language):
+                continue
+            if language and key in list_keys and isinstance(value, list):
+                safe_context[key] = [item for item in value if cls._language_matches(item, language)]
+                continue
+            safe_context[key] = value
+        return safe_context
 
     @classmethod
     def _answer_small_talk(cls, text, language, has_context=False):
@@ -778,7 +867,7 @@ class ChatbotService:
         if cls._has_any(text, ["광고", "홍보", "ad suspicion", "ad-like", "advertising", "promotion"]):
             return cls._analysis_ad_answer(analysis, language)
 
-        if cls._has_any(text, ["외국", "영어", "foreigner", "english"]):
+        if cls._has_any(text, ["외국", "영어", "foreigner", "international", "convenience", "english"]):
             return cls._analysis_foreigner_answer(analysis, language)
 
         if cls._has_any(text, ["방문 전", "확인", "준비", "가기 전", "before visiting", "before visit", "check", "prepare"]):
@@ -795,9 +884,7 @@ class ChatbotService:
     @classmethod
     def _analysis_data(cls, context, language):
         return {
-            "hospital_name": cls._string(context, "hospitalName", "hospital_name") or (
-                "this clinic" if language == "en" else "이 병원"
-            ),
+            "hospital_name": cls._context_hospital_name(context, language),
             "total_score": cls._number(context, "totalScore", "total_score", "score"),
             "trust_score": cls._number(context, "trustScore", "trust_score", "score", "totalScore", "total_score"),
             "ad_score": cls._number(context, "adSuspicionScore", "ad_suspicion_score", "adScore", "ad_score"),
@@ -819,19 +906,42 @@ class ChatbotService:
                 "foreignerScore",
                 "foreigner_score",
             ),
-            "ad_level": cls._string(context, "adSuspicion", "ad_suspicion", "adSuspicionLevel", "ad_suspicion_level"),
-            "trust_grade": cls._string(context, "trustGrade", "trust_grade", "trustLevelKey", "trust_level"),
-            "information_level": cls._string(context, "informationLevel", "information_level"),
-            "global_accessibility_level": cls._string(context, "globalAccessibilityLevel", "global_accessibility_level"),
-            "summary": cls._string(context, "summary", "summary_ko", "summary_en"),
-            "recommendation": cls._string(context, "recommendation"),
-            "visit_tip": cls._string(context, "visitTip", "visit_tip"),
-            "reasons": cls._list(context, "detectedReasons", "detected_reasons", "detectedPatterns", "detected_patterns"),
-            "suspicious_phrases": cls._list(context, "suspiciousPhrases", "suspicious_phrases"),
-            "repetitive_phrases": cls._list(context, "repetitivePhrases", "repetitive_phrases"),
-            "warning_signals": cls._list(context, "warningSignals", "warning_signals", "negativeSignals", "negative_signals"),
-            "check_items": cls._list(context, "checkItems", "check_items", "specificPhrases", "specific_phrases"),
-            "global_accessibility_checks": cls._accessibility_checks(context.get("globalAccessibilityChecks")),
+            "ad_level": cls._localized_level(
+                cls._string(context, "adSuspicion", "ad_suspicion", "adSuspicionLevel", "ad_suspicion_level"),
+                language,
+            ),
+            "trust_grade": cls._localized_level(
+                cls._string(context, "trustGrade", "trust_grade", "trustLevelKey", "trust_level"),
+                language,
+            ),
+            "information_level": cls._localized_level(cls._string(context, "informationLevel", "information_level"), language),
+            "global_accessibility_level": cls._localized_level(
+                cls._string(context, "globalAccessibilityLevel", "global_accessibility_level"),
+                language,
+            ),
+            "summary": cls._localized_context_text(context, language, "summary"),
+            "recommendation": cls._localized_context_text(context, language, "recommendation"),
+            "visit_tip": cls._localized_context_text(context, language, "visitTip", "visit_tip"),
+            "reasons": cls._localized_list(
+                context,
+                language,
+                "detectedReasons",
+                "detected_reasons",
+                "detectedPatterns",
+                "detected_patterns",
+            ),
+            "suspicious_phrases": cls._localized_list(context, language, "suspiciousPhrases", "suspicious_phrases"),
+            "repetitive_phrases": cls._localized_list(context, language, "repetitivePhrases", "repetitive_phrases"),
+            "warning_signals": cls._localized_list(
+                context,
+                language,
+                "warningSignals",
+                "warning_signals",
+                "negativeSignals",
+                "negative_signals",
+            ),
+            "check_items": cls._localized_list(context, language, "checkItems", "check_items", "specificPhrases", "specific_phrases"),
+            "global_accessibility_checks": cls._accessibility_checks(context.get("globalAccessibilityChecks"), language),
             "review_count": cls._number(context, "selectedReviewCount", "selected_review_count", "reviewCount", "review_count"),
         }
 
@@ -842,6 +952,56 @@ class ChatbotService:
             if value is not None and str(value).strip():
                 return str(value).strip()
         return None
+
+    @staticmethod
+    def _has_hangul(value):
+        return any("가" <= char <= "힣" for char in str(value or ""))
+
+    @staticmethod
+    def _has_latin(value):
+        return any("a" <= char.lower() <= "z" for char in str(value or ""))
+
+    @classmethod
+    def _localized_context_text(cls, context, language, camel_key, snake_key=None):
+        snake_key = snake_key or f"{camel_key}_ko"
+        if language == "en":
+            value = cls._string(context, f"{camel_key}En", f"{camel_key}_en", f"{snake_key}_en")
+            if value:
+                return value
+            neutral_value = cls._string(context, camel_key, snake_key)
+            return None if neutral_value and cls._has_hangul(neutral_value) else neutral_value
+
+        value = cls._string(context, f"{camel_key}Ko", f"{camel_key}_ko", snake_key)
+        if value:
+            return value
+        neutral_value = cls._string(context, camel_key, snake_key)
+        return None if neutral_value and cls._has_latin(neutral_value) and not cls._has_hangul(neutral_value) else neutral_value
+
+    @staticmethod
+    def _localized_level(value, language):
+        if not value:
+            return None
+        normalized = str(value).strip().lower()
+        en_labels = {
+            "높음": "high",
+            "보통": "medium",
+            "중간": "medium",
+            "낮음": "low",
+            "매우 높음": "very high",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+            "very high": "very high",
+        }
+        ko_labels = {
+            "high": "높음",
+            "medium": "보통",
+            "low": "낮음",
+            "very high": "매우 높음",
+        }
+        if language == "en":
+            return en_labels.get(str(value).strip(), en_labels.get(normalized, str(value).strip()))
+        return ko_labels.get(normalized, str(value).strip())
 
     @staticmethod
     def _number(context, *keys):
@@ -862,15 +1022,32 @@ class ChatbotService:
                 return [str(item).strip() for item in value if str(item).strip()]
         return []
 
+    @classmethod
+    def _language_matches(cls, value, language):
+        text = str(value or "").strip()
+        if not text:
+            return False
+        has_hangul = cls._has_hangul(text)
+        has_latin = cls._has_latin(text)
+        if language == "en":
+            return not has_hangul
+        return has_hangul or not has_latin
+
+    @classmethod
+    def _localized_list(cls, context, language, *keys):
+        values = cls._list(context, *keys)
+        return [value for value in values if cls._language_matches(value, language)]
+
     @staticmethod
-    def _accessibility_checks(value):
+    def _accessibility_checks(value, language="ko"):
         if not isinstance(value, list):
             return []
         items = []
         for item in value:
             if not isinstance(item, dict):
                 continue
-            label = str(item.get("label") or "").strip()
+            label_key = "labelEn" if language == "en" else "labelKo"
+            label = str(item.get(label_key) or item.get("label") or "").strip()
             if not label:
                 continue
             items.append({
@@ -901,7 +1078,20 @@ class ChatbotService:
     def _context_hospital_name(cls, context, language):
         if not isinstance(context, dict):
             return None
-        return cls._string(context, "hospitalName", "hospital_name") or (
+        if language == "en":
+            english_name = cls._string(
+                context,
+                "hospitalEnglishName",
+                "hospital_english_name",
+                "hospitalNameEn",
+                "hospital_name_en",
+                "englishName",
+                "english_name",
+            )
+            if english_name:
+                return english_name
+            return "this clinic"
+        return cls._string(context, "hospitalNameKo", "hospital_name_ko", "hospitalName", "hospital_name") or (
             "this clinic" if language == "en" else "이 병원"
         )
 

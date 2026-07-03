@@ -94,6 +94,31 @@ const PROVINCE_EN_LABELS: Record<string, string> = {
 
 const METROPOLITAN_REGION_LABELS = new Set(["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종"])
 
+const BRANCH_LOCATION_EN_LABELS: Record<string, string> = {
+  경기: "Gyeonggi",
+  수원: "Suwon",
+  분당: "Bundang",
+  서현: "Seohyeon",
+  판교: "Pangyo",
+  성남: "Seongnam",
+  강남: "Gangnam",
+  신논현: "Sinnonhyeon",
+  홍대: "Hongdae",
+  마포: "Mapo",
+  명동: "Myeongdong",
+  서울: "Seoul",
+  부산: "Busan",
+  대구: "Daegu",
+  대전: "Daejeon",
+  둔산: "Dunsan",
+  인천: "Incheon",
+  광주: "Gwangju",
+  울산: "Ulsan",
+  제주: "Jeju",
+}
+
+const BRANCH_LOCATION_TOKENS = Object.keys(BRANCH_LOCATION_EN_LABELS).sort((left, right) => right.length - left.length)
+
 function cleanLabel(value?: unknown) {
   const label = String(value ?? "").trim()
   return label && !EMPTY_REGION_FALLBACKS.has(label.toLowerCase()) ? label : ""
@@ -223,19 +248,55 @@ function getAddressRegionLabel(address: unknown, language: Language) {
     : regionLabel
 }
 
+function translateBranchLocationLabel(value: string) {
+  let remaining = value.replace(/점$/, "")
+  const labels: string[] = []
+
+  while (remaining) {
+    const matchedToken = BRANCH_LOCATION_TOKENS.find((token) => remaining.startsWith(token))
+    if (!matchedToken) return ""
+    labels.push(BRANCH_LOCATION_EN_LABELS[matchedToken])
+    remaining = remaining.slice(matchedToken.length)
+  }
+
+  return labels.join(" ")
+}
+
+function getHospitalNameRegionLabel(record: HistoryDisplayRecord, language: Language) {
+  const hospitalName = pickString(
+    record.hospitalNameKo,
+    record.hospital_name_ko,
+    record.hospitalName,
+    record.hospital_name
+  )
+  const branchMatch = hospitalName.match(/\s([가-힣A-Za-z0-9]+점)$/)
+  if (!branchMatch) return ""
+
+  const branchLabel = branchMatch[1]
+  if (language === "en") {
+    return translateBranchLocationLabel(branchLabel) || branchLabel
+  }
+
+  return branchLabel
+}
+
 export function isEmptyRegionFallback(value?: unknown) {
   return !cleanLabel(value)
 }
 
 export function getHistoryHospitalName(record: HistoryDisplayRecord, language: Language) {
   if (language === "en") {
-    return pickString(
+    const englishName = pickString(
       record.hospitalEnglishName,
       record.hospital_english_name,
       record.hospitalNameEn,
       record.hospital_name_en,
       record.englishName,
-      record.english_name,
+      record.english_name
+    )
+    if (englishName) return englishName
+
+    return pickString(
       record.hospitalNameKo,
       record.hospital_name_ko,
       record.hospitalName,
@@ -283,7 +344,8 @@ export function getHistoryRegionLabel(record: HistoryDisplayRecord, language: La
     getAddressRegionLabel(pickString(record.hospitalAddress, record.hospital_address), language) ||
     getAddressRegionLabel(pickString(record.roadAddress, record.road_address, record.address, record.location), language) ||
     formatHistoryRegionLabel(provinceLabel, language) ||
-    formatStoredRegionLabel(rawRegionLabel, language)
+    formatStoredRegionLabel(rawRegionLabel, language) ||
+    getHospitalNameRegionLabel(record, language)
   )
 }
 

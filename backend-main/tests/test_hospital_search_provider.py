@@ -44,7 +44,7 @@ def test_naver_search_keeps_broad_hospital_category_for_requested_category(monke
     assert results[0]["naver_place_id"] == "12345"
 
 
-def test_naver_external_link_is_not_used_as_place_or_map_url(monkeypatch):
+def test_naver_external_link_is_not_used_as_place_map_or_source_url(monkeypatch):
     app = Flask(__name__)
     app.config.update(
         NAVER_SEARCH_CLIENT_ID="client-id",
@@ -80,7 +80,7 @@ def test_naver_external_link_is_not_used_as_place_or_map_url(monkeypatch):
         )
 
     assert len(results) == 1
-    assert results[0]["source_url"] == "https://clinic.example.com"
+    assert results[0]["source_url"] is None
     assert results[0]["map_url"] is None
     assert results[0]["naver_place_url"] is None
     assert results[0]["naver_place_id"] is None

@@ -39,6 +39,21 @@ function buildCurrentChatAnalysisContext() {
   return buildChatbotContextFromAnalysis(analysis, "current")
 }
 
+function detectMessageLanguage(message: string, fallback: "ko" | "en") {
+  const hangulCount = (message.match(/[가-힣]/g) ?? []).length
+  const latinCount = (message.match(/[A-Za-z]/g) ?? []).length
+
+  if (hangulCount > 0) {
+    if (/[가-힣](랑|은|는|이|가|을|를|에|에서|으로|로|도|만|랑|하고|이랑)\b|뭐|왜|어떻게|해줘|인가|야\??|나요\??/.test(message)) {
+      return "ko"
+    }
+    const startsWithEnglish = /^[\s"'([{]*[A-Za-z]/.test(message)
+    return startsWithEnglish && latinCount >= Math.max(12, hangulCount * 2) ? "en" : "ko"
+  }
+  if (latinCount > 0 && latinCount > hangulCount) return "en"
+  return fallback
+}
+
 export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const router = useRouter()
   const { t, language } = useLanguage()
@@ -121,13 +136,14 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setIsResponding(true)
 
     try {
+      const messageLanguage = detectMessageLanguage(trimmed, language)
       const fallbackAnalysisContext = selectedAnalysisResult ?? buildCurrentChatAnalysisContext()
       const analysisResultId = connectedAnalysisResultId ?? (
         fallbackAnalysisContext ? getAnalysisResultId(fallbackAnalysisContext) : null
       )
       const result = await sendChatMessage({
         message: trimmed,
-        language,
+        language: messageLanguage,
         analysisResultId: analysisResultId ?? undefined,
         analysisContext: fallbackAnalysisContext ?? undefined,
       })
@@ -135,7 +151,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: fullAnswer }
       nextMessageId.current += 1
       setMessages((prev) => [...prev, aiMsg])
-      setRecommendedQuestions({ language, questions: result.data.suggested_questions ?? [] })
+      setRecommendedQuestions({ language: messageLanguage, questions: result.data.suggested_questions ?? [] })
     } catch {
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: t.chatbot.error }
       nextMessageId.current += 1
