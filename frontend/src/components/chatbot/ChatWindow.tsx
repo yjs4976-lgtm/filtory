@@ -51,8 +51,21 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const nextMessageId = useRef(1)
   const visibleMessages: ChatMessage[] = [{ id: 0, role: "ai", text: t.chatbot.greeting }, ...messages]
-  const visibleRecommendedQuestions =
-    recommendedQuestions?.language === language ? recommendedQuestions.questions : []
+  const selectedResultMatchesUrl =
+    connectedAnalysisResultId && selectedAnalysisResult
+      ? getAnalysisResultId(selectedAnalysisResult) === connectedAnalysisResultId
+      : true
+  const connectedHospitalName = selectedResultMatchesUrl ? selectedAnalysisResult?.hospitalName : undefined
+  const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
+  const visibleRecommendedQuestions = isAnalysisConnected
+    ? t.chatbot.linkedExamples
+    : recommendedQuestions?.language === language
+      ? recommendedQuestions.questions
+      : []
+  const inputPlaceholder = isAnalysisConnected ? t.chatbot.linkedPlaceholder : t.chatbot.placeholder
+  const contextTitle = connectedHospitalName
+    ? t.chatbot.linkedResultTitle.replace("{hospitalName}", connectedHospitalName)
+    : t.chatbot.linkedResultFallbackTitle
 
   useEffect(() => {
     const syncSelectedContext = () => {
@@ -106,11 +119,14 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
 
     try {
       const fallbackAnalysisContext = selectedAnalysisResult ?? buildCurrentChatAnalysisContext()
+      const analysisResultId = connectedAnalysisResultId ?? (
+        fallbackAnalysisContext ? getAnalysisResultId(fallbackAnalysisContext) : null
+      )
       const result = await sendChatMessage({
         message: trimmed,
         language,
-        analysisResultId: connectedAnalysisResultId ?? undefined,
-        analysisContext: connectedAnalysisResultId ? undefined : fallbackAnalysisContext,
+        analysisResultId: analysisResultId ?? undefined,
+        analysisContext: fallbackAnalysisContext ?? undefined,
       })
       const fullAnswer = result.data.answer ?? ""
       const aiMsg: ChatMessage = { id: nextMessageId.current, role: "ai", text: fullAnswer }
@@ -129,39 +145,25 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const clearConnectedResult = () => {
     setConnectedAnalysisResultId(null)
     clearSelectedChatbotAnalysisContext()
-    router.replace(ROUTES.CHATBOT)
+    if (connectedAnalysisResultId) {
+      router.replace(ROUTES.CHATBOT)
+    }
   }
 
-  const selectedResultMatchesUrl =
-    connectedAnalysisResultId && selectedAnalysisResult
-      ? getAnalysisResultId(selectedAnalysisResult) === connectedAnalysisResultId
-      : true
-  const connectedHospitalName = selectedResultMatchesUrl ? selectedAnalysisResult?.hospitalName : undefined
-  const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
+  const contextBanner = isAnalysisConnected ? (
+    <div className={styles.chatContextBanner}>
+      <div>
+        <strong>{contextTitle}</strong>
+        <p>{t.chatbot.linkedResultDescription}</p>
+      </div>
+      <button type="button" className={styles.smallPillButton} onClick={clearConnectedResult}>
+        {t.chatbot.clear}
+      </button>
+    </div>
+  ) : null
 
   return (
     <div className={styles.chatWindow}>
-      {isAnalysisConnected && (
-        <div className={styles.chatContextBanner}>
-          <div>
-            <strong>
-              {connectedHospitalName ||
-                (language === "ko" ? "분석 결과가 연결됐어요." : "Analysis result connected.")}
-            </strong>
-            <p>
-              {connectedHospitalName
-                ? t.chatbot.askingBasedOnResult.replace("{hospitalName}", connectedHospitalName)
-                : language === "ko"
-                  ? "분석 결과를 바탕으로 질문할 수 있어요."
-                  : "You can ask questions based on this analysis result."}
-            </p>
-          </div>
-          <button type="button" className={styles.smallPillButton} onClick={clearConnectedResult}>
-            {language === "ko" ? "분석 결과 연결 해제" : "Clear result context"}
-          </button>
-        </div>
-      )}
-
       <div className={styles.messageList}>
         {visibleMessages.map((message) => (
           <ChatBubble key={message.id} role={message.role} text={message.text} />
@@ -176,10 +178,26 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
 
       {dockInput ? (
         <div className={styles.chatInputDock}>
-          <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
+          {contextBanner}
+          <ChatInput
+            inputRef={inputRef}
+            value={input}
+            onChange={setInput}
+            onSubmit={() => send(input)}
+            placeholder={inputPlaceholder}
+          />
         </div>
       ) : (
-        <ChatInput inputRef={inputRef} value={input} onChange={setInput} onSubmit={() => send(input)} />
+        <>
+          {contextBanner}
+          <ChatInput
+            inputRef={inputRef}
+            value={input}
+            onChange={setInput}
+            onSubmit={() => send(input)}
+            placeholder={inputPlaceholder}
+          />
+        </>
       )}
     </div>
   )
