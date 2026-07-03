@@ -184,3 +184,14 @@ on public.hospitals(verified_by);
 
 create index if not exists idx_hospitals_hidden_by
 on public.hospitals(hidden_by);
+
+drop index if exists
+public.uq_admin_review_moderation_cases_open_review_type;
+
+create unique index
+uq_admin_review_moderation_cases_open_review_type
+on public.admin_review_moderation_cases(review_id, case_type)
+where review_id is not null
+  and analysis_result_id is null
+  and review_report_id is null
+  and status in ('pending', 'reviewing');
