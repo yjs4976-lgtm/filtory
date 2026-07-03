@@ -44,7 +44,7 @@ def test_naver_search_keeps_broad_hospital_category_for_requested_category(monke
     assert results[0]["naver_place_id"] == "12345"
 
 
-def test_naver_external_link_is_not_used_as_place_map_or_source_url(monkeypatch):
+def test_naver_external_link_is_used_as_homepage_not_place_map_or_source_url(monkeypatch):
     app = Flask(__name__)
     app.config.update(
         NAVER_SEARCH_CLIENT_ID="client-id",
@@ -81,6 +81,47 @@ def test_naver_external_link_is_not_used_as_place_map_or_source_url(monkeypatch)
 
     assert len(results) == 1
     assert results[0]["source_url"] is None
+    assert results[0]["homepage_url"] == "https://clinic.example.com"
     assert results[0]["map_url"] is None
     assert results[0]["naver_place_url"] is None
     assert results[0]["naver_place_id"] is None
+
+
+def test_naver_oops_link_is_not_used_as_homepage(monkeypatch):
+    app = Flask(__name__)
+    app.config.update(
+        NAVER_SEARCH_CLIENT_ID="client-id",
+        NAVER_SEARCH_CLIENT_SECRET="client-secret",
+        HOSPITAL_SEARCH_TIMEOUT_SECONDS=1,
+    )
+
+    monkeypatch.setattr(
+        HospitalSearchProvider,
+        "_get_json",
+        staticmethod(
+            lambda url, headers: {
+                "items": [
+                    {
+                        "title": "예시피부과",
+                        "category": "병원,의원",
+                        "address": "서울 중구 예시로 1",
+                        "roadAddress": "서울 중구 예시로 1",
+                        "link": "https://youtube.com/oops",
+                        "mapx": "1269840000",
+                        "mapy": "375610000",
+                    }
+                ]
+            },
+        ),
+    )
+
+    with app.app_context():
+        results = HospitalSearchProvider.search_naver(
+            query="서울 중구 피부과",
+            category="dermatology",
+            limit=10,
+        )
+
+    assert len(results) == 1
+    assert results[0]["source_url"] is None
+    assert results[0]["homepage_url"] is None

@@ -77,9 +77,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
   const visibleRecommendedQuestions = isAnalysisConnected
     ? t.chatbot.linkedExamples
-    : recommendedQuestions?.language === language
-      ? recommendedQuestions.questions
-      : []
+    : recommendedQuestions?.questions ?? []
   const inputPlaceholder = isAnalysisConnected ? t.chatbot.linkedPlaceholder : t.chatbot.placeholder
   const contextTitle = connectedHospitalName
     ? t.chatbot.linkedResultTitle.replace("{hospitalName}", connectedHospitalName)

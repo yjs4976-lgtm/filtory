@@ -289,6 +289,7 @@ export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   category: HospitalCategory
   categoryKoLabel?: string
   categoryEnLabel?: string
+  region?: string
   regionId?: string
   regionLabel?: string
   regionKoLabel?: string
