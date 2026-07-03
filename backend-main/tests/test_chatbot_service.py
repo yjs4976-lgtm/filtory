@@ -122,6 +122,90 @@ def test_chatbot_answers_english_basic_question():
     assert "How do I use Filtory?" in result["suggested_questions"]
 
 
+def test_chatbot_detects_english_message_over_korean_ui_language():
+    result = ChatbotService.answer({"message": "How should I read the trust score?", "language": "ko"})
+
+    assert result["source"] == "keyword"
+    assert "reference score" in result["answer"]
+    assert "How do I use Filtory?" in result["suggested_questions"]
+
+
+def test_chatbot_keeps_korean_when_korean_message_contains_english_terms():
+    result = ChatbotService.answer({"message": "trust score랑 review 기준이 뭐야?", "language": "en"})
+
+    assert result["source"] == "keyword"
+    assert "참고 정보" in result["answer"]
+    assert "리뷰를 입력할 때 개인정보는 괜찮나요?" in result["suggested_questions"]
+
+
+def test_chatbot_omits_cross_language_analysis_signals():
+    english_result = ChatbotService.answer(
+        {
+            "message": "Explain this result simply.",
+            "language": "en",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "hospitalEnglishName": "Example Clinic",
+                "trustScore": 72,
+                "summary": "구체적인 상담 내용은 있지만 일부 홍보성 표현이 있습니다.",
+                "detectedPatterns": ["광고성 의심 표현 포함", "Specific visit details"],
+            },
+        }
+    )
+    korean_result = ChatbotService.answer(
+        {
+            "message": "이 결과 쉽게 설명해줘",
+            "language": "ko",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "trustScore": 72,
+                "summary": "Has concrete details but some promotional wording.",
+                "detectedPatterns": ["Ad-like wording", "구체적 방문 경험"],
+            },
+        }
+    )
+
+    assert "Example Clinic" in english_result["answer"]
+    assert "Specific visit details" in english_result["answer"]
+    assert "광고성 의심 표현 포함" not in english_result["answer"]
+    assert "구체적인 상담 내용" not in english_result["answer"]
+    assert "예시피부과" in korean_result["answer"]
+    assert "구체적 방문 경험" in korean_result["answer"]
+    assert "Ad-like wording" not in korean_result["answer"]
+    assert "Has concrete details" not in korean_result["answer"]
+
+
+def test_chatbot_uses_english_analysis_labels_without_korean_name_fallback():
+    result = ChatbotService.answer(
+        {
+            "message": "How is the international convenience score?",
+            "language": "en",
+            "analysisContext": {
+                "hospitalName": "예시피부과",
+                "globalAccessibilityScore": 40,
+                "globalAccessibilityChecks": [
+                    {
+                        "label": "영문 병원명",
+                        "labelEn": "English clinic name",
+                        "checked": True,
+                    },
+                    {
+                        "label": "영어 리뷰 참고 가능",
+                        "labelEn": "English reviews available",
+                        "checked": False,
+                    },
+                ],
+            },
+        }
+    )
+
+    assert result["source"] == "analysis"
+    assert "this clinic" in result["answer"]
+    assert "English clinic name" in result["answer"]
+    assert "영문 병원명" not in result["answer"]
+    assert "예시피부과" not in result["answer"]
+
+
 def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
     def fake_ai_answer(message, language, analysis_context=None):
         return {

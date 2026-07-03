@@ -212,6 +212,7 @@ class HospitalSearchProvider:
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
         place_url = cls._verified_naver_place_url(link)
+        homepage_url = None if place_url else cls._verified_homepage_url(link)
         provider_category = cls._category_from_naver(item) or category
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
@@ -227,10 +228,11 @@ class HospitalSearchProvider:
             "address": cls._strip_html(item.get("address")),
             "road_address": cls._strip_html(item.get("roadAddress")),
             "phone": cls._text(item.get("telephone")),
+            "homepage_url": homepage_url,
             "map_url": place_url,
             "naver_place_url": place_url,
             "naver_place_id": cls._naver_place_id_from_link(place_url),
-            "source_url": link,
+            "source_url": place_url,
             "source_name": "Naver",
             "latitude": latitude,
             "longitude": longitude,
@@ -354,6 +356,28 @@ class HospitalSearchProvider:
             return link
 
         return None
+
+    @staticmethod
+    def _verified_homepage_url(link):
+        if not link:
+            return None
+
+        try:
+            parsed = urlparse(link)
+        except ValueError:
+            return None
+
+        hostname = (parsed.hostname or "").lower()
+        if parsed.scheme not in {"http", "https"} or not hostname:
+            return None
+        if hostname == "map.naver.com" or hostname.endswith(".place.naver.com"):
+            return None
+        if hostname in {"youtube.com", "www.youtube.com", "youtu.be"}:
+            return None
+        if parsed.path.rstrip("/") == "/oops":
+            return None
+
+        return link
 
     @classmethod
     def _category_from_kakao(cls, item):
