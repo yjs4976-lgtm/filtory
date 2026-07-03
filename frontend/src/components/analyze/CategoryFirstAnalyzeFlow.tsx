@@ -459,6 +459,51 @@ function isVerifiedNaverPlaceUrl(href: string) {
   }
 }
 
+function classifyMapUrl(href?: string) {
+  if (!href) return {}
+
+  try {
+    const hostname = new URL(href).hostname.toLowerCase()
+
+    if (hostname.includes("naver.com")) {
+      return { naverPlaceUrl: href }
+    }
+
+    if (hostname.includes("kakao.com")) {
+      return { kakaoPlaceUrl: href }
+    }
+
+    if (hostname.includes("google.")) {
+      return { googleMapUrl: href }
+    }
+  } catch {
+    return {}
+  }
+
+  return {}
+}
+
+function englishGuidanceStatusFromText(value?: string): boolean | undefined {
+  const text = value?.trim().toLowerCase()
+  if (!text) return undefined
+
+  const negativePatterns = [
+    /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)/,
+    /(no|not|without).{0,12}(english|interpreter|translation|foreigner)/,
+    /(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)/,
+  ]
+
+  if (negativePatterns.some((pattern) => pattern.test(text))) {
+    return false
+  }
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내/i.test(text)
+    ? true
+    : undefined
+}
+
 function isSameHref(left?: string, right?: string) {
   if (!left || !right) return false
   return left.replace(/\/$/, "") === right.replace(/\/$/, "")
@@ -468,15 +513,19 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
   const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
-  const googleMapUrl = hospital.googleMapUrl
+  const mapUrlInfo = classifyMapUrl(hospital.mapUrl)
+  const sourceUrlInfo = classifyMapUrl(hospital.sourceUrl)
+  const googleMapUrl = hospital.googleMapUrl ?? mapUrlInfo.googleMapUrl ?? sourceUrlInfo.googleMapUrl
   const naverPlaceUrl =
     hospital.naverPlaceUrl && isVerifiedNaverPlaceUrl(hospital.naverPlaceUrl)
       ? hospital.naverPlaceUrl
-      : undefined
-  const hasEnglishInfo = hospital.hasEnglishInfo ?? /english|영어 안내|외국어|통역|foreigner|international/i.test(hospital.description ?? "")
-  const hasEnglishReviews = hospital.hasEnglishReviews ?? hospital.englishReviews ?? false
-  const hasGooglePhotos = hospital.hasGooglePhotos ?? Boolean(hospital.imageUrl)
-  const googleRegistered = hospital.googleRegistered ?? Boolean(hospital.googlePlaceId || googleMapUrl || hospital.mapUrl)
+      : mapUrlInfo.naverPlaceUrl ?? sourceUrlInfo.naverPlaceUrl
+  const kakaoPlaceUrl = hospital.kakaoPlaceUrl ?? mapUrlInfo.kakaoPlaceUrl ?? sourceUrlInfo.kakaoPlaceUrl
+  const hasEnglishInfo = hospital.hasEnglishInfo ?? englishGuidanceStatusFromText(hospital.description)
+  const hasEnglishReviews = hospital.hasEnglishReviews ?? hospital.englishReviews
+  const hasGooglePhotos = hospital.hasGooglePhotos ?? (hospital.imageUrl ? true : undefined)
+  const hasPhotos = hospital.imageUrl ? true : undefined
+  const googleRegistered = hospital.googleRegistered ?? (hospital.googlePlaceId || googleMapUrl ? true : undefined)
 
   return {
     address: hospital.address,
@@ -484,17 +533,17 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     phone: hospital.phone,
     treatmentItems: splitTreatmentItems(hospital.treatmentItems),
     description: hospital.description,
-    hasPhotos: Boolean(hospital.imageUrl),
-    homepageUrl: hospital.homepageUrl || hospital.sourceUrl,
+    hasPhotos,
+    homepageUrl: hospital.homepageUrl,
     sourceProvider: hospital.provider,
     externalPlaceId: hospital.externalPlaceId,
-    kakaoPlaceUrl: hospital.kakaoPlaceUrl,
+    kakaoPlaceUrl,
     naverPlaceUrl,
     naverRating: hospital.naverRating,
     naverReviewCount: hospital.naverReviewCount,
     googleRating: hospital.googleRating,
     googleReviewCount: hospital.googleReviewCount,
-    googleMapUrl: googleMapUrl || hospital.mapUrl,
+    googleMapUrl,
     googlePlaceId: hospital.googlePlaceId,
     latitude: hospital.latitude ?? hospital.lat,
     longitude: hospital.longitude ?? hospital.lng,
@@ -512,7 +561,7 @@ function textOverride(value: string, fallback?: string) {
 }
 
 function booleanOverride(value: boolean | null, fallback?: boolean) {
-  return value ?? Boolean(fallback)
+  return value ?? fallback
 }
 
 function buildAccessibilityMetadataPayload(

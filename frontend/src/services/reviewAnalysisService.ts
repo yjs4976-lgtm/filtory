@@ -122,17 +122,83 @@ function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "h
   return "medium"
 }
 
+function hasContextValue(value: unknown) {
+  if (value === undefined || value === null) return false
+  if (typeof value === "string") return value.trim().length > 0
+  return true
+}
+
+function checkStatus(value: unknown, hasContext: boolean): "confirmed" | "notConfirmed" | "unknown" {
+  if (typeof value === "boolean") return value ? "confirmed" : hasContext ? "notConfirmed" : "unknown"
+  if (hasContextValue(value)) return "confirmed"
+  return hasContext ? "notConfirmed" : "unknown"
+}
+
+function englishGuidanceStatusFromText(value?: string): boolean | undefined {
+  const text = value?.trim().toLowerCase()
+  if (!text) return undefined
+
+  const negativePatterns = [
+    /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)/,
+    /(no|not|without).{0,12}(english|interpreter|translation|foreigner)/,
+    /(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)/,
+  ]
+
+  if (negativePatterns.some((pattern) => pattern.test(text))) {
+    return false
+  }
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내/i.test(text)
+    ? true
+    : undefined
+}
+
+function hasEnglishGuidanceContext(value?: string) {
+  const text = value?.trim().toLowerCase()
+  if (!text) return false
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내|영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)|(no|not|without).{0,12}(english|interpreter|translation|foreigner)|(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)/i.test(text)
+}
+
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
+  const placeLink = payload.homepageUrl || payload.naverPlaceUrl || payload.kakaoPlaceUrl || payload.googleMapUrl
+  const reviewText = [payload.reviewText, ...(payload.reviews ?? [])]
+    .filter((item): item is string => Boolean(item?.trim()))
+    .join("\n")
+  const mapSignal =
+    payload.address ||
+    payload.roadAddress ||
+    payload.googleMapUrl ||
+    payload.googleRegistered ||
+    payload.naverPlaceUrl ||
+    payload.kakaoPlaceUrl ||
+    payload.googlePlaceId
+  const mapContextExists = [
+    payload.address,
+    payload.roadAddress,
+    payload.googleMapUrl,
+    payload.googleRegistered,
+    payload.naverPlaceUrl,
+    payload.kakaoPlaceUrl,
+    payload.googlePlaceId,
+  ].some(hasContextValue)
+  const photoInfo = payload.hasGooglePhotos || payload.hasPhotos
+  const englishGuide =
+    payload.hasEnglishInfo ?? englishGuidanceStatusFromText(payload.description) ?? englishGuidanceStatusFromText(reviewText)
+  const englishReviews = payload.englishReviews ?? payload.hasEnglishReviews
+  const englishGuideContextExists =
+    payload.hasEnglishInfo !== undefined || hasContextValue(payload.description) || hasEnglishGuidanceContext(reviewText)
+
   return {
-    mapLocation: payload.address || payload.roadAddress || payload.googleMapUrl || payload.googleRegistered || payload.naverPlaceUrl || payload.kakaoPlaceUrl || payload.googlePlaceId
-      ? "confirmed"
-      : "unknown",
-    contactBooking: payload.phone || payload.homepageUrl ? "confirmed" : "unknown",
-    websitePlaceLink: payload.homepageUrl || payload.naverPlaceUrl || payload.kakaoPlaceUrl || payload.googleMapUrl ? "confirmed" : "unknown",
-    photoInfo: payload.hasGooglePhotos || payload.hasPhotos ? "confirmed" : "unknown",
-    englishName: payload.englishName ? "confirmed" : "unknown",
-    englishGuide: payload.hasEnglishInfo ? "confirmed" : "unknown",
-    englishReviews: payload.englishReviews ?? payload.hasEnglishReviews ? "confirmed" : "unknown",
+    mapLocation: checkStatus(mapSignal, mapContextExists),
+    contactBooking: checkStatus(payload.phone || payload.homepageUrl, Boolean(payload.phone || placeLink)),
+    websitePlaceLink: checkStatus(placeLink, Boolean(placeLink || payload.sourceProvider)),
+    photoInfo: checkStatus(photoInfo, payload.hasGooglePhotos !== undefined || payload.hasPhotos !== undefined),
+    englishName: checkStatus(payload.englishName, payload.englishName !== undefined),
+    englishGuide: checkStatus(englishGuide, englishGuideContextExists),
+    englishReviews: checkStatus(englishReviews, payload.englishReviews !== undefined || payload.hasEnglishReviews !== undefined),
   }
 }
 
