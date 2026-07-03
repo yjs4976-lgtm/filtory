@@ -58,10 +58,14 @@ export function ResultCard() {
 
   return (
     <div className={styles.resultStack}>
-      <ResultScoreSection viewModel={viewModel} categoryLabel={categoryLabel} />
-      <ResultActionCard />
+      <ResultScoreSection
+        viewModel={viewModel}
+        categoryLabel={categoryLabel}
+        analyzedAt={analysisResult?.analyzedAt}
+      />
       <ResultInsightSection viewModel={viewModel} />
       <ResultGuideSection viewModel={viewModel} />
+      <ResultActionCard />
       <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} analysisResult={analysisResult} />
     </div>
   )

@@ -65,8 +65,6 @@ import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import { ApiClientError } from "@/services/apiClient"
 import styles from "@/styles/App.module.css"
 
-type AccessibilityBooleanField = "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
-
 type SelectedAnalyzeRegion = {
   provinceCode: RegionProvinceCode
   districtCode: string
@@ -461,6 +459,51 @@ function isVerifiedNaverPlaceUrl(href: string) {
   }
 }
 
+function classifyMapUrl(href?: string) {
+  if (!href) return {}
+
+  try {
+    const hostname = new URL(href).hostname.toLowerCase()
+
+    if (hostname.includes("naver.com")) {
+      return { naverPlaceUrl: href }
+    }
+
+    if (hostname.includes("kakao.com")) {
+      return { kakaoPlaceUrl: href }
+    }
+
+    if (hostname.includes("google.")) {
+      return { googleMapUrl: href }
+    }
+  } catch {
+    return {}
+  }
+
+  return {}
+}
+
+function englishGuidanceStatusFromText(value?: string): boolean | undefined {
+  const text = value?.trim().toLowerCase()
+  if (!text) return undefined
+
+  const negativePatterns = [
+    /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)/,
+    /(no|not|without).{0,32}(english|interpreter|translation|foreigner)/,
+    /(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)/,
+  ]
+
+  if (negativePatterns.some((pattern) => pattern.test(text))) {
+    return false
+  }
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내/i.test(text)
+    ? true
+    : undefined
+}
+
 function isSameHref(left?: string, right?: string) {
   if (!left || !right) return false
   return left.replace(/\/$/, "") === right.replace(/\/$/, "")
@@ -470,15 +513,19 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
   const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
-  const googleMapUrl = hospital.googleMapUrl
+  const mapUrlInfo = classifyMapUrl(hospital.mapUrl)
+  const sourceUrlInfo = classifyMapUrl(hospital.sourceUrl)
+  const googleMapUrl = hospital.googleMapUrl ?? mapUrlInfo.googleMapUrl ?? sourceUrlInfo.googleMapUrl
   const naverPlaceUrl =
     hospital.naverPlaceUrl && isVerifiedNaverPlaceUrl(hospital.naverPlaceUrl)
       ? hospital.naverPlaceUrl
-      : undefined
-  const hasEnglishInfo = hospital.hasEnglishInfo ?? Boolean(englishName)
-  const hasEnglishReviews = hospital.hasEnglishReviews ?? hospital.englishReviews ?? false
-  const hasGooglePhotos = hospital.hasGooglePhotos ?? Boolean(hospital.imageUrl)
-  const googleRegistered = hospital.googleRegistered ?? Boolean(hospital.googlePlaceId || googleMapUrl)
+      : mapUrlInfo.naverPlaceUrl ?? sourceUrlInfo.naverPlaceUrl
+  const kakaoPlaceUrl = hospital.kakaoPlaceUrl ?? mapUrlInfo.kakaoPlaceUrl ?? sourceUrlInfo.kakaoPlaceUrl
+  const hasEnglishInfo = hospital.hasEnglishInfo ?? englishGuidanceStatusFromText(hospital.description)
+  const hasEnglishReviews = hospital.hasEnglishReviews ?? hospital.englishReviews
+  const hasGooglePhotos = hospital.hasGooglePhotos ?? (hospital.imageUrl ? true : undefined)
+  const hasPhotos = hospital.imageUrl ? true : undefined
+  const googleRegistered = hospital.googleRegistered ?? (hospital.googlePlaceId || googleMapUrl ? true : undefined)
 
   return {
     address: hospital.address,
@@ -486,11 +533,11 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     phone: hospital.phone,
     treatmentItems: splitTreatmentItems(hospital.treatmentItems),
     description: hospital.description,
-    hasPhotos: Boolean(hospital.imageUrl),
+    hasPhotos,
     homepageUrl: hospital.homepageUrl,
     sourceProvider: hospital.provider,
     externalPlaceId: hospital.externalPlaceId,
-    kakaoPlaceUrl: hospital.kakaoPlaceUrl,
+    kakaoPlaceUrl,
     naverPlaceUrl,
     naverRating: hospital.naverRating,
     naverReviewCount: hospital.naverReviewCount,
@@ -514,7 +561,7 @@ function textOverride(value: string, fallback?: string) {
 }
 
 function booleanOverride(value: boolean | null, fallback?: boolean) {
-  return value ?? Boolean(fallback)
+  return value ?? fallback
 }
 
 function buildAccessibilityMetadataPayload(
@@ -744,6 +791,23 @@ function createApiAnalysisResult({
     selectedReviewCount,
     totalReviewCount,
     trustScore: response.trustScore,
+    reviewTrustScore: response.reviewTrustScore,
+    evidenceScore: response.evidenceScore,
+    riskScore: response.riskScore,
+    specificityScore: response.specificityScore,
+    balanceScore: response.balanceScore,
+    diversityScore: response.diversityScore,
+    informativeScore: response.informativeScore,
+    naturalnessScore: response.naturalnessScore,
+    promoSignalScore: response.promoSignalScore,
+    repetitionScore: response.repetitionScore,
+    exaggerationScore: response.exaggerationScore,
+    eventDiscountScore: response.eventDiscountScore,
+    reviewBurstScore: response.reviewBurstScore,
+    reviewBurstStatus: response.reviewBurstStatus,
+    analysisConfidence: response.analysisConfidence,
+    analysisConfidenceDescription: response.analysisConfidenceDescription,
+    scoreBreakdown: response.scoreBreakdown,
     trustLevel: response.trustLevelKey,
     trustGrade: response.trustGrade,
     trustLevelKey: response.trustLevelKey,
@@ -840,10 +904,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const analysisReadyReviewDrafts = useMemo(
     () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
     [reviewDrafts]
-  )
-  const selectedHospitalMetadata = useMemo(
-    () => buildHospitalMetadataPayload(selectedHospital ?? undefined),
-    [selectedHospital]
   )
   const selectedRegionLabel = selectedRegion
     ? getRegionLabel(selectedRegion.provinceCode, selectedRegion.districtCode, currentLanguage)
@@ -945,17 +1005,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       window.removeEventListener("keydown", onKeyDown)
     }
   }, [isCategorySheetOpen])
-
-  const handleAccessibilityTextChange = (
-    field: "googleMapUrl" | "homepageUrl" | "englishName",
-    value: string
-  ) => {
-    setAccessibilityInput((current) => ({ ...current, [field]: value }))
-  }
-
-  const handleAccessibilityBooleanChange = (field: AccessibilityBooleanField, value: boolean) => {
-    setAccessibilityInput((current) => ({ ...current, [field]: value }))
-  }
 
   const addReviewDrafts = (contents: string[], source: ReviewDraftSource) => {
     const nextDrafts = contents
@@ -1351,6 +1400,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     hospitalName,
     reviewText,
     reviews: targetReviewTexts,
+    reviewDates,
     selectedReviewCount,
     totalReviewCount,
   }: {
@@ -1358,6 +1408,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     hospitalName: string
     reviewText?: string
     reviews?: string[]
+    reviewDates?: string[]
     selectedReviewCount: number
     totalReviewCount: number
   }) => {
@@ -1377,6 +1428,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         hospitalName,
         reviewText,
         reviews: targetReviewTexts,
+        reviewDates,
         outputLanguage: language,
         region: selectedRegionLabel || undefined,
         ...buildHospitalMetadataPayload(hospital),
@@ -1468,6 +1520,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       hospital,
       hospitalName: hospital.name,
       reviews: targetReviews.map((review) => review.content),
+      reviewDates: targetReviews.map((review) => review.visitDate ?? review.createdAt ?? ""),
       selectedReviewCount: targetReviews.length,
       totalReviewCount: hospital.reviewCount ?? targetReviews.length,
     })
@@ -1912,15 +1965,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       {!(hasSearched && !isHospitalSearching && filteredHospitals.length > 0) && selectedHospitalSummarySection}
 
       {selectedHospitalReviewSection}
-
-      {selectedHospital && (
-        <AccuracyEnhancementSection
-          input={accessibilityInput}
-          fallback={selectedHospitalMetadata}
-          onTextChange={handleAccessibilityTextChange}
-          onBooleanChange={handleAccessibilityBooleanChange}
-        />
-      )}
 
       {reviewImportSection}
 
@@ -2481,110 +2525,6 @@ function ReviewDraftCard({
         {t.analyze.reviewInbox.deleteButton}
       </button>
     </article>
-  )
-}
-
-function AccuracyEnhancementSection({
-  input,
-  fallback,
-  onTextChange,
-  onBooleanChange,
-}: {
-  input: AccessibilityEnhancementInput
-  fallback: Partial<ReviewAnalyzeRequest>
-  onTextChange: (field: "googleMapUrl" | "homepageUrl" | "englishName", value: string) => void
-  onBooleanChange: (field: AccessibilityBooleanField, value: boolean) => void
-}) {
-  const { t } = useLanguage()
-  const resolvedBoolean = (field: AccessibilityBooleanField) => input[field] ?? Boolean(fallback[field])
-
-  return (
-    <section className={`${styles.card} ${styles.stackSm}`}>
-      <div>
-        <h2 className={styles.titleMd}>{t.analyze.accuracyEnhancementTitle}</h2>
-        <p className={styles.bodyText}>{t.analyze.accuracyEnhancementDescription}</p>
-      </div>
-
-      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
-        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
-          {t.analyze.locationReservationAccordionTitle}
-        </summary>
-        <p className={styles.bodyText}>{t.analyze.locationReservationAccordionDescription}</p>
-        <label className={styles.label} htmlFor="hospital-map-url">
-          {t.analyze.hospitalMapLinkLabel}
-          <input
-            id="hospital-map-url"
-            className={styles.input}
-            type="url"
-            placeholder={fallback.googleMapUrl || t.analyze.mapUrlPlaceholder}
-            value={input.googleMapUrl}
-            onChange={(event) => onTextChange("googleMapUrl", event.target.value)}
-          />
-        </label>
-        <label className={styles.label} htmlFor="hospital-homepage-url">
-          {t.analyze.hospitalHomepageLinkLabel}
-          <input
-            id="hospital-homepage-url"
-            className={styles.input}
-            type="url"
-            placeholder={fallback.homepageUrl || t.analyze.homepageUrlPlaceholder}
-            value={input.homepageUrl}
-            onChange={(event) => onTextChange("homepageUrl", event.target.value)}
-          />
-        </label>
-      </details>
-
-      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
-        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
-          {t.analyze.languageInfoAccordionTitle}
-        </summary>
-        <p className={styles.bodyText}>{t.analyze.languageInfoAccordionDescription}</p>
-        <label className={styles.label} htmlFor="access-english-name">
-          {t.analyze.englishNameLabel}
-          <input
-            id="access-english-name"
-            className={styles.input}
-            type="text"
-            placeholder={fallback.englishName || t.analyze.englishNamePlaceholder}
-            value={input.englishName}
-            onChange={(event) => onTextChange("englishName", event.target.value)}
-          />
-        </label>
-        <div className={`${styles.stackSm} ${styles.languageCheckGroup}`}>
-          <label className={styles.reviewCheckRow}>
-            <input
-              type="checkbox"
-              checked={resolvedBoolean("hasEnglishInfo")}
-              onChange={(event) => onBooleanChange("hasEnglishInfo", event.target.checked)}
-            />
-            <span>{t.analyze.hasEnglishInfoLabel}</span>
-          </label>
-          <label className={styles.reviewCheckRow}>
-            <input
-              type="checkbox"
-              checked={resolvedBoolean("hasEnglishReviews")}
-              onChange={(event) => onBooleanChange("hasEnglishReviews", event.target.checked)}
-            />
-            <span>{t.analyze.hasEnglishReviewsLabel}</span>
-          </label>
-        </div>
-      </details>
-
-      <details className={`${styles.softCard} ${styles.accessibilityDetails} ${styles.stackSm}`}>
-        <summary className={`${styles.titleSm} ${styles.accessibilitySummary}`}>
-          {t.analyze.visitReferenceAccordionTitle}
-        </summary>
-        <p className={styles.bodyText}>{t.analyze.visitReferenceAccordionDescription}</p>
-        <label className={styles.reviewCheckRow}>
-          <input
-            type="checkbox"
-            checked={resolvedBoolean("hasPhotos")}
-            onChange={(event) => onBooleanChange("hasPhotos", event.target.checked)}
-          />
-          <span>{t.analyze.hasPhotosLabel}</span>
-        </label>
-      </details>
-    </section>
   )
 }
 

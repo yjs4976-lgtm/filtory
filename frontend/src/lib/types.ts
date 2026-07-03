@@ -59,6 +59,23 @@ export type AnalysisHistoryItem = {
   deletedAt?: string
   deletedBy?: string | number
   trustScore?: number
+  reviewTrustScore?: number
+  evidenceScore?: number
+  riskScore?: number
+  specificityScore?: number
+  balanceScore?: number
+  diversityScore?: number
+  informativeScore?: number
+  naturalnessScore?: number
+  promoSignalScore?: number
+  repetitionScore?: number
+  exaggerationScore?: number
+  eventDiscountScore?: number
+  reviewBurstScore?: number | null
+  reviewBurstStatus?: "available" | "unavailable" | string
+  analysisConfidence?: "low" | "medium" | "high" | string
+  analysisConfidenceDescription?: string
+  scoreBreakdown?: Record<string, number | string | boolean | null | undefined>
   trustGrade?: string
   trustLevel?: string
   trustLevelKey?: string
@@ -187,6 +204,7 @@ export type ReviewAnalyzeRequest = {
   hospitalName?: string
   reviewText?: string
   reviews?: string[]
+  reviewDates?: string[]
   outputLanguage?: Language
   region?: string
   address?: string
@@ -233,6 +251,23 @@ export type ReviewAnalyzeResponse = {
   reviewIds?: number[]
   totalScore: number
   trustScore: number
+  reviewTrustScore?: number
+  evidenceScore?: number
+  riskScore?: number
+  specificityScore?: number
+  balanceScore?: number
+  diversityScore?: number
+  informativeScore?: number
+  naturalnessScore?: number
+  promoSignalScore?: number
+  repetitionScore?: number
+  exaggerationScore?: number
+  eventDiscountScore?: number
+  reviewBurstScore?: number | null
+  reviewBurstStatus?: "available" | "unavailable" | string
+  analysisConfidence?: "low" | "medium" | "high" | string
+  analysisConfidenceDescription?: string
+  scoreBreakdown?: Record<string, number | string | boolean | null | undefined>
   adScore?: number
   placeScore?: number
   foreignerScore?: number
@@ -264,13 +299,16 @@ export type ReviewAnalyzeResponse = {
   globalAccessibilityLevel?: "낮음" | "보통" | "높음" | "low" | "medium" | "high" | string
   globalAccessibilityMaxScore?: number
   globalAccessibilityChecks?: {
-    googleMapLink?: boolean
-    googlePlaceId?: boolean
-    englishName?: boolean
-    englishGuide?: boolean
-    englishReviews?: boolean
-    homepageOrBookingLink?: boolean
-    photoInfo?: boolean
+    googleMapLink?: boolean | string
+    googlePlaceId?: boolean | string
+    mapLocation?: boolean | string
+    contactBooking?: boolean | string
+    englishName?: boolean | string
+    englishGuide?: boolean | string
+    englishReviews?: boolean | string
+    homepageOrBookingLink?: boolean | string
+    websitePlaceLink?: boolean | string
+    photoInfo?: boolean | string
   }
   detectedPatterns: string[]
   suspiciousPhrases: string[]

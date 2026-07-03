@@ -4351,12 +4351,16 @@ button.notificationCard {
 .resultStack {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
 }
 
 .resultHeroCard {
   text-align: center;
-  background: linear-gradient(180deg, #ffffff 0%, var(--lavender-soft) 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.96) 0%, rgba(241, 236, 255, 0.92) 58%, rgba(255, 246, 226, 0.86) 100%);
+  padding: 24px 20px;
+  box-shadow: 0 12px 28px rgba(168, 165, 183, 0.16);
 }
 
 .resultHospitalName {
@@ -4378,40 +4382,116 @@ button.notificationCard {
 }
 
 .resultHeroMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   padding: 6px 10px;
 }
 
+.resultHeroConclusion {
+  margin: 16px 0 0;
+  color: var(--primary-foreground);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.resultHeroDescription {
+  margin: 8px auto 0;
+  max-width: 320px;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.resultTrustScoreBlock {
+  width: min(184px, 70vw);
+  min-height: 154px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: 18px auto 0;
+  border: 1px solid rgba(220, 207, 255, 0.9);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 0 0 8px rgba(220, 207, 255, 0.28);
+}
+
+.resultTrustScoreBlock span,
+.resultTrustScoreBlock small {
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .resultTotalScore {
   display: block;
-  margin-top: 12px;
+  margin-top: 0;
   color: var(--primary-foreground);
   font-size: 56px;
   line-height: 1;
   letter-spacing: 0;
 }
 
+.resultConfidenceBox {
+  margin-top: 16px;
+  border: 1px solid rgba(189, 238, 207, 0.9);
+  border-radius: 18px;
+  background: rgba(240, 251, 245, 0.82);
+  padding: 13px 14px;
+  text-align: left;
+}
+
+.resultConfidenceBox strong {
+  display: block;
+  color: var(--mint-text);
+  font-size: 13px;
+}
+
+.resultConfidenceBox p {
+  margin: 5px 0 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
 .resultScoreGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .resultScoreTile {
   min-height: 124px;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: var(--card);
+  background: rgba(255, 255, 255, 0.78);
   padding: 17px;
   box-shadow: 0 1px 2px rgba(58, 54, 81, 0.05);
+  word-break: keep-all;
 }
 
 .resultScoreTile:first-child {
   grid-column: 1 / -1;
   min-height: 112px;
-  background: var(--mint-soft);
+  background: linear-gradient(135deg, var(--mint-soft), rgba(241, 236, 255, 0.74));
+}
+
+.resultScoreTile:nth-child(2) {
+  background: linear-gradient(135deg, var(--pink-soft), rgba(255, 253, 249, 0.86));
+}
+
+.resultScoreTile:nth-child(3) {
+  background: linear-gradient(135deg, var(--peach-soft), rgba(255, 253, 249, 0.88));
 }
 
 .resultScoreLabel,
@@ -4430,6 +4510,23 @@ button.notificationCard {
   font-size: 28px;
   line-height: 1.1;
   letter-spacing: 0;
+}
+
+.resultVisitNote {
+  border: 1px solid rgba(255, 215, 133, 0.72);
+  border-radius: 22px;
+  background: rgba(255, 246, 226, 0.82);
+  padding: 16px;
+  box-shadow: 0 8px 18px rgba(255, 215, 133, 0.12);
+}
+
+.resultVisitNote p {
+  margin: 0;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.65;
+  word-break: keep-all;
 }
 
 .trustStepList {
@@ -4559,10 +4656,215 @@ button.notificationCard {
   white-space: nowrap;
 }
 
+.resultPager {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.resultPager button {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--primary-foreground);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.resultPager button:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.resultPager span {
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.resultDetailPager {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.resultDetailPagerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(220, 207, 255, 0.72);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 11px 12px;
+}
+
+.resultDetailPagerHeader strong {
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.resultDetailPagerHeader span {
+  flex: 0 0 auto;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.resultDetailPageBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 128px;
+}
+
+.resultConvenienceSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid rgba(220, 207, 255, 0.78);
+  border-radius: 18px;
+  background: rgba(241, 236, 255, 0.54);
+  padding: 14px;
+}
+
+.resultConvenienceSummary strong {
+  color: var(--foreground);
+  font-size: 15px;
+}
+
+.resultConvenienceSummary span {
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.resultConvenienceGroups {
+  display: grid;
+  gap: 10px;
+}
+
+.resultConvenienceGroups div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.82);
+  padding: 12px 13px;
+}
+
+.resultConvenienceGroups strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.resultConvenienceGroups span {
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .resultGuideNote {
   border-radius: 18px;
   background: var(--subtle);
   padding: 14px;
+}
+
+.resultAccordionList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.resultAccordion {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 18px rgba(168, 165, 183, 0.1);
+  overflow: hidden;
+}
+
+.resultAccordion:nth-child(3n + 1) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(241, 236, 255, 0.58));
+}
+
+.resultAccordion:nth-child(3n + 2) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(240, 251, 245, 0.62));
+}
+
+.resultAccordion:nth-child(3n) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 246, 226, 0.62));
+}
+
+.resultAccordionSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 16px 18px;
+  color: var(--foreground);
+  cursor: pointer;
+  list-style: none;
+}
+
+.resultAccordionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.resultAccordionSummary::after {
+  content: "+";
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--lavender-soft);
+  color: var(--primary-foreground);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.resultAccordion[open] .resultAccordionSummary::after {
+  content: "-";
+  background: var(--mint-soft);
+  color: var(--mint-text);
+}
+
+.resultAccordionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 18px 18px;
+}
+
+.resultDisclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid rgba(168, 165, 183, 0.25);
+  border-radius: 18px;
+  background: rgba(255, 253, 249, 0.86);
+  color: var(--graypurple);
+  padding: 13px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+  word-break: keep-all;
 }
 
 .scoreCard {

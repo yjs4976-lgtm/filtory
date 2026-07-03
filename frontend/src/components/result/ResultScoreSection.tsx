@@ -1,12 +1,14 @@
-import { ShieldCheck } from "lucide-react"
+import { CalendarDays, Info, SearchCheck, ShieldCheck, Siren } from "lucide-react"
 import type { AnalysisResultViewModel, TrustResultKey } from "@/lib/analysisResultMapper"
 import { useLanguage } from "@/context/LanguageContext"
+import { formatDisplayDate } from "@/lib/dateFormat"
 import { getTrustLevelByKey } from "@/lib/score"
 import styles from "@/styles/App.module.css"
 
 type ResultScoreSectionProps = {
   viewModel: AnalysisResultViewModel
   categoryLabel: string
+  analyzedAt?: string
 }
 
 const trustSteps: TrustResultKey[] = ["very_safe", "safe", "normal", "caution", "danger"]
@@ -21,9 +23,14 @@ function ScoreTile({ label, value, description }: { label: string; value: string
   )
 }
 
-export function ResultScoreSection({ viewModel, categoryLabel }: ResultScoreSectionProps) {
-  const { t } = useLanguage()
+function formatCheckCount(template: string, checked: number, total: number) {
+  return template.replace("{checked}", String(checked)).replace("{total}", String(total))
+}
+
+export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: ResultScoreSectionProps) {
+  const { t, language } = useLanguage()
   const label = t.result.score
+  const analyzedDate = analyzedAt ? formatDisplayDate(analyzedAt, language) : formatDisplayDate(new Date().toISOString(), language)
 
   return (
     <>
@@ -32,26 +39,50 @@ export function ResultScoreSection({ viewModel, categoryLabel }: ResultScoreSect
         <h2 className={styles.resultHospitalName}>{viewModel.subject.hospitalName}</h2>
         <div className={styles.resultHeroMeta}>
           <span>{label.analyzed} {viewModel.scores.analyzedReviewCount}{label.countSuffix}</span>
-          <span>{label.totalScore}</span>
+          <span><CalendarDays className={styles.iconXs} /> {label.analysisDate} {analyzedDate}</span>
         </div>
-        <strong className={styles.resultTotalScore}>{viewModel.scores.totalScore}</strong>
+        <p className={styles.resultHeroConclusion}>{viewModel.trust.label}</p>
+        <p className={styles.resultHeroDescription}>{viewModel.trust.description}</p>
+        <div className={styles.resultTrustScoreBlock}>
+          <span>{label.reviewTrustIndex}</span>
+          <strong className={styles.resultTotalScore}>{viewModel.scores.reviewTrustScore}</strong>
+          <small>{label.pointSuffix}</small>
+        </div>
+        <div className={styles.resultConfidenceBox}>
+          <strong>{label.analysisConfidence}: {viewModel.analysisConfidence.label}</strong>
+          <p>{viewModel.analysisConfidence.description}</p>
+        </div>
       </section>
 
-      <section className={styles.resultScoreGrid}>
-        <ScoreTile label={label.totalScore} value={`${viewModel.scores.totalScore}${label.pointSuffix}`} description={viewModel.trust.description} />
-        <ScoreTile label={label.trustScore} value={`${viewModel.scores.trustScore}${label.pointSuffix}`} description={viewModel.trust.label} />
-        <ScoreTile label={label.adScore} value={`${viewModel.scores.adSuspicionScore}${label.pointSuffix}`} description={viewModel.ad.label} />
-        <ScoreTile label={label.infoScore} value={`${viewModel.scores.informationScore}${label.pointSuffix}`} description={viewModel.information.label} />
+      <section className={styles.resultScoreGrid} aria-label={label.coreSummary}>
         <ScoreTile
-          label={label.globalScore}
-          value={`${viewModel.scores.globalAccessibilityScore}${label.pointSuffix}`}
-          description={viewModel.globalAccessibility.label}
+          label={label.trustScore}
+          value={`${viewModel.scores.reviewTrustScore}${label.pointSuffix}`}
+          description={viewModel.trust.label}
         />
+        <ScoreTile
+          label={label.adSignal}
+          value={viewModel.ad.label}
+          description={viewModel.ad.description}
+        />
+        <ScoreTile
+          label={label.infoCheckCount}
+          value={formatCheckCount(label.checkCount, viewModel.information.checkedCount, viewModel.information.totalCount)}
+          description={viewModel.information.description}
+        />
+      </section>
+
+      <section className={`${styles.resultVisitNote} ${styles.stackSm}`}>
+        <div className={styles.row}>
+          <Info className={`${styles.iconSm} ${styles.iconPrimary}`} />
+          <h2 className={styles.titleSm}>{label.preVisitTitle}</h2>
+        </div>
+        <p>{label.preVisitDescription}</p>
       </section>
 
       <section className={`${styles.card} ${styles.stackSm}`}>
         <div className={styles.row}>
-          <ShieldCheck className={`${styles.iconSm} ${styles.iconPrimary}`} />
+          <SearchCheck className={`${styles.iconSm} ${styles.mintText}`} />
           <h2 className={styles.titleSm}>{label.trustTitle}</h2>
         </div>
         <div className={styles.trustStepList}>
@@ -75,6 +106,11 @@ export function ResultScoreSection({ viewModel, categoryLabel }: ResultScoreSect
           <p>{viewModel.trust.description}</p>
         </div>
       </section>
+
+      <div className={styles.resultDisclaimer}>
+        <Siren className={styles.iconXs} />
+        <span>{label.disclaimer}</span>
+      </div>
     </>
   )
 }

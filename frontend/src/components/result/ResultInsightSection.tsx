@@ -1,10 +1,18 @@
 import { AlertTriangle, CheckCircle2, Globe2, Info, SearchCheck } from "lucide-react"
-import type { AnalysisResultViewModel } from "@/lib/analysisResultMapper"
+import { useMemo, useState } from "react"
+import type { ReactNode } from "react"
+import type { AnalysisResultViewModel, ConvenienceCheckStatus } from "@/lib/analysisResultMapper"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 type ResultInsightSectionProps = {
   viewModel: AnalysisResultViewModel
+}
+
+const DETAIL_PAGE_SIZE = 3
+
+function formatPageStatus(template: string, current: number, total: number) {
+  return template.replace("{current}", String(current)).replace("{total}", String(total))
 }
 
 function InsightList({ items, emptyText, tone }: { items: string[]; emptyText: string; tone: string }) {
@@ -24,63 +32,190 @@ function InsightList({ items, emptyText, tone }: { items: string[]; emptyText: s
   )
 }
 
+function PaginatedInsightList({
+  id,
+  items,
+  emptyText,
+  tone,
+  labels,
+}: {
+  id: string
+  items: string[]
+  emptyText: string
+  tone: string
+  labels: { previousPage: string; nextPage: string; pageStatus: string }
+}) {
+  const [page, setPage] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(items.length / DETAIL_PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+  const visibleItems = useMemo(
+    () => items.slice(safePage * DETAIL_PAGE_SIZE, safePage * DETAIL_PAGE_SIZE + DETAIL_PAGE_SIZE),
+    [items, safePage]
+  )
+
+  if (items.length <= DETAIL_PAGE_SIZE) {
+    return <InsightList items={items} emptyText={emptyText} tone={tone} />
+  }
+
+  return (
+    <div className={styles.stackSm}>
+      <InsightList items={visibleItems} emptyText={emptyText} tone={tone} />
+      <div className={styles.resultPager} aria-label={id}>
+        <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={safePage === 0}>
+          {labels.previousPage}
+        </button>
+        <span>{formatPageStatus(labels.pageStatus, safePage + 1, totalPages)}</span>
+        <button type="button" onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))} disabled={safePage >= totalPages - 1}>
+          {labels.nextPage}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DetailPagePanel({
+  pages,
+  labels,
+}: {
+  pages: { title: string; content: ReactNode }[]
+  labels: { previousPage: string; nextPage: string; pageStatus: string }
+}) {
+  const [page, setPage] = useState(0)
+  const totalPages = Math.max(1, pages.length)
+  const safePage = Math.min(page, totalPages - 1)
+  const currentPage = pages[safePage]
+
+  return (
+    <div className={styles.resultDetailPager}>
+      <div className={styles.resultDetailPagerHeader}>
+        <strong>{currentPage.title}</strong>
+        <span>{formatPageStatus(labels.pageStatus, safePage + 1, totalPages)}</span>
+      </div>
+      <div className={styles.resultDetailPageBody}>{currentPage.content}</div>
+      <div className={styles.resultPager} aria-label={currentPage.title}>
+        <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={safePage === 0}>
+          {labels.previousPage}
+        </button>
+        <span>{formatPageStatus(labels.pageStatus, safePage + 1, totalPages)}</span>
+        <button type="button" onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))} disabled={safePage >= totalPages - 1}>
+          {labels.nextPage}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ResultAccordion({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string
+  icon: ReactNode
+  children: ReactNode
+  defaultOpen?: boolean
+}) {
+  return (
+    <details className={styles.resultAccordion} open={defaultOpen}>
+      <summary className={styles.resultAccordionSummary}>
+        <span className={styles.row}>
+          {icon}
+          <strong>{title}</strong>
+        </span>
+      </summary>
+      <div className={styles.resultAccordionBody}>{children}</div>
+    </details>
+  )
+}
+
 export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
   const { t } = useLanguage()
   const referenceSignals = Array.from(new Set([...viewModel.repetition.referenceWarnings, ...viewModel.signals.warningSignals]))
   const label = t.result.insights
+  const pagerLabels = {
+    previousPage: label.previousPage,
+    nextPage: label.nextPage,
+    pageStatus: label.pageStatus,
+  }
+  const groupedConvenienceItems = {
+    confirmed: viewModel.globalAccessibility.checks.filter((check) => check.status === "confirmed"),
+    notConfirmed: viewModel.globalAccessibility.checks.filter((check) => check.status === "notConfirmed"),
+    unknown: viewModel.globalAccessibility.checks.filter((check) => check.status === "unknown"),
+  }
+  const detailedAnalysisPages = [
+    {
+      title: label.coreInsight,
+      content: (
+        <>
+          <div className={styles.resultBadgePanel}>
+            <span className={`${styles.resultStatusBadge} ${viewModel.ad.key === "high" ? styles.resultBadgeHigh : styles.resultBadgeSoft}`}>
+              {label.adSuspicion} {viewModel.ad.label}
+            </span>
+            <p className={styles.mutedText}>{viewModel.ad.description}</p>
+          </div>
+          <p className={styles.resultEmptyText}>{viewModel.reviewBurst.description}</p>
+        </>
+      ),
+    },
+    {
+      title: label.repetitive,
+      content: (
+        <PaginatedInsightList
+          id={label.repetitive}
+          items={viewModel.repetition.repetitivePhrases}
+          emptyText={label.noRepetition}
+          tone={styles.bgPeach}
+          labels={pagerLabels}
+        />
+      ),
+    },
+    {
+      title: label.suspicious,
+      content: (
+        <PaginatedInsightList
+          id={label.suspicious}
+          items={viewModel.repetition.suspiciousPhrases}
+          emptyText={label.noSuspicious}
+          tone={styles.bgPink}
+          labels={pagerLabels}
+        />
+      ),
+    },
+    {
+      title: label.reference,
+      content: (
+        <PaginatedInsightList
+          id={label.reference}
+          items={referenceSignals}
+          emptyText={label.noReference}
+          tone={styles.bgMint}
+          labels={pagerLabels}
+        />
+      ),
+    },
+  ]
 
   return (
-    <>
-      <section className={`${styles.card} ${styles.stackMd}`}>
-        <div className={styles.row}>
-          <AlertTriangle className={`${styles.iconSm} ${styles.pinkText}`} />
-          <h2 className={styles.titleSm}>{label.coreInsight}</h2>
-        </div>
-        <div className={styles.resultBadgePanel}>
-          <span className={`${styles.resultStatusBadge} ${viewModel.ad.key === "high" ? styles.resultBadgeHigh : styles.resultBadgeSoft}`}>
-            {label.adSuspicion} {viewModel.ad.label}
-          </span>
-          <p className={styles.mutedText}>{viewModel.ad.description}</p>
-        </div>
-        <div className={styles.stackSm}>
-          <h3 className={styles.titleXs}>{label.repetitive}</h3>
-          <InsightList items={viewModel.repetition.repetitivePhrases} emptyText={label.noRepetition} tone={styles.bgPeach} />
-        </div>
-        <div className={styles.stackSm}>
-          <h3 className={styles.titleXs}>{label.suspicious}</h3>
-          <InsightList items={viewModel.repetition.suspiciousPhrases} emptyText={label.noSuspicious} tone={styles.bgPink} />
-        </div>
-        <div className={styles.stackSm}>
-          <h3 className={styles.titleXs}>{label.reference}</h3>
-          <InsightList items={referenceSignals} emptyText={label.noReference} tone={styles.bgMint} />
-        </div>
-      </section>
+    <section className={styles.resultAccordionList}>
+      <ResultAccordion
+        title={label.detailAnalysis}
+        icon={<AlertTriangle className={`${styles.iconSm} ${styles.pinkText}`} />}
+        defaultOpen
+      >
+        <DetailPagePanel pages={detailedAnalysisPages} labels={pagerLabels} />
+      </ResultAccordion>
 
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div className={styles.row}>
-          <SearchCheck className={`${styles.iconSm} ${styles.mintText}`} />
-          <h2 className={styles.titleSm}>{label.informationQuality}</h2>
-        </div>
+      <ResultAccordion
+        title={label.informationChecklist}
+        icon={<SearchCheck className={`${styles.iconSm} ${styles.mintText}`} />}
+      >
         <p className={styles.summaryText}>
-          {label.informationPrefix} {viewModel.information.label} · {viewModel.information.score}
+          {label.informationPrefix} {viewModel.information.checkedCount} / {viewModel.information.totalCount}
         </p>
         <p className={styles.mutedText}>{viewModel.information.description}</p>
-        <div className={styles.stackSm}>
-          <h3 className={styles.titleXs}>{label.checkItems}</h3>
-          <InsightList items={viewModel.information.checkItems} emptyText={label.noCheckItems} tone={styles.bgMint} />
-        </div>
-      </section>
-
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div className={styles.row}>
-          <Globe2 className={`${styles.iconSm} ${styles.iconPrimary}`} />
-          <h2 className={styles.titleSm}>{label.globalAccessibility}</h2>
-        </div>
-        <p className={styles.summaryText}>
-          {viewModel.globalAccessibility.label} · {viewModel.globalAccessibility.score}/{viewModel.globalAccessibility.maxScore}
-        </p>
         <div className={styles.resultCheckGrid}>
-          {viewModel.globalAccessibility.checks.map((check) => (
+          {viewModel.information.checks.map((check) => (
             <div key={check.key} className={styles.resultCheckItem}>
               {check.checked ? (
                 <CheckCircle2 className={`${styles.iconXs} ${styles.mintText}`} />
@@ -92,7 +227,78 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
             </div>
           ))}
         </div>
-      </section>
-    </>
+        {viewModel.information.checkItems.length > 0 && (
+          <div className={styles.stackSm}>
+            <h3 className={styles.titleXs}>{label.checkItems}</h3>
+            <PaginatedInsightList
+              id={label.checkItems}
+              items={viewModel.information.checkItems}
+              emptyText={label.noCheckItems}
+              tone={styles.bgMint}
+              labels={pagerLabels}
+            />
+          </div>
+        )}
+      </ResultAccordion>
+
+      <ResultAccordion
+        title={label.globalAccessibilityDetail}
+        icon={<Globe2 className={`${styles.iconSm} ${styles.iconPrimary}`} />}
+      >
+        <div className={styles.resultConvenienceSummary}>
+          <strong>{viewModel.globalAccessibility.label}</strong>
+          <span>{viewModel.globalAccessibility.description}</span>
+        </div>
+        <div className={styles.resultConvenienceGroups}>
+          <div>
+            <strong>{viewModel.globalAccessibility.visitGroup.label}</strong>
+            <span>{viewModel.globalAccessibility.visitGroup.checkedCount} / {viewModel.globalAccessibility.visitGroup.totalCount} {label.confirmed}</span>
+          </div>
+          <div>
+            <strong>{viewModel.globalAccessibility.englishGroup.label}</strong>
+            <span>{viewModel.globalAccessibility.englishGroup.checkedCount} / {viewModel.globalAccessibility.englishGroup.totalCount} {label.confirmed}</span>
+          </div>
+        </div>
+        <ConvenienceStatusList title={label.autoConfirmed} items={groupedConvenienceItems.confirmed} status="confirmed" emptyText={label.notEnoughInformation} />
+        <ConvenienceStatusList title={label.needsChecking} items={groupedConvenienceItems.notConfirmed} status="notConfirmed" emptyText={label.notEnoughInformation} />
+        <ConvenienceStatusList title={label.notEnoughInformation} items={groupedConvenienceItems.unknown} status="unknown" emptyText={label.notEnoughInformation} />
+        <p className={styles.resultEmptyText}>{viewModel.globalAccessibility.note}</p>
+      </ResultAccordion>
+    </section>
+  )
+}
+
+function ConvenienceStatusList({
+  title,
+  items,
+  status,
+  emptyText,
+}: {
+  title: string
+  items: AnalysisResultViewModel["globalAccessibility"]["checks"]
+  status: ConvenienceCheckStatus
+  emptyText: string
+}) {
+  if (items.length === 0) return null
+
+  const iconClass = status === "confirmed" ? styles.mintText : styles.iconPrimary
+
+  return (
+    <div className={styles.stackSm}>
+      <h3 className={styles.titleXs}>{title}</h3>
+      <div className={styles.resultCheckGrid}>
+        {items.length > 0 ? items.map((check) => (
+          <div key={check.key} className={styles.resultCheckItem}>
+            {status === "confirmed" ? (
+              <CheckCircle2 className={`${styles.iconXs} ${iconClass}`} />
+            ) : (
+              <Info className={`${styles.iconXs} ${iconClass}`} />
+            )}
+            <span>{check.label}</span>
+            <strong>{title}</strong>
+          </div>
+        )) : <p className={styles.resultEmptyText}>{emptyText}</p>}
+      </div>
+    </div>
   )
 }

@@ -3,12 +3,24 @@ import type { Language } from "./types"
 export const RESULT_DISPLAY_LABELS = {
   globalAccessibility: {
     ko: "외국인 방문 편의도",
-    en: "International Visit Convenience",
-    shortEn: "Visit Convenience",
+    en: "Visitor information accessibility",
+    shortEn: "Visitor info",
   },
 } as const
 
 export const GLOBAL_ACCESSIBILITY_CHECK_LABELS = {
+  mapLocation: {
+    ko: "지도/위치 정보",
+    en: "Map / location information",
+  },
+  contactBooking: {
+    ko: "연락처 또는 예약 방법",
+    en: "Contact or booking method",
+  },
+  websitePlaceLink: {
+    ko: "홈페이지/플레이스 링크",
+    en: "Website or place link",
+  },
   googleMapLink: {
     ko: "지도 위치 정보",
     en: "Map location information",

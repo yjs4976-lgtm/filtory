@@ -22,16 +22,40 @@ type GlobalAccessibilityChecks = NonNullable<ReviewAnalyzeResponse["globalAccess
 type GlobalAccessibilityCheckKey = keyof GlobalAccessibilityChecks
 
 const GLOBAL_ACCESSIBILITY_DISPLAY_KEYS: GlobalAccessibilityCheckKey[] = [
-  "googleMapLink",
-  "googlePlaceId",
+  "mapLocation",
+  "contactBooking",
+  "websitePlaceLink",
+  "photoInfo",
   "englishName",
   "englishGuide",
   "englishReviews",
-  "homepageOrBookingLink",
-  "photoInfo",
 ]
 
 const GLOBAL_ACCESSIBILITY_CHECK_ALIASES: Record<GlobalAccessibilityCheckKey, string[]> = {
+  mapLocation: [
+    "mapLocation",
+    "googleMapLink",
+    "googlePlaceId",
+    "googleMapUrl",
+    "google_map_url",
+    "googleRegistered",
+    "google_registered",
+    "address",
+    "roadAddress",
+    "road_address",
+  ],
+  contactBooking: ["contactBooking", "phone", "reservationLink", "hasReservationLink", "has_reservation_link"],
+  websitePlaceLink: [
+    "websitePlaceLink",
+    "homepageOrBookingLink",
+    "homepageUrl",
+    "homepage_url",
+    "naverPlaceUrl",
+    "naver_place_url",
+    "kakaoPlaceUrl",
+    "kakao_place_url",
+  ],
+  photoInfo: ["photoInfo", "hasGooglePhotos", "has_google_photos", "hasPhotos", "has_photos"],
   googleMapLink: ["googleMapLink", "googleMapUrl", "google_map_url", "googleRegistered", "google_registered"],
   googlePlaceId: ["googlePlaceId", "google_place_id"],
   englishName: ["englishName", "english_name"],
@@ -45,7 +69,6 @@ const GLOBAL_ACCESSIBILITY_CHECK_ALIASES: Record<GlobalAccessibilityCheckKey, st
     "hasReservationLink",
     "has_reservation_link",
   ],
-  photoInfo: ["photoInfo", "hasGooglePhotos", "has_google_photos", "hasPhotos", "has_photos"],
 }
 
 function toStringArray(value: unknown): string[] {
@@ -99,57 +122,130 @@ function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "h
   return "medium"
 }
 
+function hasContextValue(value: unknown) {
+  if (value === undefined || value === null) return false
+  if (typeof value === "string") return value.trim().length > 0
+  return true
+}
+
+function checkStatus(value: unknown, hasContext: boolean): "confirmed" | "notConfirmed" | "unknown" {
+  if (typeof value === "boolean") return value ? "confirmed" : hasContext ? "notConfirmed" : "unknown"
+  if (hasContextValue(value)) return "confirmed"
+  return hasContext ? "notConfirmed" : "unknown"
+}
+
+function englishGuidanceStatusFromText(value?: string): boolean | undefined {
+  const text = value?.trim().toLowerCase()
+  if (!text) return undefined
+
+  const negativePatterns = [
+    /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
+    /외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)/,
+    /(no|not|without).{0,32}(english|interpreter|translation|foreigner)/,
+    /(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)/,
+  ]
+
+  if (negativePatterns.some((pattern) => pattern.test(text))) {
+    return false
+  }
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내/i.test(text)
+    ? true
+    : undefined
+}
+
+function hasEnglishGuidanceContext(value?: string) {
+  const text = value?.trim().toLowerCase()
+  if (!text) return false
+
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내|영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)|(no|not|without).{0,32}(english|interpreter|translation|foreigner)|(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)/i.test(text)
+}
+
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
+  const placeLink = payload.homepageUrl || payload.naverPlaceUrl || payload.kakaoPlaceUrl || payload.googleMapUrl
+  const reviewText = [payload.reviewText, ...(payload.reviews ?? [])]
+    .filter((item): item is string => Boolean(item?.trim()))
+    .join("\n")
+  const mapSignal =
+    payload.address ||
+    payload.roadAddress ||
+    payload.googleMapUrl ||
+    payload.googleRegistered ||
+    payload.naverPlaceUrl ||
+    payload.kakaoPlaceUrl ||
+    payload.googlePlaceId
+  const mapContextExists = [
+    payload.address,
+    payload.roadAddress,
+    payload.googleMapUrl,
+    payload.googleRegistered,
+    payload.naverPlaceUrl,
+    payload.kakaoPlaceUrl,
+    payload.googlePlaceId,
+  ].some(hasContextValue)
+  const photoInfo = payload.hasGooglePhotos || payload.hasPhotos
+  const englishGuide =
+    payload.hasEnglishInfo ?? englishGuidanceStatusFromText(payload.description) ?? englishGuidanceStatusFromText(reviewText)
+  const englishReviews = payload.englishReviews ?? payload.hasEnglishReviews
+  const englishGuideContextExists =
+    payload.hasEnglishInfo !== undefined || hasContextValue(payload.description) || hasEnglishGuidanceContext(reviewText)
+
   return {
-    googleMapLink: Boolean(payload.googleMapUrl || payload.googleRegistered || payload.naverPlaceUrl || payload.kakaoPlaceUrl),
-    googlePlaceId: Boolean(payload.googlePlaceId),
-    englishName: Boolean(payload.englishName),
-    englishGuide: Boolean(payload.hasEnglishInfo),
-    englishReviews: Boolean(payload.englishReviews ?? payload.hasEnglishReviews),
-    homepageOrBookingLink: Boolean(payload.homepageUrl || payload.naverPlaceUrl),
-    photoInfo: Boolean(payload.hasGooglePhotos || payload.hasPhotos),
+    mapLocation: checkStatus(mapSignal, mapContextExists),
+    contactBooking: checkStatus(payload.phone || payload.homepageUrl, Boolean(payload.phone || placeLink)),
+    websitePlaceLink: checkStatus(placeLink, Boolean(placeLink || payload.sourceProvider)),
+    photoInfo: checkStatus(photoInfo, payload.hasGooglePhotos !== undefined || payload.hasPhotos !== undefined),
+    englishName: checkStatus(payload.englishName, payload.englishName !== undefined),
+    englishGuide: checkStatus(englishGuide, englishGuideContextExists),
+    englishReviews: checkStatus(englishReviews, payload.englishReviews !== undefined || payload.hasEnglishReviews !== undefined),
   }
 }
 
 function calculateGlobalAccessibilityFallbackScore(values: GlobalAccessibilityChecks) {
   const weights: Record<keyof GlobalAccessibilityChecks, number> = {
-    googleMapLink: 20,
-    googlePlaceId: 15,
-    englishName: 20,
+    mapLocation: 25,
+    contactBooking: 20,
     englishGuide: 20,
-    englishReviews: 10,
-    homepageOrBookingLink: 5,
+    englishName: 10,
+    websitePlaceLink: 10,
     photoInfo: 10,
+    englishReviews: 5,
+    googleMapLink: 0,
+    googlePlaceId: 0,
+    homepageOrBookingLink: 0,
   }
 
   return Object.entries(weights).reduce((score, [key, weight]) => {
-    return score + (values[key as keyof GlobalAccessibilityChecks] ? weight : 0)
+    return score + (values[key as keyof GlobalAccessibilityChecks] === "confirmed" || values[key as keyof GlobalAccessibilityChecks] === true ? weight : 0)
   }, 0)
+}
+
+function toStatus(value: unknown): "confirmed" | "notConfirmed" | "unknown" | undefined {
+  if (value === "confirmed" || value === "notConfirmed" || value === "unknown") return value
+  if (typeof value === "boolean") return value ? "confirmed" : "notConfirmed"
+  if (typeof value === "number") return value > 0 ? "confirmed" : "notConfirmed"
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+    if (["true", "1", "yes", "y"].includes(normalized)) return "confirmed"
+    if (["false", "0", "no", "n"].includes(normalized)) return "notConfirmed"
+    if (normalized === "unknown" || normalized === "") return "unknown"
+  }
+  return undefined
+}
+
+function getAliasedStatus(source: Record<string, unknown>, key: GlobalAccessibilityCheckKey) {
+  for (const alias of GLOBAL_ACCESSIBILITY_CHECK_ALIASES[key]) {
+    const value = toStatus(source[alias])
+    if (value !== undefined) return value
+  }
+
+  return undefined
 }
 
 function optionalNumber(value: unknown): number | undefined {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) ? numberValue : undefined
-}
-
-function toBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") return value
-  if (typeof value === "number") return value > 0
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase()
-    if (["true", "1", "yes", "y"].includes(normalized)) return true
-    if (["false", "0", "no", "n", ""].includes(normalized)) return false
-  }
-  return undefined
-}
-
-function getAliasedBoolean(source: Record<string, unknown>, key: GlobalAccessibilityCheckKey) {
-  for (const alias of GLOBAL_ACCESSIBILITY_CHECK_ALIASES[key]) {
-    const value = toBoolean(source[alias])
-    if (value !== undefined) return value
-  }
-
-  return undefined
 }
 
 function normalizeApiGlobalAccessibilityChecks(value: unknown) {
@@ -160,7 +256,7 @@ function normalizeApiGlobalAccessibilityChecks(value: unknown) {
   let hasAnyCheck = false
 
   for (const key of GLOBAL_ACCESSIBILITY_DISPLAY_KEYS) {
-    const checkValue = getAliasedBoolean(source, key)
+    const checkValue = getAliasedStatus(source, key)
     if (checkValue !== undefined) {
       checks[key] = checkValue
       hasAnyCheck = true
@@ -174,7 +270,7 @@ function normalizeGlobalAccessibilityChecks(apiChecks: unknown, fallbackChecks: 
   const normalizedApiChecks = normalizeApiGlobalAccessibilityChecks(apiChecks)
 
   return GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.reduce<GlobalAccessibilityChecks>((checks, key) => {
-    checks[key] = normalizedApiChecks?.[key] ?? fallbackChecks[key] ?? false
+    checks[key] = normalizedApiChecks?.[key] ?? fallbackChecks[key] ?? "unknown"
     return checks
   }, {})
 }
@@ -213,6 +309,8 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
   const detectedPatterns = toStringArray(result.detectedPatterns)
   const suspiciousPhrases = toStringArray(result.suspiciousPhrases ?? evidence.suspiciousPhrases)
   const repetitivePhrases = toStringArray(result.repetitivePhrases ?? evidence.repetitivePhrases)
+  const reviewTrustScore = optionalNumber(result.reviewTrustScore) ?? optionalNumber(result.trustScore) ?? 0
+  const reviewBurstScore = optionalNumber(result.reviewBurstScore)
 
   return {
     analysisRequestId: data.analysisRequestId,
@@ -220,7 +318,28 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     hospitalId: data.hospitalId,
     reviewIds: data.reviewIds,
     totalScore: Number(result.totalScore ?? 0),
-    trustScore: Number(result.trustScore ?? 0),
+    trustScore: reviewTrustScore,
+    reviewTrustScore,
+    evidenceScore: optionalNumber(result.evidenceScore),
+    riskScore: optionalNumber(result.riskScore),
+    specificityScore: optionalNumber(result.specificityScore),
+    balanceScore: optionalNumber(result.balanceScore),
+    diversityScore: optionalNumber(result.diversityScore),
+    informativeScore: optionalNumber(result.informativeScore),
+    naturalnessScore: optionalNumber(result.naturalnessScore),
+    promoSignalScore: optionalNumber(result.promoSignalScore),
+    repetitionScore: optionalNumber(result.repetitionScore),
+    exaggerationScore: optionalNumber(result.exaggerationScore),
+    eventDiscountScore: optionalNumber(result.eventDiscountScore),
+    reviewBurstScore: reviewBurstScore ?? null,
+    reviewBurstStatus: typeof result.reviewBurstStatus === "string" ? result.reviewBurstStatus : reviewBurstScore === undefined ? "unavailable" : "available",
+    analysisConfidence: typeof result.analysisConfidence === "string" ? result.analysisConfidence : undefined,
+    analysisConfidenceDescription:
+      typeof result.analysisConfidenceDescription === "string" ? result.analysisConfidenceDescription : undefined,
+    scoreBreakdown:
+      result.scoreBreakdown && typeof result.scoreBreakdown === "object"
+        ? result.scoreBreakdown as Record<string, number | string | boolean | null | undefined>
+        : undefined,
     adScore: adSuspicionScore,
     placeScore: informationScore,
     foreignerScore: globalAccessibilityScore,

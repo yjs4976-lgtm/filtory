@@ -20,6 +20,11 @@ function normalizeCategory(value: unknown): AnalysisHistoryItem["category"] {
   return "derma"
 }
 
+function optionalNumber(value: unknown) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : undefined
+}
+
 function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem {
   const deletedBy = item.deletedBy ?? item.deleted_by
   const globalAccessibilityScore = Number(
@@ -67,7 +72,7 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
       : undefined,
     sourceName: item.sourceName || item.source_name ? String(item.sourceName ?? item.source_name) : undefined,
     sourceUrl: item.sourceUrl || item.source_url ? String(item.sourceUrl ?? item.source_url) : undefined,
-    score: Number(item.score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
+    score: Number(item.score ?? item.reviewTrustScore ?? item.review_trust_score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
     foreignerFriendlyScore:
       item.foreignerFriendlyScore === undefined
         ? Number(item.foreigner_friendly_score ?? item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreigner_score ?? 0)
@@ -75,7 +80,35 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
     createdAt: String(item.createdAt ?? item.created_at ?? item.date ?? ""),
     selectedReviewCount: Number(item.selectedReviewCount ?? item.selected_review_count ?? 0),
     totalReviewCount: Number(item.totalReviewCount ?? item.total_review_count ?? 0),
-    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
+    trustScore: Number(item.reviewTrustScore ?? item.review_trust_score ?? item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
+    reviewTrustScore: optionalNumber(item.reviewTrustScore ?? item.review_trust_score),
+    evidenceScore: optionalNumber(item.evidenceScore ?? item.evidence_score),
+    riskScore: optionalNumber(item.riskScore ?? item.risk_score),
+    specificityScore: optionalNumber(item.specificityScore ?? item.specificity_score),
+    balanceScore: optionalNumber(item.balanceScore ?? item.balance_score),
+    diversityScore: optionalNumber(item.diversityScore ?? item.diversity_score),
+    informativeScore: optionalNumber(item.informativeScore ?? item.informative_score),
+    naturalnessScore: optionalNumber(item.naturalnessScore ?? item.naturalness_score),
+    promoSignalScore: optionalNumber(item.promoSignalScore ?? item.promo_signal_score),
+    repetitionScore: optionalNumber(item.repetitionScore ?? item.repetition_score),
+    exaggerationScore: optionalNumber(item.exaggerationScore ?? item.exaggeration_score),
+    eventDiscountScore: optionalNumber(item.eventDiscountScore ?? item.event_discount_score),
+    reviewBurstScore:
+      item.reviewBurstScore === null || item.review_burst_score === null
+        ? null
+        : optionalNumber(item.reviewBurstScore ?? item.review_burst_score),
+    reviewBurstStatus: item.reviewBurstStatus || item.review_burst_status
+      ? String(item.reviewBurstStatus ?? item.review_burst_status)
+      : undefined,
+    analysisConfidence: item.analysisConfidence || item.analysis_confidence
+      ? String(item.analysisConfidence ?? item.analysis_confidence)
+      : undefined,
+    analysisConfidenceDescription: item.analysisConfidenceDescription || item.analysis_confidence_description
+      ? String(item.analysisConfidenceDescription ?? item.analysis_confidence_description)
+      : undefined,
+    scoreBreakdown: item.scoreBreakdown && typeof item.scoreBreakdown === "object"
+      ? item.scoreBreakdown as AnalysisHistoryItem["scoreBreakdown"]
+      : undefined,
     trustLevel: item.trustLevel || item.trustLevelKey || item.trust_level
       ? String(item.trustLevel ?? item.trustLevelKey ?? item.trust_level)
       : undefined,
