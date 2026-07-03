@@ -275,13 +275,14 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def calculate_foreigner_score(payload: ReviewAnalyzeRequest) -> int:
+        map_link = payload.googleMapUrl or payload.googleRegistered or payload.naverPlaceUrl or payload.kakaoPlaceUrl
         checks = [
-            (payload.googleMapUrl or payload.googleRegistered, 20),
+            (map_link, 20),
             (payload.googlePlaceId, 15),
             (payload.englishName, 20),
             (payload.hasEnglishInfo, 20),
             (payload.hasEnglishReviews, 10),
-            (payload.hasGooglePhotos, 10),
+            (payload.hasGooglePhotos or payload.hasPhotos, 10),
             (payload.homepageUrl, 5),
         ]
         return OpenAIReviewAnalysisService._weighted_metadata_score(checks)
@@ -400,8 +401,9 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, bool]:
+        map_link = payload.googleMapUrl or payload.googleRegistered or payload.naverPlaceUrl or payload.kakaoPlaceUrl
         return {
-            "googleMapLink": bool(payload.googleMapUrl or payload.googleRegistered),
+            "googleMapLink": bool(map_link),
             "googlePlaceId": bool(payload.googlePlaceId),
             "englishName": bool(payload.englishName),
             "englishGuide": bool(payload.hasEnglishInfo),
