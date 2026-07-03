@@ -179,6 +179,7 @@ class HospitalService:
     @staticmethod
     def _dedupe_search_results(items):
         results = []
+        result_index_by_key = {}
         seen = set()
         for item in items:
             key = (
@@ -186,10 +187,25 @@ class HospitalService:
                 str(item.get("road_address") or item.get("address") or "").strip().lower(),
             )
             if key in seen:
+                index = result_index_by_key[key]
+                results[index] = HospitalService._merge_search_result(results[index], item)
                 continue
             seen.add(key)
+            result_index_by_key[key] = len(results)
             results.append(item)
         return results
+
+    @staticmethod
+    def _merge_search_result(primary, secondary):
+        merged = dict(secondary)
+        merged.update(
+            {
+                key: value
+                for key, value in primary.items()
+                if value not in (None, "", [], {})
+            }
+        )
+        return merged
 
     @staticmethod
     def _prioritize_search_results(items):

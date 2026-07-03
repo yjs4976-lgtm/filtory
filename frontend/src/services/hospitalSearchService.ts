@@ -93,6 +93,7 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     kakaoPlaceUrl: item.kakao_place_url ?? undefined,
     naverPlaceUrl: item.naver_place_url ?? undefined,
     naverPlaceId: item.naver_place_id ?? undefined,
+    googleMapUrl: item.google_map_url ?? undefined,
     googlePlaceId: item.google_place_id ?? undefined,
     latitude: safeLatitude,
     longitude: safeLongitude,

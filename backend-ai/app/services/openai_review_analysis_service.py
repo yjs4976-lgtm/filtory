@@ -153,7 +153,8 @@ class OpenAIReviewAnalysisService:
         )
         evidence = cls._normalize_evidence(data, language)
         repetition_level = cls._repetition_level(data.get("repetitionLevel"), evidence.repetitivePhrases)
-        information_level = cls.information_level(review_information_score)
+        review_information_level = cls.information_level(review_information_score)
+        information_level = cls.information_level(place_score)
         trust_level_key = cls.trust_level_key(trust_score)
         ad_suspicion_level = cls.ad_suspicion_level(ad_score)
         global_accessibility_level = cls.score_level(foreigner_score)
@@ -176,6 +177,8 @@ class OpenAIReviewAnalysisService:
             "placeScore": place_score,
             "foreignerScore": foreigner_score,
             "informationScore": place_score,
+            "reviewInformationScore": review_information_score,
+            "reviewInformationLevel": review_information_level,
             "grade": cls.grade(total_score),
             "trustGrade": cls.trust_grade(trust_level_key, language),
             "trustLevelKey": trust_level_key,

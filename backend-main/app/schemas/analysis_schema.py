@@ -110,6 +110,14 @@ def analysis_result_to_canonical_dict(analysis_result):
         "adSuspicionLevel": _first_present(raw.get("adSuspicionLevel"), analysis_result.ad_suspicion),
         "informationScore": _first_present(raw.get("informationScore"), raw.get("placeScore"), analysis_result.place_score),
         "informationLevel": _first_present(raw.get("informationLevel"), evidence_json.get("informationLevel")),
+        "reviewInformationScore": _first_present(
+            raw.get("reviewInformationScore"),
+            evidence_json.get("reviewInformationScore"),
+        ),
+        "reviewInformationLevel": _first_present(
+            raw.get("reviewInformationLevel"),
+            evidence_json.get("reviewInformationLevel"),
+        ),
         "globalAccessibilityScore": _first_present(
             raw.get("globalAccessibilityScore"),
             raw.get("foreignerScore"),
@@ -163,6 +171,8 @@ def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, req
         "recommendation": ai_response.get("recommendation"),
         "visitTip": ai_response.get("visitTip"),
         "informationLevel": ai_response.get("informationLevel"),
+        "reviewInformationScore": ai_response.get("reviewInformationScore"),
+        "reviewInformationLevel": ai_response.get("reviewInformationLevel"),
         "globalAccessibilityLevel": ai_response.get("globalAccessibilityLevel"),
         "detectedPatterns": ai_response.get("detectedPatterns") or [],
         "suspiciousPhrases": ai_response.get("suspiciousPhrases") or [],

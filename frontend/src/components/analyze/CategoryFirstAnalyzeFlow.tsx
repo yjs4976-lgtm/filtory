@@ -407,13 +407,13 @@ function isInternalHospitalId(id: string) {
 }
 
 function buildNaverPlaceHref(hospital: HospitalItem, isNaverSource: boolean) {
-  const directUrl = hospital.naverPlaceUrl || (isNaverSource ? hospital.sourceUrl : undefined)
-  if (directUrl) return withNaverReviewPath(directUrl)
-
   const placeId = hospital.naverPlaceId
   if (placeId && /^\d+$/.test(placeId)) {
     return `https://map.naver.com/p/entry/place/${placeId}?placePath=/review`
   }
+
+  const directUrl = hospital.naverPlaceUrl || (isNaverSource ? hospital.sourceUrl : undefined)
+  if (directUrl && isVerifiedNaverPlaceUrl(directUrl)) return withNaverReviewPath(directUrl)
 
   const query = [hospital.hospitalNameKo || hospital.name, hospital.roadAddress || hospital.address]
     .filter(Boolean)
@@ -436,6 +436,16 @@ function withNaverReviewPath(href: string) {
   }
 }
 
+function isVerifiedNaverPlaceUrl(href: string) {
+  try {
+    const hostname = new URL(href).hostname.toLowerCase()
+
+    return hostname === "map.naver.com" || hostname.endsWith(".place.naver.com")
+  } catch {
+    return false
+  }
+}
+
 function isSameHref(left?: string, right?: string) {
   if (!left || !right) return false
   return left.replace(/\/$/, "") === right.replace(/\/$/, "")
@@ -448,6 +458,7 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   const sourceUrl = hospital.sourceUrl ?? ""
   const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버")
   const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
+  const googleMapUrl = hospital.googleMapUrl
 
   return {
     address: hospital.address,
@@ -465,11 +476,11 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     naverReviewCount: hospital.naverReviewCount,
     googleRating: hospital.googleRating,
     googleReviewCount: hospital.googleReviewCount,
-    googleMapUrl: hospital.mapUrl,
+    googleMapUrl,
     googlePlaceId: hospital.googlePlaceId,
     latitude: hospital.latitude ?? hospital.lat,
     longitude: hospital.longitude ?? hospital.lng,
-    googleRegistered: Boolean(hospital.mapUrl),
+    googleRegistered: Boolean(hospital.googlePlaceId || googleMapUrl),
     englishName,
     hasEnglishInfo: Boolean(englishName),
     hasEnglishReviews: false,
@@ -666,7 +677,7 @@ function createApiAnalysisResult({
     adSuspicionScore: response.adSuspicionScore,
     adSuspicionLevel: response.adSuspicionLevel,
     repetitivePatternLevel: response.repetitivePhrases.length > 0 ? signalLevelFromValue(response.adSuspicionLevel) : "low",
-    concreteExperienceLevel: concreteExperienceLevel(response.informationLevel),
+    concreteExperienceLevel: concreteExperienceLevel(response.reviewInformationLevel ?? response.informationLevel),
     summary: response.summary,
     suspiciousPhrases: response.suspiciousPhrases,
     repetitivePhrases: response.repetitivePhrases,
@@ -2897,7 +2908,7 @@ function HospitalResultCard({
         </div>
         <div className={styles.linkRow}>
           {hospital.sourceUrl && !isSameHref(hospital.sourceUrl, naverPlaceHref) && (
-            <SourceLink href={hospital.sourceUrl} label={isNaverSource ? t.analyze.naverOriginalLink : t.analyze.sourceLink} />
+            <SourceLink href={hospital.sourceUrl} label={t.analyze.sourceLink} />
           )}
           {naverPlaceHref && <SourceLink href={naverPlaceHref} label={t.analyze.naverOriginalLink} />}
           {hospital.mapUrl && !isSameHref(hospital.mapUrl, naverPlaceHref) && <SourceLink href={hospital.mapUrl} label={t.analyze.map} />}
@@ -2910,7 +2921,7 @@ function HospitalResultCard({
             </Link>
           ) : hospital.mapUrl ? (
             <a className={styles.secondaryButton} href={hospital.mapUrl} target="_blank" rel="noreferrer">
-              {isNaverSource ? t.analyze.naverOriginalLink : t.analyze.viewOnMap}
+              {isSameHref(hospital.mapUrl, naverPlaceHref) ? t.analyze.naverOriginalLink : t.analyze.viewOnMap}
             </a>
           ) : (
             <span className={styles.secondaryButtonDisabled}>{t.analyze.viewOnMap}</span>

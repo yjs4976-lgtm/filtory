@@ -225,13 +225,15 @@ class HospitalSearchProvider:
             "latitude": latitude,
             "longitude": longitude,
             "naver_rating": cls._optional_decimal(
-                item.get("rating") or item.get("naverRating") or item.get("naver_rating")
+                cls._first_present(item.get("rating"), item.get("naverRating"), item.get("naver_rating"))
             ),
             "naver_review_count": cls._optional_int(
-                item.get("reviewCount")
-                or item.get("visitorReviewCount")
-                or item.get("naverReviewCount")
-                or item.get("naver_review_count")
+                cls._first_present(
+                    item.get("reviewCount"),
+                    item.get("visitorReviewCount"),
+                    item.get("naverReviewCount"),
+                    item.get("naver_review_count"),
+                )
             ),
             "google_rating": None,
             "google_review_count": None,
@@ -307,6 +309,13 @@ class HospitalSearchProvider:
             return int(Decimal(str(value)))
         except (InvalidOperation, ValueError):
             return None
+
+    @staticmethod
+    def _first_present(*values):
+        for value in values:
+            if value is not None and value != "":
+                return value
+        return None
 
     @staticmethod
     def _naver_place_id_from_link(link):

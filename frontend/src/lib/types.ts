@@ -104,6 +104,7 @@ export type HospitalItem = {
   kakaoPlaceUrl?: string
   naverPlaceUrl?: string
   naverPlaceId?: string
+  googleMapUrl?: string
   roadAddress?: string
   googlePlaceId?: string
   latitude?: number
@@ -232,6 +233,8 @@ export type ReviewAnalyzeResponse = {
   repetitionLevel?: "low" | "medium" | "high"
   informationCompleteness?: "low" | "medium" | "high"
   informationScore: number
+  reviewInformationScore?: number
+  reviewInformationLevel?: string
   positiveSignals?: string[]
   negativeSignals?: string[]
   warningSignals?: string[]

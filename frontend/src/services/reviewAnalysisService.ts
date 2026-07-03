@@ -186,6 +186,7 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     optionalNumber(result.globalAccessibilityMaxScore) ?? 100
   const adSuspicionScore = optionalNumber(result.adSuspicionScore) ?? optionalNumber(result.adScore) ?? 0
   const informationScore = optionalNumber(result.informationScore) ?? optionalNumber(result.placeScore) ?? 0
+  const reviewInformationScore = optionalNumber(result.reviewInformationScore)
   const globalAccessibilityScore =
     optionalNumber(result.globalAccessibilityScore) ??
     optionalNumber(result.foreignerScore) ??
@@ -213,6 +214,8 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     repetitionLevel: normalizeLevel(result.repetitionLevel),
     informationCompleteness: normalizeInformationCompleteness(result.informationLevel ?? result.informationCompleteness),
     informationScore,
+    reviewInformationScore,
+    reviewInformationLevel: typeof result.reviewInformationLevel === "string" ? result.reviewInformationLevel : undefined,
     positiveSignals: toStringArray(result.positiveSignals ?? evidence.positiveSignals),
     negativeSignals: toStringArray(result.negativeSignals),
     warningSignals: toStringArray(result.warningSignals ?? evidence.warnings),

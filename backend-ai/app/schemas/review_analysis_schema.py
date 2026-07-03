@@ -98,6 +98,8 @@ class ReviewAnalyzeResponse(BaseModel):
     placeScore: int = Field(..., ge=0, le=100)
     foreignerScore: int = Field(..., ge=0, le=100)
     informationScore: int | None = Field(None, ge=0, le=100)
+    reviewInformationScore: int | None = Field(None, ge=0, le=100)
+    reviewInformationLevel: InformationLevel | None = None
     grade: str | None = Field(None, description="Mock API compatibility grade such as A, B, C")
     trustGrade: str
     trustLevelKey: TrustLevelKey
