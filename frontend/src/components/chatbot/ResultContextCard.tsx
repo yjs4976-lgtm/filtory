@@ -10,6 +10,7 @@ import {
   writeSelectedChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
+import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay"
 import type { AnalysisHistoryItem } from "@/lib/types"
 import { getHistory } from "@/services/historyService"
 import styles from "@/styles/App.module.css"
@@ -48,6 +49,8 @@ export function ResultContextCard() {
     if (!latest) return
     writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest))
   }
+  const latestHospitalName = latest ? getHistoryHospitalName(latest, language) : ""
+  const latestMetaText = latest ? getHistoryMetaText(latest, language, t.categories[latest.category]) : ""
 
   return (
     <section className={`${styles.softCard} ${styles.rowBetween}`}>
@@ -56,10 +59,10 @@ export function ResultContextCard() {
           <FileText className={styles.iconSm} />
         </span>
         <div>
-          <p className={styles.titleSm}>{latest ? latest.hospitalName : t.chatbot.noLinkedResult}</p>
+          <p className={styles.titleSm}>{latest ? latestHospitalName : t.chatbot.noLinkedResult}</p>
           <p className={styles.mutedText}>
             {latest
-              ? `${latest.score}${t.result.pointsSuffix} · ${formatDisplayDate(latest.analyzedAt ?? latest.createdAt, language)}`
+              ? `${latestMetaText} · ${latest.score}${t.result.pointsSuffix} · ${formatDisplayDate(latest.analyzedAt ?? latest.createdAt, language)}`
               : t.chatbot.noLinkedResultDescription}
           </p>
         </div>

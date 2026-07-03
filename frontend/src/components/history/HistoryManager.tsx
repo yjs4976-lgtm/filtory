@@ -17,6 +17,7 @@ import {
   writeSelectedChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
+import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
@@ -634,7 +635,8 @@ function HistoryRecordCard({
   })
   const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language)
   const deletedAt = formatDisplayDate(item.deletedAt, language)
-  const region = item.region || item.hospitalAddress || t.history.regionUnknown
+  const hospitalName = getHistoryHospitalName(item, language)
+  const metaText = getHistoryMetaText(item, language, t.categories[item.category])
   const isTrashMode = mode === "trash"
   const askWithResult = () => {
     const analysisResultId = getAnalysisResultId(item)
@@ -660,10 +662,8 @@ function HistoryRecordCard({
         <div className={styles.stackSm}>
           <div className={styles.rowBetween}>
             <div>
-              <h3 className={styles.titleMd}>{item.hospitalName}</h3>
-              <p className={styles.bodyText}>
-                {t.categories[item.category]} · {region}
-              </p>
+              <h3 className={styles.titleMd}>{hospitalName}</h3>
+              <p className={styles.bodyText}>{metaText}</p>
             </div>
             <span className={styles.scoreSmall}>{trustScore}{t.mypage.pointsSuffix}</span>
           </div>

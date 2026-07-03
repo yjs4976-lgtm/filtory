@@ -13,6 +13,13 @@ function toFiveStarScore(score?: number, maxScore?: number) {
   return Math.max(0, Math.min(5, Math.round((score / resolvedMax) * 5)))
 }
 
+function normalizeCategory(value: unknown): AnalysisHistoryItem["category"] {
+  const category = String(value ?? "").trim().toLowerCase()
+  if (category === "eye" || category === "안과" || category === "ophthalmology") return "eye"
+  if (category === "dental" || category === "치과" || category === "dentistry") return "dental"
+  return "derma"
+}
+
 function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem {
   const deletedBy = item.deletedBy ?? item.deleted_by
   const globalAccessibilityScore = Number(
@@ -31,10 +38,33 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
     hospitalId: Number(item.hospitalId ?? item.hospital_id ?? 0) || undefined,
     reviewIds: Array.isArray(item.reviewIds) ? item.reviewIds.map(Number).filter(Number.isFinite) : [],
     hospitalName: String(item.hospitalName ?? item.hospital_name ?? "Analysis record"),
-    category: item.category === "eye" || item.category === "dental" ? item.category : "derma",
+    hospitalNameKo: item.hospitalNameKo || item.hospital_name_ko ? String(item.hospitalNameKo ?? item.hospital_name_ko) : undefined,
+    hospitalNameEn: item.hospitalNameEn || item.hospital_name_en ? String(item.hospitalNameEn ?? item.hospital_name_en) : undefined,
+    hospitalEnglishName: item.hospitalEnglishName || item.hospital_english_name
+      ? String(item.hospitalEnglishName ?? item.hospital_english_name)
+      : undefined,
+    englishName: item.englishName || item.english_name ? String(item.englishName ?? item.english_name) : undefined,
+    category: normalizeCategory(item.category ?? item.hospitalCategory ?? item.hospital_category),
+    categoryKoLabel: item.categoryKoLabel || item.category_ko_label ? String(item.categoryKoLabel ?? item.category_ko_label) : undefined,
+    categoryEnLabel: item.categoryEnLabel || item.category_en_label ? String(item.categoryEnLabel ?? item.category_en_label) : undefined,
     hospitalCategory: String(item.hospitalCategory ?? item.hospital_category ?? item.category ?? "skin"),
-    hospitalAddress: String(item.hospitalAddress ?? item.hospital_address ?? ""),
-    region: String(item.region ?? ""),
+    hospitalAddress: String(
+      item.hospitalAddress ?? item.hospital_address ?? item.roadAddress ?? item.road_address ?? item.address ?? ""
+    ),
+    roadAddress: item.roadAddress || item.road_address ? String(item.roadAddress ?? item.road_address) : undefined,
+    address: item.address ? String(item.address) : undefined,
+    region: String(item.region ?? item.hospitalRegion ?? item.hospital_region ?? ""),
+    hospitalRegion: item.hospitalRegion || item.hospital_region ? String(item.hospitalRegion ?? item.hospital_region) : undefined,
+    regionId: item.regionId || item.region_id ? String(item.regionId ?? item.region_id) : undefined,
+    regionLabel: item.regionLabel || item.region_label ? String(item.regionLabel ?? item.region_label) : undefined,
+    regionKoLabel: item.regionKoLabel || item.region_ko_label ? String(item.regionKoLabel ?? item.region_ko_label) : undefined,
+    regionEnLabel: item.regionEnLabel || item.region_en_label ? String(item.regionEnLabel ?? item.region_en_label) : undefined,
+    regionProvinceCode: item.regionProvinceCode || item.region_province_code
+      ? String(item.regionProvinceCode ?? item.region_province_code)
+      : undefined,
+    regionDistrictCode: item.regionDistrictCode || item.region_district_code
+      ? String(item.regionDistrictCode ?? item.region_district_code)
+      : undefined,
     sourceName: item.sourceName ? String(item.sourceName) : undefined,
     sourceUrl: item.sourceUrl ? String(item.sourceUrl) : undefined,
     score: Number(item.score ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),

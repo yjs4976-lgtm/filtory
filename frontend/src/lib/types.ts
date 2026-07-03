@@ -33,11 +33,23 @@ export type AnalysisHistoryItem = {
   hospitalNameKo?: string
   hospitalNameEn?: string
   hospitalEnglishName?: string
+  englishName?: string
   category: HospitalCategory
+  categoryKoLabel?: string
+  categoryEnLabel?: string
   hospitalCategory?: HospitalCategory | string
   hospitalAddress?: string
+  roadAddress?: string
+  address?: string
   hospitalInfo?: string
   region?: string
+  hospitalRegion?: string
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
   sourceName?: string
   sourceUrl?: string
   score: number
@@ -89,6 +101,11 @@ export type HospitalItem = {
   hospitalNameKo?: string
   hospitalNameEn?: string
   hospitalEnglishName?: string
+  englishName?: string
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
   category: HospitalCategory
   region: HospitalRegionCode
   address: string
@@ -270,10 +287,22 @@ export type ReviewAnalyzeResponse = {
 export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   id: string
   category: HospitalCategory
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
+  hospitalAddress?: string
+  roadAddress?: string
+  address?: string
   hospitalName: string
   hospitalNameKo?: string
   hospitalNameEn?: string
   hospitalEnglishName?: string
+  englishName?: string
   reviewText?: string
   analyzedAt: string
 }

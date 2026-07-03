@@ -1,4 +1,5 @@
 import type { HospitalCategory, HospitalItem, HospitalRegionCode } from "@/lib/types"
+import { extractRegionLabelFromAddress, getEnglishRegionLabelFromKorean } from "@/lib/historyDisplay"
 import { apiClient } from "./apiClient"
 
 type BackendHospital = {
@@ -51,6 +52,12 @@ const categoryToBackend: Record<HospitalCategory, string> = {
   dental: "dental",
 }
 
+const categoryLabels: Record<HospitalCategory, { ko: string; en: string }> = {
+  derma: { ko: "피부과", en: "Skin Clinic" },
+  eye: { ko: "안과", en: "Eye Clinic" },
+  dental: { ko: "치과", en: "Dental Clinic" },
+}
+
 function normalizeCategory(category?: string | null): HospitalCategory {
   const value = String(category ?? "").toLowerCase()
   if (value === "ophthalmology" || value === "eye" || value === "안과") return "eye"
@@ -72,6 +79,10 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
   const safeLongitude = toOptionalCoordinate(item.longitude)
   const naverRating = toOptionalCoordinate(item.naver_rating)
   const googleRating = toOptionalCoordinate(item.google_rating)
+  const category = normalizeCategory(item.category)
+  const address = item.address ?? ""
+  const roadAddress = item.road_address ?? undefined
+  const regionKoLabel = extractRegionLabelFromAddress(roadAddress || address)
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),
@@ -81,10 +92,15 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     hospitalNameKo: item.hospital_name ?? undefined,
     hospitalNameEn: item.english_name ?? undefined,
     hospitalEnglishName: item.english_name ?? undefined,
-    category: normalizeCategory(item.category),
+    englishName: item.english_name ?? undefined,
+    category,
+    categoryKoLabel: categoryLabels[category].ko,
+    categoryEnLabel: categoryLabels[category].en,
     region: (item.region || "seoul") as HospitalRegionCode,
-    address: item.address ?? "",
-    roadAddress: item.road_address ?? undefined,
+    address,
+    roadAddress,
+    regionKoLabel,
+    regionEnLabel: getEnglishRegionLabelFromKorean(regionKoLabel) || undefined,
     phone: item.phone ?? undefined,
     reviewCount,
     naverRating,

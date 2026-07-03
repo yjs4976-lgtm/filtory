@@ -1,4 +1,5 @@
 import { getGlobalAccessibilityCheckLabel } from "./displayLabels"
+import { getHistoryHospitalName } from "./historyDisplay"
 import type { HospitalCategory, Language } from "./types"
 
 export type TrustResultKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
@@ -366,7 +367,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       reviewIds: safeStringArray(root.reviewIds, result.reviewIds).map(Number).filter(Number.isFinite),
     },
     subject: {
-      hospitalName:
+      hospitalName: getHistoryHospitalName(root, language) ||
         stringValue(firstValue(root.hospitalName, root.hospital_name, result.hospitalName, result.hospital_name)) ||
         (language === "ko" ? "분석한 병원" : "Analyzed clinic"),
       category: normalizeCategory(firstValue(root.category, root.hospitalCategory, result.category, result.hospitalCategory)),

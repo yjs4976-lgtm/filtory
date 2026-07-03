@@ -45,11 +45,40 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     analysisResultId: Number(item.analysisResultId ?? item.analysis_result_id ?? item.resultId ?? item.result_id ?? 0) || undefined,
     hospitalId: Number(item.hospitalId ?? item.hospital_id ?? 0) || undefined,
     hospitalName,
+    hospitalNameKo: item.hospitalNameKo || item.hospital_name_ko ? String(item.hospitalNameKo ?? item.hospital_name_ko) : undefined,
+    hospitalNameEn: item.hospitalNameEn || item.hospital_name_en ? String(item.hospitalNameEn ?? item.hospital_name_en) : undefined,
+    hospitalEnglishName: item.hospitalEnglishName || item.hospital_english_name
+      ? String(item.hospitalEnglishName ?? item.hospital_english_name)
+      : undefined,
+    englishName: item.englishName || item.english_name ? String(item.englishName ?? item.english_name) : undefined,
     category,
+    categoryKoLabel: item.categoryKoLabel || item.category_ko_label
+      ? String(item.categoryKoLabel ?? item.category_ko_label)
+      : undefined,
+    categoryEnLabel: item.categoryEnLabel || item.category_en_label
+      ? String(item.categoryEnLabel ?? item.category_en_label)
+      : undefined,
+    hospitalAddress: String(
+      item.hospitalAddress ?? item.hospital_address ?? item.roadAddress ?? item.road_address ?? item.address ?? ""
+    ),
+    roadAddress: item.roadAddress || item.road_address ? String(item.roadAddress ?? item.road_address) : undefined,
+    address: item.address ? String(item.address) : undefined,
     createdAt,
     analyzedAt: item.analyzedAt ? String(item.analyzedAt) : undefined,
     deletedAt: item.deletedAt || item.deleted_at ? String(item.deletedAt ?? item.deleted_at) : undefined,
     deletedBy: item.deletedBy ?? item.deleted_by,
+    region: String(item.region ?? item.hospitalRegion ?? item.hospital_region ?? ""),
+    hospitalRegion: item.hospitalRegion || item.hospital_region ? String(item.hospitalRegion ?? item.hospital_region) : undefined,
+    regionId: item.regionId || item.region_id ? String(item.regionId ?? item.region_id) : undefined,
+    regionLabel: item.regionLabel || item.region_label ? String(item.regionLabel ?? item.region_label) : undefined,
+    regionKoLabel: item.regionKoLabel || item.region_ko_label ? String(item.regionKoLabel ?? item.region_ko_label) : undefined,
+    regionEnLabel: item.regionEnLabel || item.region_en_label ? String(item.regionEnLabel ?? item.region_en_label) : undefined,
+    regionProvinceCode: item.regionProvinceCode || item.region_province_code
+      ? String(item.regionProvinceCode ?? item.region_province_code)
+      : undefined,
+    regionDistrictCode: item.regionDistrictCode || item.region_district_code
+      ? String(item.regionDistrictCode ?? item.region_district_code)
+      : undefined,
     score: Number(item.score ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
     trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? 0),
     adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
@@ -246,10 +275,22 @@ export function writeCurrentReviewAnalysisFromHistory(item: AnalysisHistoryItem)
     analyzedReviewCount: item.selectedReviewCount ?? item.totalReviewCount ?? item.reviewCount ?? 0,
     modelVersion: item.modelVersion ?? "",
     category: item.category,
+    categoryKoLabel: item.categoryKoLabel,
+    categoryEnLabel: item.categoryEnLabel,
+    regionId: item.regionId,
+    regionLabel: item.regionLabel,
+    regionKoLabel: item.regionKoLabel,
+    regionEnLabel: item.regionEnLabel,
+    regionProvinceCode: item.regionProvinceCode,
+    regionDistrictCode: item.regionDistrictCode,
+    hospitalAddress: item.hospitalAddress,
+    roadAddress: item.roadAddress,
+    address: item.address,
     hospitalName: item.hospitalName,
     hospitalNameKo: item.hospitalNameKo,
     hospitalNameEn: item.hospitalNameEn,
     hospitalEnglishName: item.hospitalEnglishName,
+    englishName: item.englishName,
     analyzedAt: item.analyzedAt ?? item.createdAt,
   })
 }

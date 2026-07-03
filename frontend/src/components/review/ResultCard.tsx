@@ -11,6 +11,7 @@ import { ResultScoreSection } from "@/components/result/ResultScoreSection"
 import { useLanguage } from "@/context/LanguageContext"
 import { normalizeAnalysisResult } from "@/lib/analysisResultMapper"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
+import { getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import type { CurrentReviewAnalysis } from "@/lib/types"
 import styles from "@/styles/App.module.css"
@@ -56,7 +57,10 @@ export function ResultCard() {
     )
   }
 
-  const categoryLabel = viewModel.subject.category ? t.categories[viewModel.subject.category] : t.result.title
+  const fallbackCategoryLabel = viewModel.subject.category ? t.categories[viewModel.subject.category] : t.result.title
+  const categoryLabel = analysisResult
+    ? getHistoryMetaText(analysisResult, language, fallbackCategoryLabel)
+    : fallbackCategoryLabel
 
   return (
     <div className={styles.resultStack}>

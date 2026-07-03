@@ -10,7 +10,22 @@ export type ChatbotAnalysisContext = {
   requestId?: string
   resultId?: string
   hospitalName: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
+  englishName?: string
   category: HospitalCategory
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
+  hospitalAddress?: string
+  roadAddress?: string
+  address?: string
   score?: number
   trustScore?: number
   trustLevel?: string
@@ -76,7 +91,22 @@ export function buildChatbotContextFromAnalysis(
     requestId,
     resultId: resultId === undefined ? undefined : String(resultId),
     hospitalName: String(record.hospitalName ?? ""),
+    hospitalNameKo: record.hospitalNameKo ? String(record.hospitalNameKo) : undefined,
+    hospitalNameEn: record.hospitalNameEn ? String(record.hospitalNameEn) : undefined,
+    hospitalEnglishName: record.hospitalEnglishName ? String(record.hospitalEnglishName) : undefined,
+    englishName: record.englishName ? String(record.englishName) : undefined,
     category: item.category,
+    categoryKoLabel: record.categoryKoLabel ? String(record.categoryKoLabel) : undefined,
+    categoryEnLabel: record.categoryEnLabel ? String(record.categoryEnLabel) : undefined,
+    regionId: record.regionId ? String(record.regionId) : undefined,
+    regionLabel: record.regionLabel ? String(record.regionLabel) : undefined,
+    regionKoLabel: record.regionKoLabel ? String(record.regionKoLabel) : undefined,
+    regionEnLabel: record.regionEnLabel ? String(record.regionEnLabel) : undefined,
+    regionProvinceCode: record.regionProvinceCode ? String(record.regionProvinceCode) : undefined,
+    regionDistrictCode: record.regionDistrictCode ? String(record.regionDistrictCode) : undefined,
+    hospitalAddress: record.hospitalAddress ? String(record.hospitalAddress) : undefined,
+    roadAddress: record.roadAddress ? String(record.roadAddress) : undefined,
+    address: record.address ? String(record.address) : undefined,
     score: numberFrom(record.score ?? record.totalScore),
     trustScore: numberFrom(record.trustScore ?? record.score),
     trustLevel: record.trustLevel ? String(record.trustLevel) : undefined,

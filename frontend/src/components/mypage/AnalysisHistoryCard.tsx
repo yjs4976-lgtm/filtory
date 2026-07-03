@@ -12,6 +12,7 @@ import {
   writeSelectedChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
+import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import type { AnalysisHistoryItem } from "@/lib/types"
@@ -36,6 +37,8 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
     caution: t.analyze.caution,
   })
   const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language)
+  const hospitalName = getHistoryHospitalName(item, language)
+  const metaText = getHistoryMetaText(item, language, t.categories[item.category])
   const askWithResult = () => {
     const analysisResultId = getAnalysisResultId(item)
     if (analysisResultId) {
@@ -53,9 +56,9 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
     <article className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.rowBetween}>
         <div>
-          <h2 className={styles.titleMd}>{item.hospitalName}</h2>
+          <h2 className={styles.titleMd}>{hospitalName}</h2>
           <p className={styles.bodyText}>
-            {t.categories[item.category]} · {date}
+            {metaText} · {date}
           </p>
         </div>
         <span className={styles.scoreSmall}>{trustScore}{t.mypage.pointsSuffix}</span>

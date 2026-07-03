@@ -12,6 +12,7 @@ import {
   type ChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
+import { getHistoryHospitalName } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { sendChatMessage } from "@/services/chatbotService"
 import { ChatBubble } from "./ChatBubble"
@@ -55,7 +56,9 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     connectedAnalysisResultId && selectedAnalysisResult
       ? getAnalysisResultId(selectedAnalysisResult) === connectedAnalysisResultId
       : true
-  const connectedHospitalName = selectedResultMatchesUrl ? selectedAnalysisResult?.hospitalName : undefined
+  const connectedHospitalName = selectedResultMatchesUrl && selectedAnalysisResult
+    ? getHistoryHospitalName(selectedAnalysisResult, language)
+    : undefined
   const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
   const visibleRecommendedQuestions = isAnalysisConnected
     ? t.chatbot.linkedExamples
