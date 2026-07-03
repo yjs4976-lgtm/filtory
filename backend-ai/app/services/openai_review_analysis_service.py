@@ -109,8 +109,8 @@ class OpenAIReviewAnalysisService:
         r"영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)",
         r"통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)",
         r"외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)",
-        r"(no|not|without).{0,12}(english|interpreter|translation|foreigner)",
-        r"(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)",
+        r"(no|not|without).{0,32}(english|interpreter|translation|foreigner)",
+        r"(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)",
     ]
 
     @classmethod

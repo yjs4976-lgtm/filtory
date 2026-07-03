@@ -142,8 +142,8 @@ function englishGuidanceStatusFromText(value?: string): boolean | undefined {
     /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
     /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
     /외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)/,
-    /(no|not|without).{0,12}(english|interpreter|translation|foreigner)/,
-    /(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)/,
+    /(no|not|without).{0,32}(english|interpreter|translation|foreigner)/,
+    /(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)/,
   ]
 
   if (negativePatterns.some((pattern) => pattern.test(text))) {
@@ -159,7 +159,7 @@ function hasEnglishGuidanceContext(value?: string) {
   const text = value?.trim().toLowerCase()
   if (!text) return false
 
-  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내|영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)|(no|not|without).{0,12}(english|interpreter|translation|foreigner)|(english|interpreter|translation|foreigner).{0,12}(not available|unavailable|unsupported)/i.test(text)
+  return /english|영어 안내|외국어|통역|foreigner|international|multilingual|interpreter|translation|외국인 진료|외국어 안내|영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)|외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)|(no|not|without).{0,32}(english|interpreter|translation|foreigner)|(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)/i.test(text)
 }
 
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {

@@ -47,6 +47,15 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["englishGuide"], "notConfirmed")
 
+    def test_english_negative_guidance_sentence_is_not_confirmed(self):
+        payload = make_payload(
+            reviews=["The treatment was fine, but English support was not available."]
+        )
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "notConfirmed")
+
     def test_foreigner_score_accepts_user_photo_info(self):
         payload = make_payload(hasPhotos=True)
 
