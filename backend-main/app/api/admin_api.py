@@ -41,7 +41,7 @@ def list_review_cases():
     pagination = get_pagination_params(request.args)
 
     try:
-        review_cases = AdminService.list_review_cases(
+        review_cases, total = AdminService.list_review_cases(
             keyword=request.args.get("q") or request.args.get("keyword"),
             status=request.args.get("status"),
             case_type=request.args.get("caseType") or request.args.get("type"),
@@ -50,7 +50,7 @@ def list_review_cases():
         )
         return success_response(
             data=review_cases,
-            meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(review_cases)),
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
         )
     except ValueError as e:
         return error_response(str(e), 400)
@@ -79,7 +79,7 @@ def list_hospitals():
     pagination = get_pagination_params(request.args)
 
     try:
-        hospitals = AdminService.list_hospitals(
+        hospitals, total = AdminService.list_hospitals(
             keyword=request.args.get("q") or request.args.get("keyword"),
             category=request.args.get("category"),
             status=request.args.get("status"),
@@ -88,7 +88,7 @@ def list_hospitals():
         )
         return success_response(
             data=hospitals,
-            meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(hospitals)),
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
         )
     except ValueError as e:
         return error_response(str(e), 400)

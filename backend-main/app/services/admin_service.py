@@ -18,8 +18,8 @@ class AdminService:
         "manual_review",
         "other",
     }
-    REVIEW_CASE_STATUSES = {"pending", "reviewing", "resolved", "rejected", "ignored", "hidden"}
-    REVIEW_CASE_FINAL_STATUSES = {"resolved", "rejected", "ignored", "hidden"}
+    REVIEW_CASE_STATUSES = {"pending", "reviewing", "resolved"}
+    REVIEW_CASE_FINAL_STATUSES = {"resolved"}
     HOSPITAL_CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
     HOSPITAL_STATUSES = {"active", "needs_review", "hidden", "archived"}
 
@@ -122,14 +122,14 @@ class AdminService:
     def list_review_cases(keyword=None, status=None, case_type=None, limit=20, offset=0):
         normalized_status = AdminService._normalize_review_case_status(status) if status else None
         normalized_case_type = AdminService._normalize_review_case_type(case_type) if case_type else None
-        cases = AdminRepository.list_review_cases(
+        cases, total = AdminRepository.list_review_cases(
             keyword=keyword,
             status=normalized_status,
             case_type=normalized_case_type,
             limit=limit,
             offset=offset,
         )
-        return [AdminService._review_case_to_dict(review_case) for review_case in cases]
+        return [AdminService._review_case_to_dict(review_case) for review_case in cases], total
 
     @staticmethod
     def update_review_case_status(case_id, status, admin_member_id, admin_memo=None):
@@ -183,14 +183,14 @@ class AdminService:
     def list_hospitals(keyword=None, category=None, status=None, limit=20, offset=0):
         normalized_category = AdminService._normalize_hospital_category(category) if category else None
         normalized_status = AdminService._normalize_hospital_status(status) if status else None
-        hospitals = AdminRepository.list_hospitals(
+        hospitals, total = AdminRepository.list_hospitals(
             keyword=keyword,
             category=normalized_category,
             status=normalized_status,
             limit=limit,
             offset=offset,
         )
-        return [AdminService._hospital_to_admin_dict(hospital) for hospital in hospitals]
+        return [AdminService._hospital_to_admin_dict(hospital) for hospital in hospitals], total
 
     @staticmethod
     def update_hospital(hospital_id, payload, admin_member_id):

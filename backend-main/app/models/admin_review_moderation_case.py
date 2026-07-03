@@ -20,10 +20,7 @@ class AdminReviewModerationCase(db.Model):
             """status in (
               'pending',
               'reviewing',
-              'resolved',
-              'rejected',
-              'ignored',
-              'hidden'
+              'resolved'
             )""",
             name="admin_review_moderation_cases_status_check",
         ),
@@ -46,7 +43,7 @@ class AdminReviewModerationCase(db.Model):
     hospital_id = db.Column(db.BigInteger, db.ForeignKey("public.hospitals.id", ondelete="CASCADE"))
     review_id = db.Column(db.BigInteger, db.ForeignKey("public.reviews.id", ondelete="CASCADE"))
     analysis_result_id = db.Column(db.BigInteger, db.ForeignKey("public.analysis_results.id", ondelete="CASCADE"))
-    review_report_id = db.Column(db.BigInteger, db.ForeignKey("public.review_reports.id", ondelete="SET NULL"))
+    review_report_id = db.Column(db.BigInteger, db.ForeignKey("public.review_reports.id", ondelete="CASCADE"))
     case_type = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(30), nullable=False, default="pending", server_default="pending")
     priority = db.Column(db.String(20), nullable=False, default="normal", server_default="normal")

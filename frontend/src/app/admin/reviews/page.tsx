@@ -12,14 +12,17 @@ import {
   type AdminReviewStatus,
 } from "@/services/adminReviewService"
 
-const STATUS_OPTIONS: AdminReviewStatus[] = ["pending", "reviewing", "resolved", "rejected", "hidden"]
+const STATUS_OPTIONS: AdminReviewStatus[] = ["pending", "reviewing", "resolved"]
 const CASE_TYPE_OPTIONS: AdminReviewCaseType[] = [
   "ad_suspicion",
   "repetition_pattern",
+  "inappropriate_content",
   "user_report",
   "wrong_hospital_info",
   "manual_review",
+  "other",
 ]
+const PAGE_SIZE = 20
 
 function formatDate(value?: string | null) {
   if (!value) return "-"
@@ -37,6 +40,8 @@ export default function AdminReviewsPage() {
   const { t, language } = useLanguage()
   const [filters, setFilters] = useState<AdminReviewFilters>({ status: "all", caseType: "all" })
   const [reviewCases, setReviewCases] = useState<AdminReviewCase[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const labels = language === "en" ? enLabels : koLabels
@@ -45,13 +50,15 @@ export default function AdminReviewsPage() {
     try {
       setIsLoading(true)
       setError("")
-      setReviewCases(await adminReviewService.getReviewCases(filters))
+      const result = await adminReviewService.getReviewCases({ ...filters, page, perPage: PAGE_SIZE })
+      setReviewCases(result.items)
+      setTotal(result.total)
     } catch (error) {
       setError(error instanceof Error ? error.message : t.admin.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [filters, t.admin.loadFailed])
+  }, [filters, page, t.admin.loadFailed])
 
   useEffect(() => {
     const timer = window.setTimeout(loadData, 0)
@@ -63,11 +70,18 @@ export default function AdminReviewsPage() {
     await loadData()
   }
 
+  const updateFilters = (nextFilters: AdminReviewFilters) => {
+    setFilters(nextFilters)
+    setPage(1)
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
   return (
     <AdminAppShell title={t.admin.reviews}>
       <AdminGuard>
         <section className="page-title">
-          <p className="eyebrow">ADMIN REVIEWS</p>
+          <p className="eyebrow">ADMIN QUALITY</p>
           <h1>{t.admin.reviewsTitle}</h1>
           <p>{t.admin.reviewsDescription}</p>
         </section>
@@ -78,11 +92,11 @@ export default function AdminReviewsPage() {
             <input
               value={filters.keyword ?? ""}
               placeholder={labels.searchPlaceholder}
-              onChange={(event) => setFilters({ ...filters, keyword: event.target.value })}
+              onChange={(event) => updateFilters({ ...filters, keyword: event.target.value })}
             />
             <select
               value={filters.status ?? "all"}
-              onChange={(event) => setFilters({ ...filters, status: event.target.value as AdminReviewFilters["status"] })}
+              onChange={(event) => updateFilters({ ...filters, status: event.target.value as AdminReviewFilters["status"] })}
             >
               <option value="all">{labels.allStatuses}</option>
               {STATUS_OPTIONS.map((status) => (
@@ -93,7 +107,7 @@ export default function AdminReviewsPage() {
             </select>
             <select
               value={filters.caseType ?? "all"}
-              onChange={(event) => setFilters({ ...filters, caseType: event.target.value as AdminReviewFilters["caseType"] })}
+              onChange={(event) => updateFilters({ ...filters, caseType: event.target.value as AdminReviewFilters["caseType"] })}
             >
               <option value="all">{labels.allTypes}</option>
               {CASE_TYPE_OPTIONS.map((caseType) => (
@@ -112,7 +126,7 @@ export default function AdminReviewsPage() {
           <section className="soft-card admin-table-card">
             <div className="admin-card-title-row">
               <h2>{labels.listTitle}</h2>
-              <span>{reviewCases.length}{labels.countSuffix}</span>
+              <span>{total}{labels.countSuffix}</span>
             </div>
 
             <div className="table-scroll">
@@ -146,6 +160,30 @@ export default function AdminReviewsPage() {
                 </tbody>
               </table>
             </div>
+
+            {total > PAGE_SIZE && (
+              <div className="admin-pagination-area" aria-label={labels.paginationLabel}>
+                <div className="admin-pagination-controls">
+                  <button
+                    type="button"
+                    className="admin-pagination-button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    {labels.previousPage}
+                  </button>
+                  <span className="admin-pagination-info">{page} / {totalPages}</span>
+                  <button
+                    type="button"
+                    className="admin-pagination-button admin-pagination-button-primary"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  >
+                    {labels.nextPage}
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </AdminGuard>
@@ -222,71 +260,71 @@ function ReviewCaseRow({
 }
 
 const koLabels = {
-  filterTitle: "검토 필터",
-  searchPlaceholder: "병원명, 리뷰, 신고 사유 검색",
+  filterTitle: "품질 확인 필터",
+  searchPlaceholder: "병원명, 분석 근거, 사용자 피드백 검색",
   allStatuses: "전체 상태",
   allTypes: "전체 유형",
-  listTitle: "검토 큐",
+  listTitle: "품질 확인 큐",
   countSuffix: "건",
   caseColumn: "유형",
   hospitalColumn: "병원",
-  reviewColumn: "리뷰/사유",
+  reviewColumn: "분석 근거/피드백",
   scoreColumn: "점수",
   statusColumn: "상태",
   memoColumn: "관리자 메모",
   memoPlaceholder: "처리 메모",
   save: "저장",
-  empty: "검토할 리뷰가 없습니다.",
+  empty: "확인할 분석 품질 항목이 없습니다.",
+  paginationLabel: "품질 확인 큐 페이지",
+  previousPage: "이전",
+  nextPage: "다음",
   status: {
-    pending: "대기",
-    reviewing: "검토중",
-    resolved: "해결",
-    rejected: "반려",
-    ignored: "무시",
-    hidden: "숨김",
+    pending: "확인 필요",
+    reviewing: "검토 중",
+    resolved: "처리 완료",
   },
   caseType: {
-    ad_suspicion: "광고 의심",
-    repetition_pattern: "반복 패턴",
-    inappropriate_content: "부적절",
-    user_report: "사용자 신고",
+    ad_suspicion: "광고 의심 신호",
+    repetition_pattern: "반복 패턴 신호",
+    inappropriate_content: "부적절한 분석 근거",
+    user_report: "사용자 피드백",
     wrong_hospital_info: "병원 정보 오류",
-    manual_review: "수동 검토",
+    manual_review: "수동 품질 확인",
     other: "기타",
   },
 }
 
 const enLabels: typeof koLabels = {
-  filterTitle: "Review filters",
-  searchPlaceholder: "Search clinic, review, or report reason",
+  filterTitle: "Quality filters",
+  searchPlaceholder: "Search clinic, analysis evidence, or user feedback",
   allStatuses: "All statuses",
   allTypes: "All types",
-  listTitle: "Moderation queue",
+  listTitle: "Quality check queue",
   countSuffix: " cases",
   caseColumn: "Type",
   hospitalColumn: "Clinic",
-  reviewColumn: "Review / reason",
+  reviewColumn: "Evidence / feedback",
   scoreColumn: "Score",
   statusColumn: "Status",
   memoColumn: "Admin memo",
   memoPlaceholder: "Processing memo",
   save: "Save",
-  empty: "No reviews need moderation.",
+  empty: "No analysis quality items need review.",
+  paginationLabel: "Quality queue pages",
+  previousPage: "Previous",
+  nextPage: "Next",
   status: {
-    pending: "Pending",
+    pending: "Needs check",
     reviewing: "Reviewing",
-    resolved: "Resolved",
-    rejected: "Rejected",
-    ignored: "Ignored",
-    hidden: "Hidden",
+    resolved: "Done",
   },
   caseType: {
-    ad_suspicion: "Ad suspicion",
-    repetition_pattern: "Repeated pattern",
-    inappropriate_content: "Inappropriate",
-    user_report: "User report",
+    ad_suspicion: "Ad suspicion signal",
+    repetition_pattern: "Repeated pattern signal",
+    inappropriate_content: "Inappropriate evidence",
+    user_report: "User feedback",
     wrong_hospital_info: "Wrong clinic info",
-    manual_review: "Manual review",
+    manual_review: "Manual quality check",
     other: "Other",
   },
 }

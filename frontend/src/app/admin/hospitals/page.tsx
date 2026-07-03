@@ -15,6 +15,7 @@ import {
 
 const CATEGORY_OPTIONS: AdminHospitalCategory[] = ["dermatology", "ophthalmology", "dentistry"]
 const STATUS_OPTIONS: AdminHospitalStatus[] = ["active", "needs_review", "hidden", "archived"]
+const PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 
 function formatDate(value?: string | null) {
   if (!value) return "-"
@@ -27,6 +28,9 @@ export default function AdminHospitalsPage() {
   const { t, language } = useLanguage()
   const [filters, setFilters] = useState<AdminHospitalFilters>({ category: "all", status: "all" })
   const [hospitals, setHospitals] = useState<AdminHospital[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(5)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const labels = language === "en" ? enLabels : koLabels
@@ -35,13 +39,15 @@ export default function AdminHospitalsPage() {
     try {
       setIsLoading(true)
       setError("")
-      setHospitals(await adminHospitalService.getHospitals(filters))
+      const result = await adminHospitalService.getHospitals({ ...filters, page, perPage: pageSize })
+      setHospitals(result.items)
+      setTotal(result.total)
     } catch (error) {
       setError(error instanceof Error ? error.message : t.admin.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [filters, t.admin.loadFailed])
+  }, [filters, page, pageSize, t.admin.loadFailed])
 
   useEffect(() => {
     const timer = window.setTimeout(loadData, 0)
@@ -52,6 +58,21 @@ export default function AdminHospitalsPage() {
     await adminHospitalService.updateHospital(hospitalId, payload)
     await loadData()
   }
+
+  const updateFilters = (nextFilters: AdminHospitalFilters) => {
+    setFilters(nextFilters)
+    setPage(1)
+  }
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value) as (typeof PAGE_SIZE_OPTIONS)[number])
+    setPage(1)
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const rangeStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const rangeEnd = Math.min(safePage * pageSize, total)
 
   return (
     <AdminAppShell title={t.admin.hospitals}>
@@ -68,11 +89,11 @@ export default function AdminHospitalsPage() {
             <input
               value={filters.keyword ?? ""}
               placeholder={labels.searchPlaceholder}
-              onChange={(event) => setFilters({ ...filters, keyword: event.target.value })}
+              onChange={(event) => updateFilters({ ...filters, keyword: event.target.value })}
             />
             <select
               value={filters.category ?? "all"}
-              onChange={(event) => setFilters({ ...filters, category: event.target.value as AdminHospitalFilters["category"] })}
+              onChange={(event) => updateFilters({ ...filters, category: event.target.value as AdminHospitalFilters["category"] })}
             >
               <option value="all">{labels.allCategories}</option>
               {CATEGORY_OPTIONS.map((category) => (
@@ -83,7 +104,7 @@ export default function AdminHospitalsPage() {
             </select>
             <select
               value={filters.status ?? "all"}
-              onChange={(event) => setFilters({ ...filters, status: event.target.value as AdminHospitalFilters["status"] })}
+              onChange={(event) => updateFilters({ ...filters, status: event.target.value as AdminHospitalFilters["status"] })}
             >
               <option value="all">{labels.allStatuses}</option>
               {STATUS_OPTIONS.map((status) => (
@@ -102,7 +123,7 @@ export default function AdminHospitalsPage() {
           <section className="soft-card admin-table-card">
             <div className="admin-card-title-row">
               <h2>{labels.listTitle}</h2>
-              <span>{hospitals.length}{labels.countSuffix}</span>
+              <span>{total}{labels.countSuffix}</span>
             </div>
 
             <div className="table-scroll">
@@ -131,6 +152,45 @@ export default function AdminHospitalsPage() {
                 </tbody>
               </table>
             </div>
+
+            {total > 0 && (
+              <div className="admin-pagination-area" aria-label={labels.paginationLabel}>
+                <div className="admin-pagination-controls">
+                  <button
+                    type="button"
+                    className="admin-pagination-button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    {labels.previousPage}
+                  </button>
+                  <span className="admin-pagination-info">{safePage} / {totalPages}</span>
+                  <button
+                    type="button"
+                    className="admin-pagination-button admin-pagination-button-primary"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  >
+                    {labels.nextPage}
+                  </button>
+                </div>
+                <select
+                  className="admin-page-size-select"
+                  value={pageSize}
+                  aria-label={labels.pageSizeLabel}
+                  onChange={(event) => handlePageSizeChange(event.target.value)}
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {labels.perPage.replace("{count}", String(option))}
+                    </option>
+                  ))}
+                </select>
+                <p className="admin-pagination-range">
+                  {rangeStart}-{rangeEnd} / {total}{labels.countSuffix}
+                </p>
+              </div>
+            )}
           </section>
         )}
       </AdminGuard>
@@ -274,6 +334,11 @@ const koLabels = {
   unverified: "미검증",
   verifiedAt: "{date} 검증",
   empty: "검색된 병원이 없습니다.",
+  paginationLabel: "병원 목록 페이지",
+  previousPage: "이전",
+  nextPage: "다음",
+  pageSizeLabel: "페이지당 병원 수",
+  perPage: "{count}개씩 보기",
   category: {
     dermatology: "피부과",
     ophthalmology: "안과",
@@ -310,6 +375,11 @@ const enLabels: typeof koLabels = {
   unverified: "Unverified",
   verifiedAt: "Verified {date}",
   empty: "No clinics found.",
+  paginationLabel: "Clinic list pages",
+  previousPage: "Previous",
+  nextPage: "Next",
+  pageSizeLabel: "Clinics per page",
+  perPage: "{count} per page",
   category: {
     dermatology: "Dermatology",
     ophthalmology: "Ophthalmology",

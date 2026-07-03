@@ -19,7 +19,7 @@ create table if not exists public.admin_review_moderation_cases (
     references public.analysis_results(id) on delete cascade,
 
   review_report_id bigint
-    references public.review_reports(id) on delete set null,
+    references public.review_reports(id) on delete cascade,
 
   case_type varchar(50) not null,
   status varchar(30) not null default 'pending',
@@ -55,10 +55,7 @@ create table if not exists public.admin_review_moderation_cases (
     check (status in (
       'pending',
       'reviewing',
-      'resolved',
-      'rejected',
-      'ignored',
-      'hidden'
+      'resolved'
     )),
 
   constraint admin_review_moderation_cases_priority_check

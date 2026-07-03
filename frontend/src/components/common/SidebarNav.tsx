@@ -58,7 +58,6 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
     { href: ROUTES.ADMIN, label: t.admin.dashboard, icon: BarChart3 },
     { href: ROUTES.ADMIN_USERS, label: t.admin.users, icon: UsersRound },
     { href: ROUTES.ADMIN_REVIEWS, label: t.admin.reviews, icon: ClipboardList },
-    { href: ROUTES.ADMIN_REPORTS, label: t.admin.reports, icon: ShieldCheck },
     { href: ROUTES.ADMIN_HOSPITALS, label: t.admin.hospitals, icon: HeartPulse },
   ]
 

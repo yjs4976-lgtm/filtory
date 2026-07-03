@@ -18,7 +18,7 @@ class SavedHospitalService:
             raise ValueError("hospital_id is required")
 
         hospital = HospitalRepository.get_by_id(hospital_id)
-        if not hospital:
+        if not HospitalRepository.is_publicly_available(hospital):
             raise ValueError("Hospital not found")
 
         existing = SavedHospitalRepository.get_by_member_and_hospital(member_id, hospital_id)

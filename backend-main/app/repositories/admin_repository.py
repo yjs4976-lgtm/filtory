@@ -90,12 +90,28 @@ class AdminRepository:
 
     @staticmethod
     def list_review_cases(keyword=None, status=None, case_type=None, limit=20, offset=0):
-        query = AdminReviewModerationCase.query.options(
-            joinedload(AdminReviewModerationCase.hospital),
-            joinedload(AdminReviewModerationCase.review),
-            joinedload(AdminReviewModerationCase.analysis_result),
-            joinedload(AdminReviewModerationCase.review_report),
+        query = AdminRepository._review_cases_query(keyword=keyword, status=status, case_type=case_type)
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(AdminReviewModerationCase.hospital),
+                joinedload(AdminReviewModerationCase.review),
+                joinedload(AdminReviewModerationCase.analysis_result),
+                joinedload(AdminReviewModerationCase.review_report),
+            )
+            .order_by(
+                AdminReviewModerationCase.status.asc(),
+                AdminReviewModerationCase.created_at.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+            .all()
         )
+        return items, total
+
+    @staticmethod
+    def _review_cases_query(keyword=None, status=None, case_type=None):
+        query = AdminReviewModerationCase.query
 
         if status:
             query = query.filter(AdminReviewModerationCase.status == status)
@@ -120,15 +136,42 @@ class AdminRepository:
                 )
             )
 
-        return (
-            query.order_by(
-                AdminReviewModerationCase.status.asc(),
-                AdminReviewModerationCase.created_at.desc(),
+        return query
+
+    @staticmethod
+    def list_hospitals(keyword=None, category=None, status=None, limit=20, offset=0):
+        query = AdminRepository._hospitals_query(keyword=keyword, category=category, status=status)
+        total = query.count()
+        items = query.order_by(Hospital.updated_at.desc(), Hospital.id.desc()).limit(limit).offset(offset).all()
+        return items, total
+
+    @staticmethod
+    def _hospitals_query(keyword=None, category=None, status=None):
+        query = Hospital.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = query.filter(
+                or_(
+                    Hospital.hospital_name.ilike(pattern),
+                    Hospital.english_name.ilike(pattern),
+                    Hospital.region.ilike(pattern),
+                    Hospital.address.ilike(pattern),
+                    Hospital.road_address.ilike(pattern),
+                    Hospital.naver_place_url.ilike(pattern),
+                    Hospital.kakao_place_url.ilike(pattern),
+                    Hospital.google_map_url.ilike(pattern),
+                    Hospital.homepage_url.ilike(pattern),
+                )
             )
-            .limit(limit)
-            .offset(offset)
-            .all()
-        )
+
+        if category:
+            query = query.filter(Hospital.category == category)
+
+        if status:
+            query = query.filter(Hospital.admin_status == status)
+
+        return query
 
     @staticmethod
     def update_review_case(review_case, data):
@@ -167,34 +210,6 @@ class AdminRepository:
     @staticmethod
     def get_hospital_by_id(hospital_id):
         return db.session.get(Hospital, hospital_id)
-
-    @staticmethod
-    def list_hospitals(keyword=None, category=None, status=None, limit=20, offset=0):
-        query = Hospital.query
-
-        if keyword:
-            pattern = f"%{keyword.strip()}%"
-            query = query.filter(
-                or_(
-                    Hospital.hospital_name.ilike(pattern),
-                    Hospital.english_name.ilike(pattern),
-                    Hospital.region.ilike(pattern),
-                    Hospital.address.ilike(pattern),
-                    Hospital.road_address.ilike(pattern),
-                    Hospital.naver_place_url.ilike(pattern),
-                    Hospital.kakao_place_url.ilike(pattern),
-                    Hospital.google_map_url.ilike(pattern),
-                    Hospital.homepage_url.ilike(pattern),
-                )
-            )
-
-        if category:
-            query = query.filter(Hospital.category == category)
-
-        if status:
-            query = query.filter(Hospital.admin_status == status)
-
-        return query.order_by(Hospital.updated_at.desc(), Hospital.id.desc()).limit(limit).offset(offset).all()
 
     @staticmethod
     def update_hospital(hospital, data):

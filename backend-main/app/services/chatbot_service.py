@@ -201,6 +201,8 @@ class ChatbotService:
         raw_response = evidence_json.get("rawResponse") if isinstance(evidence_json.get("rawResponse"), dict) else {}
         evidence = raw_response.get("evidence") if isinstance(raw_response.get("evidence"), dict) else {}
         hospital = analysis_result.hospital
+        if hospital and (hospital.admin_status or "active") != "active":
+            raise ValueError("Analysis result not found or not accessible")
         request_options = (
             analysis_result.analysis_request.request_options_json
             if analysis_result.analysis_request and isinstance(analysis_result.analysis_request.request_options_json, dict)

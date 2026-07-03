@@ -30,6 +30,15 @@ export type AdminHospitalFilters = {
   keyword?: string
   category?: "all" | AdminHospitalCategory
   status?: "all" | AdminHospitalStatus
+  page?: number
+  perPage?: number
+}
+
+export type AdminPaginatedResult<T> = {
+  items: T[]
+  total: number
+  page: number
+  perPage: number
 }
 
 export type AdminHospitalUpdatePayload = Partial<
@@ -61,12 +70,19 @@ export const adminHospitalService = {
     if (filters.keyword?.trim()) params.set("keyword", filters.keyword.trim())
     if (filters.category && filters.category !== "all") params.set("category", filters.category)
     if (filters.status && filters.status !== "all") params.set("status", filters.status)
+    if (filters.page) params.set("page", String(filters.page))
+    if (filters.perPage) params.set("per_page", String(filters.perPage))
 
     const query = params.toString()
     const result = await apiClient<AdminHospital[]>(`/api/admin/hospitals${query ? `?${query}` : ""}`, {
       auth: true,
     })
-    return result.data
+    return {
+      items: result.data,
+      total: result.meta?.count ?? result.data.length,
+      page: result.meta?.page ?? filters.page ?? 1,
+      perPage: result.meta?.per_page ?? filters.perPage ?? 20,
+    } satisfies AdminPaginatedResult<AdminHospital>
   },
 
   async updateHospital(id: number, payload: AdminHospitalUpdatePayload) {
