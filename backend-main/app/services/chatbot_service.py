@@ -51,7 +51,7 @@ class ChatbotService:
         "englishName": "영문 병원명",
         "englishGuide": "영어 안내",
         "englishReviews": "영어 리뷰 참고 가능",
-        "googleMapLink": "구글맵 링크",
+        "googleMapLink": "지도 위치 정보",
         "googlePlaceId": "구글 장소 정보",
         "homepageOrBookingLink": "홈페이지/예약 링크",
         "photoInfo": "방문 전 사진 참고자료",

@@ -609,7 +609,7 @@ export const translations = {
       low: "낮음",
       caution: "주의",
       globalAccessibilityItems: {
-        googleMapLink: "지도 링크",
+        googleMapLink: "지도 위치 정보",
         googlePlaceId: "지도 장소 ID",
         englishName: "병원 영문명",
         englishGuide: "영어 안내",
@@ -1835,7 +1835,7 @@ export const translations = {
       low: "Low",
       caution: "Caution",
       globalAccessibilityItems: {
-        googleMapLink: "Map link",
+        googleMapLink: "Map location information",
         googlePlaceId: "Map place ID",
         englishName: "English hospital name",
         englishGuide: "English guidance",

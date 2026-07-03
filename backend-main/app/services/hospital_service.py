@@ -6,6 +6,13 @@ from app.services.hospital_search_provider import HospitalSearchProvider
 
 class HospitalService:
     CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
+    USER_ENRICHMENT_FIELDS = {
+        "homepage_url",
+        "english_name",
+        "has_english_info",
+        "has_english_reviews",
+        "has_photos",
+    }
     CATEGORY_ALIASES = {
         "derma": "dermatology",
         "skin": "dermatology",
@@ -134,10 +141,19 @@ class HospitalService:
         if hospital:
             return hospital
 
-        data = extract_hospital_data(payload)
+        data = HospitalService._analysis_hospital_data(payload)
         data["category"] = category
         HospitalService._validate_hospital_data(data, require_name=True)
         return HospitalRepository.create(data)
+
+    @staticmethod
+    def _analysis_hospital_data(payload):
+        data = extract_hospital_data(payload)
+        return {
+            key: value
+            for key, value in data.items()
+            if key not in HospitalService.USER_ENRICHMENT_FIELDS
+        }
 
     @staticmethod
     def update_hospital(hospital_id, payload):
