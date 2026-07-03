@@ -14,6 +14,11 @@ function toFiveStarScore(score?: number, maxScore?: number) {
   return Math.max(0, Math.min(5, Math.round((score / resolvedMax) * 5)))
 }
 
+function optionalNumber(value: unknown) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : undefined
+}
+
 function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHistoryItem | null {
   const rawName = item.hospitalName ?? item.hospital_name ?? item.name
   const hospitalName =
@@ -79,8 +84,36 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     regionDistrictCode: item.regionDistrictCode || item.region_district_code
       ? String(item.regionDistrictCode ?? item.region_district_code)
       : undefined,
-    score: Number(item.score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
-    trustScore: Number(item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
+    score: Number(item.score ?? item.reviewTrustScore ?? item.review_trust_score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
+    trustScore: Number(item.reviewTrustScore ?? item.review_trust_score ?? item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
+    reviewTrustScore: optionalNumber(item.reviewTrustScore ?? item.review_trust_score),
+    evidenceScore: optionalNumber(item.evidenceScore ?? item.evidence_score),
+    riskScore: optionalNumber(item.riskScore ?? item.risk_score),
+    specificityScore: optionalNumber(item.specificityScore ?? item.specificity_score),
+    balanceScore: optionalNumber(item.balanceScore ?? item.balance_score),
+    diversityScore: optionalNumber(item.diversityScore ?? item.diversity_score),
+    informativeScore: optionalNumber(item.informativeScore ?? item.informative_score),
+    naturalnessScore: optionalNumber(item.naturalnessScore ?? item.naturalness_score),
+    promoSignalScore: optionalNumber(item.promoSignalScore ?? item.promo_signal_score),
+    repetitionScore: optionalNumber(item.repetitionScore ?? item.repetition_score),
+    exaggerationScore: optionalNumber(item.exaggerationScore ?? item.exaggeration_score),
+    eventDiscountScore: optionalNumber(item.eventDiscountScore ?? item.event_discount_score),
+    reviewBurstScore:
+      item.reviewBurstScore === null || item.review_burst_score === null
+        ? null
+        : optionalNumber(item.reviewBurstScore ?? item.review_burst_score),
+    reviewBurstStatus: item.reviewBurstStatus || item.review_burst_status
+      ? String(item.reviewBurstStatus ?? item.review_burst_status)
+      : undefined,
+    analysisConfidence: item.analysisConfidence || item.analysis_confidence
+      ? String(item.analysisConfidence ?? item.analysis_confidence)
+      : undefined,
+    analysisConfidenceDescription: item.analysisConfidenceDescription || item.analysis_confidence_description
+      ? String(item.analysisConfidenceDescription ?? item.analysis_confidence_description)
+      : undefined,
+    scoreBreakdown: item.scoreBreakdown && typeof item.scoreBreakdown === "object"
+      ? item.scoreBreakdown as AnalysisHistoryItem["scoreBreakdown"]
+      : undefined,
     adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
     informationScore: Number(item.informationScore ?? item.information_score ?? item.placeScore ?? item.place_score ?? 0),
     globalAccessibilityScore,

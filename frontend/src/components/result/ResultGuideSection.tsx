@@ -2,6 +2,7 @@
 
 import { FileText, Info, RotateCcw, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
+import type { ReactNode } from "react"
 import { useLanguage } from "@/context/LanguageContext"
 import type { AnalysisResultViewModel } from "@/lib/analysisResultMapper"
 import { ROUTES } from "@/lib/routes"
@@ -11,6 +12,28 @@ type ResultGuideSectionProps = {
   viewModel: AnalysisResultViewModel
 }
 
+function ResultAccordion({
+  title,
+  icon,
+  children,
+}: {
+  title: string
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <details className={styles.resultAccordion}>
+      <summary className={styles.resultAccordionSummary}>
+        <span className={styles.row}>
+          {icon}
+          <strong>{title}</strong>
+        </span>
+      </summary>
+      <div className={styles.resultAccordionBody}>{children}</div>
+    </details>
+  )
+}
+
 export function ResultGuideSection({ viewModel }: ResultGuideSectionProps) {
   const router = useRouter()
   const { t } = useLanguage()
@@ -18,32 +41,29 @@ export function ResultGuideSection({ viewModel }: ResultGuideSectionProps) {
   const warnings = Array.from(new Set([...viewModel.signals.negativeSignals, ...viewModel.signals.warningSignals]))
 
   return (
-    <>
-      <section className={`${styles.accentCard} ${styles.stackSm}`}>
-        <div className={styles.row}>
-          <Sparkles className={`${styles.iconSm} ${styles.iconPrimary}`} />
-          <h2 className={styles.titleSm}>{label.summary}</h2>
-        </div>
+    <section className={styles.resultAccordionList}>
+      <ResultAccordion
+        title={label.summaryDetail}
+        icon={<Sparkles className={`${styles.iconSm} ${styles.iconPrimary}`} />}
+      >
         <p className={styles.summaryText}>{viewModel.content.summary}</p>
-      </section>
+      </ResultAccordion>
 
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div className={styles.row}>
-          <Info className={`${styles.iconSm} ${styles.iconPrimary}`} />
-          <h2 className={styles.titleSm}>{label.visitTip}</h2>
-        </div>
+      <ResultAccordion
+        title={label.visitTip}
+        icon={<Info className={`${styles.iconSm} ${styles.iconPrimary}`} />}
+      >
         <p className={styles.summaryText}>{viewModel.content.visitTip}</p>
         <div className={styles.resultGuideNote}>
           <strong>{label.recommendation}</strong>
           <p>{viewModel.content.recommendation}</p>
         </div>
-      </section>
+      </ResultAccordion>
 
-      <section className={`${styles.card} ${styles.stackSm}`}>
-        <div className={styles.row}>
-          <FileText className={`${styles.iconSm} ${styles.mintText}`} />
-          <h2 className={styles.titleSm}>{label.warning}</h2>
-        </div>
+      <ResultAccordion
+        title={label.warningDetail}
+        icon={<FileText className={`${styles.iconSm} ${styles.mintText}`} />}
+      >
         {warnings.length > 0 ? (
           <ul className={styles.list}>
             {warnings.map((item) => (
@@ -56,7 +76,7 @@ export function ResultGuideSection({ viewModel }: ResultGuideSectionProps) {
         ) : (
           <p className={styles.resultEmptyText}>{label.noWarning}</p>
         )}
-      </section>
+      </ResultAccordion>
 
       <div className={styles.note}>
         <Info className={styles.iconXs} />
@@ -64,15 +84,11 @@ export function ResultGuideSection({ viewModel }: ResultGuideSectionProps) {
       </div>
 
       <div className={styles.stackSm}>
-        <button type="button" className={styles.primaryButton}>
-          <FileText className={styles.iconSm} />
-          {label.detail}
-        </button>
         <button type="button" onClick={() => router.push(ROUTES.ANALYZE)} className={styles.secondaryButton}>
           <RotateCcw className={styles.iconSm} />
           {t.result.retryCta}
         </button>
       </div>
-    </>
+    </section>
   )
 }

@@ -507,6 +507,7 @@ class AnalysisService:
 
         return {
             "reviews": reviews,
+            "review_dates": AnalysisService._normalize_review_dates(payload, len(reviews)),
             "input_language": input_language,
             "output_language": output_language,
             "hospital": hospital,
@@ -529,6 +530,18 @@ class AnalysisService:
             )
 
         return reviews
+
+    @staticmethod
+    def _normalize_review_dates(payload, review_count):
+        raw_dates = AnalysisService._pick(payload, "reviewDates", "review_dates")
+        if not isinstance(raw_dates, list):
+            return []
+
+        dates = []
+        for value in raw_dates[:review_count]:
+            text = str(value or "").strip()
+            dates.append(text)
+        return dates
 
     @staticmethod
     def _normalize_hospital_payload(payload):
@@ -672,6 +685,7 @@ class AnalysisService:
             "category": hospital.category,
             "hospitalName": hospital.hospital_name,
             "reviews": data["reviews"],
+            "reviewDates": data["review_dates"],
             "outputLanguage": data["output_language"],
             "address": hospital.address,
             "roadAddress": hospital.road_address,
@@ -715,6 +729,7 @@ class AnalysisService:
         return {
             "source": "user_input",
             "reviewCount": len(data["reviews"]),
+            "reviewDates": data["review_dates"],
             "outputLanguage": data["output_language"],
             "hospitalMetadata": metadata,
             "backendAiPayloadSummary": {

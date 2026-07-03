@@ -21,12 +21,12 @@ class ForeignerScoreTest(unittest.TestCase):
     def test_foreigner_score_accepts_naver_map(self):
         payload = make_payload(naverPlaceUrl="https://map.naver.com/p/entry/place/123")
 
-        self.assertEqual(OpenAIReviewAnalysisService.calculate_foreigner_score(payload), 20)
+        self.assertEqual(OpenAIReviewAnalysisService.calculate_foreigner_score(payload), 35)
 
     def test_foreigner_score_accepts_kakao_map(self):
         payload = make_payload(kakaoPlaceUrl="https://place.map.kakao.com/123")
 
-        self.assertEqual(OpenAIReviewAnalysisService.calculate_foreigner_score(payload), 20)
+        self.assertEqual(OpenAIReviewAnalysisService.calculate_foreigner_score(payload), 35)
 
     def test_foreigner_score_full_metadata_is_100(self):
         payload = make_payload(

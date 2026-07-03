@@ -4,6 +4,7 @@ import type { HospitalCategory, Language } from "./types"
 
 export type TrustResultKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
 export type AdSuspicionKey = "low" | "medium" | "high"
+export type ConvenienceCheckStatus = "confirmed" | "notConfirmed" | "unknown"
 
 export type AnalysisResultViewModel = {
   ids: {
@@ -19,10 +20,16 @@ export type AnalysisResultViewModel = {
   scores: {
     totalScore: number
     trustScore: number
+    reviewTrustScore: number
     adSuspicionScore: number
     informationScore: number
     globalAccessibilityScore: number
     analyzedReviewCount: number
+  }
+  analysisConfidence: {
+    key: "low" | "medium" | "high"
+    label: string
+    description: string
   }
   trust: {
     key: TrustResultKey
@@ -47,6 +54,13 @@ export type AnalysisResultViewModel = {
     label: string
     completeness: string
     score: number
+    checkedCount: number
+    totalCount: number
+    checks: {
+      key: string
+      label: string
+      checked: boolean
+    }[]
     checkItems: string[]
     description: string
   }
@@ -54,11 +68,46 @@ export type AnalysisResultViewModel = {
     label: string
     score: number
     maxScore: number
+    checkedCount: number
+    totalCount: number
+    description: string
+    note: string
+    visitGroup: {
+      label: string
+      checkedCount: number
+      totalCount: number
+    }
+    englishGroup: {
+      label: string
+      checkedCount: number
+      totalCount: number
+    }
     checks: {
       key: string
       label: string
       checked: boolean
+      status: ConvenienceCheckStatus
+      group: "visit" | "english"
     }[]
+  }
+  reviewBurst: {
+    status: "available" | "unavailable"
+    score?: number
+    description: string
+  }
+  scoreBreakdown: {
+    evidenceScore: number
+    riskScore: number
+    specificityScore: number
+    balanceScore: number
+    diversityScore: number
+    informativeScore: number
+    naturalnessScore: number
+    promoSignalScore: number
+    repetitionScore: number
+    exaggerationScore: number
+    eventDiscountScore: number
+    reviewBurstScore?: number
   }
   content: {
     summary: string
@@ -78,14 +127,24 @@ export type AnalysisResultViewModel = {
 }
 
 const GLOBAL_ACCESSIBILITY_KEYS = [
+  "mapLocation",
+  "contactBooking",
+  "websitePlaceLink",
+  "photoInfo",
   "englishName",
   "englishGuide",
   "englishReviews",
-  "googleMapLink",
-  "googlePlaceId",
-  "homepageOrBookingLink",
-  "photoInfo",
-]
+] as const
+
+const GLOBAL_ACCESSIBILITY_GROUPS: Record<(typeof GLOBAL_ACCESSIBILITY_KEYS)[number], "visit" | "english"> = {
+  mapLocation: "visit",
+  contactBooking: "visit",
+  websitePlaceLink: "visit",
+  photoInfo: "visit",
+  englishName: "english",
+  englishGuide: "english",
+  englishReviews: "english",
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -221,34 +280,34 @@ export function deriveTrustLevel(
 
   const labels = {
     ko: {
-      very_safe: "매우 안전",
-      safe: "안전",
-      normal: "보통",
-      caution: "주의",
-      danger: "위험",
+      very_safe: "신뢰 단서가 충분한 리뷰 흐름이에요",
+      safe: "비교적 신뢰할 만한 리뷰 흐름이에요",
+      normal: "추가 확인이 필요한 리뷰 흐름이에요",
+      caution: "주의 깊게 확인할 리뷰 흐름이에요",
+      danger: "리뷰만으로 판단하기 어려워요",
     },
     en: {
-      very_safe: "Very safe",
-      safe: "Safe",
-      normal: "Normal",
-      caution: "Caution",
-      danger: "Danger",
+      very_safe: "This review pattern has enough trust signals.",
+      safe: "This review pattern is relatively trustworthy.",
+      normal: "This review pattern needs additional checking.",
+      caution: "This review pattern should be checked carefully.",
+      danger: "It is hard to judge from reviews alone.",
     },
   }
   const descriptions = {
     ko: {
-      very_safe: "구체적인 방문 경험과 신뢰 신호가 충분해요.",
-      safe: "전반적으로 신뢰할 만하지만 최신 정보 확인이 필요해요.",
-      normal: "참고할 수는 있지만 일부 정보 확인이 필요해요.",
-      caution: "광고성 표현이나 정보 부족 가능성이 있어 신중한 확인이 필요해요.",
-      danger: "리뷰 신뢰도가 낮아 병원 선택 전 추가 확인이 꼭 필요해요.",
+      very_safe: "구체적인 경험 표현과 다양한 참고 단서가 충분히 확인됐어요.",
+      safe: "구체적인 경험 표현이 확인됐고 광고 의심 신호는 제한적이에요.",
+      normal: "구체적인 경험 표현은 확인됐지만, 반복적으로 보이는 표현이 있어요.",
+      caution: "광고성 표현이나 반복 문구가 있어 리뷰 내용을 신중히 확인해보세요.",
+      danger: "리뷰 수나 신뢰 단서가 부족해 병원 공식 정보와 함께 확인해야 해요.",
     },
     en: {
-      very_safe: "There are enough concrete visit details and trust signals.",
-      safe: "Overall trustworthy, but recent information is still worth checking.",
-      normal: "Useful as a reference, but some information should be checked.",
-      caution: "Ad-like wording or limited information may require careful checking.",
-      danger: "Review trust is low, so additional checking is strongly recommended.",
+      very_safe: "Concrete visit details and varied reference signals were found.",
+      safe: "Concrete experience details were found, with limited ad-like signals.",
+      normal: "Some concrete details were found, but repeated expressions may be present.",
+      caution: "Ad-like wording or repeated phrases may require careful review.",
+      danger: "There are not enough review signals, so check official clinic information too.",
     },
   }
 
@@ -261,10 +320,10 @@ export function deriveTrustLevel(
 }
 
 function scoreToTrustKey(score: number): TrustResultKey {
-  if (score >= 85) return "very_safe"
-  if (score >= 70) return "safe"
-  if (score >= 50) return "normal"
-  if (score >= 30) return "caution"
+  if (score >= 90) return "very_safe"
+  if (score >= 75) return "safe"
+  if (score >= 60) return "normal"
+  if (score >= 45) return "caution"
   return "danger"
 }
 
@@ -301,14 +360,38 @@ function isReferenceWarning(value: string) {
   return /(최신 리뷰|병원 기본 정보|방문 전|확인|참고|recent reviews|basic clinic|before visiting|check)/i.test(value)
 }
 
+function normalizeConvenienceStatus(value: unknown): ConvenienceCheckStatus {
+  if (value === "confirmed" || value === true) return "confirmed"
+  if (value === "notConfirmed" || value === false) return "notConfirmed"
+  return "unknown"
+}
+
+function convenienceValue(checks: Record<string, unknown>, key: (typeof GLOBAL_ACCESSIBILITY_KEYS)[number]) {
+  if (key === "mapLocation") {
+    return firstValue(checks.mapLocation, checks.googleMapLink, checks.googlePlaceId)
+  }
+  if (key === "contactBooking") {
+    return firstValue(checks.contactBooking, checks.reservationLink)
+  }
+  if (key === "websitePlaceLink") {
+    return firstValue(checks.websitePlaceLink, checks.homepageOrBookingLink)
+  }
+  return checks[key]
+}
+
 function normalizeChecks(value: unknown, language: Language) {
   const checks = isRecord(value) ? value : {}
 
-  return GLOBAL_ACCESSIBILITY_KEYS.map((key) => ({
-    key,
-    label: getGlobalAccessibilityCheckLabel(key, language),
-    checked: Boolean(checks[key]),
-  }))
+  return GLOBAL_ACCESSIBILITY_KEYS.map((key) => {
+    const status = normalizeConvenienceStatus(convenienceValue(checks, key))
+    return {
+      key,
+      label: getGlobalAccessibilityCheckLabel(key, language),
+      checked: status === "confirmed",
+      status,
+      group: GLOBAL_ACCESSIBILITY_GROUPS[key],
+    }
+  })
 }
 
 function normalizeScoreMax(score: number, maxScore?: number) {
@@ -322,13 +405,172 @@ function globalAccessRatingToScore(value: unknown) {
   return numeric <= 5 ? numeric * 20 : numeric
 }
 
+function countFromScore(score: number, totalCount = 6) {
+  return Math.max(0, Math.min(totalCount, Math.round((score / 100) * totalCount)))
+}
+
+function informationChecks(score: number, language: Language) {
+  const labels = {
+    ko: [
+      ["location", "주소 / 위치 정보"],
+      ["treatment", "진료 분야 / 시술 정보"],
+      ["phone", "연락처 정보"],
+      ["booking", "예약 방법 / 링크"],
+      ["homepage", "공식 홈페이지"],
+      ["photos", "사진 정보"],
+    ],
+    en: [
+      ["location", "Address / location"],
+      ["treatment", "Care category / treatment info"],
+      ["phone", "Contact information"],
+      ["booking", "Booking method / link"],
+      ["homepage", "Official website"],
+      ["photos", "Photo information"],
+    ],
+  } as const
+  const checkedCount = countFromScore(score, labels[language].length)
+
+  return labels[language].map(([key, label], index) => ({
+    key,
+    label,
+    checked: index < checkedCount,
+  }))
+}
+
+function analysisConfidenceLabel(key: "low" | "medium" | "high", language: Language) {
+  const labels = {
+    ko: { high: "높음", medium: "보통", low: "낮음" },
+    en: { high: "High", medium: "Medium", low: "Low" },
+  }
+  return labels[language][key]
+}
+
+function normalizeConfidence(value: unknown): "low" | "medium" | "high" {
+  const text = stringValue(value).toLowerCase()
+  if (text === "high" || text === "높음") return "high"
+  if (text === "low" || text === "낮음") return "low"
+  return "medium"
+}
+
+function fallbackConfidenceDescription(key: "low" | "medium" | "high", language: Language) {
+  if (language === "en") {
+    if (key === "high") return "There are enough reviews and the wording is relatively varied."
+    if (key === "medium") return "There are enough reviews, but some repeated or concentrated signals may exist."
+    return "There are too few reviews or repeated expressions are relatively strong."
+  }
+  if (key === "high") return "분석 가능한 리뷰가 충분하고 표현도 비교적 다양해요."
+  if (key === "medium") return "리뷰 수는 충분하지만, 일부 항목에서 반복/집중 신호가 있을 수 있어요."
+  return "리뷰 수가 적거나 특정 표현이 과도하게 반복되어 신뢰도 해석에 주의가 필요해요."
+}
+
+function reviewBurstDescription(status: "available" | "unavailable", score: number | undefined, language: Language) {
+  if (status === "unavailable") {
+    return language === "ko"
+      ? "리뷰 작성일 정보가 부족해 리뷰 집중도는 판단하지 않았어요."
+      : "Review date information is limited, so review concentration was not judged."
+  }
+  if ((score ?? 0) >= 60) {
+    return language === "ko"
+      ? "특정 기간에 리뷰가 몰린 신호가 있어 함께 확인해보세요."
+      : "Some reviews appear concentrated in a short period, so check this together."
+  }
+  return language === "ko"
+    ? "리뷰 작성일 기준으로 과도한 집중 신호는 제한적이에요."
+    : "Based on review dates, strong concentration signals are limited."
+}
+
+function foreignerVisitConvenienceDescription(score: number, language: Language) {
+  if (language === "en") {
+    if (score >= 80) return "Essential visit information is relatively easy to check before visiting."
+    if (score >= 50) return "Some basic visit information is available, but English guidance may need to be checked before visiting."
+    return "Essential visit information is limited, so it is better to contact the clinic before visiting."
+  }
+  if (score >= 80) return "외국인 방문 전 확인할 수 있는 정보가 비교적 충분해요."
+  if (score >= 50) return "방문 전 기본 정보는 일부 확인 가능하지만, 영어 안내 여부는 추가 확인이 필요해요."
+  return "외국인 방문 전 필요한 정보가 부족해요. 방문 전 병원에 직접 확인하는 것이 좋아요."
+}
+
+function foreignerVisitConvenienceNote(language: Language) {
+  return language === "en"
+    ? "This section summarizes how easy it is for foreign or non-Korean users to check essential visit information before visiting."
+    : "이 항목은 외국인 또는 비한국어 사용자가 방문 전 필요한 정보를 쉽게 확인할 수 있는지를 정리한 참고 정보입니다."
+}
+
+function groupSummary(
+  checks: ReturnType<typeof normalizeChecks>,
+  group: "visit" | "english",
+  language: Language
+) {
+  const groupChecks = checks.filter((item) => item.group === group)
+  const labels = {
+    ko: { visit: "방문 정보", english: "영어 지원 단서" },
+    en: { visit: "Visit information", english: "English support signals" },
+  }
+  return {
+    label: labels[language][group],
+    checkedCount: groupChecks.filter((item) => item.checked).length,
+    totalCount: groupChecks.length,
+  }
+}
+
+function containsHangul(value: string) {
+  return /[가-힣]/.test(value)
+}
+
+function localizeSignalText(value: string, language: Language, kind: "repetitive" | "suspicious" | "reference" | "positive" | "negative") {
+  if (language === "ko" || !containsHangul(value)) return value
+
+  const normalized = value.trim()
+  const dictionary: Record<string, string> = {
+    리뷰: "Review-related wording",
+    프로필: "Profile-related wording",
+    팔로우: "Follow-related wording",
+    반응: "Reaction-related wording",
+    남기기: "Posting or leaving a reaction",
+    "반복적으로 보이는 표현이 있어 추가 확인이 필요합니다.": "Repeated wording was found, so additional checking may help.",
+    "반복 표현 일부 확인": "Some repeated wording was found.",
+    "광고성으로 보일 수 있는 표현 포함": "Some wording may look promotional.",
+    "최신 리뷰와 병원 기본 정보를 함께 확인하는 것이 좋습니다.": "Check recent reviews and basic clinic information together.",
+  }
+  if (dictionary[normalized]) return dictionary[normalized]
+  if (normalized.includes("반복")) return "Some repeated wording was found."
+  if (normalized.includes("광고") || normalized.includes("홍보")) return "Some wording may look promotional."
+  if (normalized.includes("확인") || normalized.includes("참고") || normalized.includes("방문 전")) {
+    return "Additional checking before visiting may help."
+  }
+  if (kind === "repetitive") return "Repeated expression detected."
+  if (kind === "suspicious") return "Potentially promotional expression detected."
+  return "Additional review signal detected."
+}
+
+function localizeSignalList(values: string[], language: Language, kind: "repetitive" | "suspicious" | "reference" | "positive" | "negative") {
+  return uniqueValues(values.map((value) => localizeSignalText(value, language, kind)))
+}
+
+function languageSafeText(value: string, language: Language, fallback: string) {
+  if (!value) return fallback
+  if (language === "en" && containsHangul(value)) return fallback
+  return value
+}
+
 export function normalizeAnalysisResult(input: unknown, options: { language?: Language } = {}): AnalysisResultViewModel {
   const language = options.language ?? "ko"
   const { root, result } = normalizeInput(input)
   const evidence = pickRecord(result, "evidence")
   const evidenceJson = pickRecord(root, "evidence_json")
   const totalScore = scoreValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
-  const trustScore = scoreValue(result.trustScore, result.trust_score, root.trustScore, root.trust_score, totalScore)
+  const reviewTrustScore = scoreValue(
+    result.reviewTrustScore,
+    result.review_trust_score,
+    root.reviewTrustScore,
+    root.review_trust_score,
+    result.trustScore,
+    result.trust_score,
+    root.trustScore,
+    root.trust_score,
+    totalScore
+  )
+  const trustScore = reviewTrustScore
   const adSuspicionScore = scoreValue(result.adSuspicionScore, result.adScore, result.ad_score, root.adSuspicionScore, root.ad_score)
   const informationScore = scoreValue(result.informationScore, result.placeScore, result.place_score, root.informationScore, root.infoCompletenessScore)
   const globalAccessibilityScore = scoreValue(
@@ -342,14 +584,22 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const analyzedReviewCount = countValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
   const warningSignals = safeStringArray(result.warningSignals, evidence.warnings, evidenceJson.warnings)
   const detectedPatternSource = safeStringArray(result.detectedPatterns, root.detectedPatterns, root.detectedReasons)
-  const referenceWarnings = uniqueValues([...warningSignals, ...detectedPatternSource].filter(isReferenceWarning))
-  const detectedPatterns = detectedPatternSource.filter((item) => !isReferenceWarning(item))
-  const suspiciousPhrases = safeStringArray(result.suspiciousPhrases, evidence.suspiciousPhrases, root.suspiciousPhrases).filter(
-    (item) => !isReferenceWarning(item)
+  const referenceWarnings = localizeSignalList(
+    uniqueValues([...warningSignals, ...detectedPatternSource].filter(isReferenceWarning)),
+    language,
+    "reference"
   )
-  const repetitivePhrases = safeStringArray(result.repetitivePhrases, evidence.repetitivePhrases, root.repetitivePhrases).filter(
-    (item) => !isReferenceWarning(item)
+  const detectedPatterns = localizeSignalList(
+    detectedPatternSource.filter((item) => !isReferenceWarning(item)),
+    language,
+    "reference"
   )
+  const suspiciousPhrases = localizeSignalList(safeStringArray(result.suspiciousPhrases, evidence.suspiciousPhrases, root.suspiciousPhrases).filter(
+    (item) => !isReferenceWarning(item)
+  ), language, "suspicious")
+  const repetitivePhrases = localizeSignalList(safeStringArray(result.repetitivePhrases, evidence.repetitivePhrases, root.repetitivePhrases).filter(
+    (item) => !isReferenceWarning(item)
+  ), language, "repetitive")
   const adKey = deriveAdSuspicionKey(adSuspicionScore, firstValue(result.adSuspicion, result.adSuspicionLevel, root.adSuspicionLevel))
   const maxScore = normalizeScoreMax(
     globalAccessibilityScore,
@@ -358,6 +608,28 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const summary = stringValue(result.summary) || stringValue(root.summary)
   const recommendation = stringValue(result.recommendation) || stringValue(root.recommendation)
   const visitTip = stringValue(result.visitTip) || stringValue(evidenceJson.visitTip)
+  const fallbackSummary = language === "ko"
+    ? "아직 요약할 수 있는 리뷰 내용이 충분하지 않아요."
+    : "There is not enough review content to summarize yet."
+  const fallbackRecommendation = language === "ko"
+    ? "분석 결과는 참고 정보로 활용하고, 방문 전 최신 리뷰와 병원 안내를 함께 확인해 주세요."
+    : "Use this result as reference information and check recent reviews plus clinic guidance before visiting."
+  const fallbackVisitTip = language === "ko"
+    ? "방문 전 진료 항목, 비용 안내, 예약 필요 여부를 병원에 확인해 보세요."
+    : "Before visiting, confirm treatments, costs, and booking requirements with the clinic."
+  const confidenceKey = normalizeConfidence(firstValue(result.analysisConfidence, root.analysisConfidence))
+  const confidenceDescription =
+    stringValue(firstValue(result.analysisConfidenceDescription, root.analysisConfidenceDescription)) ||
+    fallbackConfidenceDescription(confidenceKey, language)
+  const informationCheckItems = informationChecks(informationScore, language)
+  const globalAccessibilityChecks = normalizeChecks(firstValue(result.globalAccessibilityChecks, root.globalAccessibilityChecks), language)
+  const visitAccessibilityGroup = groupSummary(globalAccessibilityChecks, "visit", language)
+  const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)
+  const reviewBurstScore = optionalNumber(firstValue(result.reviewBurstScore, root.reviewBurstScore))
+  const reviewBurstStatus =
+    stringValue(firstValue(result.reviewBurstStatus, root.reviewBurstStatus)) === "available" || reviewBurstScore !== undefined
+      ? "available"
+      : "unavailable"
 
   return {
     ids: {
@@ -375,10 +647,16 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     scores: {
       totalScore,
       trustScore,
+      reviewTrustScore,
       adSuspicionScore,
       informationScore,
       globalAccessibilityScore,
       analyzedReviewCount,
+    },
+    analysisConfidence: {
+      key: confidenceKey,
+      label: analysisConfidenceLabel(confidenceKey, language),
+      description: confidenceDescription,
     },
     trust: deriveTrustLevel(trustScore, firstValue(result.trustLevelKey, result.trust_level, root.trustLevelKey, root.trustLevel), result.trustGrade, language),
     ad: {
@@ -398,33 +676,53 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       label: deriveInformationLabel(informationScore, firstValue(result.informationLevel, result.informationCompleteness, root.informationLevel), language),
       completeness: stringValue(firstValue(result.informationLevel, result.informationCompleteness, root.informationLevel)) || deriveInformationLabel(informationScore, undefined, language),
       score: informationScore,
-      checkItems: safeStringArray(evidence.checkItems, evidenceJson.checkItems),
+      checkedCount: informationCheckItems.filter((item) => item.checked).length,
+      totalCount: informationCheckItems.length,
+      checks: informationCheckItems,
+      checkItems: localizeSignalList(safeStringArray(evidence.checkItems, evidenceJson.checkItems), language, "positive"),
       description: informationDescription(informationScore, language),
     },
     globalAccessibility: {
       label: deriveGlobalAccessibilityLabel(globalAccessibilityScore, firstValue(result.globalAccessibilityLevel, root.globalAccessibilityLevel), language),
       score: globalAccessibilityScore,
       maxScore,
-      checks: normalizeChecks(firstValue(result.globalAccessibilityChecks, root.globalAccessibilityChecks), language),
+      checkedCount: globalAccessibilityChecks.filter((item) => item.checked).length,
+      totalCount: globalAccessibilityChecks.length,
+      description: foreignerVisitConvenienceDescription(globalAccessibilityScore, language),
+      note: foreignerVisitConvenienceNote(language),
+      visitGroup: visitAccessibilityGroup,
+      englishGroup: englishAccessibilityGroup,
+      checks: globalAccessibilityChecks,
+    },
+    reviewBurst: {
+      status: reviewBurstStatus,
+      score: reviewBurstScore,
+      description: reviewBurstDescription(reviewBurstStatus, reviewBurstScore, language),
+    },
+    scoreBreakdown: {
+      evidenceScore: scoreValue(result.evidenceScore, root.evidenceScore),
+      riskScore: scoreValue(result.riskScore, root.riskScore, adSuspicionScore),
+      specificityScore: scoreValue(result.specificityScore, root.specificityScore),
+      balanceScore: scoreValue(result.balanceScore, root.balanceScore),
+      diversityScore: scoreValue(result.diversityScore, root.diversityScore),
+      informativeScore: scoreValue(result.informativeScore, root.informativeScore, informationScore),
+      naturalnessScore: scoreValue(result.naturalnessScore, root.naturalnessScore),
+      promoSignalScore: scoreValue(result.promoSignalScore, root.promoSignalScore),
+      repetitionScore: scoreValue(result.repetitionScore, root.repetitionScore),
+      exaggerationScore: scoreValue(result.exaggerationScore, root.exaggerationScore),
+      eventDiscountScore: scoreValue(result.eventDiscountScore, root.eventDiscountScore),
+      reviewBurstScore,
     },
     content: {
-      summary: summary || (language === "ko" ? "아직 요약할 수 있는 리뷰 내용이 충분하지 않아요." : "There is not enough review content to summarize yet."),
-      recommendation:
-        recommendation ||
-        (language === "ko"
-          ? "분석 결과는 참고 정보로 활용하고, 방문 전 최신 리뷰와 병원 안내를 함께 확인해 주세요."
-          : "Use this result as reference information and check recent reviews plus clinic guidance before visiting."),
-      visitTip:
-        visitTip ||
-        (language === "ko"
-          ? "방문 전 진료 항목, 비용 안내, 예약 필요 여부를 병원에 확인해 보세요."
-          : "Before visiting, confirm treatments, costs, and booking requirements with the clinic."),
+      summary: languageSafeText(summary, language, fallbackSummary),
+      recommendation: languageSafeText(recommendation, language, fallbackRecommendation),
+      visitTip: languageSafeText(visitTip, language, fallbackVisitTip),
     },
     signals: {
-      positiveSignals: safeStringArray(result.positiveSignals, evidence.positiveSignals, root.positiveSignals),
-      negativeSignals: safeStringArray(result.negativeSignals, root.negativeSignals),
-      warningSignals,
-      specificPhrases: safeStringArray(evidence.specificPhrases),
+      positiveSignals: localizeSignalList(safeStringArray(result.positiveSignals, evidence.positiveSignals, root.positiveSignals), language, "positive"),
+      negativeSignals: localizeSignalList(safeStringArray(result.negativeSignals, root.negativeSignals), language, "negative"),
+      warningSignals: localizeSignalList(warningSignals, language, "reference"),
+      specificPhrases: localizeSignalList(safeStringArray(evidence.specificPhrases), language, "positive"),
     },
     meta: {
       modelVersion: stringValue(firstValue(result.modelVersion, root.modelVersion)),

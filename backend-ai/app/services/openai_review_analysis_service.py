@@ -1,5 +1,8 @@
 import json
 import logging
+import re
+from collections import Counter
+from datetime import datetime
 from typing import Any
 
 from app.core.config import Settings
@@ -16,6 +19,80 @@ logger = logging.getLogger(__name__)
 class OpenAIReviewAnalysisService:
     MODEL_VERSION = "openai-review-analyzer-v1"
     FALLBACK_MODEL_VERSION = "openai-review-analyzer-v1-fallback"
+    CONCRETE_KEYWORDS = [
+        "상담",
+        "비용",
+        "가격",
+        "대기",
+        "시술",
+        "진료",
+        "검사",
+        "설명",
+        "예약",
+        "통증",
+        "경과",
+        "처방",
+        "aftercare",
+        "consultation",
+        "cost",
+        "price",
+        "waiting",
+        "reservation",
+        "treatment",
+    ]
+    PROMO_TERMS = [
+        "할인",
+        "이벤트",
+        "강추",
+        "무조건 추천",
+        "최고",
+        "대박",
+        "꼭 가세요",
+        "지인 추천",
+        "혜택",
+        "무료",
+        "협찬",
+        "체험단",
+        "recommended by a friend",
+        "must go",
+        "best ever",
+        "highly recommend",
+        "discount",
+        "event",
+        "promotion",
+        "sponsored",
+    ]
+    ACTION_TERMS = [
+        "추천",
+        "가세요",
+        "예약",
+        "문의",
+        "받아보세요",
+        "해보세요",
+        "꼭",
+        "무조건",
+        "go",
+        "book",
+        "try",
+        "must",
+        "recommend",
+    ]
+    NEGATION_TERMS = [
+        "없었",
+        "아니",
+        "않았",
+        "안 했",
+        "안했",
+        "광고 같지는",
+        "광고같지는",
+        "광고는 아니",
+        "not",
+        "no ",
+        "wasn't",
+        "isn't",
+        "not sponsored",
+        "no discount",
+    ]
 
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest, settings: Settings) -> ReviewAnalyzeResponse:
@@ -140,22 +217,31 @@ class OpenAIReviewAnalysisService:
             raise ValueError("OpenAI response JSON must be an object")
 
         language = payload.outputLanguage
-        trust_score = cls._clamp_score(data.get("trustScore"))
+        base_trust_score = cls._clamp_score(data.get("trustScore"))
         ad_score = cls._clamp_score(data.get("adScore", data.get("adSuspicionScore")))
         review_information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
         place_score = cls.calculate_place_score(payload)
         foreigner_score = cls.calculate_foreigner_score(payload)
+        score_breakdown = cls.calculate_review_score_breakdown(
+            payload=payload,
+            data=data,
+            evidence=cls._normalize_evidence(data, language),
+            base_trust_score=base_trust_score,
+            ad_score=ad_score,
+            review_information_score=review_information_score,
+        )
+        review_trust_score = score_breakdown["reviewTrustScore"]
         total_score = cls.calculate_total_score(
-            trust_score=trust_score,
+            trust_score=review_trust_score,
             ad_score=ad_score,
             place_score=place_score,
             foreigner_score=foreigner_score,
         )
-        evidence = cls._normalize_evidence(data, language)
+        evidence = score_breakdown.pop("_evidence")
         repetition_level = cls._repetition_level(data.get("repetitionLevel"), evidence.repetitivePhrases)
         review_information_level = cls.information_level(review_information_score)
         information_level = cls.information_level(place_score)
-        trust_level_key = cls.trust_level_key(trust_score)
+        trust_level_key = cls.trust_level_key(review_trust_score)
         ad_suspicion_level = cls.ad_suspicion_level(ad_score)
         global_accessibility_level = cls.score_level(foreigner_score)
         warning_signals = evidence.warnings
@@ -171,7 +257,28 @@ class OpenAIReviewAnalysisService:
 
         return {
             "totalScore": total_score,
-            "trustScore": trust_score,
+            "trustScore": review_trust_score,
+            "reviewTrustScore": review_trust_score,
+            "evidenceScore": score_breakdown["evidenceScore"],
+            "riskScore": score_breakdown["riskScore"],
+            "specificityScore": score_breakdown["specificityScore"],
+            "balanceScore": score_breakdown["balanceScore"],
+            "diversityScore": score_breakdown["diversityScore"],
+            "informativeScore": score_breakdown["informativeScore"],
+            "naturalnessScore": score_breakdown["naturalnessScore"],
+            "promoSignalScore": score_breakdown["promoSignalScore"],
+            "repetitionScore": score_breakdown["repetitionScore"],
+            "exaggerationScore": score_breakdown["exaggerationScore"],
+            "eventDiscountScore": score_breakdown["eventDiscountScore"],
+            "reviewBurstScore": score_breakdown["reviewBurstScore"],
+            "reviewBurstStatus": score_breakdown["reviewBurstStatus"],
+            "analysisConfidence": score_breakdown["analysisConfidence"],
+            "analysisConfidenceDescription": cls.analysis_confidence_description(score_breakdown["analysisConfidence"], language),
+            "scoreBreakdown": {
+                key: value
+                for key, value in score_breakdown.items()
+                if not key.startswith("_")
+            },
             "adScore": ad_score,
             "adSuspicionScore": ad_score,
             "placeScore": place_score,
@@ -252,6 +359,14 @@ class OpenAIReviewAnalysisService:
         return "\n\n".join(dict.fromkeys(pieces))
 
     @staticmethod
+    def _review_texts(payload: ReviewAnalyzeRequest) -> list[str]:
+        pieces = []
+        if payload.reviewText and payload.reviewText.strip():
+            pieces.append(payload.reviewText.strip())
+        pieces.extend(review.strip() for review in payload.reviews if review.strip())
+        return list(dict.fromkeys(pieces))
+
+    @staticmethod
     def analyzed_review_count(payload: ReviewAnalyzeRequest) -> int:
         reviews = []
         if payload.reviewText and payload.reviewText.strip():
@@ -275,17 +390,18 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def calculate_foreigner_score(payload: ReviewAnalyzeRequest) -> int:
-        map_link = payload.googleMapUrl or payload.googleRegistered or payload.naverPlaceUrl or payload.kakaoPlaceUrl
-        checks = [
-            (map_link, 20),
-            (payload.googlePlaceId, 15),
-            (payload.englishName, 20),
-            (payload.hasEnglishInfo, 20),
-            (payload.hasEnglishReviews, 10),
-            (payload.hasGooglePhotos or payload.hasPhotos, 10),
-            (payload.homepageUrl, 5),
-        ]
-        return OpenAIReviewAnalysisService._weighted_metadata_score(checks)
+        statuses = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+        weights = {
+            "mapLocation": 25,
+            "contactBooking": 20,
+            "englishGuide": 20,
+            "englishName": 10,
+            "websitePlaceLink": 10,
+            "photoInfo": 10,
+            "englishReviews": 5,
+        }
+        score = sum(weight for key, weight in weights.items() if statuses.get(key) == "confirmed")
+        return OpenAIReviewAnalysisService._clamp_score(score)
 
     @staticmethod
     def calculate_total_score(
@@ -295,11 +411,288 @@ class OpenAIReviewAnalysisService:
         foreigner_score: int,
     ) -> int:
         score = (
-            trust_score * 0.45
-            + place_score * 0.25
-            + foreigner_score * 0.15
-            + (100 - ad_score) * 0.15
+            trust_score * 0.50
+            + (100 - ad_score) * 0.20
+            + place_score * 0.20
+            + foreigner_score * 0.10
         )
+        return OpenAIReviewAnalysisService._clamp_score(score)
+
+    @classmethod
+    def calculate_review_score_breakdown(
+        cls,
+        *,
+        payload: ReviewAnalyzeRequest,
+        data: dict[str, Any],
+        evidence: ReviewEvidence,
+        base_trust_score: int,
+        ad_score: int,
+        review_information_score: int,
+    ) -> dict[str, Any]:
+        review_texts = cls._review_texts(payload)
+        review_count = max(len(review_texts), 1)
+        merged_text = "\n".join(review_texts)
+        promo_signal_score = cls.calculate_promo_signal_score(review_texts)
+        repetition_score = cls.calculate_repetition_score(data.get("repetitionLevel"), evidence.repetitivePhrases, review_count)
+        exaggeration_score = cls.calculate_context_score(review_texts, ["최고", "대박", "완벽", "무조건", "best", "perfect", "amazing"])
+        event_discount_score = cls.calculate_context_score(review_texts, ["할인", "이벤트", "혜택", "무료", "discount", "event", "promotion", "free"])
+        review_burst_score = cls.calculate_review_burst_score(payload.reviewDates)
+        risk_parts = [
+            (promo_signal_score, 0.40),
+            (repetition_score, 0.25),
+            (exaggeration_score, 0.15),
+            (event_discount_score, 0.10),
+        ]
+        if review_burst_score is not None:
+            risk_parts.append((review_burst_score, 0.10))
+        risk_score = cls._weighted_average(risk_parts)
+        specificity_score = cls.calculate_specificity_score(merged_text, evidence.specificPhrases, review_count)
+        balance_score = cls.calculate_balance_score(data, evidence)
+        diversity_score = cls.calculate_diversity_score(review_texts, repetition_score)
+        informative_score = cls._clamp_score(review_information_score)
+        naturalness_score = cls._clamp_score(100 - max(promo_signal_score, int(exaggeration_score * 0.75)))
+        evidence_score = cls._clamp_score(
+            specificity_score * 0.35
+            + balance_score * 0.20
+            + diversity_score * 0.20
+            + informative_score * 0.15
+            + naturalness_score * 0.10
+        )
+        review_trust_score = cls._clamp_score(evidence_score * 0.70 + (100 - risk_score) * 0.30)
+        review_trust_score = cls.apply_review_trust_caps(
+            review_trust_score=review_trust_score,
+            review_count=review_count,
+            risk_score=risk_score,
+            repetition_score=repetition_score,
+            specificity_score=specificity_score,
+            evidence_score=evidence_score,
+        )
+        analysis_confidence = cls.analysis_confidence(
+            review_count=review_count,
+            diversity_score=diversity_score,
+            review_burst_score=review_burst_score,
+            repetition_score=repetition_score,
+        )
+
+        return {
+            "_evidence": evidence,
+            "baseTrustScore": base_trust_score,
+            "reviewTrustScore": review_trust_score,
+            "evidenceScore": evidence_score,
+            "riskScore": risk_score,
+            "specificityScore": specificity_score,
+            "balanceScore": balance_score,
+            "diversityScore": diversity_score,
+            "informativeScore": informative_score,
+            "naturalnessScore": naturalness_score,
+            "promoSignalScore": promo_signal_score,
+            "repetitionScore": repetition_score,
+            "exaggerationScore": exaggeration_score,
+            "eventDiscountScore": event_discount_score,
+            "reviewBurstScore": review_burst_score,
+            "reviewBurstStatus": "available" if review_burst_score is not None else "unavailable",
+            "analysisConfidence": analysis_confidence,
+        }
+
+    @classmethod
+    def calculate_promo_signal_score(cls, review_texts: list[str]) -> int:
+        if not review_texts:
+            return 0
+
+        weighted_hits = 0.0
+        repeated_terms: Counter[str] = Counter()
+        for text in review_texts:
+            for sentence in cls._sentences(text):
+                lowered = sentence.lower()
+                if cls._has_negation_context(lowered):
+                    continue
+
+                matched_terms = [term for term in cls.PROMO_TERMS if term.lower() in lowered]
+                if not matched_terms:
+                    continue
+
+                has_action = any(term.lower() in lowered for term in cls.ACTION_TERMS)
+                weight = 1.0 + (0.65 if has_action else 0)
+                if len(matched_terms) >= 2:
+                    weight += 0.35
+                weighted_hits += weight
+                repeated_terms.update(term.lower() for term in matched_terms)
+
+        repeated_boost = sum(10 for count in repeated_terms.values() if count >= 2)
+        score = (weighted_hits / max(len(review_texts), 1)) * 32 + repeated_boost
+        return cls._clamp_score(score)
+
+    @classmethod
+    def calculate_context_score(cls, review_texts: list[str], terms: list[str]) -> int:
+        if not review_texts:
+            return 0
+
+        weighted_hits = 0.0
+        term_counts: Counter[str] = Counter()
+        for text in review_texts:
+            for sentence in cls._sentences(text):
+                lowered = sentence.lower()
+                if cls._has_negation_context(lowered):
+                    continue
+                matched_terms = [term for term in terms if term.lower() in lowered]
+                if not matched_terms:
+                    continue
+                term_counts.update(term.lower() for term in matched_terms)
+                weighted_hits += 1 + (0.5 if any(term.lower() in lowered for term in cls.ACTION_TERMS) else 0)
+
+        repeated_boost = sum(8 for count in term_counts.values() if count >= 2)
+        return cls._clamp_score((weighted_hits / max(len(review_texts), 1)) * 28 + repeated_boost)
+
+    @classmethod
+    def calculate_review_burst_score(cls, review_dates: list[str]) -> int | None:
+        dates = sorted(cls._parse_review_dates(review_dates))
+        if len(dates) < 2:
+            return None
+
+        total = len(dates)
+        max_7_day = cls._max_window_count(dates, 7) / total
+        max_14_day = cls._max_window_count(dates, 14) / total
+        if max_7_day < 0.50 and max_14_day < 0.60:
+            return 0
+
+        seven_day_score = max(0, (max_7_day - 0.30) / 0.70 * 100)
+        fourteen_day_score = max(0, (max_14_day - 0.40) / 0.60 * 100)
+        return cls._clamp_score(max(seven_day_score, fourteen_day_score))
+
+    @staticmethod
+    def _parse_review_dates(review_dates: list[str]):
+        parsed = []
+        for raw_date in review_dates:
+            text = str(raw_date or "").strip()
+            if not text:
+                continue
+            candidates = [text, text[:10], text.replace(".", "-").replace("/", "-")[:10]]
+            for candidate in candidates:
+                try:
+                    parsed.append(datetime.fromisoformat(candidate).date())
+                    break
+                except ValueError:
+                    continue
+        return parsed
+
+    @staticmethod
+    def _max_window_count(dates, days: int) -> int:
+        max_count = 0
+        for start_index, start_date in enumerate(dates):
+            count = 0
+            for current_date in dates[start_index:]:
+                if (current_date - start_date).days <= days - 1:
+                    count += 1
+            max_count = max(max_count, count)
+        return max_count
+
+    @classmethod
+    def calculate_specificity_score(cls, text: str, specific_phrases: list[str], review_count: int) -> int:
+        keyword_count = sum(1 for keyword in cls.CONCRETE_KEYWORDS if keyword.lower() in text.lower())
+        signal_count = len(set(specific_phrases)) + keyword_count
+        return cls._clamp_score((signal_count / max(review_count, 1)) * 28)
+
+    @classmethod
+    def calculate_repetition_score(cls, level: Any, repetitive_phrases: list[str], review_count: int) -> int:
+        normalized = str(level or "").strip().lower()
+        level_score = {"high": 75, "medium": 45, "low": 15}.get(normalized, 15)
+        phrase_score = min(100, len(set(repetitive_phrases)) / max(review_count, 1) * 55)
+        return cls._clamp_score(max(level_score, phrase_score))
+
+    @classmethod
+    def calculate_balance_score(cls, data: dict[str, Any], evidence: ReviewEvidence) -> int:
+        positive_count = len(evidence.positiveSignals)
+        caution_count = len(evidence.warnings) + len(cls._normalize_string_list(data.get("negativeSignals")))
+        if positive_count and caution_count:
+            return 82
+        if positive_count or caution_count:
+            return 58
+        return 45
+
+    @staticmethod
+    def calculate_diversity_score(review_texts: list[str], repetition_score: int) -> int:
+        if not review_texts:
+            return 0
+        normalized_reviews = [re.sub(r"\s+", " ", review.strip().lower()) for review in review_texts if review.strip()]
+        unique_ratio = len(set(normalized_reviews)) / max(len(normalized_reviews), 1)
+        token_sets = [set(re.findall(r"[가-힣A-Za-z0-9]{2,}", review)) for review in normalized_reviews]
+        token_variety = len(set().union(*token_sets)) / max(sum(len(tokens) for tokens in token_sets), 1)
+        score = unique_ratio * 58 + min(token_variety * 100, 32) + (100 - repetition_score) * 0.10
+        return OpenAIReviewAnalysisService._clamp_score(score)
+
+    @staticmethod
+    def apply_review_trust_caps(
+        *,
+        review_trust_score: int,
+        review_count: int,
+        risk_score: int,
+        repetition_score: int,
+        specificity_score: int,
+        evidence_score: int,
+    ) -> int:
+        caps = []
+        if review_count < 5:
+            caps.append(60)
+        elif review_count < 10:
+            caps.append(75)
+        elif review_count < 20:
+            caps.append(85)
+        else:
+            caps.append(92)
+        if risk_score >= 80:
+            caps.append(70)
+        elif risk_score >= 65:
+            caps.append(78)
+        if repetition_score >= 70:
+            caps.append(75)
+        if specificity_score < 40:
+            caps.append(68)
+        if evidence_score < 45:
+            caps.append(65)
+        return min(review_trust_score, *caps)
+
+    @staticmethod
+    def analysis_confidence(
+        *,
+        review_count: int,
+        diversity_score: int,
+        review_burst_score: int | None,
+        repetition_score: int,
+    ) -> str:
+        if review_count >= 20 and diversity_score >= 60 and (review_burst_score is None or review_burst_score < 50):
+            return "high"
+        if review_count >= 10 and repetition_score < 70:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def analysis_confidence_description(level: str, language: str) -> str:
+        if language == "en":
+            if level == "high":
+                return "There are enough reviews and the wording is relatively varied."
+            if level == "medium":
+                return "There are enough reviews, but some repeated or concentrated signals may exist."
+            return "There are too few reviews or repeated expressions are relatively strong."
+        if level == "high":
+            return "분석 가능한 리뷰가 충분하고 표현도 비교적 다양해요."
+        if level == "medium":
+            return "리뷰 수는 충분하지만, 일부 항목에서 반복/집중 신호가 있을 수 있어요."
+        return "리뷰 수가 적거나 특정 표현이 과도하게 반복되어 신뢰도 해석에 주의가 필요해요."
+
+    @classmethod
+    def _sentences(cls, text: str) -> list[str]:
+        return [sentence.strip() for sentence in re.split(r"[\n.!?。！？]+", text) if sentence.strip()]
+
+    @classmethod
+    def _has_negation_context(cls, text: str) -> bool:
+        return any(term in text for term in cls.NEGATION_TERMS)
+
+    @staticmethod
+    def _weighted_average(parts: list[tuple[int, float]]) -> int:
+        total_weight = sum(weight for _, weight in parts)
+        if total_weight <= 0:
+            return 0
+        score = sum(value * weight for value, weight in parts) / total_weight
         return OpenAIReviewAnalysisService._clamp_score(score)
 
     @staticmethod
@@ -320,13 +713,13 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def trust_level_key(score: int) -> str:
-        if score >= 85:
+        if score >= 90:
             return "very_safe"
-        if score >= 70:
+        if score >= 75:
             return "safe"
-        if score >= 50:
+        if score >= 60:
             return "normal"
-        if score >= 30:
+        if score >= 45:
             return "caution"
         return "danger"
 
@@ -400,17 +793,65 @@ class OpenAIReviewAnalysisService:
         return OpenAIReviewAnalysisService._clamp_score(foreigner_score)
 
     @staticmethod
-    def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, bool]:
-        map_link = payload.googleMapUrl or payload.googleRegistered or payload.naverPlaceUrl or payload.kakaoPlaceUrl
+    def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, str]:
+        place_link = payload.homepageUrl or payload.naverPlaceUrl or payload.kakaoPlaceUrl or payload.googleMapUrl
+        map_signal = (
+            payload.address
+            or payload.roadAddress
+            or payload.googleMapUrl
+            or payload.googleRegistered
+            or payload.naverPlaceUrl
+            or payload.kakaoPlaceUrl
+            or payload.googlePlaceId
+            or payload.externalPlaceId
+            or (payload.latitude is not None and payload.longitude is not None)
+        )
+        contact_booking = payload.phone or payload.homepageUrl
+        english_guide = (
+            payload.hasEnglishInfo
+            or OpenAIReviewAnalysisService._has_english_guidance_signal(payload.description)
+            or OpenAIReviewAnalysisService._has_english_guidance_signal(OpenAIReviewAnalysisService.merge_review_text(payload))
+        )
+        photo_info = payload.hasGooglePhotos or payload.hasPhotos
+
         return {
-            "googleMapLink": bool(map_link),
-            "googlePlaceId": bool(payload.googlePlaceId),
-            "englishName": bool(payload.englishName),
-            "englishGuide": bool(payload.hasEnglishInfo),
-            "englishReviews": bool(payload.hasEnglishReviews),
-            "homepageOrBookingLink": bool(payload.homepageUrl),
-            "photoInfo": bool(payload.hasGooglePhotos or payload.hasPhotos),
+            "mapLocation": OpenAIReviewAnalysisService._check_status(map_signal, has_context=True),
+            "contactBooking": OpenAIReviewAnalysisService._check_status(contact_booking, has_context=bool(payload.phone or place_link)),
+            "websitePlaceLink": OpenAIReviewAnalysisService._check_status(place_link, has_context=bool(place_link or payload.sourceProvider)),
+            "photoInfo": OpenAIReviewAnalysisService._check_status(photo_info, has_context=payload.hasGooglePhotos is not None or payload.hasPhotos is not None),
+            "englishName": OpenAIReviewAnalysisService._check_status(payload.englishName, has_context=payload.englishName is not None),
+            "englishGuide": OpenAIReviewAnalysisService._check_status(english_guide, has_context=payload.hasEnglishInfo is not None or bool(payload.description)),
+            "englishReviews": OpenAIReviewAnalysisService._check_status(payload.hasEnglishReviews, has_context=payload.hasEnglishReviews is not None),
         }
+
+    @staticmethod
+    def _check_status(value: Any, *, has_context: bool) -> str:
+        if isinstance(value, bool):
+            return "confirmed" if value else ("notConfirmed" if has_context else "unknown")
+        if value:
+            return "confirmed"
+        return "unknown" if not has_context else "notConfirmed"
+
+    @staticmethod
+    def _has_english_guidance_signal(value: Any) -> bool:
+        text = str(value or "").lower()
+        if not text:
+            return False
+        return any(
+            keyword in text
+            for keyword in [
+                "english",
+                "영어 안내",
+                "foreigner",
+                "international",
+                "multilingual",
+                "interpreter",
+                "translation",
+                "통역",
+                "외국인 진료",
+                "외국어 안내",
+            ]
+        )
 
     @staticmethod
     def _weighted_metadata_score(checks: list[tuple[Any, int]]) -> int:
