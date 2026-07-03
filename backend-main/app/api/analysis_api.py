@@ -1,5 +1,6 @@
 from flask import Blueprint, g, request
 
+from app.clients.ai_review_ocr_client import AIReviewOcrClient
 from app.services import AnalysisService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
@@ -16,6 +17,21 @@ def analyze_reviews():
     try:
         result = AnalysisService.analyze_reviews(g.current_member.id, payload)
         return success_response(result, "Review analysis complete", 201)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except RuntimeError as e:
+        return error_response(str(e), 502)
+
+
+@analysis_bp.route("/reviews/ocr", methods=["POST"])
+@require_auth
+def extract_review_text_from_images():
+    image_files = request.files.getlist("images")
+    language = request.form.get("language") or "ko"
+
+    try:
+        result = AIReviewOcrClient.extract(image_files, language=language)
+        return success_response(result, "Review text extracted")
     except ValueError as e:
         return error_response(str(e), 400)
     except RuntimeError as e:

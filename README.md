@@ -309,6 +309,8 @@ Gemini 챗봇은 `backend-main`의 `ENABLE_REMOTE_CHATBOT=true`와 `backend-ai`�
 
 운영 배포 시 `backend-ai`의 챗봇 API는 외부 직접 노출을 피하고, `backend-main` 같은 내부 서버에서만 접근하도록 구성해야 합니다. `AI_INTERNAL_TOKEN`을 양쪽 서버에 같은 값으로 설정하면 `backend-main`이 `X-Internal-Token` 헤더를 보내고 `backend-ai`가 이를 검증합니다.
 
+스크린샷 OCR API는 Gemini 호출 비용이 발생할 수 있으므로 `backend-main`과 `backend-ai`에 같은 `AI_INTERNAL_TOKEN` 값을 반드시 설정해야 합니다.
+
 Gemini 호출 비용이 발생할 수 있으므로 `backend-main`은 로그인된 사용자에게만 Gemini fallback을 허용하고, `CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS`와 `CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS`로 사용자별 원격 AI 호출 수를 제한합니다. 비로그인 사용자는 기존 규칙 기반 챗봇 답변만 사용합니다.
 
 사용자가 전달한 분석 컨텍스트는 Gemini 호출 전에 서버에서 허용 필드만 남기도록 필터링합니다. 리뷰 원문, 전화번호, 이메일, 상세 주소 같은 개인정보성 값은 AI 서버로 전달하지 않는 방향을 유지합니다.

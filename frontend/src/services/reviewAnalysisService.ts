@@ -11,6 +11,13 @@ type BackendAnalysisData = {
   result?: Partial<ReviewAnalyzeResponse> & Record<string, unknown>
 }
 
+type ReviewOcrData = {
+  text?: string
+  reviews?: string[]
+  source?: string
+  modelVersion?: string
+}
+
 type GlobalAccessibilityChecks = NonNullable<ReviewAnalyzeResponse["globalAccessibilityChecks"]>
 type GlobalAccessibilityCheckKey = keyof GlobalAccessibilityChecks
 
@@ -240,6 +247,25 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
 }
 
 export const reviewAnalysisService = {
+  async extractReviewTextFromImages(files: File[], language: "ko" | "en") {
+    const formData = new FormData()
+    files.forEach((file) => formData.append("images", file))
+    formData.append("language", language)
+
+    const response = await apiClient<ReviewOcrData>("/api/analysis/reviews/ocr", {
+      method: "POST",
+      auth: true,
+      body: formData,
+    })
+
+    return {
+      text: response.data.text ?? "",
+      reviews: response.data.reviews ?? [],
+      source: response.data.source,
+      modelVersion: response.data.modelVersion,
+    }
+  },
+
   async analyzeReview(payload: ReviewAnalyzeRequest): Promise<ReviewAnalyzeResponse> {
     const analysisPayload = buildAnalysisPayload(payload)
     const response = await apiClient<BackendAnalysisData>("/api/analysis/analyze", {

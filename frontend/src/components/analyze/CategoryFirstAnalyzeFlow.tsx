@@ -393,11 +393,6 @@ function parseReviewFileText(text: string, fileName: string) {
     .filter(Boolean)
 }
 
-function requestScreenshotOcrExtraction() {
-  // TODO: Connect this to the OCR backend when image text extraction is available.
-  return null
-}
-
 function mergeReviewDraftsForAnalysis(drafts: ReviewDraft[]) {
   return drafts.map((draft, index) => `[리뷰 ${index + 1}]\n${draft.content.trim()}`).join("\n\n")
 }
@@ -734,8 +729,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [directReviewText, setDirectReviewText] = useState("")
   const [reviewDrafts, setReviewDrafts] = useState<ReviewDraft[]>([])
   const [reviewFeedback, setReviewFeedback] = useState("")
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
   const [screenshotFileNames, setScreenshotFileNames] = useState<string[]>([])
   const [uploadedReviewFileName, setUploadedReviewFileName] = useState("")
+  const [isExtractingScreenshotText, setIsExtractingScreenshotText] = useState(false)
   const [accessibilityInput, setAccessibilityInput] = useState<AccessibilityEnhancementInput>(() =>
     createEmptyAccessibilityEnhancement()
   )
@@ -920,6 +917,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     const supportedFiles = files.filter(
       (file) => SUPPORTED_IMAGE_TYPES.has(file.type) && file.size <= MAX_REVIEW_IMPORT_FILE_SIZE
     )
+    setScreenshotFiles(supportedFiles)
     setScreenshotFileNames(supportedFiles.map((file) => file.name))
 
     if (files.length > supportedFiles.length) {
@@ -932,13 +930,37 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }
   }
 
-  const handleReadScreenshotReviews = () => {
-    requestScreenshotOcrExtraction()
-    setReviewFeedback(
-      screenshotFileNames.length > 0
-        ? t.analyze.reviewInbox.ocrPendingFeedback
-        : t.analyze.reviewInbox.screenshotRequiredFeedback
-    )
+  const handleReadScreenshotReviews = async () => {
+    if (screenshotFiles.length === 0) {
+      setReviewFeedback(t.analyze.reviewInbox.screenshotRequiredFeedback)
+      return
+    }
+
+    setIsExtractingScreenshotText(true)
+    setReviewFeedback(t.analyze.reviewInbox.ocrExtractingFeedback)
+
+    try {
+      const result = await reviewAnalysisService.extractReviewTextFromImages(screenshotFiles, currentLanguage)
+      const extractedReviews = result.reviews.length > 0 ? result.reviews : splitReviewText(result.text)
+      const addedCount = addReviewDrafts(extractedReviews, "screenshot")
+
+      if (addedCount === 0) {
+        setReviewFeedback(t.analyze.reviewInbox.ocrEmptyFeedback)
+        return
+      }
+
+      setScreenshotFiles([])
+      setScreenshotFileNames([])
+      setReviewFeedback(t.analyze.reviewInbox.ocrAddedFeedback.replace("{count}", String(addedCount)))
+    } catch (error) {
+      setReviewFeedback(
+        error instanceof ApiClientError
+          ? error.message
+          : t.analyze.reviewInbox.ocrErrorFeedback
+      )
+    } finally {
+      setIsExtractingScreenshotText(false)
+    }
   }
 
   const handleReviewTextFile = async (file?: File) => {
@@ -1567,6 +1589,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         inputError={inputError}
         isAnalyzing={isAnalyzing}
         isAnalyzeDisabled={isReviewAnalysisDisabled}
+        isExtractingScreenshotText={isExtractingScreenshotText}
         screenshotFileNames={screenshotFileNames}
         uploadedReviewFileName={uploadedReviewFileName}
         onChange={setDirectReviewText}
@@ -2022,6 +2045,7 @@ function ReviewInputWorkspace({
   inputError,
   isAnalyzing,
   isAnalyzeDisabled,
+  isExtractingScreenshotText,
   screenshotFileNames,
   uploadedReviewFileName,
   onChange,
@@ -2041,6 +2065,7 @@ function ReviewInputWorkspace({
   inputError: string
   isAnalyzing: boolean
   isAnalyzeDisabled: boolean
+  isExtractingScreenshotText: boolean
   screenshotFileNames: string[]
   uploadedReviewFileName: string
   onChange: (value: string) => void
@@ -2110,8 +2135,13 @@ function ReviewInputWorkspace({
       )}
 
       {screenshotFileNames.length > 0 && (
-        <button type="button" className={styles.reviewImportTextButton} disabled onClick={onReadScreenshotReviews}>
-          {t.analyze.readScreenshotButton}
+        <button
+          type="button"
+          className={styles.reviewImportTextButton}
+          disabled={isExtractingScreenshotText}
+          onClick={onReadScreenshotReviews}
+        >
+          {isExtractingScreenshotText ? t.analyze.extractingScreenshotButton : t.analyze.readScreenshotButton}
         </button>
       )}
 
