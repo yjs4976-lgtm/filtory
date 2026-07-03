@@ -67,7 +67,7 @@ class MockReviewAnalysisService:
 
         data = {
             "trustScore": trust_score,
-            "adSuspicionScore": ad_score,
+            "adScore": ad_score,
             "repetitionLevel": repetition_level,
             "informationLevel": information_level,
             "summary": cls._summary(

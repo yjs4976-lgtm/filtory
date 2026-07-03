@@ -94,12 +94,24 @@ export type HospitalItem = {
   address: string
   phone?: string
   reviewCount?: number
+  naverRating?: number
+  naverReviewCount?: number
+  googleRating?: number
+  googleReviewCount?: number
   sourceName?: string
   sourceUrl?: string
   mapUrl?: string
   kakaoPlaceUrl?: string
   naverPlaceUrl?: string
+  naverPlaceId?: string
+  googleMapUrl?: string
   roadAddress?: string
+  googlePlaceId?: string
+  googleRegistered?: boolean
+  hasEnglishInfo?: boolean
+  hasEnglishReviews?: boolean
+  englishReviews?: boolean
+  hasGooglePhotos?: boolean
   latitude?: number
   longitude?: number
   lat?: number
@@ -174,12 +186,17 @@ export type ReviewAnalyzeRequest = {
   longitude?: number
   naverPlaceUrl?: string
   naverPlaceId?: string
+  naverRating?: number
+  naverReviewCount?: number
+  googleRating?: number
+  googleReviewCount?: number
   googleMapUrl?: string
   googleRegistered?: boolean
   googlePlaceId?: string
   englishName?: string
   hasEnglishInfo?: boolean
   hasEnglishReviews?: boolean
+  englishReviews?: boolean
   hasGooglePhotos?: boolean
 }
 
@@ -221,6 +238,8 @@ export type ReviewAnalyzeResponse = {
   repetitionLevel?: "low" | "medium" | "high"
   informationCompleteness?: "low" | "medium" | "high"
   informationScore: number
+  reviewInformationScore?: number
+  reviewInformationLevel?: string
   positiveSignals?: string[]
   negativeSignals?: string[]
   warningSignals?: string[]

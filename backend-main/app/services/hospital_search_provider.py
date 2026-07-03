@@ -5,7 +5,7 @@ import re
 import time
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from flask import current_app
@@ -55,19 +55,19 @@ class HospitalSearchProvider:
         if cached_results is not None:
             return cached_results[:limit]
 
-        kakao_results = cls.search_kakao(
+        naver_results = cls.search_naver(
             query=query,
             category=category,
             limit=limit,
         )
-        if len(kakao_results) >= limit:
-            results = kakao_results[:limit]
+        if len(naver_results) >= limit:
+            results = naver_results[:limit]
             cls._set_cached(cache_key, results)
             return results
 
-        remaining_limit = max(0, limit - len(kakao_results))
-        naver_results = cls.search_naver(query=query, category=category, limit=remaining_limit)
-        results = cls._dedupe([*kakao_results, *naver_results])[:limit]
+        remaining_limit = max(0, limit - len(naver_results))
+        kakao_results = cls.search_kakao(query=query, category=category, limit=remaining_limit)
+        results = cls._dedupe([*naver_results, *kakao_results])[:limit]
         cls._set_cached(cache_key, results)
         return results
 
@@ -107,6 +107,8 @@ class HospitalSearchProvider:
         client_id = current_app.config.get("NAVER_SEARCH_CLIENT_ID")
         client_secret = current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")
         if not client_id or not client_secret or limit <= 0:
+            if limit > 0:
+                current_app.logger.info("Naver hospital search skipped: missing search API configuration")
             return []
 
         payload = cls._get_json(
@@ -118,6 +120,7 @@ class HospitalSearchProvider:
         )
         items = payload.get("items") if isinstance(payload, dict) else []
         if not isinstance(items, list):
+            current_app.logger.warning("Naver hospital search returned no items list")
             return []
 
         results = []
@@ -127,6 +130,12 @@ class HospitalSearchProvider:
             result = cls._from_naver(item, category)
             if cls._matches_requested_category(result.get("category"), category):
                 results.append(result)
+        if items and not results:
+            current_app.logger.info(
+                "Naver hospital search returned %s items but all were filtered out for category=%s",
+                len(items),
+                category,
+            )
         return results
 
     @classmethod
@@ -185,10 +194,16 @@ class HospitalSearchProvider:
             "phone": cls._text(item.get("phone")),
             "map_url": place_url,
             "kakao_place_url": place_url,
+            "naver_place_url": None,
+            "naver_place_id": None,
             "source_url": place_url,
             "source_name": "Kakao",
             "latitude": latitude,
             "longitude": longitude,
+            "naver_rating": None,
+            "naver_review_count": None,
+            "google_rating": None,
+            "google_review_count": None,
             "is_official_hospital": False,
             "official_source": None,
         }
@@ -196,7 +211,8 @@ class HospitalSearchProvider:
     @classmethod
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
-        provider_category = cls._category_from_naver(item)
+        place_url = cls._verified_naver_place_url(link)
+        provider_category = cls._category_from_naver(item) or category
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
 
@@ -211,12 +227,26 @@ class HospitalSearchProvider:
             "address": cls._strip_html(item.get("address")),
             "road_address": cls._strip_html(item.get("roadAddress")),
             "phone": cls._text(item.get("telephone")),
-            "map_url": link,
-            "naver_place_url": link,
+            "map_url": place_url,
+            "naver_place_url": place_url,
+            "naver_place_id": cls._naver_place_id_from_link(place_url),
             "source_url": link,
             "source_name": "Naver",
             "latitude": latitude,
             "longitude": longitude,
+            "naver_rating": cls._optional_decimal(
+                cls._first_present(item.get("rating"), item.get("naverRating"), item.get("naver_rating"))
+            ),
+            "naver_review_count": cls._optional_int(
+                cls._first_present(
+                    item.get("reviewCount"),
+                    item.get("visitorReviewCount"),
+                    item.get("naverReviewCount"),
+                    item.get("naver_review_count"),
+                )
+            ),
+            "google_rating": None,
+            "google_review_count": None,
             "is_official_hospital": False,
             "official_source": None,
         }
@@ -272,6 +302,59 @@ class HospitalSearchProvider:
         except (InvalidOperation, ValueError):
             return None
 
+    @staticmethod
+    def _optional_decimal(value):
+        if value in (None, ""):
+            return None
+        try:
+            return float(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _optional_int(value):
+        if value in (None, ""):
+            return None
+        try:
+            return int(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _first_present(*values):
+        for value in values:
+            if value is not None and value != "":
+                return value
+        return None
+
+    @staticmethod
+    def _naver_place_id_from_link(link):
+        text = str(link or "")
+        match = re.search(r"(?:entry/place|place|hospital|clinic)/(\d+)", text)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"(?:placeId|id)=(\d+)", text)
+        if match:
+            return match.group(1)
+
+        return None
+
+    @staticmethod
+    def _verified_naver_place_url(link):
+        if not link:
+            return None
+
+        try:
+            hostname = (urlparse(link).hostname or "").lower()
+        except ValueError:
+            return None
+
+        if hostname == "map.naver.com" or hostname.endswith(".place.naver.com"):
+            return link
+
+        return None
+
     @classmethod
     def _category_from_kakao(cls, item):
         return cls._category_from_text(
@@ -320,6 +403,9 @@ class HospitalSearchProvider:
             str(query or "").strip().lower(),
             str(category or "").strip().lower(),
             int(limit or 10),
+            bool(current_app.config.get("NAVER_SEARCH_CLIENT_ID"))
+            and bool(current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")),
+            bool(current_app.config.get("KAKAO_REST_API_KEY")),
         )
 
     @classmethod

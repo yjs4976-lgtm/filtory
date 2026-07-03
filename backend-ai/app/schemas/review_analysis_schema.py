@@ -62,10 +62,16 @@ class ReviewAnalyzeRequest(BaseModel):
     englishName: str | None = Field(None, description="영문 병원명")
     hasEnglishInfo: bool | None = Field(None, description="영문 안내 정보 보유 여부")
     hasEnglishReviews: bool | None = Field(None, description="영문 리뷰 보유 여부")
+    englishReviews: bool | None = Field(None, description="영문 리뷰 보유 여부")
     hasGooglePhotos: bool | None = Field(None, description="구글 사진 정보 보유 여부")
 
     @model_validator(mode="after")
     def require_review_text(self):
+        if self.hasEnglishReviews is None and self.englishReviews is not None:
+            self.hasEnglishReviews = self.englishReviews
+        if self.englishReviews is None and self.hasEnglishReviews is not None:
+            self.englishReviews = self.hasEnglishReviews
+
         has_review_text = bool(self.reviewText and self.reviewText.strip())
         has_reviews = any(review.strip() for review in self.reviews)
 
@@ -92,6 +98,8 @@ class ReviewAnalyzeResponse(BaseModel):
     placeScore: int = Field(..., ge=0, le=100)
     foreignerScore: int = Field(..., ge=0, le=100)
     informationScore: int | None = Field(None, ge=0, le=100)
+    reviewInformationScore: int | None = Field(None, ge=0, le=100)
+    reviewInformationLevel: InformationLevel | None = None
     grade: str | None = Field(None, description="Mock API compatibility grade such as A, B, C")
     trustGrade: str
     trustLevelKey: TrustLevelKey
