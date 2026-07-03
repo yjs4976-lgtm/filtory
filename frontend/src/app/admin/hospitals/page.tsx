@@ -1,18 +1,23 @@
+"use client"
+
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
+import { useLanguage } from "@/context/LanguageContext"
 
 export default function AdminHospitalsPage() {
+  const { t } = useLanguage()
+
   return (
-    <AdminAppShell title="병원 관리">
+    <AdminAppShell title={t.admin.hospitals}>
       <AdminGuard>
         <section className="page-title">
           <p className="eyebrow">ADMIN HOSPITALS</p>
-          <h1>병원 정보 관리</h1>
-          <p>병원명, 네이버 플레이스 링크, 지도 링크 등을 관리합니다.</p>
+          <h1>{t.admin.hospitalsTitle}</h1>
+          <p>{t.admin.hospitalsDescription}</p>
         </section>
 
         <section className="soft-card">
-          <p>병원 정보 테이블은 백엔드 API 연결 후 추가하면 됩니다.</p>
+          <p>{t.admin.hospitalsTablePending}</p>
         </section>
       </AdminGuard>
     </AdminAppShell>

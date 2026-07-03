@@ -1,5 +1,6 @@
 "use client"
 
+import { useLanguage } from "@/context/LanguageContext"
 import type { AdminUser, UserRole, UserStatus } from "@/lib/types"
 import { adminService } from "@/services/adminService"
 
@@ -9,6 +10,9 @@ interface AdminUserTableProps {
 }
 
 export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
+  const { t } = useLanguage()
+  const labels = t.admin.userManagement
+
   const handleRoleChange = async (userId: number, role: UserRole) => {
     await adminService.updateUserRole(userId, role)
     onRefresh()
@@ -20,7 +24,7 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
   }
 
   const handleDelete = async (userId: number) => {
-    const ok = window.confirm("해당 회원을 삭제하시겠어요?")
+    const ok = window.confirm(t.admin.userDeleteConfirm)
     if (!ok) return
 
     await adminService.deleteUser(userId)
@@ -29,20 +33,20 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
 
   return (
     <section className="soft-card admin-table-card">
-      <h2>회원 관리</h2>
+      <h2>{t.admin.menuUsersTitle}</h2>
 
       <div className="table-scroll">
         <table className="admin-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>이름</th>
-              <th>이메일</th>
-              <th>가입 방식</th>
-              <th>권한</th>
-              <th>상태</th>
-              <th>가입일</th>
-              <th>관리</th>
+              <th>{labels.name}</th>
+              <th>{labels.email}</th>
+              <th>{t.admin.provider}</th>
+              <th>{labels.role}</th>
+              <th>{labels.status}</th>
+              <th>{labels.createdAt}</th>
+              <th>{labels.manage}</th>
             </tr>
           </thead>
 
@@ -78,7 +82,7 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
                 <td>{user.createdAt?.slice(0, 10) || "-"}</td>
                 <td>
                   <button type="button" className="small-danger-button" onClick={() => handleDelete(user.id)}>
-                    삭제
+                    {t.mypage.delete}
                   </button>
                 </td>
               </tr>
@@ -87,7 +91,7 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
             {users.length === 0 && (
               <tr>
                 <td colSpan={8} className="empty-cell">
-                  회원 데이터가 없습니다.
+                  {labels.empty}
                 </td>
               </tr>
             )}

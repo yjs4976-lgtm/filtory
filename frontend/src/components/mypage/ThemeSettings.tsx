@@ -1,5 +1,6 @@
 "use client"
 
+import { useLanguage } from "@/context/LanguageContext"
 import type { AppTheme } from "@/services/settingService"
 import styles from "@/styles/App.module.css"
 
@@ -9,16 +10,17 @@ interface ThemeSettingsProps {
 }
 
 export function ThemeSettings({ value, onChange }: ThemeSettingsProps) {
+  const { t } = useLanguage()
   const themes: Array<{ value: AppTheme; label: string }> = [
-    { value: "system", label: "시스템 설정" },
-    { value: "light", label: "라이트" },
-    { value: "dark", label: "다크" },
+    { value: "system", label: t.mypage.themeSystem },
+    { value: "light", label: t.mypage.themeLight },
+    { value: "dark", label: t.mypage.themeDark },
   ]
 
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>화면 설정</h2>
-      <p className={styles.mutedText}>테마 설정은 추후 전체 디자인 시스템과 연결할 예정이에요.</p>
+      <h2 className={styles.titleSm}>{t.mypage.displayTitle}</h2>
+      <p className={styles.mutedText}>{t.mypage.displayDesc}</p>
       <div className={styles.segmented}>
         {themes.map((theme) => (
           <button

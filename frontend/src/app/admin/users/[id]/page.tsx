@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import { useLanguage } from "@/context/LanguageContext"
 import type { AdminUser, AnalysisHistoryItem, MyReport, SavedHospital } from "@/lib/types"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
@@ -18,6 +19,7 @@ type ActivityState = {
 }
 
 export default function AdminUserDetailPage() {
+  const { t } = useLanguage()
   const params = useParams<{ id: string }>()
   const userId = Number(params.id)
   const [user, setUser] = useState<AdminUser | null>(null)
@@ -38,15 +40,15 @@ export default function AdminUserDetailPage() {
   }, [userId])
 
   return (
-    <AdminAppShell title="회원 상세">
+    <AdminAppShell title={t.admin.userDetailTitle}>
       <AdminGuard>
         <section className="page-title">
           <p className="eyebrow">ADMIN USER DETAIL</p>
-          <h1>회원 상세 보기</h1>
-          <p>회원별 분석 기록, 저장 병원, 검토 내역과 관리자 메모를 확인합니다.</p>
+          <h1>{t.admin.userDetailTitle}</h1>
+          <p>{t.admin.userDetailDescription}</p>
         </section>
         {!user || !activity ? (
-          <p>불러오는 중...</p>
+          <p>{t.admin.loading}</p>
         ) : (
           <>
             <AdminUserDetailCard user={user} />

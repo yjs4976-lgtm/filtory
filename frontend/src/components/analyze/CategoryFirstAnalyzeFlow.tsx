@@ -43,6 +43,11 @@ import {
 } from "@/lib/regions"
 import { getTrustLevelKey, normalizeTrustLevelKey } from "@/lib/score"
 import { writeCurrentReviewAnalysis } from "@/lib/analysisStorage"
+import {
+  extractRegionLabelFromAddress,
+  formatHistoryRegionLabel,
+  getEnglishRegionLabelFromKorean,
+} from "@/lib/historyDisplay"
 import type {
   AnalysisHistoryItem,
   HospitalCategory,
@@ -53,6 +58,7 @@ import type {
   ReviewAnalyzeResponse,
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
+import { translations } from "@/lib/translations"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
@@ -64,6 +70,16 @@ type AccessibilityBooleanField = "hasEnglishInfo" | "hasEnglishReviews" | "hasGo
 type SelectedAnalyzeRegion = {
   provinceCode: RegionProvinceCode
   districtCode: string
+}
+
+type AnalysisRegionPayload = {
+  region?: HospitalRegionCode
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
 }
 
 type DistrictSearchResult = {
@@ -530,6 +546,26 @@ function toHospitalRegionCode(region?: SelectedAnalyzeRegion | null): HospitalRe
   return region ? (region.provinceCode.toLowerCase() as HospitalRegionCode) : undefined
 }
 
+function buildAnalysisRegionPayload(region?: SelectedAnalyzeRegion | null): AnalysisRegionPayload {
+  if (!region) return {}
+
+  const regionKoLabel = getRegionLabel(region.provinceCode, region.districtCode, "ko")
+  const regionEnLabel = formatHistoryRegionLabel(
+    getRegionLabel(region.provinceCode, region.districtCode, "en"),
+    "en"
+  )
+
+  return {
+    region: toHospitalRegionCode(region),
+    regionId: `${region.provinceCode}:${region.districtCode}`,
+    regionLabel: regionKoLabel,
+    regionKoLabel,
+    regionEnLabel: getEnglishRegionLabelFromKorean(regionKoLabel) || regionEnLabel,
+    regionProvinceCode: region.provinceCode,
+    regionDistrictCode: region.districtCode,
+  }
+}
+
 function createManualHospital({
   keyword,
   category,
@@ -541,13 +577,19 @@ function createManualHospital({
   region?: HospitalRegionCode
   regionLabel: string
 }): HospitalItem {
+  const regionKoLabel = extractRegionLabelFromAddress(regionLabel)
+
   return {
     id: `manual-${Date.now()}`,
     name: keyword,
     hospitalNameKo: keyword,
     category,
+    categoryKoLabel: translations.ko.categories[category],
+    categoryEnLabel: translations.en.categories[category],
     region: region ?? "seoul",
     address: regionLabel,
+    regionKoLabel,
+    regionEnLabel: getEnglishRegionLabelFromKorean(regionKoLabel) || undefined,
     reviewCount: 0,
     isManual: true,
     manualRegionLabel: regionLabel,
@@ -624,6 +666,9 @@ function createApiAnalysisResult({
   hospital,
   hospitalName,
   category,
+  categoryKoLabel,
+  categoryEnLabel,
+  regionPayload,
   response,
   userId,
   selectedReviewCount,
@@ -632,6 +677,9 @@ function createApiAnalysisResult({
   hospital?: HospitalItem
   hospitalName: string
   category: HospitalCategory
+  categoryKoLabel: string
+  categoryEnLabel: string
+  regionPayload: AnalysisRegionPayload
   response: ReviewAnalyzeResponse
   userId?: string | number
   selectedReviewCount: number
@@ -645,6 +693,10 @@ function createApiAnalysisResult({
     globalAccessibilityScore,
     response.globalAccessibilityMaxScore
   )
+  const hospitalAddress = hospital?.roadAddress || hospital?.address
+  const hospitalRegionKoLabel = hospital?.regionKoLabel ||
+    extractRegionLabelFromAddress(hospital?.manualRegionLabel || hospitalAddress)
+  const hospitalRegionEnLabel = hospital?.regionEnLabel || getEnglishRegionLabelFromKorean(hospitalRegionKoLabel)
 
   return {
     id: `analysis-${Date.now()}`,
@@ -657,10 +709,21 @@ function createApiAnalysisResult({
     hospitalNameKo: hospital?.hospitalNameKo,
     hospitalNameEn: hospital?.hospitalNameEn,
     hospitalEnglishName: hospital?.hospitalEnglishName,
+    englishName: hospital?.englishName,
     category,
+    categoryKoLabel,
+    categoryEnLabel,
     hospitalCategory: categoryToHistoryName[category],
-    hospitalAddress: hospital?.address,
-    region: hospital?.region,
+    hospitalAddress,
+    roadAddress: hospital?.roadAddress,
+    address: hospital?.address,
+    region: regionPayload.region ?? hospital?.region,
+    regionId: regionPayload.regionId,
+    regionLabel: regionPayload.regionLabel || hospitalRegionKoLabel || hospital?.manualRegionLabel,
+    regionKoLabel: regionPayload.regionKoLabel || hospitalRegionKoLabel,
+    regionEnLabel: regionPayload.regionEnLabel || hospitalRegionEnLabel || undefined,
+    regionProvinceCode: regionPayload.regionProvinceCode,
+    regionDistrictCode: regionPayload.regionDistrictCode,
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
     score: response.totalScore,
@@ -1297,6 +1360,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
 
     try {
       const resultCategory = hospital?.category ?? effectiveSearchCategory ?? "derma"
+      const regionPayload = buildAnalysisRegionPayload(selectedRegion)
       const response = await reviewAnalysisService.analyzeReview({
         category: resultCategory,
         hospitalName,
@@ -1312,6 +1376,9 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         hospital,
         hospitalName,
         category: resultCategory,
+        categoryKoLabel: translations.ko.categories[resultCategory],
+        categoryEnLabel: translations.en.categories[resultCategory],
+        regionPayload,
         response,
         userId,
         selectedReviewCount,
@@ -1323,10 +1390,17 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         ...response,
         id: nextAnalysisResult.id,
         category: resultCategory,
+        categoryKoLabel: translations.ko.categories[resultCategory],
+        categoryEnLabel: translations.en.categories[resultCategory],
+        ...regionPayload,
+        hospitalAddress: nextAnalysisResult.hospitalAddress,
+        roadAddress: nextAnalysisResult.roadAddress,
+        address: nextAnalysisResult.address,
         hospitalName,
         hospitalNameKo: hospital?.hospitalNameKo,
         hospitalNameEn: hospital?.hospitalNameEn,
         hospitalEnglishName: hospital?.hospitalEnglishName,
+        englishName: hospital?.englishName,
         reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
@@ -1713,8 +1787,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         {hasShortHospitalKeyword && <p className={styles.reviewDetectedText}>{t.analyze.shortHospitalKeywordGuide}</p>}
 
         <article className={styles.finderTipCard}>
-          <strong>{hasSearched ? t.analyze.searchTipTitle : t.analyze.usageTipTitle}</strong>
-          <p>{hasSearched ? t.analyze.searchTipDescription : t.analyze.usageTipDescription}</p>
+          <strong>{t.analyze.searchTipTitle}</strong>
+          <ul className={styles.finderTipList}>
+            {t.analyze.searchTipItems.map((item) => (
+              <li key={item} className={styles.finderTipItem}>
+                <span className={styles.finderTipCheck} aria-hidden="true">✓</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
         </article>
 
         {(hasSelectedSearchCondition || directHospitalKeyword || searchFiltersRelaxed) && (

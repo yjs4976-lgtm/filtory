@@ -1,5 +1,5 @@
 import type { UserInsight } from "@/lib/types"
-import { categoryLabels } from "@/services/memberMockData"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface UserCategoryStatsProps {
@@ -7,10 +7,11 @@ interface UserCategoryStatsProps {
 }
 
 export function UserCategoryStats({ insight }: UserCategoryStatsProps) {
+  const { t, language } = useLanguage()
   const stats = [
-    ["가장 많이 분석한 분야", categoryLabels[insight.mostAnalyzedCategory]],
-    ["자주 확인한 지역", insight.frequentArea],
-    ["저장 병원 평균 신뢰도", insight.savedHospitalAverageTrustLevel],
+    [t.mypage.insightTopCategory, t.categories[insight.mostAnalyzedCategory]],
+    [t.mypage.insightFrequentArea, language === "ko" ? insight.frequentArea : t.mypage.insightFrequentAreaFallback],
+    [t.mypage.insightAverageTrust, language === "ko" ? insight.savedHospitalAverageTrustLevel : t.trustLevels.high],
   ]
 
   return (

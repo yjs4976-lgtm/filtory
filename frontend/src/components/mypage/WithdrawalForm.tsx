@@ -11,7 +11,7 @@ import { WithdrawalConfirmModal } from "./WithdrawalConfirmModal"
 import { WithdrawalReasonSelect } from "./WithdrawalReasonSelect"
 import styles from "@/styles/App.module.css"
 
-const OTHER_REASON = "기타"
+const OTHER_REASON = "other"
 
 export function WithdrawalForm() {
   const router = useRouter()
@@ -27,7 +27,7 @@ export function WithdrawalForm() {
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const withdrawalReason = reason === OTHER_REASON ? otherReason.trim() : reason
-  const canWithdraw = password.length > 0 && withdrawalReason.length > 0 && confirmText === "탈퇴합니다" && checked && !isSubmitting
+  const canWithdraw = password.length > 0 && withdrawalReason.length > 0 && confirmText === t.mypage.withdrawalConfirmText && checked && !isSubmitting
 
   const handleWithdrawal = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -72,25 +72,25 @@ export function WithdrawalForm() {
       </div>
 
       <div className={`${styles.softCard} ${styles.stackSm}`}>
-        <strong>회원 탈퇴 시 아래 정보가 삭제돼요.</strong>
+        <strong>{t.mypage.withdrawalDeletedInfoTitle}</strong>
         <ul className={styles.compactList}>
-          <li>프로필 정보</li>
-          <li>저장한 병원 목록</li>
-          <li>분석 기록</li>
-          <li>알림 설정</li>
+          <li>{t.mypage.withdrawalDeletedProfile}</li>
+          <li>{t.mypage.withdrawalDeletedSavedHospitals}</li>
+          <li>{t.mypage.withdrawalDeletedHistory}</li>
+          <li>{t.mypage.withdrawalDeletedNotifications}</li>
         </ul>
-        <p className={styles.mutedText}>서비스 운영을 위해 검토 내역 일부는 일정 기간 보관될 수 있어요.</p>
+        <p className={styles.mutedText}>{t.mypage.withdrawalRetentionNotice}</p>
       </div>
 
       <WithdrawalReasonSelect value={reason} onChange={setReason} />
 
       {reason === OTHER_REASON && (
         <label className={styles.label} htmlFor="withdraw-other-reason">
-          기타 사유
+          {t.mypage.withdrawalOtherReason}
           <textarea
             id="withdraw-other-reason"
             className={styles.textarea}
-            placeholder="탈퇴 사유를 입력해주세요."
+            placeholder={t.mypage.withdrawalOtherReasonPlaceholder}
             value={otherReason}
             onChange={(event) => setOtherReason(event.target.value)}
           />
@@ -122,11 +122,11 @@ export function WithdrawalForm() {
       </label>
 
       <label className={styles.label}>
-        계속하려면 아래에 ‘탈퇴합니다’를 입력해주세요.
+        {t.mypage.withdrawalConfirmInputGuide.replace("{text}", t.mypage.withdrawalConfirmText)}
         <input
           className={styles.input}
           value={confirmText}
-          placeholder="탈퇴합니다"
+          placeholder={t.mypage.withdrawalConfirmText}
           onChange={(event) => setConfirmText(event.target.value)}
         />
       </label>

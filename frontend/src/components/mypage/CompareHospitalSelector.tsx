@@ -12,7 +12,7 @@ interface CompareHospitalSelectorProps {
 }
 
 export function CompareHospitalSelector({ hospitals, selectedIds, onToggle }: CompareHospitalSelectorProps) {
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
   return (
     <section className={styles.stackSm}>
       <h2 className={styles.titleSm}>{t.mypage.compareSelectTitle}</h2>
@@ -33,7 +33,7 @@ export function CompareHospitalSelector({ hospitals, selectedIds, onToggle }: Co
               <span className={styles.recordBody}>
                 <strong className={styles.recordName}>{hospital.hospitalName}</strong>
                 <span className={styles.recordDate}>
-                  {t.mypage.trustScoreLabel} {hospital.trustScore}{language === "ko" ? "점" : " pts"} · {t.mypage.globalAccessLabel} {formatFivePointRating(hospital.globalAccessRating)}
+                  {t.mypage.trustScoreLabel} {hospital.trustScore}{t.common.pointsSuffix} · {t.mypage.globalAccessLabel} {formatFivePointRating(hospital.globalAccessRating)}
                 </span>
               </span>
               <span className={styles.neutralPill}>{selected ? t.mypage.selected : t.mypage.select}</span>

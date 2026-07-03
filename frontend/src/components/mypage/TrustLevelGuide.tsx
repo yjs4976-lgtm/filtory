@@ -6,7 +6,7 @@ import { TRUST_LEVEL_STANDARDS } from "@/lib/score"
 import styles from "@/styles/App.module.css"
 
 export function TrustLevelGuide() {
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
 
   return (
     <details className={styles.trustGuide}>
@@ -27,7 +27,7 @@ export function TrustLevelGuide() {
               <strong>{t.trustLevels[level.key]}</strong>
               <small>
                 {level.min}-{level.max}
-                {language === "ko" ? "점" : " pts"} · {t.trustLevelDescriptions[level.key]}
+                {t.common.pointsSuffix} · {t.trustLevelDescriptions[level.key]}
               </small>
             </span>
           </div>

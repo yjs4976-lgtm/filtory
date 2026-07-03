@@ -10,7 +10,7 @@ import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
 export default function AboutPage() {
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
   const featureItems = [
     { title: t.about.features.reviewTrust, description: t.about.features.reviewTrustDesc, icon: ShieldCheck },
     { title: t.about.features.adDetection, description: t.about.features.adDetectionDesc, icon: SearchCheck },
@@ -66,7 +66,7 @@ export default function AboutPage() {
                   <strong>{t.trustLevels[level.key]}</strong>
                   <small>
                     {level.min}-{level.max}
-                    {language === "ko" ? "점" : " pts"} · {t.trustLevelDescriptions[level.key]}
+                    {t.common.pointsSuffix} · {t.trustLevelDescriptions[level.key]}
                   </small>
                 </span>
               </div>

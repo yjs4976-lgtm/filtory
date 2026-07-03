@@ -10,11 +10,13 @@ export function ChatInput({
   onChange,
   onSubmit,
   inputRef,
+  placeholder,
 }: {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
   inputRef?: RefObject<HTMLInputElement | null>
+  placeholder?: string
 }) {
   const { t } = useLanguage()
 
@@ -30,7 +32,7 @@ export function ChatInput({
         ref={inputRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={t.chatbot.placeholder}
+        placeholder={placeholder ?? t.chatbot.placeholder}
         className={styles.chatInput}
       />
       <button type="submit" aria-label={t.chatbot.send} className={styles.sendButton}>

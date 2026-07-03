@@ -1,13 +1,16 @@
 "use client"
 
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export default function Error({ reset }) {
+  const { t } = useLanguage()
+
   return (
     <main className={`${styles.main} ${styles.stackSm}`}>
-      <h1 className={styles.titleLg}>오류가 발생했어요</h1>
-      <p className={styles.bodyText}>잠시 후 다시 시도해 주세요.</p>
-      <button type="button" className={styles.primaryButton} onClick={reset}>다시 시도</button>
+      <h1 className={styles.titleLg}>{t.common.errorTitle}</h1>
+      <p className={styles.bodyText}>{t.common.errorDescription}</p>
+      <button type="button" className={styles.primaryButton} onClick={reset}>{t.common.retry}</button>
     </main>
   )
 }

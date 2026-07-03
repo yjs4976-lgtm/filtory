@@ -1,4 +1,5 @@
 import type { HospitalCategory, HospitalItem, HospitalRegionCode, HospitalReviewItem, Language } from "./types"
+import { extractRegionLabelFromAddress, getEnglishRegionLabelFromKorean } from "./historyDisplay"
 
 export const hospitalRegions: Array<{ code: HospitalRegionCode; ko: string; en: string }> = [
   { code: "seoul", ko: "서울", en: "Seoul" },
@@ -20,7 +21,13 @@ export const hospitalRegions: Array<{ code: HospitalRegionCode; ko: string; en: 
   { code: "jeju", ko: "제주", en: "Jeju" },
 ]
 
-export const demoHospitals: HospitalItem[] = [
+const categoryLabels: Record<HospitalCategory, { ko: string; en: string }> = {
+  derma: { ko: "피부과", en: "Skin Clinic" },
+  eye: { ko: "안과", en: "Eye Clinic" },
+  dental: { ko: "치과", en: "Dental Clinic" },
+}
+
+const demoHospitalSeeds: HospitalItem[] = [
   {
     id: "hospital-skin-001",
     name: "연세밝은피부과",
@@ -168,6 +175,18 @@ export const demoHospitals: HospitalItem[] = [
     searchKeywords: ["강남 치과", "강남역 치과", "신논현 치과"],
   },
 ]
+
+export const demoHospitals: HospitalItem[] = demoHospitalSeeds.map((hospital) => {
+  const regionKoLabel = hospital.regionKoLabel || extractRegionLabelFromAddress(hospital.address)
+
+  return {
+    ...hospital,
+    categoryKoLabel: hospital.categoryKoLabel || categoryLabels[hospital.category].ko,
+    categoryEnLabel: hospital.categoryEnLabel || categoryLabels[hospital.category].en,
+    regionKoLabel,
+    regionEnLabel: hospital.regionEnLabel || getEnglishRegionLabelFromKorean(regionKoLabel) || undefined,
+  }
+})
 
 // Sample hospitals are available only when an explicit local demo flag is enabled.
 const demoEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_MOCK === "true"

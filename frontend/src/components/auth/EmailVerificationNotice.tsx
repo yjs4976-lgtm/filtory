@@ -30,15 +30,15 @@ export function EmailVerificationNotice() {
 
   const handleResend = async () => {
     if (!user?.email) {
-      setMessage("프로필에서 이메일을 먼저 등록해주세요.")
+      setMessage(t.auth.emailRequiredBeforeVerification)
       return
     }
 
     try {
       const result = await emailVerificationService.resendVerificationEmail()
-      setMessage(result.data.mail?.sent === false ? "메일 발송 설정이 필요합니다." : t.auth.verificationEmailSent)
+      setMessage(result.data.mail?.sent === false ? t.auth.emailSendSetupRequired : t.auth.verificationEmailSent)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "인증 메일 발송에 실패했습니다.")
+      setMessage(error instanceof Error ? error.message : t.auth.verificationEmailFailed)
     }
   }
 

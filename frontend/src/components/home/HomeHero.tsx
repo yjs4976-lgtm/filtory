@@ -62,6 +62,8 @@ export function HomeHero() {
       })) ?? []
   const hasRegionSearchResults = filteredProvinces.length > 0 || filteredDistricts.length > 0
   const selectedRegionLabel = getRegionLabel(selectedProvinceCode, selectedDistrictCode, currentLanguage)
+  const [heroTitleFirstLine, heroTitleSecondLine] =
+    currentLanguage === "ko" ? t.home.heroTitle.split(", ") : [t.home.heroTitle]
 
   useEffect(() => {
     if (!isRegionSheetOpen) return
@@ -179,7 +181,17 @@ export function HomeHero() {
           <span className={`${styles.iconBox} ${styles.iconLavender}`}>
             <Sparkles className={styles.iconMd} />
           </span>
-          <h1 className={styles.heroTitle}>{t.home.heroTitle}</h1>
+          <h1 className={styles.heroTitle}>
+            {heroTitleSecondLine ? (
+              <>
+                {heroTitleFirstLine},
+                <br />
+                {heroTitleSecondLine}
+              </>
+            ) : (
+              t.home.heroTitle
+            )}
+          </h1>
           <p className={styles.bodyText}>{t.home.heroDescription}</p>
         </div>
 
