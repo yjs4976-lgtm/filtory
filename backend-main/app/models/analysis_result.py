@@ -60,6 +60,12 @@ class AnalysisResult(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    admin_moderation_cases = db.relationship(
+        "AdminReviewModerationCase",
+        back_populates="analysis_result",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<AnalysisResult id={self.id} total_score={self.total_score}>"

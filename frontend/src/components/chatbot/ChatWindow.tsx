@@ -8,13 +8,14 @@ import {
   buildChatbotContextFromAnalysis,
   clearSelectedChatbotAnalysisContext,
   getAnalysisResultId,
-  readSelectedChatbotAnalysisContext,
+  readSelectedChatbotAnalysisContextForUser,
   type ChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { getHistoryHospitalName } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { sendChatMessage } from "@/services/chatbotService"
+import { useAuth } from "@/hooks/useAuth"
 import { ChatBubble } from "./ChatBubble"
 import { ChatInput } from "./ChatInput"
 import { RecommendedQuestions } from "./RecommendedQuestions"
@@ -57,6 +58,7 @@ function detectMessageLanguage(message: string, fallback: "ko" | "en") {
 export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const router = useRouter()
   const { t, language } = useLanguage()
+  const { user } = useAuth()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [recommendedQuestions, setRecommendedQuestions] = useState<RecommendedQuestionState | null>(null)
@@ -85,7 +87,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
 
   useEffect(() => {
     const syncSelectedContext = () => {
-      setSelectedAnalysisResult(readSelectedChatbotAnalysisContext())
+      setSelectedAnalysisResult(readSelectedChatbotAnalysisContextForUser(user?.id ?? null))
     }
 
     syncSelectedContext()
@@ -95,7 +97,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
       window.removeEventListener(CHATBOT_CONTEXT_EVENT, syncSelectedContext)
       window.removeEventListener("storage", syncSelectedContext)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

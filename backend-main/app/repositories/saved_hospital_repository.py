@@ -1,7 +1,7 @@
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
-from app.models import MemberSavedHospital
+from app.models import Hospital, MemberSavedHospital
 
 
 class SavedHospitalRepository:
@@ -13,6 +13,8 @@ class SavedHospitalRepository:
                 joinedload(MemberSavedHospital.analysis_result),
             )
             .filter(MemberSavedHospital.member_id == member_id)
+            .join(Hospital, MemberSavedHospital.hospital_id == Hospital.id)
+            .filter(Hospital.admin_status == "active")
             .order_by(MemberSavedHospital.saved_at.desc())
             .limit(limit)
             .offset(offset)

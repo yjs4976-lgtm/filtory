@@ -447,6 +447,7 @@ a {
 
 .admin-filter-grid input,
 .admin-filter-grid select,
+.admin-table input,
 .admin-table-card textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -493,6 +494,24 @@ a {
   border-radius: 10px;
   background: #ffffff;
   padding: 8px;
+}
+
+.admin-table input {
+  min-width: 180px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.admin-table textarea {
+  min-width: 200px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.admin-table .small-button {
+  margin-right: 6px;
+  margin-bottom: 6px;
 }
 
 .admin-user-mobile-list {

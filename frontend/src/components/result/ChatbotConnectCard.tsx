@@ -9,6 +9,7 @@ import {
   writeSelectedChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
 import { ROUTES } from "@/lib/routes"
+import { useAuth } from "@/hooks/useAuth"
 import type { CurrentReviewAnalysis } from "@/lib/types"
 import styles from "@/styles/App.module.css"
 
@@ -20,11 +21,12 @@ type ChatbotConnectCardProps = {
 export function ChatbotConnectCard({ analysisResultId, analysisResult }: ChatbotConnectCardProps) {
   const router = useRouter()
   const { t } = useLanguage()
+  const { user } = useAuth()
   const canConnect = Number.isInteger(analysisResultId) && Number(analysisResultId) > 0
 
   const handleAskWithResult = () => {
     if (analysisResult) {
-      writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(analysisResult, "current"))
+      writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(analysisResult, "current"), user?.id ?? null)
     }
     router.push(canConnect ? buildAnalysisChatbotHref(Number(analysisResultId)) : ROUTES.CHATBOT)
   }

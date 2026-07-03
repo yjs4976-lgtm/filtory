@@ -6,6 +6,7 @@ export const CHATBOT_CONTEXT_EVENT = "filtory-chatbot-context-change"
 const SELECTED_CHATBOT_ANALYSIS_KEY = "filtory-selected-chatbot-analysis"
 
 export type ChatbotAnalysisContext = {
+  ownerUserId?: string
   id?: string
   requestId?: string
   resultId?: string
@@ -139,6 +140,10 @@ export function buildChatbotContextFromAnalysis(
 }
 
 export function readSelectedChatbotAnalysisContext(): ChatbotAnalysisContext | null {
+  return readSelectedChatbotAnalysisContextForUser()
+}
+
+export function readSelectedChatbotAnalysisContextForUser(ownerUserId?: string | number | null): ChatbotAnalysisContext | null {
   if (typeof window === "undefined") return null
 
   try {
@@ -147,15 +152,28 @@ export function readSelectedChatbotAnalysisContext(): ChatbotAnalysisContext | n
 
     const parsed = JSON.parse(raw) as ChatbotAnalysisContext
     if (!parsed?.hospitalName || !parsed?.category) return null
+    const expectedOwnerId = ownerUserId === undefined || ownerUserId === null ? undefined : String(ownerUserId)
+    if (expectedOwnerId && parsed.ownerUserId !== expectedOwnerId) {
+      clearSelectedChatbotAnalysisContext()
+      return null
+    }
+    if (!expectedOwnerId && parsed.ownerUserId) {
+      clearSelectedChatbotAnalysisContext()
+      return null
+    }
     return parsed
   } catch {
     return null
   }
 }
 
-export function writeSelectedChatbotAnalysisContext(context: ChatbotAnalysisContext) {
+export function writeSelectedChatbotAnalysisContext(context: ChatbotAnalysisContext, ownerUserId?: string | number | null) {
   if (typeof window === "undefined") return
-  window.localStorage.setItem(SELECTED_CHATBOT_ANALYSIS_KEY, JSON.stringify(context))
+  const nextContext = {
+    ...context,
+    ownerUserId: ownerUserId === undefined || ownerUserId === null ? undefined : String(ownerUserId),
+  }
+  window.localStorage.setItem(SELECTED_CHATBOT_ANALYSIS_KEY, JSON.stringify(nextContext))
   window.dispatchEvent(new Event(CHATBOT_CONTEXT_EVENT))
 }
 

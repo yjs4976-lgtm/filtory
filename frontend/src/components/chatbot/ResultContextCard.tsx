@@ -47,7 +47,7 @@ export function ResultContextCard() {
 
   const askWithLatestResult = () => {
     if (!latest) return
-    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest))
+    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(latest), user?.id ?? null)
   }
   const latestHospitalName = latest ? getHistoryHospitalName(latest, language) : ""
   const latestMetaText = latest ? getHistoryMetaText(latest, language, t.categories[latest.category]) : ""

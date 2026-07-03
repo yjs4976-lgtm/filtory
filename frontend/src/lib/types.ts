@@ -390,6 +390,11 @@ export interface ApiResponse<T> {
   success: boolean
   message: string
   data: T
+  meta?: {
+    page?: number
+    per_page?: number
+    count?: number
+  }
 }
 
 export interface LoginRequest {

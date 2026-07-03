@@ -47,6 +47,12 @@ class Review(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    admin_moderation_cases = db.relationship(
+        "AdminReviewModerationCase",
+        back_populates="review",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Review id={self.id} hospital_id={self.hospital_id}>"

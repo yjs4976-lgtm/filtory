@@ -30,7 +30,7 @@ class GeminiChatbotService:
             http_options=types.HttpOptions(timeout=cls._timeout_milliseconds(settings)),
             system_instruction=CHATBOT_SYSTEM_PROMPT,
             temperature=0.35,
-            max_output_tokens=500,
+            max_output_tokens=settings.gemini_chatbot_max_output_tokens,
         )
 
         last_error = None

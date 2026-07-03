@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 from app.clients.ai_review_analysis_client import AIReviewAnalysisClient
 from app.extensions import db
-from app.repositories import AnalysisRepository, HospitalEnrichmentSuggestionRepository, ReviewRepository
+from app.repositories import AdminRepository, AnalysisRepository, HospitalEnrichmentSuggestionRepository, ReviewRepository
 from app.schemas import (
     analysis_ai_response_to_result_data,
     analysis_request_to_dict,
@@ -223,6 +223,8 @@ class AnalysisService:
             )
             AnalysisService._validate_score_data(result_data)
             analysis_result = AnalysisRepository.create_result(result_data)
+            db.session.flush()
+            AnalysisService._create_moderation_cases_for_result(analysis_result)
             analysis_request.request_status = "success"
             analysis_request.completed_at = datetime.now(timezone.utc)
             analysis_request.error_message = None
@@ -301,6 +303,8 @@ class AnalysisService:
 
         try:
             analysis_result = AnalysisRepository.create_result(data)
+            db.session.flush()
+            AnalysisService._create_moderation_cases_for_result(analysis_result)
 
             if data.get("request_id"):
                 analysis_request = AnalysisRepository.get_request_by_id(data["request_id"])
@@ -486,6 +490,56 @@ class AnalysisService:
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def _create_moderation_cases_for_result(analysis_result):
+        score_snapshot = {
+            "totalScore": analysis_result.total_score,
+            "trustScore": analysis_result.trust_score,
+            "adScore": analysis_result.ad_score,
+            "placeScore": analysis_result.place_score,
+            "foreignerScore": analysis_result.foreigner_score,
+            "adSuspicion": analysis_result.ad_suspicion,
+            "repetitionSuspicion": analysis_result.repetition_suspicion,
+        }
+
+        if AnalysisService._is_high_ad_suspicion(analysis_result):
+            AdminRepository.create_review_case_if_absent(
+                {
+                    "hospital_id": analysis_result.hospital_id,
+                    "review_id": analysis_result.review_id,
+                    "analysis_result_id": analysis_result.id,
+                    "case_type": "ad_suspicion",
+                    "status": "pending",
+                    "priority": "high" if (analysis_result.ad_score or 0) >= 80 else "normal",
+                    "reason": "Analysis result marked this review as high ad suspicion.",
+                    "score_snapshot": score_snapshot,
+                }
+            )
+
+        if AnalysisService._is_high_repetition_suspicion(analysis_result):
+            AdminRepository.create_review_case_if_absent(
+                {
+                    "hospital_id": analysis_result.hospital_id,
+                    "review_id": analysis_result.review_id,
+                    "analysis_result_id": analysis_result.id,
+                    "case_type": "repetition_pattern",
+                    "status": "pending",
+                    "priority": "normal",
+                    "reason": "Analysis result found a high repeated-pattern signal.",
+                    "score_snapshot": score_snapshot,
+                }
+            )
+
+    @staticmethod
+    def _is_high_ad_suspicion(analysis_result):
+        level = str(analysis_result.ad_suspicion or "").strip().lower()
+        return (analysis_result.ad_score or 0) >= 70 or level in {"high", "높음", "위험"}
+
+    @staticmethod
+    def _is_high_repetition_suspicion(analysis_result):
+        level = str(analysis_result.repetition_suspicion or "").strip().lower()
+        return level in {"high", "높음", "위험"}
 
     @staticmethod
     def _normalize_integrated_payload(payload):

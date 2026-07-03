@@ -54,11 +54,6 @@ export default function AdminPage() {
             <p>{t.admin.menuReviewsDescription}</p>
           </Link>
 
-          <Link href={ROUTES.ADMIN_REPORTS} className="soft-card admin-menu-card">
-            <strong>{t.admin.menuReportsTitle}</strong>
-            <p>{t.admin.menuReportsDescription}</p>
-          </Link>
-
           <Link href={ROUTES.ADMIN_HOSPITALS} className="soft-card admin-menu-card">
             <strong>{t.admin.menuHospitalsTitle}</strong>
             <p>{t.admin.menuHospitalsDescription}</p>

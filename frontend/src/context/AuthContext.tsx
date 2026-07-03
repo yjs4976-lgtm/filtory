@@ -4,7 +4,8 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/types";
-import { clearAuthSession, saveAuthSession, saveStoredUser } from "@/lib/authStorage";
+import { clearAuthSession, readStoredUser, saveAuthSession, saveStoredUser } from "@/lib/authStorage";
+import { clearSelectedChatbotAnalysisContext } from "@/lib/chatbotContext";
 import { authService } from "@/services/authService";
 
 interface AuthContextValue {
@@ -29,9 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const saveLogin = useCallback((payload: LoginResponse) => {
+    if (user?.id !== payload.user.id) {
+      clearSelectedChatbotAnalysisContext();
+    }
     saveAuthSession(payload);
     setUser(payload.user);
-  }, []);
+  }, [user?.id]);
 
   const updateUser = useCallback((nextUser: User) => {
     saveStoredUser(nextUser);
@@ -55,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     clearAuthSession();
+    clearSelectedChatbotAnalysisContext();
     setUser(null);
     router.push(ROUTES.LOGIN);
   }, [router]);
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        const storedUser = readStoredUser();
         try {
           await authService.refresh();
         } catch {
@@ -69,10 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const meResult = await authService.me();
+        if (storedUser?.id !== meResult.data.id) {
+          clearSelectedChatbotAnalysisContext();
+        }
         saveStoredUser(meResult.data);
         setUser(meResult.data);
       } catch {
         clearAuthSession();
+        clearSelectedChatbotAnalysisContext();
         setUser(null);
       } finally {
         setIsLoading(false);

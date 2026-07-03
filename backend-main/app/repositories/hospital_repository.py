@@ -5,9 +5,16 @@ from app.models import Hospital
 
 
 class HospitalRepository:
+    PUBLIC_STATUS = "active"
+
     @staticmethod
     def get_by_id(hospital_id):
         return db.session.get(Hospital, hospital_id)
+
+    @staticmethod
+    def is_publicly_available(hospital):
+        status = getattr(hospital, "admin_status", HospitalRepository.PUBLIC_STATUS)
+        return bool(hospital and (status or HospitalRepository.PUBLIC_STATUS) == HospitalRepository.PUBLIC_STATUS)
 
     @staticmethod
     def get_by_naver_place_id(naver_place_id):
@@ -40,7 +47,7 @@ class HospitalRepository:
 
     @staticmethod
     def list_by_category(category=None, region=None, limit=20, offset=0):
-        query = Hospital.query
+        query = Hospital.query.filter(Hospital.admin_status == HospitalRepository.PUBLIC_STATUS)
 
         if category:
             query = query.filter(Hospital.category == category)
@@ -64,7 +71,7 @@ class HospitalRepository:
 
     @staticmethod
     def search(keyword, category=None, region=None, limit=20, offset=0):
-        query = Hospital.query
+        query = Hospital.query.filter(Hospital.admin_status == HospitalRepository.PUBLIC_STATUS)
 
         if keyword:
             pattern = f"%{keyword}%"

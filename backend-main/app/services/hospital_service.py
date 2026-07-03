@@ -75,7 +75,7 @@ class HospitalService:
     @staticmethod
     def get_hospital(hospital_id):
         hospital = HospitalRepository.get_by_id(hospital_id)
-        if not hospital:
+        if not HospitalRepository.is_publicly_available(hospital):
             raise ValueError("Hospital not found")
         return hospital_to_dict(hospital)
 
@@ -99,7 +99,7 @@ class HospitalService:
         hospital_id = payload.get("hospital_id")
         if hospital_id:
             hospital = HospitalRepository.get_by_id(hospital_id)
-            if not hospital:
+            if not HospitalRepository.is_publicly_available(hospital):
                 raise ValueError("Hospital not found")
             return hospital
 
@@ -111,12 +111,14 @@ class HospitalService:
         if naver_place_id:
             hospital = HospitalRepository.get_by_naver_place_id(naver_place_id)
             if hospital:
+                HospitalService._ensure_public_hospital(hospital)
                 return hospital
 
         google_place_id = payload.get("google_place_id")
         if google_place_id:
             hospital = HospitalRepository.get_by_google_place_id(google_place_id)
             if hospital:
+                HospitalService._ensure_public_hospital(hospital)
                 return hospital
 
         source_provider = payload.get("source_provider")
@@ -127,6 +129,7 @@ class HospitalService:
                 external_place_id,
             )
             if hospital:
+                HospitalService._ensure_public_hospital(hospital)
                 return hospital
 
         hospital_name = payload.get("hospital_name")
@@ -139,6 +142,7 @@ class HospitalService:
             payload.get("address"),
         )
         if hospital:
+            HospitalService._ensure_public_hospital(hospital)
             return hospital
 
         data = HospitalService._analysis_hospital_data(payload)
@@ -158,7 +162,7 @@ class HospitalService:
     @staticmethod
     def update_hospital(hospital_id, payload):
         hospital = HospitalRepository.get_by_id(hospital_id)
-        if not hospital:
+        if not HospitalRepository.is_publicly_available(hospital):
             raise ValueError("Hospital not found")
 
         data = extract_hospital_data(payload)
@@ -184,6 +188,11 @@ class HospitalService:
 
         if data.get("category") and data["category"] not in HospitalService.CATEGORIES:
             raise ValueError("Invalid hospital category")
+
+    @staticmethod
+    def _ensure_public_hospital(hospital):
+        if not HospitalRepository.is_publicly_available(hospital):
+            raise ValueError("Hospital not found")
 
     @staticmethod
     def _normalize_category(category):

@@ -15,6 +15,7 @@ import { formatDisplayDate } from "@/lib/dateFormat"
 import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
+import { useAuth } from "@/hooks/useAuth"
 import type { AnalysisHistoryItem } from "@/lib/types"
 import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
@@ -27,6 +28,7 @@ interface AnalysisHistoryCardProps {
 export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps) {
   const router = useRouter()
   const { t, language } = useLanguage()
+  const { user } = useAuth()
   const trustScore = item.trustScore ?? item.score
   const trustLevel = getTrustLevel(trustScore)
   const trustLevelKey = getTrustLevelKeyFromValue(trustScore, item.trustLevel)
@@ -45,7 +47,7 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
       router.push(buildAnalysisChatbotHref(analysisResultId))
       return
     }
-    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item))
+    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item), user?.id ?? null)
     router.push(ROUTES.CHATBOT)
   }
   const viewResult = () => {

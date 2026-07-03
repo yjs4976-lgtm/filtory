@@ -88,9 +88,14 @@ class ChatbotService:
             or payload.get("resultId")
         )
         if analysis_result_id:
-            if not member_id:
+            if member_id:
+                try:
+                    analysis_context = cls.build_analysis_chat_context(analysis_result_id, member_id)
+                except ValueError:
+                    if not analysis_context:
+                        raise
+            elif not analysis_context:
                 raise ValueError("Analysis result not found or not accessible")
-            analysis_context = cls.build_analysis_chat_context(analysis_result_id, member_id)
         has_context = bool(analysis_context)
         normalized_message = message.lower()
         model_version = None
@@ -196,6 +201,8 @@ class ChatbotService:
         raw_response = evidence_json.get("rawResponse") if isinstance(evidence_json.get("rawResponse"), dict) else {}
         evidence = raw_response.get("evidence") if isinstance(raw_response.get("evidence"), dict) else {}
         hospital = analysis_result.hospital
+        if hospital and (hospital.admin_status or "active") != "active":
+            raise ValueError("Analysis result not found or not accessible")
         request_options = (
             analysis_result.analysis_request.request_options_json
             if analysis_result.analysis_request and isinstance(analysis_result.analysis_request.request_options_json, dict)

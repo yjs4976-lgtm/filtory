@@ -1,5 +1,5 @@
 from app.extensions import db
-from app.models import AnalysisRequest, AnalysisResult
+from app.models import AnalysisRequest, AnalysisResult, Hospital
 from sqlalchemy.orm import joinedload
 
 
@@ -35,6 +35,8 @@ class AnalysisRepository:
                 AnalysisRequest.member_id == member_id,
                 AnalysisRequest.deleted_at.is_(None),
             )
+            .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+            .filter(Hospital.admin_status == "active")
             .order_by(AnalysisRequest.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -59,6 +61,8 @@ class AnalysisRepository:
                 AnalysisRequest.member_id == member_id,
                 deleted_filter,
             )
+            .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+            .filter(Hospital.admin_status == "active")
             .order_by(order_field)
             .limit(limit)
             .offset(offset)
@@ -76,6 +80,8 @@ class AnalysisRepository:
                 AnalysisRequest.member_id == member_id,
                 AnalysisRequest.id.in_(request_ids),
             )
+            .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+            .filter(Hospital.admin_status == "active")
         )
 
         if trashed is True:
@@ -90,6 +96,8 @@ class AnalysisRepository:
         return (
             AnalysisRequest.query
             .filter(AnalysisRequest.hospital_id == hospital_id)
+            .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+            .filter(Hospital.admin_status == "active")
             .order_by(AnalysisRequest.created_at.desc())
             .limit(limit)
             .offset(offset)

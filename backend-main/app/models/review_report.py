@@ -52,6 +52,11 @@ class ReviewReport(db.Model):
     hospital = db.relationship("Hospital", back_populates="reports")
     review = db.relationship("Review", back_populates="reports")
     analysis_result = db.relationship("AnalysisResult", back_populates="reports")
+    admin_moderation_cases = db.relationship(
+        "AdminReviewModerationCase",
+        back_populates="review_report",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<ReviewReport id={self.id} status={self.status}>"
