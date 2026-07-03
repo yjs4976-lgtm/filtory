@@ -406,6 +406,41 @@ function isInternalHospitalId(id: string) {
   return /^\d+$/.test(id)
 }
 
+function buildNaverPlaceHref(hospital: HospitalItem, isNaverSource: boolean) {
+  const directUrl = hospital.naverPlaceUrl || (isNaverSource ? hospital.sourceUrl : undefined)
+  if (directUrl) return withNaverReviewPath(directUrl)
+
+  const placeId = hospital.naverPlaceId
+  if (placeId && /^\d+$/.test(placeId)) {
+    return `https://map.naver.com/p/entry/place/${placeId}?placePath=/review`
+  }
+
+  const query = [hospital.hospitalNameKo || hospital.name, hospital.roadAddress || hospital.address]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+
+  return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : undefined
+}
+
+function withNaverReviewPath(href: string) {
+  try {
+    const url = new URL(href)
+    if (!url.hostname.includes("naver.")) return href
+    if (!url.searchParams.has("placePath")) {
+      url.searchParams.set("placePath", "/review")
+    }
+    return url.toString()
+  } catch {
+    return href
+  }
+}
+
+function isSameHref(left?: string, right?: string) {
+  if (!left || !right) return false
+  return left.replace(/\/$/, "") === right.replace(/\/$/, "")
+}
+
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
@@ -426,13 +461,19 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
     externalPlaceId: hospital.externalPlaceId,
     kakaoPlaceUrl: hospital.kakaoPlaceUrl,
     naverPlaceUrl: isNaverSource ? sourceUrl : undefined,
+    naverRating: hospital.naverRating,
+    naverReviewCount: hospital.naverReviewCount,
+    googleRating: hospital.googleRating,
+    googleReviewCount: hospital.googleReviewCount,
     googleMapUrl: hospital.mapUrl,
+    googlePlaceId: hospital.googlePlaceId,
     latitude: hospital.latitude ?? hospital.lat,
     longitude: hospital.longitude ?? hospital.lng,
     googleRegistered: Boolean(hospital.mapUrl),
     englishName,
     hasEnglishInfo: Boolean(englishName),
     hasEnglishReviews: false,
+    englishReviews: false,
     hasGooglePhotos: Boolean(hospital.imageUrl),
   }
 }
@@ -450,16 +491,25 @@ function buildAccessibilityMetadataPayload(
   input: AccessibilityEnhancementInput
 ): Pick<
   ReviewAnalyzeRequest,
-  "googleMapUrl" | "homepageUrl" | "englishName" | "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos"
+  | "googleMapUrl"
+  | "homepageUrl"
+  | "englishName"
+  | "hasEnglishInfo"
+  | "hasEnglishReviews"
+  | "englishReviews"
+  | "hasGooglePhotos"
+  | "hasPhotos"
 > {
   const fallback = buildHospitalMetadataPayload(hospital)
+  const hasEnglishReviews = booleanOverride(input.hasEnglishReviews, fallback.hasEnglishReviews)
 
   return {
     googleMapUrl: textOverride(input.googleMapUrl, fallback.googleMapUrl),
     homepageUrl: textOverride(input.homepageUrl, fallback.homepageUrl),
     englishName: textOverride(input.englishName, fallback.englishName),
     hasEnglishInfo: booleanOverride(input.hasEnglishInfo, fallback.hasEnglishInfo),
-    hasEnglishReviews: booleanOverride(input.hasEnglishReviews, fallback.hasEnglishReviews),
+    hasEnglishReviews,
+    englishReviews: hasEnglishReviews,
     hasGooglePhotos: booleanOverride(input.hasGooglePhotos, fallback.hasGooglePhotos),
     hasPhotos: booleanOverride(input.hasPhotos, fallback.hasPhotos),
   }
@@ -2814,6 +2864,10 @@ function HospitalResultCard({
   onSelect: () => void
 }) {
   const { t, language } = useLanguage()
+  const sourceName = hospital.sourceName?.toLowerCase() ?? ""
+  const providerName = String(hospital.provider ?? "").toLowerCase()
+  const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버") || providerName.includes("naver")
+  const naverPlaceHref = buildNaverPlaceHref(hospital, isNaverSource)
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
@@ -2842,8 +2896,11 @@ function HospitalResultCard({
           )}
         </div>
         <div className={styles.linkRow}>
-          {hospital.sourceUrl && <SourceLink href={hospital.sourceUrl} label={t.analyze.sourceLink} />}
-          {hospital.mapUrl && <SourceLink href={hospital.mapUrl} label={t.analyze.map} />}
+          {hospital.sourceUrl && !isSameHref(hospital.sourceUrl, naverPlaceHref) && (
+            <SourceLink href={hospital.sourceUrl} label={isNaverSource ? t.analyze.naverOriginalLink : t.analyze.sourceLink} />
+          )}
+          {naverPlaceHref && <SourceLink href={naverPlaceHref} label={t.analyze.naverOriginalLink} />}
+          {hospital.mapUrl && !isSameHref(hospital.mapUrl, naverPlaceHref) && <SourceLink href={hospital.mapUrl} label={t.analyze.map} />}
           {hospital.homepageUrl && <SourceLink href={hospital.homepageUrl} label={t.analyze.homepage} />}
         </div>
         <div className={styles.hospitalCardActions}>
@@ -2853,7 +2910,7 @@ function HospitalResultCard({
             </Link>
           ) : hospital.mapUrl ? (
             <a className={styles.secondaryButton} href={hospital.mapUrl} target="_blank" rel="noreferrer">
-              {t.analyze.viewOnMap}
+              {isNaverSource ? t.analyze.naverOriginalLink : t.analyze.viewOnMap}
             </a>
           ) : (
             <span className={styles.secondaryButtonDisabled}>{t.analyze.viewOnMap}</span>

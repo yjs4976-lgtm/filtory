@@ -500,12 +500,21 @@ class AnalysisService:
             "has_photos": AnalysisService._pick(payload, "hasPhotos", "has_photos"),
             "naver_place_url": AnalysisService._pick(payload, "naverPlaceUrl", "naver_place_url"),
             "naver_place_id": AnalysisService._pick(payload, "naverPlaceId", "naver_place_id"),
+            "naver_rating": AnalysisService._pick(payload, "naverRating", "naver_rating"),
+            "naver_review_count": AnalysisService._pick(payload, "naverReviewCount", "naver_review_count"),
             "google_map_url": AnalysisService._pick(payload, "googleMapUrl", "google_map_url"),
             "google_place_id": AnalysisService._pick(payload, "googlePlaceId", "google_place_id"),
+            "google_rating": AnalysisService._pick(payload, "googleRating", "google_rating"),
+            "google_review_count": AnalysisService._pick(payload, "googleReviewCount", "google_review_count"),
             "google_registered": AnalysisService._pick(payload, "googleRegistered", "google_registered"),
             "english_name": AnalysisService._pick(payload, "englishName", "english_name"),
             "has_english_info": AnalysisService._pick(payload, "hasEnglishInfo", "has_english_info"),
-            "has_english_reviews": AnalysisService._pick(payload, "hasEnglishReviews", "has_english_reviews"),
+            "has_english_reviews": AnalysisService._pick(
+                payload,
+                "englishReviews",
+                "hasEnglishReviews",
+                "has_english_reviews",
+            ),
             "has_google_photos": AnalysisService._pick(payload, "hasGooglePhotos", "has_google_photos"),
         }
 
@@ -533,12 +542,17 @@ class AnalysisService:
             "hasPhotos": hospital.get("has_photos"),
             "naverPlaceUrl": hospital.get("naver_place_url"),
             "naverPlaceId": hospital.get("naver_place_id"),
+            "naverRating": hospital.get("naver_rating"),
+            "naverReviewCount": hospital.get("naver_review_count"),
             "googleMapUrl": hospital.get("google_map_url"),
             "googlePlaceId": hospital.get("google_place_id"),
+            "googleRating": hospital.get("google_rating"),
+            "googleReviewCount": hospital.get("google_review_count"),
             "googleRegistered": hospital.get("google_registered"),
             "englishName": hospital.get("english_name"),
             "hasEnglishInfo": hospital.get("has_english_info"),
             "hasEnglishReviews": hospital.get("has_english_reviews"),
+            "englishReviews": hospital.get("has_english_reviews"),
             "hasGooglePhotos": hospital.get("has_google_photos"),
         }
 
@@ -569,6 +583,7 @@ class AnalysisService:
             "englishName": hospital.english_name,
             "hasEnglishInfo": hospital.has_english_info,
             "hasEnglishReviews": hospital.has_english_reviews,
+            "englishReviews": hospital.has_english_reviews,
             "hasGooglePhotos": hospital.has_google_photos,
         }
         return {key: value for key, value in payload.items() if value is not None}

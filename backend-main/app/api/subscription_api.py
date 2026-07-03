@@ -2,6 +2,7 @@ from flask import Blueprint, request
 
 from app.services import SubscriptionService
 from app.utils.response import error_response, success_response
+from app.utils.security import require_admin, require_member_or_admin
 
 subscription_bp = Blueprint("subscriptions", __name__)
 
@@ -13,6 +14,7 @@ def list_subscription_plans():
 
 
 @subscription_bp.route("/members/<int:member_id>/current", methods=["GET"])
+@require_member_or_admin
 def get_current_member_subscription(member_id):
     try:
         subscription = SubscriptionService.get_current_member_subscription(member_id)
@@ -22,6 +24,7 @@ def get_current_member_subscription(member_id):
 
 
 @subscription_bp.route("/members", methods=["POST"])
+@require_admin
 def create_member_subscription():
     payload = request.get_json(silent=True) or {}
 
@@ -33,6 +36,7 @@ def create_member_subscription():
 
 
 @subscription_bp.route("/members/<int:subscription_id>", methods=["PATCH"])
+@require_admin
 def update_member_subscription(subscription_id):
     payload = request.get_json(silent=True) or {}
 

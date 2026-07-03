@@ -55,19 +55,19 @@ class HospitalSearchProvider:
         if cached_results is not None:
             return cached_results[:limit]
 
-        kakao_results = cls.search_kakao(
+        naver_results = cls.search_naver(
             query=query,
             category=category,
             limit=limit,
         )
-        if len(kakao_results) >= limit:
-            results = kakao_results[:limit]
+        if len(naver_results) >= limit:
+            results = naver_results[:limit]
             cls._set_cached(cache_key, results)
             return results
 
-        remaining_limit = max(0, limit - len(kakao_results))
-        naver_results = cls.search_naver(query=query, category=category, limit=remaining_limit)
-        results = cls._dedupe([*kakao_results, *naver_results])[:limit]
+        remaining_limit = max(0, limit - len(naver_results))
+        kakao_results = cls.search_kakao(query=query, category=category, limit=remaining_limit)
+        results = cls._dedupe([*naver_results, *kakao_results])[:limit]
         cls._set_cached(cache_key, results)
         return results
 
@@ -185,10 +185,16 @@ class HospitalSearchProvider:
             "phone": cls._text(item.get("phone")),
             "map_url": place_url,
             "kakao_place_url": place_url,
+            "naver_place_url": None,
+            "naver_place_id": None,
             "source_url": place_url,
             "source_name": "Kakao",
             "latitude": latitude,
             "longitude": longitude,
+            "naver_rating": None,
+            "naver_review_count": None,
+            "google_rating": None,
+            "google_review_count": None,
             "is_official_hospital": False,
             "official_source": None,
         }
@@ -213,10 +219,22 @@ class HospitalSearchProvider:
             "phone": cls._text(item.get("telephone")),
             "map_url": link,
             "naver_place_url": link,
+            "naver_place_id": cls._naver_place_id_from_link(link),
             "source_url": link,
             "source_name": "Naver",
             "latitude": latitude,
             "longitude": longitude,
+            "naver_rating": cls._optional_decimal(
+                item.get("rating") or item.get("naverRating") or item.get("naver_rating")
+            ),
+            "naver_review_count": cls._optional_int(
+                item.get("reviewCount")
+                or item.get("visitorReviewCount")
+                or item.get("naverReviewCount")
+                or item.get("naver_review_count")
+            ),
+            "google_rating": None,
+            "google_review_count": None,
             "is_official_hospital": False,
             "official_source": None,
         }
@@ -271,6 +289,37 @@ class HospitalSearchProvider:
             return float(Decimal(str(value)) / Decimal("10000000"))
         except (InvalidOperation, ValueError):
             return None
+
+    @staticmethod
+    def _optional_decimal(value):
+        if value in (None, ""):
+            return None
+        try:
+            return float(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _optional_int(value):
+        if value in (None, ""):
+            return None
+        try:
+            return int(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _naver_place_id_from_link(link):
+        text = str(link or "")
+        match = re.search(r"(?:entry/place|place|hospital|clinic)/(\d+)", text)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"(?:placeId|id)=(\d+)", text)
+        if match:
+            return match.group(1)
+
+        return None
 
     @classmethod
     def _category_from_kakao(cls, item):

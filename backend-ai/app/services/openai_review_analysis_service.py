@@ -141,25 +141,22 @@ class OpenAIReviewAnalysisService:
 
         language = payload.outputLanguage
         trust_score = cls._clamp_score(data.get("trustScore"))
-        ad_score = cls._clamp_score(data.get("adSuspicionScore", data.get("adScore")))
-        information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
-        global_accessibility_score = cls._clamp_score(
-            data.get("globalAccessibilityScore", cls.calculate_foreigner_score(payload))
-        )
+        ad_score = cls._clamp_score(data.get("adScore", data.get("adSuspicionScore")))
+        review_information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
         place_score = cls.calculate_place_score(payload)
         foreigner_score = cls.calculate_foreigner_score(payload)
         total_score = cls.calculate_total_score(
             trust_score=trust_score,
             ad_score=ad_score,
-            information_score=information_score,
-            global_accessibility_score=global_accessibility_score,
+            place_score=place_score,
+            foreigner_score=foreigner_score,
         )
         evidence = cls._normalize_evidence(data, language)
         repetition_level = cls._repetition_level(data.get("repetitionLevel"), evidence.repetitivePhrases)
-        information_level = cls.information_level(information_score)
+        information_level = cls.information_level(review_information_score)
         trust_level_key = cls.trust_level_key(trust_score)
         ad_suspicion_level = cls.ad_suspicion_level(ad_score)
-        global_accessibility_level = cls.score_level(global_accessibility_score)
+        global_accessibility_level = cls.score_level(foreigner_score)
         warning_signals = evidence.warnings
         positive_signals = evidence.positiveSignals
         negative_signals = cls._normalize_string_list(data.get("negativeSignals")) or warning_signals
@@ -178,7 +175,7 @@ class OpenAIReviewAnalysisService:
             "adSuspicionScore": ad_score,
             "placeScore": place_score,
             "foreignerScore": foreigner_score,
-            "informationScore": information_score,
+            "informationScore": place_score,
             "grade": cls.grade(total_score),
             "trustGrade": cls.trust_grade(trust_level_key, language),
             "trustLevelKey": trust_level_key,
@@ -189,7 +186,7 @@ class OpenAIReviewAnalysisService:
             "positiveSignals": positive_signals,
             "negativeSignals": negative_signals,
             "warningSignals": warning_signals,
-            "globalAccessibilityScore": global_accessibility_score,
+            "globalAccessibilityScore": foreigner_score,
             "globalAccessibilityLevel": global_accessibility_level,
             "globalAccessibilityMaxScore": 100,
             "globalAccessibilityChecks": cls.global_accessibility_checks(payload),
@@ -210,9 +207,8 @@ class OpenAIReviewAnalysisService:
         language = payload.outputLanguage
         data = {
             "trustScore": 50,
-            "adSuspicionScore": 50,
-            "informationScore": 40,
-            "globalAccessibilityScore": cls.calculate_foreigner_score(payload),
+            "adScore": 50,
+            "informationLevel": "보통" if language == "ko" else "Moderate",
             "detectedPatterns": [
                 "분석 결과를 안정적으로 생성하지 못해 기본 기준으로 표시했습니다."
                 if language == "ko"
@@ -291,14 +287,14 @@ class OpenAIReviewAnalysisService:
     def calculate_total_score(
         trust_score: int,
         ad_score: int,
-        information_score: int,
-        global_accessibility_score: int,
+        place_score: int,
+        foreigner_score: int,
     ) -> int:
         score = (
             trust_score * 0.45
-            + (100 - ad_score) * 0.20
-            + information_score * 0.20
-            + global_accessibility_score * 0.15
+            + place_score * 0.25
+            + foreigner_score * 0.15
+            + (100 - ad_score) * 0.15
         )
         return OpenAIReviewAnalysisService._clamp_score(score)
 

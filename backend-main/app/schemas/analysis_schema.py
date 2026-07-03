@@ -153,10 +153,10 @@ def extract_analysis_result_data(payload):
 
 def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, request_id, review_ids, output_language):
     ad_suspicion_score = _first_present(ai_response.get("adSuspicionScore"), ai_response.get("adScore"))
-    information_score = _first_present(ai_response.get("informationScore"), ai_response.get("placeScore"))
+    place_score = _first_present(ai_response.get("placeScore"), ai_response.get("informationScore"))
     global_accessibility_score = _first_present(
-        ai_response.get("globalAccessibilityScore"),
         ai_response.get("foreignerScore"),
+        ai_response.get("globalAccessibilityScore"),
     )
     evidence_json = {
         "evidence": ai_response.get("evidence") or {},
@@ -181,7 +181,7 @@ def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, req
         "total_score": _optional_int(ai_response.get("totalScore")),
         "trust_score": _optional_int(ai_response.get("trustScore")),
         "ad_score": _optional_int(ad_suspicion_score),
-        "place_score": _optional_int(information_score),
+        "place_score": _optional_int(place_score),
         "foreigner_score": _optional_int(global_accessibility_score),
         "trust_level": ai_response.get("trustLevelKey"),
         "ad_suspicion": ai_response.get("adSuspicionLevel"),

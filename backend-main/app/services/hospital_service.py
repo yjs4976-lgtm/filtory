@@ -56,16 +56,14 @@ class HospitalService:
             for hospital in local_hospitals
         ]
 
-        if len(local_results) >= limit:
-            return local_results[:limit]
-
         external_results = HospitalSearchProvider.search(
             keyword=keyword or "",
             category=category,
             region=region,
-            limit=limit - len(local_results),
+            limit=limit,
         )
-        return HospitalService._dedupe_search_results([*local_results, *external_results])[:limit]
+        results = HospitalService._prioritize_search_results([*external_results, *local_results])
+        return HospitalService._dedupe_search_results(results)[:limit]
 
     @staticmethod
     def get_hospital(hospital_id):
@@ -192,3 +190,19 @@ class HospitalService:
             seen.add(key)
             results.append(item)
         return results
+
+    @staticmethod
+    def _prioritize_search_results(items):
+        priority = {
+            "naver": 0,
+            "filtory": 1,
+            "kakao": 2,
+            "google": 3,
+            "hira": 4,
+        }
+
+        def provider_rank(item):
+            provider = str(item.get("source_provider") or item.get("provider") or "").strip().lower()
+            return priority.get(provider, 9)
+
+        return sorted(items, key=provider_rank)

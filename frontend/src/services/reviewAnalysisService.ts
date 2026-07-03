@@ -16,8 +16,10 @@ type GlobalAccessibilityCheckKey = keyof GlobalAccessibilityChecks
 
 const GLOBAL_ACCESSIBILITY_DISPLAY_KEYS: GlobalAccessibilityCheckKey[] = [
   "googleMapLink",
+  "googlePlaceId",
   "englishName",
   "englishGuide",
+  "englishReviews",
   "homepageOrBookingLink",
   "photoInfo",
 ]
@@ -93,8 +95,10 @@ function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "h
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
   return {
     googleMapLink: Boolean(payload.googleMapUrl),
+    googlePlaceId: Boolean(payload.googlePlaceId),
     englishName: Boolean(payload.englishName),
     englishGuide: Boolean(payload.hasEnglishInfo),
+    englishReviews: Boolean(payload.englishReviews ?? payload.hasEnglishReviews),
     homepageOrBookingLink: Boolean(payload.homepageUrl || payload.naverPlaceUrl),
     photoInfo: Boolean(payload.hasGooglePhotos || payload.hasPhotos),
   }
@@ -179,7 +183,7 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     fallbackGlobalAccessibilityChecks
   )
   const globalAccessibilityMaxScore =
-    optionalNumber(result.globalAccessibilityMaxScore) ?? GLOBAL_ACCESSIBILITY_DISPLAY_KEYS.length
+    optionalNumber(result.globalAccessibilityMaxScore) ?? 100
   const adSuspicionScore = optionalNumber(result.adSuspicionScore) ?? optionalNumber(result.adScore) ?? 0
   const informationScore = optionalNumber(result.informationScore) ?? optionalNumber(result.placeScore) ?? 0
   const globalAccessibilityScore =
