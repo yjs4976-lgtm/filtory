@@ -139,14 +139,22 @@ export function formatHistoryRegionLabel(value?: unknown, language: Language = "
   const label = cleanLabel(value)
   if (!label || language !== "en") return label
 
-  const province = KOREA_REGION_OPTIONS.find((option) => (
-    label === option.label.en || label.startsWith(`${option.label.en} `)
-  ))
-  const withoutProvince = province && label !== province.label.en
-    ? label.slice(province.label.en.length).trim()
-    : label
+  const provinceMatch = KOREA_REGION_OPTIONS
+    .map((option) => {
+      const displayLabel = PROVINCE_EN_LABELS[option.label.ko] ?? option.label.en
+      const matchedPrefix = [displayLabel, option.label.en].find((prefix) => (
+        label === prefix || label.startsWith(`${prefix} `)
+      ))
+      return matchedPrefix ? { displayLabel, matchedPrefix } : null
+    })
+    .find(Boolean)
 
-  return normalizeEnglishDistrict(withoutProvince)
+  if (!provinceMatch) return normalizeEnglishDistrict(label)
+
+  const district = label.slice(provinceMatch.matchedPrefix.length).trim()
+  return district
+    ? `${normalizeEnglishDistrict(district)}, ${provinceMatch.displayLabel}`
+    : provinceMatch.displayLabel
 }
 
 export function extractRegionLabelFromAddress(address?: unknown) {
