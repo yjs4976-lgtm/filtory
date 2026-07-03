@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from app.clients.ai_review_analysis_client import AIReviewAnalysisClient
 from app.extensions import db
-from app.repositories import AnalysisRepository, ReviewRepository
+from app.repositories import AnalysisRepository, HospitalEnrichmentSuggestionRepository, ReviewRepository
 from app.schemas import (
     analysis_ai_response_to_result_data,
     analysis_request_to_dict,
@@ -172,6 +173,12 @@ class AnalysisService:
                 }
             )
             db.session.flush()
+            AnalysisService._create_enrichment_suggestion(
+                data["hospital"],
+                hospital_id=hospital.id,
+                analysis_request_id=analysis_request.id,
+                member_id=member_id,
+            )
 
             for review_text in data["reviews"]:
                 review = ReviewRepository.create(
@@ -519,6 +526,64 @@ class AnalysisService:
         }
 
     @staticmethod
+    def _create_enrichment_suggestion(hospital, *, hospital_id, analysis_request_id, member_id):
+        suggestion = AnalysisService._enrichment_suggestion_data(
+            hospital,
+            hospital_id=hospital_id,
+            analysis_request_id=analysis_request_id,
+            member_id=member_id,
+        )
+        if suggestion:
+            HospitalEnrichmentSuggestionRepository.create(suggestion)
+
+    @staticmethod
+    def _enrichment_suggestion_data(hospital, *, hospital_id, analysis_request_id, member_id):
+        english_name = AnalysisService._clean_text(hospital.get("english_name"))
+        homepage_url = AnalysisService._valid_http_url(hospital.get("homepage_url"))
+        has_english_info = AnalysisService._true_or_none(hospital.get("has_english_info"))
+        has_english_reviews = AnalysisService._true_or_none(hospital.get("has_english_reviews"))
+        has_photos = AnalysisService._true_or_none(hospital.get("has_photos"))
+
+        if not any([english_name, homepage_url, has_english_info, has_english_reviews, has_photos]):
+            return None
+
+        return {
+            "hospital_id": hospital_id,
+            "analysis_request_id": analysis_request_id,
+            "source_member_id": member_id,
+            "source_type": "user_input",
+            "status": "pending",
+            "suggested_english_name": english_name,
+            "suggested_homepage_url": homepage_url,
+            "suggested_has_english_info": has_english_info,
+            "suggested_has_english_reviews": has_english_reviews,
+            "suggested_has_photos": has_photos,
+        }
+
+    @staticmethod
+    def _clean_text(value):
+        if not isinstance(value, str):
+            return None
+        text = value.strip()
+        return text or None
+
+    @staticmethod
+    def _valid_http_url(value):
+        text = AnalysisService._clean_text(value)
+        if not text:
+            return None
+
+        parsed = urlparse(text)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("Invalid homepage URL")
+
+        return text
+
+    @staticmethod
+    def _true_or_none(value):
+        return True if value is True else None
+
+    @staticmethod
     def _backend_ai_metadata(payload, hospital):
         treatment_items = AnalysisService._pick(payload, "treatmentItems", "treatment_items")
         if isinstance(treatment_items, str):
@@ -558,6 +623,7 @@ class AnalysisService:
 
     @staticmethod
     def _backend_ai_payload(data, hospital):
+        metadata = data["backend_ai_metadata"]
         payload = {
             "category": hospital.category,
             "hospitalName": hospital.hospital_name,
@@ -566,27 +632,34 @@ class AnalysisService:
             "address": hospital.address,
             "roadAddress": hospital.road_address,
             "phone": hospital.phone,
-            "homepageUrl": hospital.homepage_url,
+            "homepageUrl": AnalysisService._first_present(metadata.get("homepageUrl"), hospital.homepage_url),
             "sourceProvider": hospital.source_provider,
             "externalPlaceId": hospital.external_place_id,
-            "kakaoPlaceUrl": hospital.kakao_place_url,
+            "kakaoPlaceUrl": AnalysisService._first_present(metadata.get("kakaoPlaceUrl"), hospital.kakao_place_url),
             "latitude": float(hospital.latitude) if hospital.latitude is not None else None,
             "longitude": float(hospital.longitude) if hospital.longitude is not None else None,
-            "treatmentItems": data["backend_ai_metadata"]["treatmentItems"],
+            "treatmentItems": metadata["treatmentItems"],
             "description": hospital.description,
-            "hasPhotos": hospital.has_photos,
-            "naverPlaceUrl": hospital.naver_place_url,
-            "naverPlaceId": hospital.naver_place_id,
-            "googleMapUrl": hospital.google_map_url,
-            "googlePlaceId": hospital.google_place_id,
-            "googleRegistered": hospital.google_registered,
-            "englishName": hospital.english_name,
-            "hasEnglishInfo": hospital.has_english_info,
-            "hasEnglishReviews": hospital.has_english_reviews,
-            "englishReviews": hospital.has_english_reviews,
-            "hasGooglePhotos": hospital.has_google_photos,
+            "hasPhotos": AnalysisService._first_present(metadata.get("hasPhotos"), hospital.has_photos),
+            "naverPlaceUrl": AnalysisService._first_present(metadata.get("naverPlaceUrl"), hospital.naver_place_url),
+            "naverPlaceId": AnalysisService._first_present(metadata.get("naverPlaceId"), hospital.naver_place_id),
+            "googleMapUrl": AnalysisService._first_present(metadata.get("googleMapUrl"), hospital.google_map_url),
+            "googlePlaceId": AnalysisService._first_present(metadata.get("googlePlaceId"), hospital.google_place_id),
+            "googleRegistered": AnalysisService._first_present(metadata.get("googleRegistered"), hospital.google_registered),
+            "englishName": AnalysisService._first_present(metadata.get("englishName"), hospital.english_name),
+            "hasEnglishInfo": AnalysisService._first_present(metadata.get("hasEnglishInfo"), hospital.has_english_info),
+            "hasEnglishReviews": AnalysisService._first_present(metadata.get("hasEnglishReviews"), hospital.has_english_reviews),
+            "englishReviews": AnalysisService._first_present(metadata.get("englishReviews"), hospital.has_english_reviews),
+            "hasGooglePhotos": AnalysisService._first_present(metadata.get("hasGooglePhotos"), hospital.has_google_photos),
         }
         return {key: value for key, value in payload.items() if value is not None}
+
+    @staticmethod
+    def _first_present(*values):
+        for value in values:
+            if value not in (None, "", [], {}):
+                return value
+        return None
 
     @staticmethod
     def _request_options_json(data):

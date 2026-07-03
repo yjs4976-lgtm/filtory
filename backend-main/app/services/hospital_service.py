@@ -6,6 +6,13 @@ from app.services.hospital_search_provider import HospitalSearchProvider
 
 class HospitalService:
     CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
+    USER_ENRICHMENT_FIELDS = {
+        "homepage_url",
+        "english_name",
+        "has_english_info",
+        "has_english_reviews",
+        "has_photos",
+    }
     CATEGORY_ALIASES = {
         "derma": "dermatology",
         "skin": "dermatology",
@@ -94,7 +101,7 @@ class HospitalService:
             hospital = HospitalRepository.get_by_id(hospital_id)
             if not hospital:
                 raise ValueError("Hospital not found")
-            return HospitalService._merge_hospital_enrichment(hospital, payload)
+            return hospital
 
         category = HospitalService._normalize_category(payload.get("category"))
         if category not in HospitalService.CATEGORIES:
@@ -104,13 +111,13 @@ class HospitalService:
         if naver_place_id:
             hospital = HospitalRepository.get_by_naver_place_id(naver_place_id)
             if hospital:
-                return HospitalService._merge_hospital_enrichment(hospital, payload)
+                return hospital
 
         google_place_id = payload.get("google_place_id")
         if google_place_id:
             hospital = HospitalRepository.get_by_google_place_id(google_place_id)
             if hospital:
-                return HospitalService._merge_hospital_enrichment(hospital, payload)
+                return hospital
 
         source_provider = payload.get("source_provider")
         external_place_id = payload.get("external_place_id")
@@ -120,7 +127,7 @@ class HospitalService:
                 external_place_id,
             )
             if hospital:
-                return HospitalService._merge_hospital_enrichment(hospital, payload)
+                return hospital
 
         hospital_name = payload.get("hospital_name")
         if not hospital_name:
@@ -132,30 +139,21 @@ class HospitalService:
             payload.get("address"),
         )
         if hospital:
-            return HospitalService._merge_hospital_enrichment(hospital, payload)
+            return hospital
 
-        data = extract_hospital_data(payload)
+        data = HospitalService._analysis_hospital_data(payload)
         data["category"] = category
         HospitalService._validate_hospital_data(data, require_name=True)
         return HospitalRepository.create(data)
 
     @staticmethod
-    def _merge_hospital_enrichment(hospital, payload):
+    def _analysis_hospital_data(payload):
         data = extract_hospital_data(payload)
-        for key, value in data.items():
-            if key in {"hospital_name", "category"} or value in (None, "", [], {}):
-                continue
-
-            current_value = getattr(hospital, key, None)
-            if isinstance(value, bool):
-                if value and not bool(current_value):
-                    setattr(hospital, key, True)
-                continue
-
-            if current_value in (None, "", [], {}):
-                setattr(hospital, key, value)
-
-        return hospital
+        return {
+            key: value
+            for key, value in data.items()
+            if key not in HospitalService.USER_ENRICHMENT_FIELDS
+        }
 
     @staticmethod
     def update_hospital(hospital_id, payload):

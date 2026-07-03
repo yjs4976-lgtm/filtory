@@ -10,8 +10,8 @@ export const RESULT_DISPLAY_LABELS = {
 
 export const GLOBAL_ACCESSIBILITY_CHECK_LABELS = {
   googleMapLink: {
-    ko: "구글맵 링크",
-    en: "Google Maps link",
+    ko: "지도 위치 정보",
+    en: "Map location information",
   },
   googlePlaceId: {
     ko: "구글 장소 정보",
