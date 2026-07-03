@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoMark } from "@/components/common/LogoMark";
 import { ROUTES } from "@/lib/routes";
 import styles from "@/styles/App.module.css";
 
@@ -13,7 +14,8 @@ export function AuthCard({ title, description, children }: AuthCardProps) {
     <main className={styles.authPage}>
       <section className={styles.authCard}>
         <Link href={ROUTES.HOME} className={styles.authLogo}>
-          Filtory
+          <LogoMark size={34} className={styles.authLogoMark} />
+          <span>Filtory</span>
         </Link>
 
         <div className={styles.authTitleBox}>

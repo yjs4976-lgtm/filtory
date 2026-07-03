@@ -18,6 +18,7 @@ import {
 import { useAuth } from "@/hooks/useAuth"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
+import { LogoMark } from "./LogoMark"
 import styles from "@/styles/App.module.css"
 
 function isActive(pathname: string, href: string) {
@@ -66,7 +67,9 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
   const menu = (
     <>
       <Link href={ROUTES.HOME} className={styles.sidebarBrand}>
-        <span className={styles.sidebarLogo}>F</span>
+        <span className={styles.sidebarLogo}>
+          <LogoMark size={34} className={styles.sidebarLogoImage} />
+        </span>
         <span>Filtory</span>
       </Link>
 

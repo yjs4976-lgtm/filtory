@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Bell, Menu, ShieldCheck, UserRound } from "lucide-react"
+import { ArrowLeft, Bell, Menu, UserRound } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
 import type { NotificationItem } from "@/lib/types"
 import { notificationService } from "@/services/notificationService"
 import { LanguageToggle } from "./LanguageToggle"
+import { LogoMark } from "./LogoMark"
 import { NotificationBottomSheet } from "./NotificationBottomSheet"
 import { SidebarNav } from "./SidebarNav"
 import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
@@ -70,7 +71,7 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
             {showBrand ? (
               <Link href="/" className={styles.brandLink}>
                 <span className={styles.brandMark}>
-                  <ShieldCheck className={styles.iconMd} />
+                  <LogoMark size={32} className={styles.brandMarkImage} />
                 </span>
                 <span className={styles.brandText}>{t.appName}</span>
               </Link>
