@@ -39,18 +39,12 @@ export function ResultCard() {
         <section className={`${styles.card} ${styles.stackSm}`}>
           <div className={styles.row}>
             <AlertCircle className={`${styles.iconSm} ${styles.iconPrimary}`} />
-            <h2 className={styles.titleSm}>
-              {language === "ko" ? "아직 표시할 수 있는 분석 상세 정보가 부족해요." : "There is not enough analysis detail to show yet."}
-            </h2>
+            <h2 className={styles.titleSm}>{t.result.emptyDetailTitle}</h2>
           </div>
-          <p className={styles.mutedText}>
-            {language === "ko"
-              ? "분석을 다시 실행하면 더 자세한 결과를 확인할 수 있어요."
-              : "Run the analysis again to see a more detailed result."}
-          </p>
+          <p className={styles.mutedText}>{t.result.emptyDetailDescription}</p>
           <button type="button" className={styles.primaryButton} onClick={() => router.push(ROUTES.ANALYZE)}>
             <RotateCcw className={styles.iconSm} />
-            {language === "ko" ? "다시 분석하기" : "Analyze again"}
+            {t.result.retryCta}
           </button>
         </section>
       </div>
@@ -64,10 +58,10 @@ export function ResultCard() {
 
   return (
     <div className={styles.resultStack}>
-      <ResultScoreSection viewModel={viewModel} categoryLabel={categoryLabel} language={language} />
+      <ResultScoreSection viewModel={viewModel} categoryLabel={categoryLabel} />
       <ResultActionCard />
-      <ResultInsightSection viewModel={viewModel} language={language} />
-      <ResultGuideSection viewModel={viewModel} language={language} />
+      <ResultInsightSection viewModel={viewModel} />
+      <ResultGuideSection viewModel={viewModel} />
       <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} analysisResult={analysisResult} />
     </div>
   )

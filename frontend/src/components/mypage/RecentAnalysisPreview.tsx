@@ -22,7 +22,7 @@ function formatDate(value?: string, locale: string = "ko-KR") {
   })
 }
 
-function formatAccessibilityScore(score?: number, pointsSuffix = "점") {
+function formatAccessibilityScore(score?: number, pointsSuffix = "") {
   const safeScore = Math.max(0, Math.min(100, score ?? 0))
   return `${safeScore}${pointsSuffix}`
 }

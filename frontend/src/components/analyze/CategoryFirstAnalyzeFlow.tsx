@@ -1787,8 +1787,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         {hasShortHospitalKeyword && <p className={styles.reviewDetectedText}>{t.analyze.shortHospitalKeywordGuide}</p>}
 
         <article className={styles.finderTipCard}>
-          <strong>{hasSearched ? t.analyze.searchTipTitle : t.analyze.usageTipTitle}</strong>
-          <p>{hasSearched ? t.analyze.searchTipDescription : t.analyze.usageTipDescription}</p>
+          <strong>{t.analyze.searchTipTitle}</strong>
+          <ul className={styles.finderTipList}>
+            {t.analyze.searchTipItems.map((item) => (
+              <li key={item} className={styles.finderTipItem}>
+                <span className={styles.finderTipCheck} aria-hidden="true">✓</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
         </article>
 
         {(hasSelectedSearchCondition || directHospitalKeyword || searchFiltersRelaxed) && (

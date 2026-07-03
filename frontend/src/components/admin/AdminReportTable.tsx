@@ -1,10 +1,15 @@
+"use client"
+
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 export function AdminReportTable() {
+  const { t } = useLanguage()
+
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>검토/의심 리뷰 관리</h2>
-      <p className={styles.mutedText}>검토 요청 리뷰와 의심 리뷰를 확인하는 영역입니다.</p>
+      <h2 className={styles.titleSm}>{t.admin.reportsTitle}</h2>
+      <p className={styles.mutedText}>{t.admin.reportsDescription}</p>
     </section>
   )
 }

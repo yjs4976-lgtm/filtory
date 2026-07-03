@@ -2,12 +2,14 @@
 
 import Link from "next/link"
 import { LogOut, User } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
 export function ProfileCard() {
   const { user, logout, isLoading } = useAuth()
+  const { t } = useLanguage()
 
   if (isLoading) {
     return (
@@ -16,8 +18,8 @@ export function ProfileCard() {
           <User className={styles.iconLg} />
         </span>
         <div className={styles.profileInfo}>
-          <p className={styles.titleMd}>사용자 정보를 확인 중이에요</p>
-          <p className={styles.profileEmail}>잠시만 기다려 주세요.</p>
+          <p className={styles.titleMd}>{t.mypage.profileLoadingTitle}</p>
+          <p className={styles.profileEmail}>{t.mypage.profileLoadingDescription}</p>
         </div>
       </section>
     )
@@ -31,13 +33,13 @@ export function ProfileCard() {
             <User className={styles.iconLg} />
           </span>
           <div className={styles.profileInfo}>
-            <p className={styles.titleMd}>로그인이 필요해요</p>
-            <p className={styles.profileEmail}>분석 기록과 계정 설정을 보려면 로그인해 주세요.</p>
+            <p className={styles.titleMd}>{t.mypage.profileLoginRequiredTitle}</p>
+            <p className={styles.profileEmail}>{t.mypage.profileLoginRequiredDescription}</p>
           </div>
         </div>
 
         <Link href={ROUTES.LOGIN} className={styles.primaryButton}>
-          로그인하기
+          {t.mypage.loginAction}
         </Link>
       </section>
     )
@@ -52,7 +54,7 @@ export function ProfileCard() {
           <User className={styles.iconLg} />
         </span>
         <div className={styles.profileInfo}>
-          <p className={styles.titleMd}>{displayName}님</p>
+          <p className={styles.titleMd}>{t.mypage.profileNameDisplay.replace("{name}", displayName)}</p>
           <p className={styles.profileEmail}>{user.email}</p>
           <p className={styles.mutedText}>
             {user.provider || "local"} / {user.status}
@@ -62,12 +64,12 @@ export function ProfileCard() {
 
       <div className={styles.stackSm}>
         <Link href={ROUTES.MYPAGE_PROFILE} className={styles.secondaryButton}>
-          회원 정보 수정
+          {t.mypage.editMemberInfo}
         </Link>
 
         <button type="button" className={styles.dangerButton} onClick={logout}>
           <LogOut className={styles.iconSm} />
-          로그아웃
+          {t.mypage.logout}
         </button>
       </div>
     </section>

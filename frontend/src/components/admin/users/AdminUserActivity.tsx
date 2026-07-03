@@ -1,3 +1,6 @@
+"use client"
+
+import { useLanguage } from "@/context/LanguageContext"
 import type { AnalysisHistoryItem, MyReport, SavedHospital } from "@/lib/types"
 
 interface AdminUserActivityProps {
@@ -7,21 +10,23 @@ interface AdminUserActivityProps {
 }
 
 export function AdminUserActivity({ analysisHistory, savedHospitals, reports }: AdminUserActivityProps) {
+  const { t } = useLanguage()
+
   return (
     <section className="soft-card admin-table-card">
-      <h2>서비스 이용 정보</h2>
+      <h2>{t.admin.activityTitle}</h2>
       <div className="admin-summary-grid">
         <article>
           <strong>{analysisHistory.length}</strong>
-          <span>분석 기록</span>
+          <span>{t.admin.activityAnalysis}</span>
         </article>
         <article>
           <strong>{savedHospitals.length}</strong>
-          <span>저장 병원</span>
+          <span>{t.admin.activitySaved}</span>
         </article>
         <article>
           <strong>{reports.length}</strong>
-          <span>검토 내역</span>
+          <span>{t.admin.activityReports}</span>
         </article>
       </div>
     </section>

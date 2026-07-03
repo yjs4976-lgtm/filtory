@@ -1,19 +1,21 @@
 import Link from "next/link"
 import { ChevronRight, FileText, KeyRound, ShieldCheck, UserPen } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
 
-const menuItems = [
-  { href: ROUTES.MYPAGE_PROFILE, label: "회원정보 수정", icon: UserPen },
-  { href: ROUTES.HISTORY, label: "내 분석 기록", icon: FileText },
-  { href: ROUTES.MYPAGE_PROFILE, label: "비밀번호 변경", icon: KeyRound },
-  { href: ROUTES.MYPAGE_WITHDRAWAL, label: "회원 탈퇴", icon: ShieldCheck, danger: true },
-]
-
 export function MyPageMenuList() {
+  const { t } = useLanguage()
+  const menuItems = [
+    { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.menu.profile, icon: UserPen },
+    { href: ROUTES.HISTORY, label: t.mypage.menu.history, icon: FileText },
+    { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.menu.password, icon: KeyRound },
+    { href: ROUTES.MYPAGE_WITHDRAWAL, label: t.mypage.withdrawal, icon: ShieldCheck, danger: true },
+  ]
+
   return (
     <section className={styles.stackSm}>
-      <h2 className={styles.titleSm}>계정 관리</h2>
+      <h2 className={styles.titleSm}>{t.mypage.accountManagement}</h2>
       <div className={styles.recordList}>
         {menuItems.map(({ href, label, icon: Icon, danger }) => (
           <Link key={label} href={href} className={styles.recordButton}>

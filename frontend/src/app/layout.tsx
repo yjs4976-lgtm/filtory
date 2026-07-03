@@ -6,7 +6,7 @@ import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata: Metadata = {
   title: "Filtory",
-  description: "AI 기반 병원 리뷰 신뢰도 분석 서비스",
+  description: "AI-powered hospital review trust analysis service",
 };
 
 export default function RootLayout({

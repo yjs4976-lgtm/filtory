@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface PasswordFieldProps {
@@ -23,12 +24,13 @@ export function PasswordField({
   placeholder,
   autoComplete,
   minLength,
-  showLabel = "비밀번호 보기",
-  hideLabel = "비밀번호 숨기기",
+  showLabel,
+  hideLabel,
   onChange,
 }: PasswordFieldProps) {
+  const { t } = useLanguage()
   const [visible, setVisible] = useState(false)
-  const buttonLabel = visible ? hideLabel : showLabel
+  const buttonLabel = visible ? hideLabel ?? t.common.hidePassword : showLabel ?? t.common.showPassword
   const Icon = visible ? EyeOff : Eye
 
   return (

@@ -2,18 +2,20 @@
 
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isAdmin, isLoading } = useAuth()
+  const { t } = useLanguage()
 
-  if (isLoading) return <LoadingSpinner label="관리자 권한을 확인하고 있어요." />
+  if (isLoading) return <LoadingSpinner label={t.admin.guardLoading} />
 
   if (!isAdmin) {
     return (
       <LoginRequiredCard
-        title="관리자 권한이 필요합니다."
-        description="회원 정보와 검토 내역은 관리자만 확인할 수 있습니다."
+        title={t.admin.guardTitle}
+        description={t.admin.guardDescription}
         showSignup={false}
       />
     )

@@ -1,3 +1,6 @@
+"use client"
+
+import { useLanguage } from "@/context/LanguageContext"
 import type { AdminSummary } from "@/lib/types"
 
 interface AdminSummaryCardsProps {
@@ -5,25 +8,27 @@ interface AdminSummaryCardsProps {
 }
 
 export function AdminSummaryCards({ summary }: AdminSummaryCardsProps) {
+  const { t } = useLanguage()
+
   return (
     <section className="admin-summary-grid">
       <div className="soft-card">
-        <p>전체 회원</p>
+        <p>{t.admin.summaryTotalUsers}</p>
         <strong>{summary.totalUsers}</strong>
       </div>
 
       <div className="soft-card">
-        <p>활성 회원</p>
+        <p>{t.admin.summaryActiveUsers}</p>
         <strong>{summary.activeUsers}</strong>
       </div>
 
       <div className="soft-card">
-        <p>정지 회원</p>
+        <p>{t.admin.summarySuspendedUsers}</p>
         <strong>{summary.suspendedUsers}</strong>
       </div>
 
       <div className="soft-card">
-        <p>탈퇴 회원</p>
+        <p>{t.admin.summaryWithdrawnUsers}</p>
         <strong>{summary.withdrawnUsers}</strong>
       </div>
     </section>

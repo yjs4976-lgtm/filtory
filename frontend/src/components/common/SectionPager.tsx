@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
 interface SectionPagerProps {
@@ -13,10 +14,13 @@ interface SectionPagerProps {
   nextLabel?: string
 }
 
-export function SectionPager({ sections, previousLabel = "이전", nextLabel = "다음" }: SectionPagerProps) {
+export function SectionPager({ sections, previousLabel, nextLabel }: SectionPagerProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { t } = useLanguage()
+  const resolvedPreviousLabel = previousLabel ?? t.common.previous
+  const resolvedNextLabel = nextLabel ?? t.common.next
   const pageParam = Number(searchParams.get("page"))
   const [index, setIndex] = useState(() => Math.max(0, Math.min(sections.length - 1, (pageParam || 1) - 1)))
   const touchStartX = useRef<number | null>(null)
@@ -75,7 +79,7 @@ export function SectionPager({ sections, previousLabel = "이전", nextLabel = "
             onClick={() => moveTo(activeIndex - 1)}
           >
             <span aria-hidden="true">&lt;</span>
-            {previousLabel}
+          {resolvedPreviousLabel}
           </button>
           <span className={styles.pageIndicator}>
             {activeIndex + 1}/{total}
@@ -86,7 +90,7 @@ export function SectionPager({ sections, previousLabel = "이전", nextLabel = "
             disabled={activeIndex >= total - 1}
             onClick={() => moveTo(activeIndex + 1)}
           >
-            {nextLabel}
+          {resolvedNextLabel}
             <span aria-hidden="true">&gt;</span>
           </button>
         </div>

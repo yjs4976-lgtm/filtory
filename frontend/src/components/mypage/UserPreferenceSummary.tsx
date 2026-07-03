@@ -1,4 +1,5 @@
 import type { UserInsight } from "@/lib/types";
+import { useLanguage } from "@/context/LanguageContext";
 import styles from "@/styles/App.module.css";
 
 interface UserPreferenceSummaryProps {
@@ -6,19 +7,24 @@ interface UserPreferenceSummaryProps {
 }
 
 export function UserPreferenceSummary({ insight }: UserPreferenceSummaryProps) {
+  const { t } = useLanguage();
+  const factorLabels: Record<string, string> = {
+    "리뷰 신뢰도": t.mypage.compareMetricTrust,
+    "외국인 방문 편의도": t.mypage.compareMetricGlobal,
+    "광고 의심도": t.mypage.compareMetricAd,
+  };
+
   return (
     <section className={`${styles.card} ${styles.stackSm}`}>
-      <h2 className={styles.titleSm}>내가 자주 보는 기준</h2>
+      <h2 className={styles.titleSm}>{t.mypage.insightCriteriaTitle}</h2>
       <div className={styles.socialProviderGrid}>
         {insight.mainDecisionFactors.map((factor) => (
           <span key={factor} className={styles.connectedPill}>
-            {factor}
+            {factorLabels[factor] ?? factor}
           </span>
         ))}
       </div>
-      <p className={styles.bodyText}>
-        최근 저장한 병원은 광고 의심도가 낮은 편이에요.
-      </p>
+      <p className={styles.bodyText}>{t.mypage.insightCriteriaDescription}</p>
     </section>
   );
 }

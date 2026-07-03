@@ -5,6 +5,7 @@ import Link from "next/link"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
 import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards"
+import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
 import type { AdminSummary } from "@/lib/types"
@@ -12,6 +13,7 @@ import { adminService } from "@/services/adminService"
 
 export default function AdminPage() {
   const { isAdmin } = useAuth()
+  const { t } = useLanguage()
   const [summary, setSummary] = useState<AdminSummary | null>(null)
 
   useEffect(() => {
@@ -31,35 +33,35 @@ export default function AdminPage() {
   }, [isAdmin])
 
   return (
-    <AdminAppShell title="관리자">
+    <AdminAppShell title={t.nav.admin}>
       <AdminGuard>
         <section className="page-title">
           <p className="eyebrow">ADMIN</p>
-          <h1>관리자 대시보드</h1>
-          <p>Filtory 회원, 리뷰 분석, 검토 리뷰, 병원 정보를 관리합니다.</p>
+          <h1>{t.admin.dashboard}</h1>
+          <p>{t.admin.dashboardDescription}</p>
         </section>
 
         {summary && <AdminSummaryCards summary={summary} />}
 
         <section className="admin-menu-grid">
           <Link href={ROUTES.ADMIN_USERS} className="soft-card admin-menu-card">
-            <strong>회원 관리</strong>
-            <p>회원 권한, 상태, 탈퇴 회원을 관리합니다.</p>
+            <strong>{t.admin.menuUsersTitle}</strong>
+            <p>{t.admin.menuUsersDescription}</p>
           </Link>
 
           <Link href={ROUTES.ADMIN_REVIEWS} className="soft-card admin-menu-card">
-            <strong>리뷰 분석 관리</strong>
-            <p>AI 분석 결과와 리뷰 데이터를 확인합니다.</p>
+            <strong>{t.admin.menuReviewsTitle}</strong>
+            <p>{t.admin.menuReviewsDescription}</p>
           </Link>
 
           <Link href={ROUTES.ADMIN_REPORTS} className="soft-card admin-menu-card">
-            <strong>검토/의심 리뷰 관리</strong>
-            <p>광고성, 반복 패턴, 검토 리뷰를 확인합니다.</p>
+            <strong>{t.admin.menuReportsTitle}</strong>
+            <p>{t.admin.menuReportsDescription}</p>
           </Link>
 
           <Link href={ROUTES.ADMIN_HOSPITALS} className="soft-card admin-menu-card">
-            <strong>병원 정보 관리</strong>
-            <p>병원명, 링크, 플레이스 완성도 정보를 관리합니다.</p>
+            <strong>{t.admin.menuHospitalsTitle}</strong>
+            <p>{t.admin.menuHospitalsDescription}</p>
           </Link>
         </section>
       </AdminGuard>

@@ -2,40 +2,19 @@
 
 import { FileText, Info, RotateCcw, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useLanguage } from "@/context/LanguageContext"
 import type { AnalysisResultViewModel } from "@/lib/analysisResultMapper"
 import { ROUTES } from "@/lib/routes"
-import type { Language } from "@/lib/types"
 import styles from "@/styles/App.module.css"
 
 type ResultGuideSectionProps = {
   viewModel: AnalysisResultViewModel
-  language: Language
 }
 
-export function ResultGuideSection({ viewModel, language }: ResultGuideSectionProps) {
+export function ResultGuideSection({ viewModel }: ResultGuideSectionProps) {
   const router = useRouter()
-  const label = {
-    ko: {
-      summary: "AI 요약",
-      visitTip: "방문 전 참고",
-      recommendation: "결과 활용 안내",
-      warning: "주의/참고 신호",
-      noWarning: "추가로 강조할 주의 신호가 많지 않아요.",
-      reference: "이 결과는 병원 선택을 돕기 위한 참고 정보이며, 의료 판단이나 법적 판단이 아니에요.",
-      detail: "상세 내용 확인",
-      retry: "다시 분석하기",
-    },
-    en: {
-      summary: "AI summary",
-      visitTip: "Before your visit",
-      recommendation: "How to use this result",
-      warning: "Reference signals",
-      noWarning: "There are not many additional caution signals to highlight.",
-      reference: "This result is reference information only and is not medical or legal judgment.",
-      detail: "View details",
-      retry: "Analyze again",
-    },
-  }[language]
+  const { t } = useLanguage()
+  const label = t.result.guide
   const warnings = Array.from(new Set([...viewModel.signals.negativeSignals, ...viewModel.signals.warningSignals]))
 
   return (
@@ -91,7 +70,7 @@ export function ResultGuideSection({ viewModel, language }: ResultGuideSectionPr
         </button>
         <button type="button" onClick={() => router.push(ROUTES.ANALYZE)} className={styles.secondaryButton}>
           <RotateCcw className={styles.iconSm} />
-          {label.retry}
+          {t.result.retryCta}
         </button>
       </div>
     </>

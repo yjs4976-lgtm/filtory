@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useLanguage } from "@/context/LanguageContext"
 import { adminUserService } from "@/services/adminUserService"
 
 interface AdminUserMemoProps {
@@ -9,21 +10,22 @@ interface AdminUserMemoProps {
 }
 
 export function AdminUserMemo({ userId, initialMemo = "" }: AdminUserMemoProps) {
+  const { t } = useLanguage()
   const [memo, setMemo] = useState(initialMemo)
   const [message, setMessage] = useState("")
 
   const handleSave = async () => {
     await adminUserService.saveMemo(userId, memo)
-    setMessage("관리자 메모가 저장되었어요.")
+    setMessage(t.admin.memoSaved)
   }
 
   return (
     <section className="soft-card admin-table-card">
-      <h2>관리자 메모</h2>
+      <h2>{t.admin.memoTitle}</h2>
       {message && <p className="form-success">{message}</p>}
       <textarea value={memo} onChange={(event) => setMemo(event.target.value)} rows={4} />
       <button type="button" className="small-button" onClick={handleSave}>
-        메모 저장
+        {t.admin.memoSave}
       </button>
     </section>
   )
