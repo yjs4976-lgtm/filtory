@@ -49,9 +49,9 @@ class ReviewOcrService:
             raise RuntimeError("Gemini review OCR request failed") from exc
 
         raw_text = cls._extract_response_text(response)
-        reviews = cls._parse_reviews(raw_text)
+        reviews, text = cls._parse_result(raw_text)
         return ReviewOcrResponse(
-            text="\n\n".join(reviews) if reviews else raw_text,
+            text=text,
             reviews=reviews,
             modelVersion=f"gemini-ocr:{model}",
         )
@@ -95,19 +95,23 @@ class ReviewOcrService:
         raise ValueError("Gemini OCR response did not include text")
 
     @classmethod
-    def _parse_reviews(cls, raw_text: str) -> list[str]:
+    def _parse_result(cls, raw_text: str) -> tuple[list[str], str]:
         parsed = cls._parse_json_payload(raw_text)
         if isinstance(parsed, dict):
-            reviews = parsed.get("reviews")
-            if isinstance(reviews, list):
-                return cls._normalize_reviews(reviews)
-            text = parsed.get("text")
-            if isinstance(text, str):
-                return cls._split_text_reviews(text)
-        if isinstance(parsed, list):
-            return cls._normalize_reviews(parsed)
+            parsed_reviews = parsed.get("reviews")
+            reviews = cls._normalize_reviews(parsed_reviews if isinstance(parsed_reviews, list) else [])
+            parsed_text = parsed.get("text")
+            text = parsed_text.strip() if isinstance(parsed_text, str) else ""
+            if not text and reviews:
+                text = "\n\n".join(reviews)
+            return reviews, text
 
-        return cls._split_text_reviews(raw_text)
+        if isinstance(parsed, list):
+            reviews = cls._normalize_reviews(parsed)
+            return reviews, "\n\n".join(reviews)
+
+        reviews = cls._split_text_reviews(raw_text)
+        return reviews, "\n\n".join(reviews)
 
     @staticmethod
     def _parse_json_payload(raw_text: str) -> Any:

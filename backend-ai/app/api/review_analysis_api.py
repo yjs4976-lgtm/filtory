@@ -40,6 +40,6 @@ def extract_review_text(
 
 def _verify_internal_token(expected_token: str | None, received_token: str | None):
     if not expected_token:
-        return
+        raise HTTPException(status_code=503, detail="Internal token is not configured")
     if not received_token or not secrets.compare_digest(expected_token, received_token):
         raise HTTPException(status_code=401, detail="Invalid internal token")
