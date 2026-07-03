@@ -6,6 +6,7 @@ import { ROUTES } from "@/lib/routes";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
+import { LogoMark } from "@/components/common/LogoMark";
 import styles from "@/styles/App.module.css";
 
 export function AuthCallbackHandler() {
@@ -40,7 +41,10 @@ export function AuthCallbackHandler() {
   return (
     <main className={styles.authPage}>
       <section className={styles.authCard}>
-        <h1>Filtory</h1>
+        <div className={styles.authLogo}>
+          <LogoMark size={34} className={styles.authLogoMark} />
+          <span>Filtory</span>
+        </div>
         <p>{message}</p>
       </section>
     </main>
