@@ -46,6 +46,12 @@ class Hospital(db.Model):
     has_google_photos = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("false"))
     is_official_hospital = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("false"))
     official_source = db.Column(db.String(20))
+    admin_status = db.Column(db.String(30), nullable=False, default="active", server_default="active")
+    admin_memo = db.Column(db.Text)
+    verified_by = db.Column(db.BigInteger, db.ForeignKey("public.members.id", ondelete="SET NULL"))
+    verified_at = db.Column(db.DateTime(timezone=True))
+    hidden_by = db.Column(db.BigInteger, db.ForeignKey("public.members.id", ondelete="SET NULL"))
+    hidden_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
 
@@ -75,6 +81,12 @@ class Hospital(db.Model):
     )
     saved_by_members = db.relationship(
         "MemberSavedHospital",
+        back_populates="hospital",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    admin_review_cases = db.relationship(
+        "AdminReviewModerationCase",
         back_populates="hospital",
         cascade="all, delete-orphan",
         passive_deletes=True,

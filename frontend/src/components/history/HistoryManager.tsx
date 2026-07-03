@@ -624,6 +624,7 @@ function HistoryRecordCard({
 }) {
   const router = useRouter()
   const { t, language } = useLanguage()
+  const { user } = useAuth()
   const trustScore = item.trustScore ?? item.score
   const trustLevel = getTrustLevel(trustScore)
   const trustLevelKey = getTrustLevelKeyFromValue(trustScore, item.trustLevel)
@@ -644,7 +645,7 @@ function HistoryRecordCard({
       router.push(buildAnalysisChatbotHref(analysisResultId))
       return
     }
-    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item))
+    writeSelectedChatbotAnalysisContext(buildChatbotContextFromAnalysis(item), user?.id ?? null)
     router.push(ROUTES.CHATBOT)
   }
   const viewResult = () => {

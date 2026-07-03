@@ -449,6 +449,57 @@ def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
     assert payload["data"]["source"] == "default"
 
 
+def test_chatbot_api_accepts_anonymous_analysis_context_with_result_id():
+    from app import create_app
+
+    client = create_app().test_client()
+    response = client.post(
+        "/api/chatbot/message",
+        json={
+            "message": "분석 결과 쉽게 설명해줘",
+            "analysisResultId": 123,
+            "analysisContext": {
+                "hospitalName": "테스트치과",
+                "trustScore": 75,
+                "adSuspicionScore": 20,
+                "summary": "리뷰가 비교적 구체적이고 광고성 표현은 낮아요.",
+            },
+        },
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["source"] == "analysis"
+    assert "75" in payload["data"]["answer"]
+
+
+def test_chatbot_uses_local_analysis_context_when_logged_in_result_lookup_fails(monkeypatch):
+    def fail_result_lookup(analysis_result_id, member_id):
+        raise ValueError("Analysis result not found or not accessible")
+
+    monkeypatch.setattr(ChatbotService, "build_analysis_chat_context", fail_result_lookup)
+
+    result = ChatbotService.answer(
+        {
+            "message": "분석 결과 쉽게 설명해줘",
+            "analysisResultId": 999,
+            "analysisContext": {
+                "hospitalName": "임시분석치과",
+                "trustScore": 68,
+                "adSuspicionScore": 30,
+                "summary": "임시 분석 결과입니다.",
+            },
+        },
+        member_id=1,
+        allow_remote_ai=True,
+        rate_limit_key="member:1",
+    )
+
+    assert result["source"] == "analysis"
+    assert "임시분석치과" in result["answer"]
+    assert "68/100" in result["answer"]
+
+
 def test_chatbot_explains_analysis_in_three_lines():
     result = ChatbotService.answer(
         {

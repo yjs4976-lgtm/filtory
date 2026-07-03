@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.extensions import db
-from app.repositories import ReportRepository
+from app.repositories import AdminRepository, ReportRepository
 from app.schemas import extract_report_data, report_to_dict
 from app.utils.validators import validate_report_target
 
@@ -39,6 +39,20 @@ class ReportService:
 
         try:
             report = ReportRepository.create(data)
+            db.session.flush()
+            AdminRepository.create_review_case_if_absent(
+                {
+                    "hospital_id": report.hospital_id,
+                    "review_id": report.review_id,
+                    "analysis_result_id": report.analysis_result_id,
+                    "review_report_id": report.id,
+                    "case_type": ReportService._case_type_from_report(report.report_type),
+                    "status": "pending",
+                    "priority": ReportService._priority_from_report(report.report_type),
+                    "reason": report.report_reason,
+                    "score_snapshot": {},
+                }
+            )
             db.session.commit()
             return report_to_dict(report)
         except Exception:
@@ -98,3 +112,21 @@ class ReportService:
 
         if data.get("status") and data["status"] not in ReportService.STATUSES:
             raise ValueError("Invalid report status")
+
+    @staticmethod
+    def _case_type_from_report(report_type):
+        if report_type == "ad_suspicion":
+            return "ad_suspicion"
+        if report_type == "inappropriate_content":
+            return "inappropriate_content"
+        if report_type == "wrong_hospital_info":
+            return "wrong_hospital_info"
+        return "user_report"
+
+    @staticmethod
+    def _priority_from_report(report_type):
+        if report_type in {"inappropriate_content", "wrong_hospital_info"}:
+            return "high"
+        if report_type == "ad_suspicion":
+            return "normal"
+        return "low"

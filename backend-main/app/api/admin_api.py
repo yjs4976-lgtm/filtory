@@ -35,6 +35,77 @@ def list_users():
         return error_response(str(e), 400)
 
 
+@admin_bp.route("/reviews", methods=["GET"])
+@require_admin
+def list_review_cases():
+    pagination = get_pagination_params(request.args)
+
+    try:
+        review_cases = AdminService.list_review_cases(
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            case_type=request.args.get("caseType") or request.args.get("type"),
+            limit=pagination["limit"],
+            offset=pagination["offset"],
+        )
+        return success_response(
+            data=review_cases,
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(review_cases)),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/reviews/<int:case_id>/status", methods=["PATCH"])
+@require_admin
+def update_review_case_status(case_id):
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        review_case = AdminService.update_review_case_status(
+            case_id,
+            payload.get("status"),
+            g.current_member.id,
+            admin_memo=payload.get("adminMemo"),
+        )
+        return success_response(review_case, "Review case status updated")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/hospitals", methods=["GET"])
+@require_admin
+def list_hospitals():
+    pagination = get_pagination_params(request.args)
+
+    try:
+        hospitals = AdminService.list_hospitals(
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            category=request.args.get("category"),
+            status=request.args.get("status"),
+            limit=pagination["limit"],
+            offset=pagination["offset"],
+        )
+        return success_response(
+            data=hospitals,
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(hospitals)),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/hospitals/<int:hospital_id>", methods=["PATCH"])
+@require_admin
+def update_hospital(hospital_id):
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        hospital = AdminService.update_hospital(hospital_id, payload, g.current_member.id)
+        return success_response(hospital, "Hospital updated")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @admin_bp.route("/users/<int:member_id>", methods=["GET"])
 @require_admin
 def get_user(member_id):

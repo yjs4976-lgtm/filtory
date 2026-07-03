@@ -88,9 +88,14 @@ class ChatbotService:
             or payload.get("resultId")
         )
         if analysis_result_id:
-            if not member_id:
+            if member_id:
+                try:
+                    analysis_context = cls.build_analysis_chat_context(analysis_result_id, member_id)
+                except ValueError:
+                    if not analysis_context:
+                        raise
+            elif not analysis_context:
                 raise ValueError("Analysis result not found or not accessible")
-            analysis_context = cls.build_analysis_chat_context(analysis_result_id, member_id)
         has_context = bool(analysis_context)
         normalized_message = message.lower()
         model_version = None
