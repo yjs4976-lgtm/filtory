@@ -81,6 +81,24 @@ class ReviewAnalyzeRequest(BaseModel):
         return self
 
 
+class ReviewOcrImage(BaseModel):
+    filename: str | None = Field(None, max_length=255)
+    mimeType: Literal["image/png", "image/jpeg", "image/webp"]
+    dataBase64: str = Field(..., min_length=1)
+
+
+class ReviewOcrRequest(BaseModel):
+    images: list[ReviewOcrImage] = Field(..., min_length=1, max_length=5)
+    language: OutputLanguage = "ko"
+
+
+class ReviewOcrResponse(BaseModel):
+    text: str = ""
+    reviews: list[str] = Field(default_factory=list)
+    source: Literal["llm"] = "llm"
+    modelVersion: str
+
+
 class ReviewEvidence(BaseModel):
     suspiciousPhrases: list[str] = Field(default_factory=list)
     specificPhrases: list[str] = Field(default_factory=list)
