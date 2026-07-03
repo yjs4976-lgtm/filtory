@@ -101,7 +101,7 @@ function normalizeInformationCompleteness(value: unknown): "low" | "medium" | "h
 
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
   return {
-    googleMapLink: Boolean(payload.googleMapUrl),
+    googleMapLink: Boolean(payload.googleMapUrl || payload.googleRegistered || payload.naverPlaceUrl || payload.kakaoPlaceUrl),
     googlePlaceId: Boolean(payload.googlePlaceId),
     englishName: Boolean(payload.englishName),
     englishGuide: Boolean(payload.hasEnglishInfo),
@@ -111,8 +111,20 @@ function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
   }
 }
 
-function countTruthy(values: Record<string, boolean>) {
-  return Object.values(values).filter(Boolean).length
+function calculateGlobalAccessibilityFallbackScore(values: GlobalAccessibilityChecks) {
+  const weights: Record<keyof GlobalAccessibilityChecks, number> = {
+    googleMapLink: 20,
+    googlePlaceId: 15,
+    englishName: 20,
+    englishGuide: 20,
+    englishReviews: 10,
+    homepageOrBookingLink: 5,
+    photoInfo: 10,
+  }
+
+  return Object.entries(weights).reduce((score, [key, weight]) => {
+    return score + (values[key as keyof GlobalAccessibilityChecks] ? weight : 0)
+  }, 0)
 }
 
 function optionalNumber(value: unknown): number | undefined {
@@ -197,7 +209,7 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
   const globalAccessibilityScore =
     optionalNumber(result.globalAccessibilityScore) ??
     optionalNumber(result.foreignerScore) ??
-    countTruthy(globalAccessibilityChecks)
+    calculateGlobalAccessibilityFallbackScore(globalAccessibilityChecks)
   const detectedPatterns = toStringArray(result.detectedPatterns)
   const suspiciousPhrases = toStringArray(result.suspiciousPhrases ?? evidence.suspiciousPhrases)
   const repetitivePhrases = toStringArray(result.repetitivePhrases ?? evidence.repetitivePhrases)
