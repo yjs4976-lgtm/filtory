@@ -54,6 +54,7 @@ class ReviewAnalyzeRequest(BaseModel):
     description: str | None = Field(None, description="병원 소개")
     hasPhotos: bool | None = Field(None, description="사진 정보 보유 여부")
     homepageUrl: str | None = Field(None, description="병원 홈페이지 또는 예약 URL")
+    kakaoPlaceUrl: str | None = Field(None, description="카카오맵 장소 URL")
     naverPlaceUrl: str | None = Field(None, description="네이버 플레이스 URL")
     naverPlaceId: str | None = Field(None, description="네이버 플레이스 ID")
     googleMapUrl: str | None = Field(None, description="구글 지도 URL")
