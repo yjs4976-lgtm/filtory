@@ -73,6 +73,17 @@ on public.hospital_enrichment_suggestions(analysis_request_id);
 create index if not exists idx_hospital_enrichment_suggestions_created_at
 on public.hospital_enrichment_suggestions(created_at desc);
 
+alter table public.hospital_enrichment_suggestions
+enable row level security;
+
+revoke all
+on table public.hospital_enrichment_suggestions
+from anon, authenticated;
+
+revoke all
+on sequence public.hospital_enrichment_suggestions_id_seq
+from anon, authenticated;
+
 -- Apply an approved suggestion to the verified hospital row by replacing
 -- :suggestion_id with the selected hospital_enrichment_suggestions.id.
 --
