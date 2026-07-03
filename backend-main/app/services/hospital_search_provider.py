@@ -107,6 +107,8 @@ class HospitalSearchProvider:
         client_id = current_app.config.get("NAVER_SEARCH_CLIENT_ID")
         client_secret = current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")
         if not client_id or not client_secret or limit <= 0:
+            if limit > 0:
+                current_app.logger.info("Naver hospital search skipped: missing search API configuration")
             return []
 
         payload = cls._get_json(
@@ -118,6 +120,7 @@ class HospitalSearchProvider:
         )
         items = payload.get("items") if isinstance(payload, dict) else []
         if not isinstance(items, list):
+            current_app.logger.warning("Naver hospital search returned no items list")
             return []
 
         results = []
@@ -127,6 +130,12 @@ class HospitalSearchProvider:
             result = cls._from_naver(item, category)
             if cls._matches_requested_category(result.get("category"), category):
                 results.append(result)
+        if items and not results:
+            current_app.logger.info(
+                "Naver hospital search returned %s items but all were filtered out for category=%s",
+                len(items),
+                category,
+            )
         return results
 
     @classmethod
@@ -202,7 +211,7 @@ class HospitalSearchProvider:
     @classmethod
     def _from_naver(cls, item, category):
         link = cls._text(item.get("link"))
-        provider_category = cls._category_from_naver(item)
+        provider_category = cls._category_from_naver(item) or category
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
 
@@ -378,6 +387,9 @@ class HospitalSearchProvider:
             str(query or "").strip().lower(),
             str(category or "").strip().lower(),
             int(limit or 10),
+            bool(current_app.config.get("NAVER_SEARCH_CLIENT_ID"))
+            and bool(current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")),
+            bool(current_app.config.get("KAKAO_REST_API_KEY")),
         )
 
     @classmethod
