@@ -30,10 +30,6 @@ function isActive(pathname: string, href: string) {
   return href === ROUTES.HOME ? pathname === href : pathname.startsWith(href)
 }
 
-function isHelpActive(pathname: string) {
-  return pathname === ROUTES.HELP || pathname.startsWith(`${ROUTES.HELP}/`)
-}
-
 type SidebarNavProps = {
   variant?: "desktop" | "drawer"
   isOpen?: boolean
@@ -159,7 +155,7 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
             <Link
               key={href}
               href={href}
-              className={`${styles.sidebarLink} ${href === ROUTES.HELP ? (isHelpActive(pathname) ? styles.sidebarLinkActive : "") : (isActive(pathname, href) ? styles.sidebarLinkActive : "")}`}
+              className={`${styles.sidebarLink} ${href === ROUTES.HELP ? (pathname === ROUTES.HELP ? styles.sidebarLinkActive : "") : (isActive(pathname, href) ? styles.sidebarLinkActive : "")}`}
               onClick={onClose}
             >
               <Icon className={styles.iconSm} />

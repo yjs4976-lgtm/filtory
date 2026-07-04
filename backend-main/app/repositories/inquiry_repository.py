@@ -1,4 +1,4 @@
-from sqlalchemy import or_
+from sqlalchemy import case, or_
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -25,23 +25,32 @@ class InquiryRepository:
 
     @staticmethod
     def list_by_member(member_id, limit=20, offset=0):
-        return (
-            Inquiry.query.options(
+        query = Inquiry.query.filter(Inquiry.member_id == member_id)
+        total = query.count()
+        items = (
+            query.options(
                 joinedload(Inquiry.answers),
                 joinedload(Inquiry.related_analysis).joinedload(AnalysisRequest.hospital),
                 joinedload(Inquiry.related_analysis).joinedload(AnalysisRequest.analysis_result),
             )
-            .filter(Inquiry.member_id == member_id)
             .order_by(Inquiry.created_at.desc())
             .limit(limit)
             .offset(offset)
             .all()
         )
+        return items, total
 
     @staticmethod
     def list_for_admin(keyword=None, status=None, category=None, limit=20, offset=0):
         query = InquiryRepository._admin_query(keyword=keyword, status=status, category=category)
         total = query.count()
+        status_order = case(
+            (Inquiry.status == "PENDING", 0),
+            (Inquiry.status == "IN_PROGRESS", 1),
+            (Inquiry.status == "ANSWERED", 2),
+            else_=3,
+        )
+
         items = (
             query.options(
                 joinedload(Inquiry.member),
@@ -50,7 +59,7 @@ class InquiryRepository:
                 joinedload(Inquiry.related_analysis).joinedload(AnalysisRequest.analysis_result),
             )
             .order_by(
-                Inquiry.status.asc(),
+                status_order,
                 Inquiry.created_at.desc(),
             )
             .limit(limit)

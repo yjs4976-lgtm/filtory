@@ -110,6 +110,19 @@ def test_enrichment_suggestion_ignores_empty_and_false_values():
     assert suggestion is None
 
 
+def test_enrichment_suggestion_uses_google_photo_signal():
+    suggestion = AnalysisService._enrichment_suggestion_data(
+        {
+            "has_google_photos": True,
+        },
+        hospital_id=1,
+        analysis_request_id=2,
+        member_id=3,
+    )
+
+    assert suggestion["suggested_has_photos"] is True
+
+
 def test_enrichment_suggestion_rejects_non_http_homepage_url():
     with pytest.raises(ValueError, match="Invalid homepage URL"):
         AnalysisService._enrichment_suggestion_data(

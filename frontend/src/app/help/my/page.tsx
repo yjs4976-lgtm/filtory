@@ -17,6 +17,7 @@ import styles from "@/styles/App.module.css"
 
 type InquiryStatusFilter = "all" | InquiryStatus
 type InquiryErrorState = "none" | "unauthorized" | "forbidden" | "server" | "network"
+const PAGE_SIZE = 20
 
 function getInquiryErrorState(error: unknown): InquiryErrorState {
   if (error instanceof ApiNetworkError) return "network"
@@ -34,25 +35,42 @@ export default function MyInquiriesPage() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [statusFilter, setStatusFilter] = useState<InquiryStatusFilter>("all")
   const [isFetching, setIsFetching] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [errorState, setErrorState] = useState<InquiryErrorState>("none")
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (nextPage = 1, append = false) => {
     try {
-      setIsFetching(true)
+      if (append) {
+        setIsLoadingMore(true)
+      } else {
+        setIsFetching(true)
+      }
       setErrorState("none")
-      const result = await inquiryService.getMyInquiries()
-      setInquiries(result.items)
+      const result = await inquiryService.getMyInquiries({ page: nextPage, perPage: PAGE_SIZE })
+      setPage(result.page)
+      setTotal(result.total)
+      setInquiries((current) => {
+        if (!append) return result.items
+        const existingIds = new Set(current.map((item) => item.id))
+        return [...current, ...result.items.filter((item) => !existingIds.has(item.id))]
+      })
     } catch (error) {
-      setInquiries([])
+      if (!append) setInquiries([])
       setErrorState(getInquiryErrorState(error))
     } finally {
-      setIsFetching(false)
+      if (append) {
+        setIsLoadingMore(false)
+      } else {
+        setIsFetching(false)
+      }
     }
   }, [])
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return
-    const timer = window.setTimeout(loadData, 0)
+    const timer = window.setTimeout(() => loadData(1, false), 0)
     return () => window.clearTimeout(timer)
   }, [isAuthenticated, isLoading, loadData])
 
@@ -60,6 +78,7 @@ export default function MyInquiriesPage() {
     () => inquiries.filter((inquiry) => statusFilter === "all" || inquiry.status === statusFilter),
     [inquiries, statusFilter]
   )
+  const hasMore = inquiries.length < total
 
   return (
     <AppShell title={t.help.list.title} showBack>
@@ -129,12 +148,24 @@ export default function MyInquiriesPage() {
           )}
 
           {!isFetching && errorState === "none" && inquiries.length > 0 && visibleInquiries.length === 0 && (
-            <EmptyState
-              title={t.help.list.filterEmptyTitle}
-              description={t.help.list.filterEmptyDescription}
-              actionHref={ROUTES.HELP_NEW}
-              actionLabel={t.help.list.emptyAction}
-            />
+            <>
+              <EmptyState
+                title={t.help.list.filterEmptyTitle}
+                description={t.help.list.filterEmptyDescription}
+                actionHref={ROUTES.HELP_NEW}
+                actionLabel={t.help.list.emptyAction}
+              />
+              {hasMore && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={isLoadingMore}
+                  onClick={() => loadData(page + 1, true)}
+                >
+                  {isLoadingMore ? t.help.list.loading : t.help.list.loadMore}
+                </button>
+              )}
+            </>
           )}
 
           {!isFetching && errorState === "none" && visibleInquiries.length > 0 && (
@@ -150,6 +181,16 @@ export default function MyInquiriesPage() {
                   <p>{inquiryShortDescription(inquiry, t.help.statusDescriptions)}</p>
                 </Link>
               ))}
+              {hasMore && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={isLoadingMore}
+                  onClick={() => loadData(page + 1, true)}
+                >
+                  {isLoadingMore ? t.help.list.loading : t.help.list.loadMore}
+                </button>
+              )}
             </section>
           )}
         </div>

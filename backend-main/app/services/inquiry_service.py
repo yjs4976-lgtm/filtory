@@ -29,8 +29,8 @@ class InquiryService:
 
     @staticmethod
     def list_my_inquiries(member_id, limit=20, offset=0):
-        inquiries = InquiryRepository.list_by_member(member_id, limit=limit, offset=offset)
-        return [inquiry_to_dict(inquiry) for inquiry in inquiries]
+        inquiries, total = InquiryRepository.list_by_member(member_id, limit=limit, offset=offset)
+        return [inquiry_to_dict(inquiry) for inquiry in inquiries], total
 
     @staticmethod
     def get_my_inquiry(member_id, inquiry_id):
@@ -111,18 +111,35 @@ class InquiryService:
     @staticmethod
     def _inquiry_data(payload, member_id):
         category = InquiryService._normalize_category(payload.get("category"))
-        title = InquiryService._clean_required_text(payload.get("title"), "Inquiry title is required", min_length=2)
-        content = InquiryService._clean_required_text(payload.get("content"), "Inquiry content is required", min_length=5)
+        title = InquiryService._clean_required_text(
+            payload.get("title"),
+            "Inquiry title is required",
+            min_length=2,
+            max_length=200,
+        )
+        content = InquiryService._clean_required_text(
+            payload.get("content"),
+            "Inquiry content is required",
+            min_length=5,
+            max_length=5000,
+        )
         related_analysis_id = InquiryService._optional_int(payload.get("relatedAnalysisId") or payload.get("related_analysis_id"))
+        sub_category = InquiryService._clean_optional_text(
+            payload.get("subCategory") or payload.get("sub_category"),
+            max_length=120,
+        )
+        attachment_url = InquiryService._clean_optional_text(payload.get("attachmentUrl") or payload.get("attachment_url"))
+        if attachment_url:
+            raise ValueError("Attachments are not supported yet")
 
         return {
             "member_id": member_id,
             "category": category,
-            "sub_category": InquiryService._clean_optional_text(payload.get("subCategory") or payload.get("sub_category")),
+            "sub_category": sub_category,
             "title": title,
             "content": content,
             "related_analysis_id": related_analysis_id,
-            "attachment_url": InquiryService._clean_optional_text(payload.get("attachmentUrl") or payload.get("attachment_url")),
+            "attachment_url": None,
         }
 
     @staticmethod
@@ -149,15 +166,19 @@ class InquiryService:
         return normalized
 
     @staticmethod
-    def _clean_required_text(value, message, min_length=1):
+    def _clean_required_text(value, message, min_length=1, max_length=None):
         cleaned = str(value or "").strip()
         if len(cleaned) < min_length:
             raise ValueError(message)
+        if max_length is not None and len(cleaned) > max_length:
+            raise ValueError(f"Text must be {max_length} characters or less")
         return cleaned
 
     @staticmethod
-    def _clean_optional_text(value):
+    def _clean_optional_text(value, max_length=None):
         cleaned = str(value or "").strip()
+        if max_length is not None and len(cleaned) > max_length:
+            raise ValueError(f"Text must be {max_length} characters or less")
         return cleaned or None
 
     @staticmethod

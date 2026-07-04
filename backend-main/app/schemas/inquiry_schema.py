@@ -16,7 +16,7 @@ def inquiry_to_dict(inquiry, include_member=False):
         "content": inquiry.content,
         "status": inquiry.status,
         "relatedAnalysisId": inquiry.related_analysis_id,
-        "attachmentUrl": inquiry.attachment_url,
+        "attachmentUrl": None,
         "createdAt": _isoformat(inquiry.created_at),
         "updatedAt": _isoformat(inquiry.updated_at),
         "answer": inquiry_answer_to_dict(answer),

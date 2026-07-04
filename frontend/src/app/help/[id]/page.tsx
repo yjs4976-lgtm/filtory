@@ -110,15 +110,6 @@ export default function InquiryDetailPage() {
             />
           )}
 
-          {inquiry.attachmentUrl && (
-            <section className={`${styles.card} ${styles.stackSm}`}>
-              <h2 className={styles.titleMd}>{t.help.detail.attachmentTitle}</h2>
-              <a className={styles.secondaryButton} href={inquiry.attachmentUrl} target="_blank" rel="noreferrer">
-                {t.help.detail.attachmentTitle}
-              </a>
-            </section>
-          )}
-
           <section className={`${styles.card} ${styles.stackSm}`}>
             <h2 className={styles.titleMd}>{t.help.detail.answerTitle}</h2>
             {inquiry.answer ? (

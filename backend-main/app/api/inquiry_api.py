@@ -25,14 +25,14 @@ def create_inquiry():
 def list_my_inquiries():
     pagination = get_pagination_params(request.args)
 
-    inquiries = InquiryService.list_my_inquiries(
+    inquiries, total = InquiryService.list_my_inquiries(
         g.current_member.id,
         limit=pagination["limit"],
         offset=pagination["offset"],
     )
     return success_response(
         data=inquiries,
-        meta=build_pagination_meta(pagination["page"], pagination["per_page"], len(inquiries)),
+        meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
     )
 
 

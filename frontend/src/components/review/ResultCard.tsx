@@ -56,7 +56,7 @@ export function ResultCard() {
   const categoryLabel = analysisResult
     ? getHistoryMetaText(analysisResult, language, fallbackCategoryLabel)
     : fallbackCategoryLabel
-  const relatedAnalysisId = viewModel.ids.analysisRequestId ?? viewModel.ids.analysisResultId
+  const relatedAnalysisId = viewModel.ids.analysisRequestId
   const helpInquiryHref = `${ROUTES.HELP_NEW}?category=ANALYSIS_RESULT${relatedAnalysisId ? `&related_analysis_id=${relatedAnalysisId}` : ""}&title=${encodeURIComponent(t.help.resultHelpDefaultTitle)}`
 
   return (

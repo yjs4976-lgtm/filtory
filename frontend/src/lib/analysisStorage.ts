@@ -46,7 +46,7 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
   return {
     ...item,
     id,
-    analysisRequestId: Number(item.analysisRequestId ?? item.analysis_request_id ?? item.id ?? 0) || undefined,
+    analysisRequestId: Number(item.analysisRequestId ?? item.analysis_request_id ?? 0) || undefined,
     analysisResultId: Number(item.analysisResultId ?? item.analysis_result_id ?? item.resultId ?? item.result_id ?? 0) || undefined,
     hospitalId: Number(item.hospitalId ?? item.hospital_id ?? 0) || undefined,
     hospitalName,
@@ -269,7 +269,7 @@ export function writeCurrentReviewAnalysisFromHistory(item: AnalysisHistoryItem)
 
   writeCurrentReviewAnalysis({
     id: item.id,
-    analysisRequestId: item.analysisRequestId ?? (Number.isInteger(Number(item.id)) ? Number(item.id) : undefined),
+    analysisRequestId: item.analysisRequestId,
     analysisResultId: item.analysisResultId,
     hospitalId: item.hospitalId,
     reviewIds: item.reviewIds,

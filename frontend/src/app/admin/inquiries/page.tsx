@@ -231,12 +231,6 @@ export default function AdminInquiriesPage() {
                     />
                   )}
 
-                  {selectedInquiry.attachmentUrl && (
-                    <a className={styles.secondaryButton} href={selectedInquiry.attachmentUrl} target="_blank" rel="noreferrer">
-                      {t.help.detail.attachmentTitle}
-                    </a>
-                  )}
-
                   <label className={styles.label}>
                     {t.help.admin.statusChange}
                     <select

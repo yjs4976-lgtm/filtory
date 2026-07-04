@@ -42,6 +42,14 @@ export default function NewInquiryPage() {
   const [attachmentNotice, setAttachmentNotice] = useState(false)
 
   const subcategories = useMemo(() => t.help.subcategories[category] ?? [], [category, t.help.subcategories])
+  const selectableRecords = useMemo(() => (
+    records
+      .map((record) => ({
+        record,
+        requestId: Number(record.analysisRequestId),
+      }))
+      .filter(({ requestId }) => Number.isInteger(requestId) && requestId > 0)
+  ), [records])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -100,7 +108,7 @@ export default function NewInquiryPage() {
 
   const hasLinkedQueryAnalysis =
     relatedAnalysisId !== null &&
-    !records.some((record) => Number(record.analysisRequestId ?? record.id) === relatedAnalysisId)
+    !selectableRecords.some(({ requestId }) => requestId === relatedAnalysisId)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -216,11 +224,9 @@ export default function NewInquiryPage() {
             </div>
             {isHistoryLoading ? (
               <LoadingSpinner label={t.help.list.loading} />
-            ) : records.length > 0 ? (
+            ) : selectableRecords.length > 0 ? (
               <div className={styles.inquiryAnalysisList}>
-                {records.map((record) => {
-                  const requestId = Number(record.analysisRequestId ?? record.id)
-                  if (!Number.isInteger(requestId) || requestId <= 0) return null
+                {selectableRecords.map(({ record, requestId }) => {
                   return (
                     <button
                       key={record.id}
