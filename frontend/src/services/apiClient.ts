@@ -22,6 +22,16 @@ export class ApiClientError extends Error {
   }
 }
 
+export class ApiNetworkError extends Error {
+  cause: unknown;
+
+  constructor(cause: unknown) {
+    super("NETWORK_ERROR");
+    this.name = "ApiNetworkError";
+    this.cause = cause;
+  }
+}
+
 function toRequestBody(body: unknown): BodyInit | undefined {
   if (body === undefined || body === null) return undefined;
   if (typeof body === "string") return body;
@@ -47,6 +57,12 @@ function isJsonBody(body: unknown) {
   );
 }
 
+function getRequestUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  if (typeof window !== "undefined" && path.startsWith("/api/")) return path;
+  return `${API_BASE_URL}${path}`;
+}
+
 export async function apiClient<T>(
   path: string,
   options: RequestOptions = {}
@@ -59,12 +75,18 @@ export async function apiClient<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    credentials: "include",
-    body: toRequestBody(body),
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(getRequestUrl(path), {
+      method,
+      headers,
+      credentials: "include",
+      body: toRequestBody(body),
+    });
+  } catch (error) {
+    throw new ApiNetworkError(error);
+  }
 
   const result = await response.json().catch(() => null);
 

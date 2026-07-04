@@ -10,6 +10,7 @@ interface LoginRequiredCardProps {
   title?: string;
   description?: string;
   showSignup?: boolean;
+  primaryLabel?: string;
   secondaryHref?: string;
   secondaryLabel?: string;
 }
@@ -18,6 +19,7 @@ export function LoginRequiredCard({
   title,
   description,
   showSignup = true,
+  primaryLabel,
   secondaryHref = ROUTES.ANALYZE,
   secondaryLabel,
 }: LoginRequiredCardProps) {
@@ -37,7 +39,7 @@ export function LoginRequiredCard({
       </div>
       <div className={styles.actionRow}>
         <Link href={ROUTES.LOGIN} className={styles.primaryButton}>
-          {t.common.login}
+          {primaryLabel ?? t.common.login}
         </Link>
         {showSignup ? (
           <Link href={ROUTES.SIGNUP} className={styles.secondaryButton}>

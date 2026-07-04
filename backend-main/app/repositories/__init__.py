@@ -2,6 +2,7 @@ from app.repositories.admin_repository import AdminRepository
 from app.repositories.analysis_repository import AnalysisRepository
 from app.repositories.hospital_repository import HospitalRepository
 from app.repositories.hospital_enrichment_suggestion_repository import HospitalEnrichmentSuggestionRepository
+from app.repositories.inquiry_repository import InquiryRepository
 from app.repositories.member_repository import MemberRepository
 from app.repositories.report_repository import ReportRepository
 from app.repositories.review_repository import ReviewRepository
@@ -13,6 +14,7 @@ __all__ = [
     "AnalysisRepository",
     "HospitalRepository",
     "HospitalEnrichmentSuggestionRepository",
+    "InquiryRepository",
     "MemberRepository",
     "ReportRepository",
     "ReviewRepository",

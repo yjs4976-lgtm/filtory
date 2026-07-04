@@ -84,6 +84,12 @@ class Member(db.Model):
         foreign_keys="ReviewReport.admin_member_id",
         back_populates="admin_member",
     )
+    inquiries = db.relationship(
+        "Inquiry",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Member id={self.id} email={self.email}>"

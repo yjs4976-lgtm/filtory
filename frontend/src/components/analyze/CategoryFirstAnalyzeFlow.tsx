@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   Eye,
   FileCheck2,
+  HelpCircle,
   LinkIcon,
   LoaderCircle,
   Maximize2,
@@ -2268,6 +2270,17 @@ function ReviewInputWorkspace({
         <span>{t.analyze.imageImportSupportText}</span>
         <span>{t.analyze.fileSupportText}</span>
       </div>
+
+      <Link href={`${ROUTES.HELP}?topic=review-input`} className={styles.reviewInputHelpCard}>
+        <span className={styles.analysisHelpIcon}>
+          <HelpCircle className={styles.iconSm} />
+        </span>
+        <span>
+          <strong>{t.help.reviewInputHelpTitle}</strong>
+          <small>{t.help.reviewInputHelpDescription}</small>
+        </span>
+        <ChevronRight className={styles.iconSm} />
+      </Link>
 
       {(screenshotFileNames.length > 0 || uploadedReviewFileName) && (
         <div className={styles.fileNameList}>

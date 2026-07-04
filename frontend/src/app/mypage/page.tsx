@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { SectionPager } from "@/components/common/SectionPager"
+import { InquiryStatusBadge, formatInquiryDate, inquiryShortDescription } from "@/components/help/InquiryShared"
 import { AccountManageMenu } from "@/components/mypage/AccountManageMenu"
 import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import { AppSettingsSection } from "@/components/mypage/AppSettingsSection"
@@ -18,8 +20,10 @@ import { RecentViewedHospitals } from "@/components/mypage/RecentViewedHospitals
 import { SavedHospitalList } from "@/components/mypage/SavedHospitalList"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
+import { ROUTES } from "@/lib/routes"
 import type { AnalysisHistoryItem, MyReport, RecentViewedHospital, SavedHospital } from "@/lib/types"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
+import { inquiryService, type Inquiry } from "@/services/inquiryService"
 import { recentHospitalService } from "@/services/recentHospitalService"
 import { reportService } from "@/services/reportService"
 import { savedHospitalService } from "@/services/savedHospitalService"
@@ -32,6 +36,7 @@ export default function MyPage() {
   const [savedHospitals, setSavedHospitals] = useState<SavedHospital[]>([])
   const [recentHospitals, setRecentHospitals] = useState<RecentViewedHospital[]>([])
   const [reports, setReports] = useState<MyReport[]>([])
+  const [latestInquiry, setLatestInquiry] = useState<Inquiry | null>(null)
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
 
   useEffect(() => {
@@ -60,6 +65,17 @@ export default function MyPage() {
         setSavedHospitals([])
         setRecentHospitals([])
         setReports([])
+      })
+
+    inquiryService
+      .getMyInquiries({ perPage: 1 })
+      .then((result) => {
+        if (!alive) return
+        setLatestInquiry(result.items[0] ?? null)
+      })
+      .catch(() => {
+        if (!alive) return
+        setLatestInquiry(null)
       })
 
     return () => {
@@ -114,6 +130,23 @@ export default function MyPage() {
       id: "settings",
       content: (
         <div className={styles.stackMd}>
+          <section className={`${styles.card} ${styles.stackSm}`}>
+            <h2 className={styles.titleMd}>{t.help.mypageCardTitle}</h2>
+            <p className={styles.bodyText}>{t.help.mypageCardDescription}</p>
+            {latestInquiry && (
+              <div className={styles.helpMypageStatus}>
+                <div className={styles.rowBetween}>
+                  <InquiryStatusBadge status={latestInquiry.status} label={t.help.status[latestInquiry.status]} />
+                  <span>{formatInquiryDate(latestInquiry.createdAt)}</span>
+                </div>
+                <strong>{latestInquiry.title}</strong>
+                <p>{inquiryShortDescription(latestInquiry, t.help.statusDescriptions)}</p>
+              </div>
+            )}
+            <Link href={ROUTES.HELP} className={styles.primaryButton}>
+              {t.help.moveToHelp}
+            </Link>
+          </section>
           <AppSettingsSection />
           <DangerZone />
         </div>

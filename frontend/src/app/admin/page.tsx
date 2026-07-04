@@ -58,6 +58,11 @@ export default function AdminPage() {
             <strong>{t.admin.menuHospitalsTitle}</strong>
             <p>{t.admin.menuHospitalsDescription}</p>
           </Link>
+
+          <Link href={ROUTES.ADMIN_INQUIRIES} className="soft-card admin-menu-card">
+            <strong>{t.admin.menuInquiriesTitle}</strong>
+            <p>{t.admin.menuInquiriesDescription}</p>
+          </Link>
         </section>
       </AdminGuard>
     </AdminAppShell>
