@@ -70,18 +70,13 @@ export default function AdminInquiriesPage() {
     setPage(1)
   }
 
-  const replaceInquiry = (nextInquiry: Inquiry) => {
-    setInquiries((current) => current.map((item) => (item.id === nextInquiry.id ? nextInquiry : item)))
-    setSelectedId(nextInquiry.id)
-  }
-
   const handleStatusChange = async (status: InquiryStatus) => {
     if (!selectedInquiry) return
     try {
       setIsSaving(true)
       setError("")
-      const nextInquiry = await inquiryService.updateAdminStatus(selectedInquiry.id, status)
-      replaceInquiry(nextInquiry)
+      await inquiryService.updateAdminStatus(selectedInquiry.id, status)
+      await loadData()
     } catch (error) {
       setError(error instanceof Error ? error.message : t.help.admin.saveFailed)
     } finally {
@@ -94,13 +89,13 @@ export default function AdminInquiriesPage() {
     try {
       setIsSaving(true)
       setError("")
-      const nextInquiry = await inquiryService.saveAdminAnswer(selectedInquiry.id, answerContent.trim())
-      replaceInquiry(nextInquiry)
+      await inquiryService.saveAdminAnswer(selectedInquiry.id, answerContent.trim())
       setAnswerDrafts((current) => {
         const next = { ...current }
         delete next[selectedInquiry.id]
         return next
       })
+      await loadData()
     } catch (error) {
       setError(error instanceof Error ? error.message : t.help.admin.saveFailed)
     } finally {
@@ -240,7 +235,7 @@ export default function AdminInquiriesPage() {
                       onChange={(event) => handleStatusChange(event.target.value as InquiryStatus)}
                     >
                       {INQUIRY_STATUSES.map((status) => (
-                        <option key={status} value={status}>
+                        <option key={status} value={status} disabled={status === "ANSWERED" && !selectedInquiry.answer}>
                           {t.help.status[status]}
                         </option>
                       ))}

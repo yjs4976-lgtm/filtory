@@ -50,3 +50,93 @@ def test_inquiry_data_rejects_overlong_title():
             },
             member_id=1,
         )
+
+
+def test_cannot_mark_inquiry_answered_without_answer(monkeypatch):
+    inquiry = SimpleNamespace(id=1, answers=[])
+
+    monkeypatch.setattr(
+        InquiryRepository,
+        "get_by_id",
+        staticmethod(lambda inquiry_id: inquiry),
+    )
+
+    with pytest.raises(ValueError, match="Answer is required"):
+        InquiryService.update_status(1, "ANSWERED")
+
+
+def test_can_mark_inquiry_answered_with_answer(monkeypatch):
+    inquiry = SimpleNamespace(id=1, status="IN_PROGRESS", answers=[SimpleNamespace(id=10, created_at=None)])
+    session = SimpleNamespace(committed=False, rolled_back=False)
+
+    def commit():
+        session.committed = True
+
+    def rollback():
+        session.rolled_back = True
+
+    def update(target, data):
+        for key, value in data.items():
+            setattr(target, key, value)
+        return target
+
+    session.commit = commit
+    session.rollback = rollback
+
+    monkeypatch.setattr(inquiry_service_module.db, "session", session)
+    monkeypatch.setattr(InquiryRepository, "get_by_id", staticmethod(lambda inquiry_id: inquiry))
+    monkeypatch.setattr(InquiryRepository, "update", staticmethod(update))
+    monkeypatch.setattr(InquiryService, "get_admin_inquiry", staticmethod(lambda inquiry_id: {"id": inquiry_id, "status": inquiry.status}))
+
+    result = InquiryService.update_status(1, "ANSWERED")
+
+    assert result == {"id": 1, "status": "ANSWERED"}
+    assert inquiry.status == "ANSWERED"
+    assert session.committed is True
+    assert session.rolled_back is False
+
+
+def test_save_answer_marks_inquiry_answered(monkeypatch):
+    inquiry = SimpleNamespace(id=1, status="PENDING", answers=[])
+    session = SimpleNamespace(committed=False, rolled_back=False)
+    created_answers = []
+    updates = []
+
+    def commit():
+        session.committed = True
+
+    def rollback():
+        session.rolled_back = True
+
+    def create_answer(data):
+        created_answers.append(data)
+        return SimpleNamespace(id=20, created_at=None, **data)
+
+    def update(target, data):
+        updates.append(data)
+        for key, value in data.items():
+            setattr(target, key, value)
+        return target
+
+    session.commit = commit
+    session.rollback = rollback
+
+    monkeypatch.setattr(inquiry_service_module.db, "session", session)
+    monkeypatch.setattr(InquiryRepository, "get_with_context_by_id", staticmethod(lambda inquiry_id: inquiry))
+    monkeypatch.setattr(InquiryRepository, "create_answer", staticmethod(create_answer))
+    monkeypatch.setattr(InquiryRepository, "update", staticmethod(update))
+    monkeypatch.setattr(InquiryService, "get_admin_inquiry", staticmethod(lambda inquiry_id: {"id": inquiry_id, "status": inquiry.status}))
+
+    result = InquiryService.save_answer(1, admin_id=9, content="답변입니다")
+
+    assert created_answers == [
+        {
+            "inquiry_id": 1,
+            "admin_id": 9,
+            "content": "답변입니다",
+        }
+    ]
+    assert {"status": "ANSWERED"} in updates
+    assert result == {"id": 1, "status": "ANSWERED"}
+    assert session.committed is True
+    assert session.rolled_back is False

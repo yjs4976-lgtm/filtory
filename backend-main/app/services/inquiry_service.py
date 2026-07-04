@@ -66,6 +66,8 @@ class InquiryService:
             raise ValueError("Inquiry not found")
 
         normalized_status = InquiryService._normalize_status(status)
+        if normalized_status == "ANSWERED" and InquiryService._latest_answer(inquiry) is None:
+            raise ValueError("Answer is required before marking inquiry as answered")
 
         try:
             InquiryRepository.update(inquiry, {"status": normalized_status})
