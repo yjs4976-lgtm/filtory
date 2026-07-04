@@ -1,6 +1,6 @@
 from flask import Blueprint, g, request
 
-from app.services import AdminService
+from app.services import AdminService, InquiryService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
 from app.utils.security import require_admin
@@ -12,6 +12,60 @@ admin_bp = Blueprint("admin", __name__)
 @require_admin
 def get_summary():
     return success_response(AdminService.get_summary())
+
+
+@admin_bp.route("/inquiries", methods=["GET"])
+@require_admin
+def list_inquiries():
+    pagination = get_pagination_params(request.args)
+
+    try:
+        inquiries, total = InquiryService.list_admin_inquiries(
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            category=request.args.get("category"),
+            limit=pagination["limit"],
+            offset=pagination["offset"],
+        )
+        return success_response(
+            data=inquiries,
+            meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/inquiries/<int:inquiry_id>", methods=["GET"])
+@require_admin
+def get_inquiry(inquiry_id):
+    try:
+        return success_response(InquiryService.get_admin_inquiry(inquiry_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@admin_bp.route("/inquiries/<int:inquiry_id>/status", methods=["PATCH"])
+@require_admin
+def update_inquiry_status(inquiry_id):
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        inquiry = InquiryService.update_status(inquiry_id, payload.get("status"))
+        return success_response(inquiry, "Inquiry status updated")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/inquiries/<int:inquiry_id>/answers", methods=["POST"])
+@require_admin
+def save_inquiry_answer(inquiry_id):
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        inquiry = InquiryService.save_answer(inquiry_id, g.current_member.id, payload.get("content"))
+        return success_response(inquiry, "Inquiry answer saved")
+    except ValueError as e:
+        return error_response(str(e), 400)
 
 
 @admin_bp.route("/users", methods=["GET"])

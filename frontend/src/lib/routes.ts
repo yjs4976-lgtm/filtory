@@ -15,6 +15,10 @@ export const ROUTES = {
   HISTORY_TRASH: "/history/trash",
   CHATBOT: "/chatbot",
 
+  HELP: "/help",
+  HELP_NEW: "/help/new",
+  HELP_MY: "/help/my",
+
   MYPAGE: "/mypage",
   MYPAGE_PROFILE: "/mypage/profile",
   MYPAGE_HISTORY: "/mypage/history",
@@ -37,5 +41,6 @@ export const ROUTES = {
   ADMIN_REVIEWS: "/admin/reviews",
   ADMIN_REPORTS: "/admin/reports",
   ADMIN_HOSPITALS: "/admin/hospitals",
+  ADMIN_INQUIRIES: "/admin/inquiries",
   HOSPITAL_DETAIL: "/hospitals",
 } as const;

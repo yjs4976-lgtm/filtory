@@ -38,7 +38,7 @@ function normalizeHistoryItem(item: Record<string, unknown>): AnalysisHistoryIte
 
   return {
     id: String(item.id),
-    analysisRequestId: Number(item.analysisRequestId ?? item.analysis_request_id ?? item.id ?? 0) || undefined,
+    analysisRequestId: Number(item.analysisRequestId ?? item.analysis_request_id ?? 0) || undefined,
     analysisResultId: Number(item.analysisResultId ?? item.analysis_result_id ?? item.resultId ?? item.result_id ?? 0) || undefined,
     hospitalId: Number(item.hospitalId ?? item.hospital_id ?? 0) || undefined,
     reviewIds: Array.isArray(item.reviewIds) ? item.reviewIds.map(Number).filter(Number.isFinite) : [],

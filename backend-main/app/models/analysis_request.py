@@ -70,6 +70,7 @@ class AnalysisRequest(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    inquiries = db.relationship("Inquiry", back_populates="related_analysis")
 
     def __repr__(self):
         return f"<AnalysisRequest id={self.id} status={self.request_status}>"

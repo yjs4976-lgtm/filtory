@@ -5,6 +5,8 @@ from app.models.analysis_result import AnalysisResult
 from app.models.email_verification_token import EmailVerificationToken
 from app.models.hospital import Hospital
 from app.models.hospital_enrichment_suggestion import HospitalEnrichmentSuggestion
+from app.models.inquiry import Inquiry
+from app.models.inquiry_answer import InquiryAnswer
 from app.models.member import Member
 from app.models.member_saved_hospital import MemberSavedHospital
 from app.models.member_subscription import MemberSubscription
@@ -23,6 +25,8 @@ __all__ = [
     "EmailVerificationToken",
     "Hospital",
     "HospitalEnrichmentSuggestion",
+    "Inquiry",
+    "InquiryAnswer",
     "Member",
     "MemberSavedHospital",
     "MemberSubscription",

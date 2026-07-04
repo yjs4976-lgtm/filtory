@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AlertCircle, RotateCcw } from "lucide-react"
+import { AlertCircle, ChevronRight, MessageCircle, RotateCcw } from "lucide-react"
 import { ChatbotConnectCard } from "@/components/result/ChatbotConnectCard"
 import { ResultActionCard } from "@/components/result/ResultActionCard"
 import { ResultGuideSection } from "@/components/result/ResultGuideSection"
@@ -55,6 +56,8 @@ export function ResultCard() {
   const categoryLabel = analysisResult
     ? getHistoryMetaText(analysisResult, language, fallbackCategoryLabel)
     : fallbackCategoryLabel
+  const relatedAnalysisId = viewModel.ids.analysisRequestId
+  const helpInquiryHref = `${ROUTES.HELP_NEW}?category=ANALYSIS_RESULT${relatedAnalysisId ? `&related_analysis_id=${relatedAnalysisId}` : ""}&title=${encodeURIComponent(t.help.resultHelpDefaultTitle)}`
 
   return (
     <div className={styles.resultStack}>
@@ -64,6 +67,16 @@ export function ResultCard() {
         analyzedAt={analysisResult?.analyzedAt}
       />
       <ResultInsightSection viewModel={viewModel} />
+      <Link href={helpInquiryHref} className={styles.analysisHelpCard}>
+        <span className={styles.analysisHelpIcon}>
+          <MessageCircle className={styles.iconMd} />
+        </span>
+        <span>
+          <strong>{t.help.resultHelpTitle}</strong>
+          <small>{t.help.resultHelpDescription}</small>
+        </span>
+        <ChevronRight className={styles.iconSm} />
+      </Link>
       <ResultGuideSection viewModel={viewModel} />
       <ResultActionCard />
       <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} analysisResult={analysisResult} />

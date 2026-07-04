@@ -5,12 +5,17 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  Bell,
   ChevronDown,
   ClipboardList,
   X,
+  Headphones,
+  History,
   HeartPulse,
   Info,
   LogIn,
+  LockKeyhole,
+  MessageCircle,
   ShieldCheck,
   UserRound,
   UsersRound,
@@ -37,22 +42,55 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
   const { t } = useLanguage()
   const { isAdmin, user, isAuthenticated, logout } = useAuth()
   const [mounted, setMounted] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(() => (
+    pathname.startsWith(ROUTES.MYPAGE) ||
+    pathname === ROUTES.LOGIN ||
+    pathname === ROUTES.SIGNUP ||
+    pathname === ROUTES.FIND_ID ||
+    pathname === ROUTES.FORGOT_PASSWORD
+  ))
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setMounted(true))
     return () => window.cancelAnimationFrame(frame)
   }, [])
 
-  const primaryItems = [
-    { href: ROUTES.ABOUT, label: t.nav.about, icon: Info },
+  useEffect(() => {
+    if (variant !== "drawer" || !isOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isOpen, variant])
+
+  const serviceItems = [
+    { href: ROUTES.ANALYZE, label: t.home.startAnalysis, icon: ClipboardList },
+    { href: ROUTES.MYPAGE_COMPARE, label: t.mypage.menu.compare, icon: HeartPulse },
   ]
 
-  const memberItems = [
-    { href: ROUTES.LOGIN, label: t.auth.loginTitle, icon: LogIn },
-    { href: ROUTES.SIGNUP, label: t.auth.signupTitle, icon: UsersRound },
-    { href: ROUTES.FIND_ID, label: t.auth.findIdTitle, icon: ClipboardList },
-    { href: ROUTES.FORGOT_PASSWORD, label: t.auth.forgotPasswordTitle, icon: ShieldCheck },
+  const supportItems = [
+    { href: ROUTES.ABOUT, label: t.nav.about, icon: Info },
+    { href: ROUTES.HELP, label: t.help.title, icon: Headphones },
+    ...(isAuthenticated ? [{ href: ROUTES.HELP_MY, label: t.help.list.title, icon: MessageCircle }] : []),
   ]
+
+  const accountItems = isAuthenticated
+    ? [
+        { href: ROUTES.MYPAGE, label: t.common.mypage, icon: UserRound },
+        { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.profileEdit, icon: UserRound },
+        { href: ROUTES.MYPAGE_HISTORY, label: t.mypage.menu.history, icon: History },
+        { href: ROUTES.MYPAGE_NOTIFICATIONS, label: t.mypage.menu.notificationSettings, icon: Bell },
+        { href: ROUTES.MYPAGE_SECURITY, label: t.mypage.menu.password, icon: LockKeyhole },
+      ]
+    : [
+        { href: ROUTES.LOGIN, label: t.auth.loginTitle, icon: LogIn },
+        { href: ROUTES.SIGNUP, label: t.auth.signupTitle, icon: UsersRound },
+        { href: ROUTES.FIND_ID, label: t.auth.findIdTitle, icon: ClipboardList },
+        { href: ROUTES.FORGOT_PASSWORD, label: t.auth.forgotPasswordTitle, icon: ShieldCheck },
+      ]
 
   const adminItems = [
     { href: ROUTES.ADMIN, label: t.admin.dashboard, icon: BarChart3 },
@@ -91,47 +129,76 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
         )}
       </section>
 
-      <section className={styles.drawerQuickActions}>
-        <Link href={ROUTES.ANALYZE} className={styles.sidebarLink} onClick={onClose}><ClipboardList className={styles.iconSm} />{t.home.startAnalysis}</Link>
-        <Link href={ROUTES.MYPAGE_COMPARE} className={styles.sidebarLink} onClick={onClose}><HeartPulse className={styles.iconSm} />{t.mypage.menu.compare}</Link>
-        <button type="button" className={styles.sidebarLink} onClick={() => { onClose?.(); onChatbotOpen?.() }}><ShieldCheck className={styles.iconSm} />{t.mypage.openChatbot}</button>
-      </section>
-
       <nav className={styles.sidebarMenu}>
-        {primaryItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`${styles.sidebarLink} ${isActive(pathname, href) ? styles.sidebarLinkActive : ""}`}
-            onClick={onClose}
-          >
-            <Icon className={styles.iconSm} />
-            {label}
-          </Link>
-        ))}
+        <section className={styles.sidebarSection}>
+          <p className={styles.sidebarSectionLabel}>{t.help.sidebar.service}</p>
+          {serviceItems.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`${styles.sidebarLink} ${isActive(pathname, href) ? styles.sidebarLinkActive : ""}`}
+              onClick={onClose}
+            >
+              <Icon className={styles.iconSm} />
+              {label}
+            </Link>
+          ))}
+          <button type="button" className={styles.sidebarLink} onClick={() => { onClose?.(); onChatbotOpen?.() }}>
+            <MessageCircle className={styles.iconSm} />
+            {t.mypage.openChatbot}
+          </button>
+        </section>
 
-        <details className={styles.sidebarGroup} open={pathname === ROUTES.LOGIN || pathname === ROUTES.SIGNUP}>
-          <summary>
+        <section className={styles.sidebarSection}>
+          <p className={styles.sidebarSectionLabel}>{t.help.sidebar.support}</p>
+          {supportItems.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`${styles.sidebarLink} ${href === ROUTES.HELP ? (pathname === ROUTES.HELP ? styles.sidebarLinkActive : "") : (isActive(pathname, href) ? styles.sidebarLinkActive : "")}`}
+              onClick={onClose}
+            >
+              <Icon className={styles.iconSm} />
+              {label}
+            </Link>
+          ))}
+        </section>
+
+        <section className={styles.sidebarSection}>
+          <p className={styles.sidebarSectionLabel}>{t.help.sidebar.account}</p>
+          <button
+            type="button"
+            className={`${styles.sidebarLink} ${styles.sidebarAccountButton} ${accountOpen ? styles.sidebarAccountButtonOpen : ""}`}
+            aria-expanded={accountOpen}
+            onClick={() => setAccountOpen((current) => !current)}
+          >
             <span>
               <UserRound className={styles.iconSm} />
               {t.nav.member}
             </span>
-            <ChevronDown className={styles.iconXs} />
-          </summary>
-          <div className={styles.sidebarSubMenu}>
-            {memberItems.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`${styles.sidebarSubLink} ${isActive(pathname, href) ? styles.sidebarLinkActive : ""}`}
-                onClick={onClose}
-              >
-                <Icon className={styles.iconXs} />
-                {label}
-              </Link>
-            ))}
-          </div>
-        </details>
+            <ChevronDown className={`${styles.iconXs} ${styles.sidebarAccountChevron}`} />
+          </button>
+          {accountOpen && (
+            <div className={styles.sidebarSubMenu}>
+              {accountItems.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`${styles.sidebarSubLink} ${isActive(pathname, href) ? styles.sidebarLinkActive : ""}`}
+                  onClick={onClose}
+                >
+                  <Icon className={styles.iconXs} />
+                  {label}
+                </Link>
+              ))}
+              {isAuthenticated && (
+                <button type="button" className={styles.sidebarLogoutButton} onClick={() => { onClose?.(); logout() }}>
+                  {t.mypage.logout}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
 
         {isAdmin && (
           <details className={styles.sidebarGroup} open={pathname.startsWith(ROUTES.ADMIN)}>
@@ -158,7 +225,6 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
           </details>
         )}
       </nav>
-      {isAuthenticated && <button type="button" className={styles.secondaryButton} onClick={() => { onClose?.(); logout() }}>{t.mypage.logout}</button>}
     </>
   )
 

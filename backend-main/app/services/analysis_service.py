@@ -653,7 +653,9 @@ class AnalysisService:
         homepage_url = AnalysisService._valid_http_url(hospital.get("homepage_url"))
         has_english_info = AnalysisService._true_or_none(hospital.get("has_english_info"))
         has_english_reviews = AnalysisService._true_or_none(hospital.get("has_english_reviews"))
-        has_photos = AnalysisService._true_or_none(hospital.get("has_photos"))
+        has_photos = AnalysisService._true_or_none(
+            AnalysisService._first_present(hospital.get("has_photos"), hospital.get("has_google_photos"))
+        )
 
         if not any([english_name, homepage_url, has_english_info, has_english_reviews, has_photos]):
             return None
