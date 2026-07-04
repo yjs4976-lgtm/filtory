@@ -47,6 +47,34 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["englishGuide"], "notConfirmed")
 
+    def test_exact_negative_english_guidance_sentence_is_not_confirmed(self):
+        payload = make_payload(reviews=["상담은 좋았지만 영어 안내가 없어요."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "notConfirmed")
+
+    def test_review_location_signal_confirms_map_location(self):
+        payload = make_payload(reviews=["병원이 역에서 가까워서 찾아가기 쉬웠어요."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["mapLocation"], "confirmed")
+
+    def test_review_booking_signal_confirms_contact_booking(self):
+        payload = make_payload(reviews=["방문 전에 전화로 예약했고 안내를 받았습니다."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["contactBooking"], "confirmed")
+
+    def test_review_photo_signal_confirms_photo_information(self):
+        payload = make_payload(reviews=["네이버 사진과 실제 내부가 비슷해서 방문 전에 참고하기 좋았어요."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["photoInfo"], "confirmed")
+
     def test_english_negative_guidance_sentence_is_not_confirmed(self):
         payload = make_payload(
             reviews=["The treatment was fine, but English support was not available."]
@@ -152,6 +180,101 @@ class ForeignerScoreTest(unittest.TestCase):
         )
 
         self.assertEqual(plain_result["totalScore"], enriched_result["totalScore"])
+
+    def test_place_metadata_does_not_change_review_trust_or_total_score(self):
+        plain = make_payload(reviews=["상담이 자세했고 대기 시간과 비용을 안내받았어요."])
+        enriched = make_payload(
+            reviews=["상담이 자세했고 대기 시간과 비용을 안내받았어요."],
+            hospitalName="예시피부과",
+            address="서울시 강남구",
+            phone="02-0000-0000",
+            treatmentItems=["피부 상담", "시술"],
+            description="예약과 진료 항목 안내가 있습니다.",
+            homepageUrl="https://clinic.example.com",
+        )
+
+        plain_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            plain,
+            "test",
+        )
+        enriched_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            enriched,
+            "test",
+        )
+
+        self.assertGreater(enriched_result["placeScore"], plain_result["placeScore"])
+        self.assertEqual(plain_result["reviewTrustScore"], enriched_result["reviewTrustScore"])
+        self.assertEqual(plain_result["totalScore"], enriched_result["totalScore"])
+
+    def test_promotional_and_repetitive_reviews_lower_review_trust_score(self):
+        concrete_reviews = [
+            f"상담 설명이 자세했고 비용 안내와 대기 시간 안내를 받았습니다. 방문 {index}번째 후기입니다."
+            for index in range(1, 13)
+        ]
+        suspicious_reviews = [
+            "무조건 추천합니다. 꼭 가세요. 협찬 느낌은 아니지만 이벤트 할인 무료 혜택이 계속 강조됐습니다."
+            for _ in range(12)
+        ]
+
+        concrete_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=concrete_reviews),
+            "test",
+        )
+        suspicious_result = OpenAIReviewAnalysisService.normalize_response_data(
+            {
+                **self._base_ai_data(),
+                "repetitionLevel": "high",
+                "repetitivePhrases": ["무조건 추천", "이벤트 할인"],
+                "negativeSignals": ["반복 홍보 표현"],
+            },
+            make_payload(reviews=suspicious_reviews),
+            "test",
+        )
+
+        self.assertGreater(suspicious_result["riskScore"], concrete_result["riskScore"])
+        self.assertLess(suspicious_result["reviewTrustScore"], concrete_result["reviewTrustScore"])
+
+    def test_event_discount_terms_are_not_double_counted_as_general_promo_signal(self):
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=["이벤트 할인 무료 혜택 안내를 받았습니다." for _ in range(10)]),
+            "test",
+        )
+
+        self.assertEqual(result["promoSignalScore"], 0)
+        self.assertGreater(result["eventDiscountScore"], 0)
+
+    def test_diversity_score_does_not_apply_repetition_penalty_again(self):
+        reviews = ["상담 설명과 비용 안내가 비슷하게 반복된 후기입니다." for _ in range(8)]
+
+        low_repetition_diversity = OpenAIReviewAnalysisService.calculate_diversity_score(
+            reviews,
+            repetition_score=0,
+        )
+        high_repetition_diversity = OpenAIReviewAnalysisService.calculate_diversity_score(
+            reviews,
+            repetition_score=100,
+        )
+
+        self.assertEqual(low_repetition_diversity, high_repetition_diversity)
+
+    def test_few_reviews_cap_review_trust_score(self):
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            {
+                **self._base_ai_data(),
+                "trustScore": 100,
+                "adScore": 0,
+                "informationScore": 100,
+                "positiveSignals": ["구체적인 상담", "비용 안내", "대기 시간 안내"],
+            },
+            make_payload(reviews=["상담, 비용, 대기 시간, 예약 방법을 자세히 안내받았습니다."]),
+            "test",
+        )
+
+        self.assertLessEqual(result["reviewTrustScore"], 60)
 
     @staticmethod
     def _base_ai_data():

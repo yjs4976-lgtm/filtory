@@ -5,6 +5,7 @@ import type { HospitalCategory, Language } from "./types"
 export type TrustResultKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
 export type AdSuspicionKey = "low" | "medium" | "high"
 export type ConvenienceCheckStatus = "confirmed" | "notConfirmed" | "unknown"
+export type ConvenienceQuestionStatus = "confirmed" | "partial" | "needsCheck" | "unknown"
 
 export type AnalysisResultViewModel = {
   ids: {
@@ -66,6 +67,7 @@ export type AnalysisResultViewModel = {
   }
   globalAccessibility: {
     label: string
+    readinessKey: "ready" | "needsCheck" | "unknown"
     score: number
     maxScore: number
     checkedCount: number
@@ -82,6 +84,13 @@ export type AnalysisResultViewModel = {
       checkedCount: number
       totalCount: number
     }
+    questions: {
+      key: "navigation" | "booking" | "english" | "preview"
+      label: string
+      description: string
+      status: ConvenienceQuestionStatus
+      statusLabel: string
+    }[]
     checks: {
       key: string
       label: string
@@ -409,7 +418,20 @@ function countFromScore(score: number, totalCount = 6) {
   return Math.max(0, Math.min(totalCount, Math.round((score / 100) * totalCount)))
 }
 
-function informationChecks(score: number, language: Language) {
+function hasMetadataSignal(...values: unknown[]) {
+  return values.some((value) => {
+    if (Array.isArray(value)) return value.some((item) => stringValue(item).length > 0)
+    if (typeof value === "boolean") return value
+    return stringValue(value).length > 0
+  })
+}
+
+function informationChecks(
+  score: number,
+  language: Language,
+  root: Record<string, unknown>,
+  result: Record<string, unknown>
+) {
   const labels = {
     ko: [
       ["location", "주소 / 위치 정보"],
@@ -428,12 +450,53 @@ function informationChecks(score: number, language: Language) {
       ["photos", "Photo information"],
     ],
   } as const
+  const statusByKey = {
+    location: hasMetadataSignal(
+      root.hospitalAddress,
+      root.address,
+      root.roadAddress,
+      root.regionLabel,
+      root.mapUrl,
+      root.googleMapUrl,
+      root.google_map_url,
+      root.naverPlaceUrl,
+      root.naver_place_url,
+      root.kakaoPlaceUrl,
+      root.kakao_place_url,
+      result.googleMapUrl,
+      result.naverPlaceUrl,
+      result.kakaoPlaceUrl
+    ),
+    treatment: hasMetadataSignal(
+      root.treatmentItems,
+      root.treatment_items,
+      root.hospitalCategory,
+      root.category,
+      root.categoryKoLabel,
+      result.treatmentItems
+    ),
+    phone: hasMetadataSignal(root.phone, result.phone),
+    booking: hasMetadataSignal(
+      root.reservationUrl,
+      root.reservation_url,
+      root.homepageUrl,
+      root.homepage_url,
+      root.naverPlaceUrl,
+      root.kakaoPlaceUrl,
+      result.homepageUrl,
+      result.naverPlaceUrl,
+      result.kakaoPlaceUrl
+    ),
+    homepage: hasMetadataSignal(root.homepageUrl, root.homepage_url, result.homepageUrl),
+    photos: hasMetadataSignal(root.hasPhotos, root.hasGooglePhotos, root.imageUrl, result.hasPhotos, result.hasGooglePhotos),
+  }
+  const hasDirectMetadata = Object.values(statusByKey).some(Boolean)
   const checkedCount = countFromScore(score, labels[language].length)
 
   return labels[language].map(([key, label], index) => ({
     key,
     label,
-    checked: index < checkedCount,
+    checked: hasDirectMetadata ? Boolean(statusByKey[key]) : index < checkedCount,
   }))
 }
 
@@ -479,17 +542,6 @@ function reviewBurstDescription(status: "available" | "unavailable", score: numb
     : "Based on review dates, strong concentration signals are limited."
 }
 
-function foreignerVisitConvenienceDescription(score: number, language: Language) {
-  if (language === "en") {
-    if (score >= 80) return "Essential visit information is relatively easy to check before visiting."
-    if (score >= 50) return "Some basic visit information is available, but English guidance may need to be checked before visiting."
-    return "Essential visit information is limited, so it is better to contact the clinic before visiting."
-  }
-  if (score >= 80) return "외국인 방문 전 확인할 수 있는 정보가 비교적 충분해요."
-  if (score >= 50) return "방문 전 기본 정보는 일부 확인 가능하지만, 영어 안내 여부는 추가 확인이 필요해요."
-  return "외국인 방문 전 필요한 정보가 부족해요. 방문 전 병원에 직접 확인하는 것이 좋아요."
-}
-
 function foreignerVisitConvenienceNote(language: Language) {
   return language === "en"
     ? "This section summarizes how easy it is for foreign or non-Korean users to check essential visit information before visiting."
@@ -503,13 +555,203 @@ function groupSummary(
 ) {
   const groupChecks = checks.filter((item) => item.group === group)
   const labels = {
-    ko: { visit: "방문 정보", english: "영어 지원 단서" },
-    en: { visit: "Visit information", english: "English support signals" },
+    ko: { visit: "방문 정보", english: "영어 지원" },
+    en: { visit: "Visit information", english: "English support" },
   }
   return {
     label: labels[language][group],
     checkedCount: groupChecks.filter((item) => item.checked).length,
     totalCount: groupChecks.length,
+  }
+}
+
+type NormalizedConvenienceCheck = ReturnType<typeof normalizeChecks>[number]
+type ConvenienceReadinessKey = AnalysisResultViewModel["globalAccessibility"]["readinessKey"]
+
+function findConvenienceCheck(checks: NormalizedConvenienceCheck[], key: string) {
+  return checks.find((check) => check.key === key)
+}
+
+function hasCheckStatus(checks: NormalizedConvenienceCheck[], keys: string[], status: ConvenienceCheckStatus) {
+  return keys.some((key) => findConvenienceCheck(checks, key)?.status === status)
+}
+
+function combineConvenienceStatus(checks: NormalizedConvenienceCheck[], keys: string[]): ConvenienceQuestionStatus {
+  if (hasCheckStatus(checks, keys, "confirmed")) return "confirmed"
+  if (hasCheckStatus(checks, keys, "notConfirmed")) return "needsCheck"
+  return "unknown"
+}
+
+function convenienceQuestionStatusLabel(status: ConvenienceQuestionStatus, language: Language) {
+  const labels: Record<Language, Record<ConvenienceQuestionStatus, string>> = {
+    ko: {
+      confirmed: "확인됨",
+      partial: "일부 확인",
+      needsCheck: "확인 필요",
+      unknown: "판단 보류",
+    },
+    en: {
+      confirmed: "Confirmed",
+      partial: "Partially checked",
+      needsCheck: "Needs checking",
+      unknown: "Pending",
+    },
+  }
+  return labels[language][status]
+}
+
+function convenienceQuestionDescription(key: string, status: ConvenienceQuestionStatus, language: Language) {
+  const descriptions = {
+    ko: {
+      navigation: {
+        confirmed: "위치 정보는 확인됐어요.",
+        partial: "위치 단서가 일부 확인됐어요.",
+        needsCheck: "찾아가는 방법은 방문 전에 확인해 주세요.",
+        unknown: "주소나 지도 단서가 아직 부족해요.",
+      },
+      booking: {
+        confirmed: "예약하거나 문의할 수 있는 단서가 있어요.",
+        partial: "예약 또는 문의 단서가 일부 확인됐어요.",
+        needsCheck: "예약 방법과 연락 가능 여부를 확인해 주세요.",
+        unknown: "전화번호나 예약 링크 단서가 아직 부족해요.",
+      },
+      english: {
+        confirmed: "영어 안내나 영어 응대 리뷰 단서가 확인됐어요.",
+        partial: "영문 병원명은 확인됐지만 영어 응대 여부는 확인이 필요해요.",
+        needsCheck: "영어 안내나 통역 가능 여부를 방문 전에 확인해 주세요.",
+        unknown: "영어 안내 여부를 판단할 단서가 아직 부족해요.",
+      },
+      preview: {
+        confirmed: "사진이나 영어 리뷰처럼 방문 전 참고할 단서가 있어요.",
+        partial: "방문 전 참고 단서가 일부 확인됐어요.",
+        needsCheck: "사진이나 최신 후기는 방문 전에 추가로 확인해 주세요.",
+        unknown: "사진이나 외국인 리뷰 단서가 아직 부족해요.",
+      },
+    },
+    en: {
+      navigation: {
+        confirmed: "Location information was found.",
+        partial: "Some location signal was found.",
+        needsCheck: "Check how to get there before visiting.",
+        unknown: "Address or map signals are still limited.",
+      },
+      booking: {
+        confirmed: "There is a way to contact or book the clinic.",
+        partial: "Some contact or booking signal was found.",
+        needsCheck: "Check booking and contact options before visiting.",
+        unknown: "Phone or booking link signals are still limited.",
+      },
+      english: {
+        confirmed: "English guidance or English-response review signals were found.",
+        partial: "An English clinic name was found, but English support still needs checking.",
+        needsCheck: "Check English guidance or interpretation availability before visiting.",
+        unknown: "There is not enough signal to judge English support yet.",
+      },
+      preview: {
+        confirmed: "Photos or English reviews are available as pre-visit references.",
+        partial: "Some pre-visit reference signal was found.",
+        needsCheck: "Check photos or recent reviews before visiting.",
+        unknown: "Photo or foreign-language review signals are still limited.",
+      },
+    },
+  } as const
+
+  return descriptions[language][key as keyof typeof descriptions[typeof language]][status]
+}
+
+function buildConvenienceQuestions(checks: NormalizedConvenienceCheck[], language: Language): AnalysisResultViewModel["globalAccessibility"]["questions"] {
+  const englishGuideConfirmed = findConvenienceCheck(checks, "englishGuide")?.status === "confirmed"
+  const englishReviewsConfirmed = findConvenienceCheck(checks, "englishReviews")?.status === "confirmed"
+  const englishNameConfirmed = findConvenienceCheck(checks, "englishName")?.status === "confirmed"
+  const englishStatus: ConvenienceQuestionStatus =
+    englishGuideConfirmed || englishReviewsConfirmed
+      ? "confirmed"
+      : englishNameConfirmed
+        ? "partial"
+        : hasCheckStatus(checks, ["englishGuide", "englishReviews"], "notConfirmed")
+          ? "needsCheck"
+          : "unknown"
+
+  const definitions: {
+    key: "navigation" | "booking" | "english" | "preview"
+    label: Record<Language, string>
+    status: ConvenienceQuestionStatus
+  }[] = [
+    {
+      key: "navigation",
+      label: { ko: "찾아가기 쉬운가요?", en: "Is it easy to get there?" },
+      status: combineConvenienceStatus(checks, ["mapLocation"]),
+    },
+    {
+      key: "booking",
+      label: { ko: "예약하거나 문의할 수 있나요?", en: "Can users contact or book?" },
+      status: combineConvenienceStatus(checks, ["contactBooking", "websitePlaceLink"]),
+    },
+    {
+      key: "english",
+      label: { ko: "영어로 정보를 확인할 수 있나요?", en: "Can users check information in English?" },
+      status: englishStatus,
+    },
+    {
+      key: "preview",
+      label: { ko: "방문 전에 병원을 미리 볼 수 있나요?", en: "Can users preview the clinic before visiting?" },
+      status: combineConvenienceStatus(checks, ["photoInfo", "englishReviews"]),
+    },
+  ]
+
+  return definitions.map((item) => ({
+    key: item.key,
+    label: item.label[language],
+    status: item.status,
+    statusLabel: convenienceQuestionStatusLabel(item.status, language),
+    description: convenienceQuestionDescription(item.key, item.status, language),
+  }))
+}
+
+function deriveConvenienceReadiness(
+  questions: AnalysisResultViewModel["globalAccessibility"]["questions"],
+  language: Language
+) {
+  const confirmedCount = questions.filter((item) => item.status === "confirmed").length
+  const partialCount = questions.filter((item) => item.status === "partial").length
+  const needsCheckCount = questions.filter((item) => item.status === "needsCheck").length
+
+  const key: ConvenienceReadinessKey =
+    confirmedCount >= 3
+      ? "ready"
+      : confirmedCount + partialCount >= 1 || needsCheckCount >= 2
+        ? "needsCheck"
+        : "unknown"
+
+  const labels = {
+    ko: {
+      ready: "외국인도 비교적 편하게 방문할 수 있어요",
+      needsCheck: "방문 전 일부 확인이 필요해요",
+      unknown: "정보가 부족해 판단하기 어려워요",
+    },
+    en: {
+      ready: "The clinic looks relatively visit-ready for foreign users.",
+      needsCheck: "Some details should be checked before visiting.",
+      unknown: "There is not enough information to judge yet.",
+    },
+  } as const
+  const descriptions = {
+    ko: {
+      ready: "위치, 예약, 영어 지원, 사진·후기 단서 중 여러 항목이 확인됐어요.",
+      needsCheck: "확인된 단서가 있지만 예약 방법이나 영어 응대 여부는 방문 전에 다시 확인해 주세요.",
+      unknown: "정보가 없는 것과 실제 방문이 어려운 것은 달라요. 병원이나 플레이스에서 최신 정보를 확인해 주세요.",
+    },
+    en: {
+      ready: "Several signals across location, booking, English support, and photos/reviews were found.",
+      needsCheck: "Some signals were found, but booking or English support should be checked before visiting.",
+      unknown: "Missing information does not mean the visit will be difficult. Check the clinic or place page for current details.",
+    },
+  } as const
+
+  return {
+    key,
+    label: labels[language][key],
+    description: descriptions[language][key],
   }
 }
 
@@ -621,10 +863,12 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const confidenceDescription =
     stringValue(firstValue(result.analysisConfidenceDescription, root.analysisConfidenceDescription)) ||
     fallbackConfidenceDescription(confidenceKey, language)
-  const informationCheckItems = informationChecks(informationScore, language)
+  const informationCheckItems = informationChecks(informationScore, language, root, result)
   const globalAccessibilityChecks = normalizeChecks(firstValue(result.globalAccessibilityChecks, root.globalAccessibilityChecks), language)
   const visitAccessibilityGroup = groupSummary(globalAccessibilityChecks, "visit", language)
   const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)
+  const globalAccessibilityQuestions = buildConvenienceQuestions(globalAccessibilityChecks, language)
+  const globalAccessibilityReadiness = deriveConvenienceReadiness(globalAccessibilityQuestions, language)
   const reviewBurstScore = optionalNumber(firstValue(result.reviewBurstScore, root.reviewBurstScore))
   const reviewBurstStatus =
     stringValue(firstValue(result.reviewBurstStatus, root.reviewBurstStatus)) === "available" || reviewBurstScore !== undefined
@@ -683,15 +927,17 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       description: informationDescription(informationScore, language),
     },
     globalAccessibility: {
-      label: deriveGlobalAccessibilityLabel(globalAccessibilityScore, firstValue(result.globalAccessibilityLevel, root.globalAccessibilityLevel), language),
+      label: globalAccessibilityReadiness.label,
+      readinessKey: globalAccessibilityReadiness.key,
       score: globalAccessibilityScore,
       maxScore,
       checkedCount: globalAccessibilityChecks.filter((item) => item.checked).length,
       totalCount: globalAccessibilityChecks.length,
-      description: foreignerVisitConvenienceDescription(globalAccessibilityScore, language),
+      description: globalAccessibilityReadiness.description,
       note: foreignerVisitConvenienceNote(language),
       visitGroup: visitAccessibilityGroup,
       englishGroup: englishAccessibilityGroup,
+      questions: globalAccessibilityQuestions,
       checks: globalAccessibilityChecks,
     },
     reviewBurst: {

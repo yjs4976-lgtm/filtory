@@ -41,25 +41,15 @@ class OpenAIReviewAnalysisService:
         "treatment",
     ]
     PROMO_TERMS = [
-        "할인",
-        "이벤트",
         "강추",
         "무조건 추천",
-        "최고",
-        "대박",
         "꼭 가세요",
         "지인 추천",
-        "혜택",
-        "무료",
         "협찬",
         "체험단",
         "recommended by a friend",
         "must go",
-        "best ever",
         "highly recommend",
-        "discount",
-        "event",
-        "promotion",
         "sponsored",
     ]
     ACTION_TERMS = [
@@ -111,6 +101,53 @@ class OpenAIReviewAnalysisService:
         r"외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)",
         r"(no|not|without).{0,32}(english|interpreter|translation|foreigner)",
         r"(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)",
+    ]
+    LOCATION_ACCESS_KEYWORDS = [
+        "역에서 가까",
+        "찾기 쉬",
+        "찾아가기 쉬",
+        "위치가 좋",
+        "교통이 편",
+        "near the station",
+        "easy to find",
+        "easy to get to",
+        "convenient location",
+    ]
+    LOCATION_ACCESS_NEGATIVE_PATTERNS = [
+        r"(찾기|찾아가기).{0,10}(어렵|힘들)",
+        r"위치.{0,10}(불편|멀)",
+        r"(hard|difficult).{0,20}(find|get to)",
+    ]
+    BOOKING_ACCESS_KEYWORDS = [
+        "전화로 예약",
+        "예약했",
+        "예약이 가능",
+        "문의했",
+        "전화 문의",
+        "booked by phone",
+        "made a reservation",
+        "called to book",
+        "booking was available",
+    ]
+    BOOKING_ACCESS_NEGATIVE_PATTERNS = [
+        r"예약.{0,10}(안\s*됨|불가|어렵|못\s*했)",
+        r"전화.{0,10}(안\s*받|연결.{0,6}안)",
+        r"(booking|reservation).{0,20}(not available|unavailable|difficult|failed)",
+    ]
+    PHOTO_REFERENCE_KEYWORDS = [
+        "사진과 실제",
+        "사진이랑 비슷",
+        "내부 사진",
+        "시설 사진",
+        "photo matched",
+        "photos matched",
+        "interior photos",
+        "clinic photos",
+    ]
+    PHOTO_REFERENCE_NEGATIVE_PATTERNS = [
+        r"사진.{0,8}(없|부족|다르)",
+        r"(no|not enough).{0,20}photos?",
+        r"photos?.{0,20}(missing|different)",
     ]
 
     @classmethod
@@ -630,7 +667,7 @@ class OpenAIReviewAnalysisService:
         unique_ratio = len(set(normalized_reviews)) / max(len(normalized_reviews), 1)
         token_sets = [set(re.findall(r"[가-힣A-Za-z0-9]{2,}", review)) for review in normalized_reviews]
         token_variety = len(set().union(*token_sets)) / max(sum(len(tokens) for tokens in token_sets), 1)
-        score = unique_ratio * 58 + min(token_variety * 100, 32) + (100 - repetition_score) * 0.10
+        score = unique_ratio * 68 + min(token_variety * 100, 32)
         return OpenAIReviewAnalysisService._clamp_score(score)
 
     @staticmethod
@@ -808,6 +845,34 @@ class OpenAIReviewAnalysisService:
     @staticmethod
     def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, str]:
         place_link = payload.homepageUrl or payload.naverPlaceUrl or payload.kakaoPlaceUrl or payload.googleMapUrl
+        review_text = OpenAIReviewAnalysisService.merge_review_text(payload)
+        location_review_signal = OpenAIReviewAnalysisService._has_contextual_signal(
+            review_text,
+            OpenAIReviewAnalysisService.LOCATION_ACCESS_KEYWORDS,
+            OpenAIReviewAnalysisService.LOCATION_ACCESS_NEGATIVE_PATTERNS,
+        )
+        location_review_context = location_review_signal or OpenAIReviewAnalysisService._has_contextual_negative(
+            review_text,
+            OpenAIReviewAnalysisService.LOCATION_ACCESS_NEGATIVE_PATTERNS,
+        )
+        booking_review_signal = OpenAIReviewAnalysisService._has_contextual_signal(
+            review_text,
+            OpenAIReviewAnalysisService.BOOKING_ACCESS_KEYWORDS,
+            OpenAIReviewAnalysisService.BOOKING_ACCESS_NEGATIVE_PATTERNS,
+        )
+        booking_review_context = booking_review_signal or OpenAIReviewAnalysisService._has_contextual_negative(
+            review_text,
+            OpenAIReviewAnalysisService.BOOKING_ACCESS_NEGATIVE_PATTERNS,
+        )
+        photo_review_signal = OpenAIReviewAnalysisService._has_contextual_signal(
+            review_text,
+            OpenAIReviewAnalysisService.PHOTO_REFERENCE_KEYWORDS,
+            OpenAIReviewAnalysisService.PHOTO_REFERENCE_NEGATIVE_PATTERNS,
+        )
+        photo_review_context = photo_review_signal or OpenAIReviewAnalysisService._has_contextual_negative(
+            review_text,
+            OpenAIReviewAnalysisService.PHOTO_REFERENCE_NEGATIVE_PATTERNS,
+        )
         map_signal = (
             payload.address
             or payload.roadAddress
@@ -818,6 +883,7 @@ class OpenAIReviewAnalysisService:
             or payload.googlePlaceId
             or payload.externalPlaceId
             or (payload.latitude is not None and payload.longitude is not None)
+            or location_review_signal
         )
         map_context_exists = any(
             OpenAIReviewAnalysisService._has_context_value(value)
@@ -833,16 +899,15 @@ class OpenAIReviewAnalysisService:
                 payload.latitude,
                 payload.longitude,
             ]
-        )
-        contact_booking = payload.phone or payload.homepageUrl
-        review_text = OpenAIReviewAnalysisService.merge_review_text(payload)
+        ) or location_review_context
+        contact_booking = payload.phone or payload.homepageUrl or booking_review_signal
         english_guide = payload.hasEnglishInfo
         if english_guide is None:
             english_guide = (
                 OpenAIReviewAnalysisService._has_english_guidance_signal(payload.description)
                 or OpenAIReviewAnalysisService._has_english_guidance_signal(review_text)
             )
-        photo_info = payload.hasGooglePhotos or payload.hasPhotos
+        photo_info = payload.hasGooglePhotos or payload.hasPhotos or photo_review_signal
         english_guide_context_exists = (
             payload.hasEnglishInfo is not None
             or OpenAIReviewAnalysisService._has_context_value(payload.description)
@@ -851,9 +916,9 @@ class OpenAIReviewAnalysisService:
 
         return {
             "mapLocation": OpenAIReviewAnalysisService._check_status(map_signal, has_context=map_context_exists),
-            "contactBooking": OpenAIReviewAnalysisService._check_status(contact_booking, has_context=bool(payload.phone or place_link)),
+            "contactBooking": OpenAIReviewAnalysisService._check_status(contact_booking, has_context=bool(payload.phone or place_link or booking_review_context)),
             "websitePlaceLink": OpenAIReviewAnalysisService._check_status(place_link, has_context=bool(place_link or payload.sourceProvider)),
-            "photoInfo": OpenAIReviewAnalysisService._check_status(photo_info, has_context=payload.hasGooglePhotos is not None or payload.hasPhotos is not None),
+            "photoInfo": OpenAIReviewAnalysisService._check_status(photo_info, has_context=payload.hasGooglePhotos is not None or payload.hasPhotos is not None or photo_review_context),
             "englishName": OpenAIReviewAnalysisService._check_status(payload.englishName, has_context=payload.englishName is not None),
             "englishGuide": OpenAIReviewAnalysisService._check_status(english_guide, has_context=english_guide_context_exists),
             "englishReviews": OpenAIReviewAnalysisService._check_status(payload.hasEnglishReviews, has_context=payload.hasEnglishReviews is not None),
@@ -883,6 +948,22 @@ class OpenAIReviewAnalysisService:
         if any(re.search(pattern, text) for pattern in OpenAIReviewAnalysisService.ENGLISH_GUIDANCE_NEGATIVE_PATTERNS):
             return False
         return any(keyword in text for keyword in OpenAIReviewAnalysisService.ENGLISH_GUIDANCE_KEYWORDS)
+
+    @staticmethod
+    def _has_contextual_signal(value: Any, keywords: list[str], negative_patterns: list[str]) -> bool:
+        text = str(value or "").lower()
+        if not text:
+            return False
+        if any(re.search(pattern, text) for pattern in negative_patterns):
+            return False
+        return any(keyword.lower() in text for keyword in keywords)
+
+    @staticmethod
+    def _has_contextual_negative(value: Any, negative_patterns: list[str]) -> bool:
+        text = str(value or "").lower()
+        if not text:
+            return False
+        return any(re.search(pattern, text) for pattern in negative_patterns)
 
     @staticmethod
     def _has_english_guidance_context(value: Any) -> bool:

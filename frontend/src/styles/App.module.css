@@ -4659,6 +4659,59 @@ button.notificationCard {
   line-height: 1.45;
 }
 
+.visitInfoAssistPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(220, 207, 255, 0.64);
+  border-radius: 18px;
+  background: rgba(250, 247, 255, 0.72);
+  padding: 14px;
+}
+
+.visitInfoQuickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.visitInfoQuickActions button,
+.visitInfoQuickActions a {
+  min-height: 34px;
+}
+
+.visitInfoFieldGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.visitInfoToggleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.visitInfoToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 253, 249, 0.88);
+  color: var(--foreground);
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.visitInfoToggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--lavender);
+}
+
 .reviewImportTextButton {
   align-self: flex-start;
   border: 0;
@@ -5699,32 +5752,149 @@ button.notificationCard {
   word-break: keep-all;
 }
 
-.resultConvenienceGroups {
+.resultConvenienceQuestions {
   display: grid;
   gap: 10px;
 }
 
-.resultConvenienceGroups div {
-  display: flex;
+.resultConvenienceQuestion {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 11px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: rgba(255, 253, 249, 0.82);
   padding: 12px 13px;
 }
 
-.resultConvenienceGroups strong {
-  color: var(--foreground);
-  font-size: 13px;
+.resultConvenienceQuestion div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.resultConvenienceGroups span {
+.resultConvenienceQuestion span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.resultConvenienceQuestion p {
+  margin: 0;
   color: var(--graypurple);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.resultConvenienceQuestion strong {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 900;
   white-space: nowrap;
+}
+
+.resultConvenienceQuestionConfirmed strong {
+  background: rgba(218, 246, 231, 0.88);
+  color: #237457;
+}
+
+.resultConvenienceQuestionPartial strong,
+.resultConvenienceQuestionNeedsCheck strong {
+  background: rgba(255, 241, 219, 0.92);
+  color: #9a5a18;
+}
+
+.resultConvenienceQuestionUnknown strong {
+  background: rgba(241, 236, 255, 0.88);
+  color: var(--primary-foreground);
+}
+
+@media (max-width: 520px) {
+  .resultConvenienceQuestion {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .resultConvenienceQuestion strong {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.resultInlineDisclosure {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.76);
+  overflow: hidden;
+}
+
+.resultInlineDisclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 14px;
+  color: var(--primary-foreground);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.resultInlineDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.resultInlineDisclosure summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--graypurple);
+  font-size: 16px;
+}
+
+.resultInlineDisclosure[open] summary::after {
+  content: "-";
+}
+
+.resultInlineDisclosure > div {
+  padding: 0 12px 12px;
+}
+
+.resultUnresolvedQuestionList {
+  display: grid;
+  gap: 8px;
+}
+
+.resultUnresolvedQuestionItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-radius: 12px;
+  background: rgba(255, 253, 249, 0.76);
+  padding: 10px;
+}
+
+.resultUnresolvedQuestionItem strong {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.resultUnresolvedQuestionItem span {
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  word-break: keep-all;
 }
 
 .resultGuideNote {
@@ -7004,7 +7174,8 @@ button.notificationCard {
   .profileChecklistGrid,
   .reviewSourceGrid,
   .reviewInboxSummaryGrid,
-  .reviewImportToolbar {
+  .reviewImportToolbar,
+  .visitInfoToggleGrid {
     grid-template-columns: 1fr;
   }
 

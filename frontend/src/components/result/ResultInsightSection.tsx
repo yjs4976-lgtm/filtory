@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Globe2, Info, SearchCheck } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { ReactNode } from "react"
-import type { AnalysisResultViewModel, ConvenienceCheckStatus } from "@/lib/analysisResultMapper"
+import type { AnalysisResultViewModel, ConvenienceQuestionStatus } from "@/lib/analysisResultMapper"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
 
@@ -138,11 +138,8 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
     nextPage: label.nextPage,
     pageStatus: label.pageStatus,
   }
-  const groupedConvenienceItems = {
-    confirmed: viewModel.globalAccessibility.checks.filter((check) => check.status === "confirmed"),
-    notConfirmed: viewModel.globalAccessibility.checks.filter((check) => check.status === "notConfirmed"),
-    unknown: viewModel.globalAccessibility.checks.filter((check) => check.status === "unknown"),
-  }
+  const unresolvedConvenienceQuestions = viewModel.globalAccessibility.questions.filter((question) => question.status !== "confirmed")
+  const unresolvedConvenienceTitle = label.unconfirmedInformationCount.replace("{count}", String(unresolvedConvenienceQuestions.length))
   const detailedAnalysisPages = [
     {
       title: label.coreInsight,
@@ -207,6 +204,48 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
       </ResultAccordion>
 
       <ResultAccordion
+        title={label.globalAccessibilityDetail}
+        icon={<Globe2 className={`${styles.iconSm} ${styles.iconPrimary}`} />}
+      >
+        <div className={styles.resultConvenienceSummary}>
+          <strong>{viewModel.globalAccessibility.label}</strong>
+          <span>{viewModel.globalAccessibility.description}</span>
+        </div>
+        <div className={styles.resultConvenienceQuestions}>
+          {viewModel.globalAccessibility.questions.map((question) => (
+            <div
+              key={question.key}
+              className={`${styles.resultConvenienceQuestion} ${convenienceQuestionClass(question.status)}`}
+            >
+              {question.status === "confirmed" ? (
+                <CheckCircle2 className={`${styles.iconXs} ${styles.mintText}`} />
+              ) : (
+                <Info className={`${styles.iconXs} ${styles.iconPrimary}`} />
+              )}
+              <div>
+                <span>{question.label}</span>
+                <p>{question.description}</p>
+              </div>
+              <strong>{question.statusLabel}</strong>
+            </div>
+          ))}
+        </div>
+        {unresolvedConvenienceQuestions.length > 0 && (
+          <details className={styles.resultInlineDisclosure}>
+            <summary>{unresolvedConvenienceTitle}</summary>
+            <div className={styles.resultUnresolvedQuestionList}>
+              {unresolvedConvenienceQuestions.map((question) => (
+                <div key={question.key} className={styles.resultUnresolvedQuestionItem}>
+                  <strong>{question.label}</strong>
+                  <span>{question.description}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </ResultAccordion>
+
+      <ResultAccordion
         title={label.informationChecklist}
         icon={<SearchCheck className={`${styles.iconSm} ${styles.mintText}`} />}
       >
@@ -240,65 +279,13 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
           </div>
         )}
       </ResultAccordion>
-
-      <ResultAccordion
-        title={label.globalAccessibilityDetail}
-        icon={<Globe2 className={`${styles.iconSm} ${styles.iconPrimary}`} />}
-      >
-        <div className={styles.resultConvenienceSummary}>
-          <strong>{viewModel.globalAccessibility.label}</strong>
-          <span>{viewModel.globalAccessibility.description}</span>
-        </div>
-        <div className={styles.resultConvenienceGroups}>
-          <div>
-            <strong>{viewModel.globalAccessibility.visitGroup.label}</strong>
-            <span>{viewModel.globalAccessibility.visitGroup.checkedCount} / {viewModel.globalAccessibility.visitGroup.totalCount} {label.confirmed}</span>
-          </div>
-          <div>
-            <strong>{viewModel.globalAccessibility.englishGroup.label}</strong>
-            <span>{viewModel.globalAccessibility.englishGroup.checkedCount} / {viewModel.globalAccessibility.englishGroup.totalCount} {label.confirmed}</span>
-          </div>
-        </div>
-        <ConvenienceStatusList title={label.autoConfirmed} items={groupedConvenienceItems.confirmed} status="confirmed" emptyText={label.notEnoughInformation} />
-        <ConvenienceStatusList title={label.needsChecking} items={groupedConvenienceItems.notConfirmed} status="notConfirmed" emptyText={label.notEnoughInformation} />
-        <ConvenienceStatusList title={label.notEnoughInformation} items={groupedConvenienceItems.unknown} status="unknown" emptyText={label.notEnoughInformation} />
-        <p className={styles.resultEmptyText}>{viewModel.globalAccessibility.note}</p>
-      </ResultAccordion>
     </section>
   )
 }
 
-function ConvenienceStatusList({
-  title,
-  items,
-  status,
-  emptyText,
-}: {
-  title: string
-  items: AnalysisResultViewModel["globalAccessibility"]["checks"]
-  status: ConvenienceCheckStatus
-  emptyText: string
-}) {
-  if (items.length === 0) return null
-
-  const iconClass = status === "confirmed" ? styles.mintText : styles.iconPrimary
-
-  return (
-    <div className={styles.stackSm}>
-      <h3 className={styles.titleXs}>{title}</h3>
-      <div className={styles.resultCheckGrid}>
-        {items.length > 0 ? items.map((check) => (
-          <div key={check.key} className={styles.resultCheckItem}>
-            {status === "confirmed" ? (
-              <CheckCircle2 className={`${styles.iconXs} ${iconClass}`} />
-            ) : (
-              <Info className={`${styles.iconXs} ${iconClass}`} />
-            )}
-            <span>{check.label}</span>
-            <strong>{title}</strong>
-          </div>
-        )) : <p className={styles.resultEmptyText}>{emptyText}</p>}
-      </div>
-    </div>
-  )
+function convenienceQuestionClass(status: ConvenienceQuestionStatus) {
+  if (status === "confirmed") return styles.resultConvenienceQuestionConfirmed
+  if (status === "partial") return styles.resultConvenienceQuestionPartial
+  if (status === "needsCheck") return styles.resultConvenienceQuestionNeedsCheck
+  return styles.resultConvenienceQuestionUnknown
 }
