@@ -471,7 +471,7 @@ export interface UpdateProfilePayload {
 }
 
 export interface WithdrawPayload {
-  password: string
+  password?: string
   reason?: string
 }
 

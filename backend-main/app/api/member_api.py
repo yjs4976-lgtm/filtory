@@ -1,4 +1,5 @@
 from flask import Blueprint, g, request
+from flask_jwt_extended import get_jwt
 
 from app.services import AnalysisService, AuthService, MemberService, ProfileImageService, SavedHospitalService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
@@ -106,6 +107,7 @@ def deactivate_member(member_id):
             member_id,
             password=payload.get("password"),
             requester=g.current_member,
+            fresh_auth=bool(get_jwt().get("fresh")),
         )
         return success_response(member, "Member deactivated")
     except ValueError as e:

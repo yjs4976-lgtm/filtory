@@ -14,6 +14,15 @@ from app.utils.validators import validate_email, validate_password
 class MemberService:
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
     PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
+    PROFILE_PASSWORD_FIELDS = {
+        "password",
+        "password_hash",
+        "passwordHash",
+        "currentPassword",
+        "current_password",
+        "newPassword",
+        "new_password",
+    }
     CREATE_FIELDS = PROFILE_FIELDS | {"login_id"}
     TERMS_PAYLOAD_MAP = {
         "termsAgreed": "terms",
@@ -69,6 +78,10 @@ class MemberService:
         if not member:
             raise ValueError("Member not found")
 
+        payload = dict(payload or {})
+        if any(key in payload and payload.get(key) not in (None, "") for key in MemberService.PROFILE_PASSWORD_FIELDS):
+            raise ValueError("Use the password change endpoint")
+
         data = extract_member_data(payload)
         data = {key: value for key, value in data.items() if key in MemberService.PROFILE_FIELDS}
         _normalize_member_data(data)
@@ -116,14 +129,17 @@ class MemberService:
             raise
 
     @staticmethod
-    def deactivate_member(member_id, password=None, requester=None):
+    def deactivate_member(member_id, password=None, requester=None, fresh_auth=False):
         member = MemberRepository.get_by_id(member_id)
         if not member:
             raise ValueError("Member not found")
 
         requester_is_admin = str(getattr(requester, "role", "") or "").lower() == "admin"
         if not requester_is_admin:
-            _validate_current_password(member, password)
+            if member.password_hash:
+                _validate_current_password(member, password)
+            elif not _has_social_account(member) or not fresh_auth:
+                raise ValueError("Fresh account verification is required")
 
         try:
             member = MemberRepository.update(
@@ -456,6 +472,10 @@ def _mask_login_id(login_id):
         return "*" * len(login_id)
     visible_length = min(3, len(login_id) - 1)
     return f"{login_id[:visible_length]}{'*' * (len(login_id) - visible_length)}"
+
+
+def _has_social_account(member):
+    return bool(getattr(member, "social_accounts", None))
 
 
 def _validate_current_password(member, password):

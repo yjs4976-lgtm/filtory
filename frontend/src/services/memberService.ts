@@ -118,11 +118,16 @@ export const memberService = {
     });
   },
 
-  async withdrawUser(userId: User["id"], password: string, reason?: string) {
+  async withdrawUser(userId: User["id"], password?: string, reason?: string) {
+    const body: WithdrawPayload = {
+      ...(password ? { password } : {}),
+      ...(reason ? { reason } : {}),
+    }
+
     try {
       return await apiClient<null>(getMemberPath(userId), {
         method: "DELETE",
-        body: { password, reason } satisfies WithdrawPayload,
+        body,
         auth: true,
       });
     } catch {
