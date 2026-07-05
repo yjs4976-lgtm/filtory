@@ -2555,7 +2555,7 @@ export const translations = {
       naverOriginalLink: "View Naver reviews",
       mapPreviewTitle: "Check locations on the map",
       mapPreviewDescription: "Tap a marker to select that hospital.",
-      mapZoomSelected: "Zoom selected clinic",
+      mapZoomSelected: "Zoom in",
       mapOpenLarge: "Open large map",
       mapLargeTitle: "Check locations on a large map",
       mapLargeDescription: "Tap a marker to select that hospital.",

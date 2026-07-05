@@ -127,7 +127,7 @@ def _get_state_serializer():
 
 def _url_origin(url):
     parsed = urlparse(url)
-    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}".rstrip("/")
 
 
 def _allowed_frontend_origins():
@@ -135,7 +135,6 @@ def _allowed_frontend_origins():
     for value in [
         current_app.config.get("FRONTEND_BASE_URL"),
         current_app.config.get("FRONTEND_CALLBACK_URL"),
-        *(current_app.config.get("CORS_ORIGINS") or []),
     ]:
         if not value:
             continue
@@ -144,5 +143,5 @@ def _allowed_frontend_origins():
         except ValueError:
             continue
         if parsed.scheme in {"http", "https"} and parsed.netloc:
-            origins.add(f"{parsed.scheme}://{parsed.netloc}".rstrip("/"))
+            origins.add(f"{parsed.scheme.lower()}://{parsed.netloc.lower()}".rstrip("/"))
     return origins

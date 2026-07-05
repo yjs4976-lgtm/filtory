@@ -594,14 +594,9 @@ function getHospitalCardRegionLabel(hospital: HospitalItem, fallbackRegionLabel:
   )
 }
 
-function getHospitalCardAddressLabel(hospital: HospitalItem, regionLabel: string, language: "ko" | "en") {
+function getHospitalCardAddressLabel(hospital: HospitalItem) {
   const address = hospital.roadAddress || hospital.address
-  if (!address) return ""
-
-  if (language === "ko") return address
-  if (!hasKoreanText(address)) return address
-
-  return regionLabel
+  return address || ""
 }
 
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
@@ -3281,8 +3276,7 @@ function HospitalResultCard({
   const categoryLabel = t.categories[hospital.category]
   const displayName = getHospitalCardName(hospital, language, categoryLabel)
   const displayRegionLabel = getHospitalCardRegionLabel(hospital, regionLabel, language)
-  const displayAddress = getHospitalCardAddressLabel(hospital, displayRegionLabel, language)
-  const shouldShowAddress = Boolean(displayAddress && displayAddress !== displayRegionLabel)
+  const displayAddress = getHospitalCardAddressLabel(hospital)
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
@@ -3294,7 +3288,7 @@ function HospitalResultCard({
         <p className={styles.recordDate}>
           {categoryLabel} · {displayRegionLabel}
         </p>
-        {shouldShowAddress && <p className={styles.recordMeta}>{displayAddress}</p>}
+        {displayAddress && <p className={styles.recordMeta}>{displayAddress}</p>}
         <div className={styles.badgeRow}>
           {hospital.isOfficialHospital && (
             <span className={styles.officialPill}>

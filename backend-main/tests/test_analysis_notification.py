@@ -137,3 +137,15 @@ def test_ai_review_analysis_client_sends_internal_token_header(monkeypatch):
     AIReviewAnalysisClient.analyze({"reviewText": "상담이 자세했어요."})
 
     assert captured_headers["X-internal-token"] == "secret-token"
+
+
+def test_ai_review_analysis_client_requires_internal_token(monkeypatch):
+    monkeypatch.delenv("AI_INTERNAL_TOKEN", raising=False)
+    monkeypatch.setattr(AIReviewAnalysisClient, "_api_url", staticmethod(lambda: "http://127.0.0.1:8000/api/reviews/analyze"))
+
+    try:
+        AIReviewAnalysisClient.analyze({"reviewText": "상담이 자세했어요."})
+    except RuntimeError as exc:
+        assert str(exc) == "AI_INTERNAL_TOKEN is not configured"
+    else:
+        raise AssertionError("AI_INTERNAL_TOKEN must be required")

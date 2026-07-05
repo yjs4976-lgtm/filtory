@@ -19,7 +19,7 @@ def analyze_review(
     x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
 ):
     settings = get_settings()
-    _verify_internal_token_if_configured(settings.ai_internal_token, x_internal_token)
+    _verify_internal_token(settings.ai_internal_token, x_internal_token)
     return ReviewAnalysisService.analyze(payload)
 
 
@@ -44,14 +44,11 @@ def extract_review_text(
 
 
 def _verify_internal_token(expected_token: str | None, received_token: str | None):
-    if not expected_token:
-        raise HTTPException(status_code=503, detail="Internal token is not configured")
-    if not received_token or not secrets.compare_digest(expected_token, received_token):
-        raise HTTPException(status_code=401, detail="Invalid internal token")
+    expected = str(expected_token or "").strip()
+    received = str(received_token or "").strip()
 
+    if not expected:
+        raise HTTPException(status_code=503, detail="AI service authentication is not configured")
 
-def _verify_internal_token_if_configured(expected_token: str | None, received_token: str | None):
-    if not expected_token:
-        return
-    if not received_token or not secrets.compare_digest(expected_token, received_token):
+    if not received or not secrets.compare_digest(expected, received):
         raise HTTPException(status_code=401, detail="Invalid internal token")

@@ -4295,15 +4295,19 @@ button.notificationCard {
 
 .hospitalMapTitleRow {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   min-width: 0;
 }
 
 .hospitalMapTitleRow .titleSm {
-  flex: 0 0 auto;
+  flex: 1 1 180px;
   font-weight: 800;
-  white-space: nowrap;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .hospitalMapDescription {
@@ -4330,11 +4334,13 @@ button.notificationCard {
 
 .mapActionGroup {
   display: flex;
-  flex-wrap: nowrap;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
   margin-left: auto;
   min-width: 0;
+  max-width: 100%;
 }
 
 .mapZoomButton {
@@ -4349,8 +4355,10 @@ button.notificationCard {
   font-size: 12px;
   font-weight: 800;
   gap: 5px;
+  max-width: 100%;
   min-height: 32px;
   padding: 0 10px;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -7225,8 +7233,6 @@ button.notificationCard {
 
 @media (max-width: 520px) {
   .hospitalMapTitleRow {
-    align-items: flex-start;
-    flex-wrap: wrap;
     gap: 8px;
   }
 
