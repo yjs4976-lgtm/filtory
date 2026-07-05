@@ -57,6 +57,25 @@ def update_member(member_id):
         return error_response(str(e), 400)
 
 
+@member_bp.route("/<int:member_id>/password", methods=["PATCH"])
+@require_member_or_admin
+def change_member_password(member_id):
+    payload = request.get_json(silent=True) or {}
+
+    if g.current_member.id != member_id:
+        return error_response("Member permission is required", 403)
+
+    try:
+        result = MemberService.change_password(
+            member_id,
+            payload.get("currentPassword") or payload.get("current_password"),
+            payload.get("newPassword") or payload.get("new_password") or payload.get("password"),
+        )
+        return success_response(result, "Password changed")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @member_bp.route("/<int:member_id>/profile-image", methods=["POST"])
 @require_member_or_admin
 def upload_profile_image(member_id):
@@ -80,11 +99,17 @@ def delete_profile_image(member_id):
 @member_bp.route("/<int:member_id>", methods=["DELETE"])
 @require_member_or_admin
 def deactivate_member(member_id):
+    payload = request.get_json(silent=True) or {}
+
     try:
-        member = MemberService.deactivate_member(member_id)
+        member = MemberService.deactivate_member(
+            member_id,
+            password=payload.get("password"),
+            requester=g.current_member,
+        )
         return success_response(member, "Member deactivated")
     except ValueError as e:
-        return error_response(str(e), 404)
+        return error_response(str(e), 400)
 
 
 @member_bp.route("/find-email", methods=["POST"])

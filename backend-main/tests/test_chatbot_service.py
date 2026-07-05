@@ -279,6 +279,20 @@ def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
     assert AIChatbotClient._api_url() is None
 
 
+def test_ai_chatbot_client_returns_none_without_internal_token(monkeypatch):
+    from app.clients.ai_chatbot_client import AIChatbotClient
+
+    def fake_urlopen(request, timeout):
+        raise AssertionError("remote chatbot should not be called without an internal token")
+
+    monkeypatch.setenv("ENABLE_REMOTE_CHATBOT", "true")
+    monkeypatch.setenv("AI_CHATBOT_API_URL", "http://127.0.0.1:8000/api/chatbot/message")
+    monkeypatch.delenv("AI_INTERNAL_TOKEN", raising=False)
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    assert AIChatbotClient.answer("hello", language="en") is None
+
+
 def test_ai_chatbot_client_sends_internal_token_header(monkeypatch):
     from app.clients.ai_chatbot_client import AIChatbotClient
 

@@ -28,10 +28,15 @@ class AIReviewOcrClient:
             "language": "en" if language == "en" else "ko",
             "images": [cls._build_image_payload(file) for file in files],
         }
-        headers = {"Content-Type": "application/json"}
         internal_token = str(os.getenv("AI_INTERNAL_TOKEN") or "").strip()
-        if internal_token:
-            headers["X-Internal-Token"] = internal_token
+        if not internal_token:
+            raise RuntimeError("AI_INTERNAL_TOKEN is not configured")
+
+        # OCR images may contain sensitive review screenshots, so backend-ai must stay behind a server token.
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Token": internal_token,
+        }
 
         request = urllib.request.Request(
             cls._api_url(),

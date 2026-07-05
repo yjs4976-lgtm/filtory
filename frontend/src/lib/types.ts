@@ -454,7 +454,6 @@ export interface UpdateProfileRequest {
   name?: string
   nickname?: string
   phone?: string
-  password?: string
   profileImageUrl?: string | null
 }
 
@@ -468,7 +467,6 @@ export interface UpdateProfilePayload {
   email?: string
   nickname?: string
   phone?: string
-  password?: string
   profileImageUrl?: string | null
 }
 

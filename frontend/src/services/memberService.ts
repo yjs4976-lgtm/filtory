@@ -14,7 +14,6 @@ type BackendUpdateProfilePayload = {
   real_name?: string
   nickname?: string
   phone?: string
-  password?: string
   profile_img_url?: string | null
 }
 
@@ -108,6 +107,17 @@ export const memberService = {
     }
   },
 
+  async changePassword(userId: User["id"], currentPassword: string, newPassword: string) {
+    return apiClient<{ changed: boolean }>(`${getMemberPath(userId)}/password`, {
+      method: "PATCH",
+      auth: true,
+      body: {
+        currentPassword,
+        newPassword,
+      },
+    });
+  },
+
   async withdrawUser(userId: User["id"], password: string, reason?: string) {
     try {
       return await apiClient<null>(getMemberPath(userId), {
@@ -132,7 +142,6 @@ export const memberService = {
     return this.updateProfile(userId, {
       name: payload.name,
       nickname: payload.nickname ?? payload.name ?? "",
-      password: payload.password,
       profileImageUrl: payload.profileImageUrl,
     }, currentUser);
   },
@@ -153,7 +162,6 @@ function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUp
     real_name: payload.name,
     nickname: payload.nickname,
     phone: payload.phone,
-    password: payload.password,
     profile_img_url: profileImgUrl,
   }
 }

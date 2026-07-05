@@ -484,6 +484,7 @@ class OpenAIReviewAnalysisService:
         place_score: int,
         foreigner_score: int,
     ) -> int:
+        # Total score mirrors review trust only; place/foreigner metadata is shown separately.
         return OpenAIReviewAnalysisService._clamp_score(trust_score)
 
     @classmethod

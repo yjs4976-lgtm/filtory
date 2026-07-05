@@ -5,7 +5,6 @@ import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
 import { memberService } from "@/services/memberService"
-import { PasswordField } from "@/components/auth/PasswordField"
 import { EmailVerificationCard } from "./EmailVerificationCard"
 import { ProfileImageUploader } from "./ProfileImageUploader"
 import styles from "@/styles/App.module.css"
@@ -22,8 +21,6 @@ export function ProfileEditForm() {
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(user?.profileImageUrl ?? null)
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [removeProfileImage, setRemoveProfileImage] = useState(false)
-  const [password, setPassword] = useState("")
-  const [passwordConfirm, setPasswordConfirm] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,13 +40,6 @@ export function ProfileEditForm() {
       return
     }
 
-    if (password || passwordConfirm) {
-      if (password !== passwordConfirm) {
-        setError(t.mypage.passwordMismatch)
-        return
-      }
-    }
-
     if (nicknameCheck !== "available") {
       setError(t.auth.idDuplicateRequired)
       return
@@ -66,7 +56,6 @@ export function ProfileEditForm() {
         name: name.trim(),
         email: email.trim() || undefined,
         nickname: nickname.trim(),
-        password: password || undefined,
         profileImageUrl: profileImageFile || removeProfileImage ? undefined : profileImageUrl,
       }, user)
       const imageResult = profileImageFile
@@ -82,8 +71,6 @@ export function ProfileEditForm() {
         name: nextUser.name || name.trim(),
         profileImageUrl: nextUser.profileImageUrl ?? null,
       })
-      setPassword("")
-      setPasswordConfirm("")
       setProfileImageFile(null)
       setRemoveProfileImage(false)
       setSuccess(t.mypage.profileSaved)
@@ -171,28 +158,6 @@ export function ProfileEditForm() {
         {nicknameCheck === "available" && <span className={styles.formHintSuccess}>{t.auth.idAvailable}</span>}
         {nicknameCheck === "unavailable" && <span className={styles.formHintError}>{t.auth.idUnavailable}</span>}
       </label>
-
-      <PasswordField
-        id="profile-password"
-        label={t.mypage.newPassword}
-        placeholder={t.mypage.newPasswordPlaceholder}
-        value={password}
-        autoComplete="new-password"
-        showLabel={t.auth.showPassword}
-        hideLabel={t.auth.hidePassword}
-        onChange={setPassword}
-      />
-
-      <PasswordField
-        id="profile-password-confirm"
-        label={t.mypage.newPasswordConfirm}
-        placeholder={t.mypage.newPasswordConfirmPlaceholder}
-        value={passwordConfirm}
-        autoComplete="new-password"
-        showLabel={t.auth.showPassword}
-        hideLabel={t.auth.hidePassword}
-        onChange={setPasswordConfirm}
-      />
 
       <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
         {isSubmitting ? t.mypage.saving : t.mypage.saveProfile}

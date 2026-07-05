@@ -43,6 +43,7 @@ def list_reports():
 @require_auth
 def create_report():
     payload = request.get_json(silent=True) or {}
+    # Users can create reports, but moderation fields are always server/admin-owned.
     for key in REPORT_CREATE_MANAGED_FIELDS:
         payload.pop(key, None)
     payload["reporter_member_id"] = g.current_member.id

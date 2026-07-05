@@ -22,10 +22,16 @@ class AIChatbotClient:
             "language": language,
             "analysisContext": analysis_context or {},
         }
-        headers = {"Content-Type": "application/json"}
         internal_token = str(os.getenv("AI_INTERNAL_TOKEN") or "").strip()
-        if internal_token:
-            headers["X-Internal-Token"] = internal_token
+        if not internal_token:
+            logger.warning("Remote AI chatbot is enabled but AI_INTERNAL_TOKEN is not configured; using local fallback")
+            return None
+
+        # Keep the browser out of the AI trust boundary; only backend-main can call backend-ai.
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Token": internal_token,
+        }
 
         request = urllib.request.Request(
             url,

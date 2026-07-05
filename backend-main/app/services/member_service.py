@@ -7,8 +7,8 @@ from app.extensions import db
 from app.models import Member
 from app.repositories import MemberRepository
 from app.schemas import extract_member_data, member_to_dict
-from app.utils.security import hash_password
-from app.utils.validators import validate_email
+from app.utils.security import hash_password, verify_password
+from app.utils.validators import validate_email, validate_password
 
 
 class MemberService:
@@ -89,10 +89,6 @@ class MemberService:
         if "nickname" in data:
             MemberService._validate_nickname(data["nickname"], member_id=member.id)
 
-        if payload.get("password"):
-            data["password_hash"] = hash_password(payload["password"])
-            data["password_changed_at"] = datetime.now(timezone.utc)
-
         try:
             member = MemberRepository.update(member, data)
             db.session.commit()
@@ -102,10 +98,32 @@ class MemberService:
             raise
 
     @staticmethod
-    def deactivate_member(member_id):
+    def change_password(member_id, current_password, new_password):
+        member = MemberRepository.get_by_id(member_id)
+        if not member or not member.active or member.deleted_at:
+            raise ValueError("Member not found")
+
+        _validate_current_password(member, current_password)
+        validate_password(new_password)
+
+        try:
+            member.password_hash = hash_password(new_password)
+            member.password_changed_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return {"changed": True}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def deactivate_member(member_id, password=None, requester=None):
         member = MemberRepository.get_by_id(member_id)
         if not member:
             raise ValueError("Member not found")
+
+        requester_is_admin = str(getattr(requester, "role", "") or "").lower() == "admin"
+        if not requester_is_admin:
+            _validate_current_password(member, password)
 
         try:
             member = MemberRepository.update(
@@ -438,3 +456,12 @@ def _mask_login_id(login_id):
         return "*" * len(login_id)
     visible_length = min(3, len(login_id) - 1)
     return f"{login_id[:visible_length]}{'*' * (len(login_id) - visible_length)}"
+
+
+def _validate_current_password(member, password):
+    if not member.password_hash:
+        raise ValueError("Password change is unavailable for social login accounts")
+    if not password:
+        raise ValueError("Current password is required")
+    if not member.password_hash or not verify_password(member.password_hash, password):
+        raise ValueError("Current password is invalid")
