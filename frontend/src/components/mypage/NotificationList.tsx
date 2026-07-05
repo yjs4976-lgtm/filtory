@@ -17,11 +17,19 @@ export function NotificationList() {
 
   useEffect(() => {
     let alive = true
-    notificationService.getNotifications().then((nextItems) => {
-      if (!alive) return
-      setItems(nextItems)
-      setIsLoading(false)
-    })
+    notificationService
+      .getNotifications()
+      .then((nextItems) => {
+        if (!alive) return
+        setItems(nextItems)
+      })
+      .catch(() => {
+        if (!alive) return
+        setItems([])
+      })
+      .finally(() => {
+        if (alive) setIsLoading(false)
+      })
     return () => {
       alive = false
     }

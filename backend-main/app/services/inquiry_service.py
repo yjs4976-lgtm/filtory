@@ -1,9 +1,34 @@
+from uuid import uuid4
+
+from flask import current_app
+from werkzeug.utils import secure_filename
+
+from app.clients.supabase_storage_client import SupabaseStorageClient
 from app.extensions import db
 from app.repositories import AnalysisRepository, InquiryRepository
 from app.schemas import inquiry_to_dict
 
 
 class InquiryService:
+    MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
+    ALLOWED_ATTACHMENT_TYPES = {
+        "jpg": {"image/jpeg"},
+        "jpeg": {"image/jpeg"},
+        "png": {"image/png"},
+        "webp": {"image/webp"},
+        "pdf": {"application/pdf"},
+        "txt": {"text/plain"},
+        "csv": {"text/csv", "application/csv", "application/vnd.ms-excel", "text/plain"},
+    }
+    DEFAULT_ATTACHMENT_CONTENT_TYPES = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+        "pdf": "application/pdf",
+        "txt": "text/plain",
+        "csv": "text/csv",
+    }
     CATEGORIES = {
         "ANALYSIS_RESULT",
         "REVIEW_INPUT",
@@ -15,16 +40,31 @@ class InquiryService:
     STATUSES = {"PENDING", "IN_PROGRESS", "ANSWERED"}
 
     @staticmethod
-    def create_inquiry(member_id, payload):
+    def create_inquiry(member_id, payload, attachment_file=None):
         data = InquiryService._inquiry_data(payload or {}, member_id)
         InquiryService._validate_related_analysis(member_id, data.get("related_analysis_id"))
+        uploaded_attachment_path = None
+        storage = None
 
         try:
             inquiry = InquiryRepository.create(data)
+            db.session.flush()
+            if attachment_file and attachment_file.filename:
+                storage = InquiryService._storage_client()
+                attachment_data = InquiryService._upload_attachment(
+                    storage,
+                    member_id,
+                    inquiry.id,
+                    attachment_file,
+                )
+                uploaded_attachment_path = attachment_data["attachment_path"]
+                InquiryRepository.update(inquiry, attachment_data)
             db.session.commit()
             return inquiry_to_dict(inquiry)
         except Exception:
             db.session.rollback()
+            if storage and uploaded_attachment_path:
+                storage.delete_object(uploaded_attachment_path)
             raise
 
     @staticmethod
@@ -104,11 +144,29 @@ class InquiryService:
                     }
                 )
             InquiryRepository.update(inquiry, {"status": "ANSWERED"})
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_inquiry_answered_notification(inquiry)
             db.session.commit()
             return InquiryService.get_admin_inquiry(inquiry.id)
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def get_attachment_for_member(member, inquiry_id):
+        inquiry = InquiryRepository.get_with_context_by_id(inquiry_id)
+        if not inquiry or (member.role != "admin" and inquiry.member_id != member.id):
+            raise ValueError("Inquiry attachment not found")
+        if not inquiry.attachment_path:
+            raise ValueError("Inquiry attachment not found")
+
+        content, detected_content_type = InquiryService._storage_client().download_object(inquiry.attachment_path)
+        return {
+            "content": content,
+            "file_name": inquiry.attachment_file_name or "attachment",
+            "content_type": inquiry.attachment_content_type or detected_content_type,
+        }
 
     @staticmethod
     def _inquiry_data(payload, member_id):
@@ -132,7 +190,7 @@ class InquiryService:
         )
         attachment_url = InquiryService._clean_optional_text(payload.get("attachmentUrl") or payload.get("attachment_url"))
         if attachment_url:
-            raise ValueError("Attachments are not supported yet")
+            raise ValueError("External attachment URLs are not allowed")
 
         return {
             "member_id": member_id,
@@ -143,6 +201,44 @@ class InquiryService:
             "related_analysis_id": related_analysis_id,
             "attachment_url": None,
         }
+
+    @staticmethod
+    def _upload_attachment(storage, member_id, inquiry_id, attachment_file):
+        original_name = attachment_file.filename or ""
+        extension = original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
+        safe_name = secure_filename(original_name)
+        if extension not in InquiryService.ALLOWED_ATTACHMENT_TYPES:
+            raise ValueError("Unsupported attachment file type")
+
+        content_type = attachment_file.mimetype or InquiryService.DEFAULT_ATTACHMENT_CONTENT_TYPES[extension]
+        if content_type not in InquiryService.ALLOWED_ATTACHMENT_TYPES[extension]:
+            raise ValueError("Unsupported attachment file type")
+
+        content = attachment_file.stream.read(InquiryService.MAX_ATTACHMENT_SIZE + 1)
+        if not content:
+            raise ValueError("Attachment file is required")
+        if len(content) > InquiryService.MAX_ATTACHMENT_SIZE:
+            raise ValueError("Attachment file must be 5 MB or smaller")
+
+        file_name = safe_name if safe_name and "." in safe_name else f"attachment.{extension}"
+        object_path = f"members/{member_id}/inquiries/{inquiry_id}/{uuid4().hex}.{extension}"
+        storage.upload_object(object_path, content, content_type)
+        return {
+            "attachment_path": object_path,
+            "attachment_file_name": file_name,
+            "attachment_content_type": content_type,
+            "attachment_size": len(content),
+        }
+
+    @staticmethod
+    def _storage_client():
+        return SupabaseStorageClient(
+            current_app.config.get("SUPABASE_URL"),
+            current_app.config.get("SUPABASE_STORAGE_KEY")
+            or current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+            or current_app.config.get("SUPABASE_SECRET_KEY"),
+            current_app.config.get("SUPABASE_INQUIRY_ATTACHMENT_BUCKET", "inquiry-attachments"),
+        )
 
     @staticmethod
     def _validate_related_analysis(member_id, related_analysis_id):

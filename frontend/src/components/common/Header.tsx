@@ -24,25 +24,32 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const userId = user?.id
+  const visibleNotifications = useMemo(() => (userId ? notifications : []), [notifications, userId])
   const displayName = user?.nickname || user?.name || t.nav.my
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((item) => !item.isRead).length,
-    [notifications]
+    () => visibleNotifications.filter((item) => !item.isRead).length,
+    [visibleNotifications]
   )
 
   useEffect(() => {
     if (!showBell) return
+    if (isLoading) return
+    if (!userId) return
 
     let alive = true
     notificationService.getNotifications().then((nextItems) => {
       if (!alive) return
       setNotifications(nextItems)
+    }).catch(() => {
+      if (!alive) return
+      setNotifications([])
     })
 
     return () => {
       alive = false
     }
-  }, [showBell])
+  }, [isLoading, showBell, userId])
 
   return (
     <>
@@ -122,7 +129,7 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
       <ChatbotModal open={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
       <NotificationBottomSheet
         open={notificationOpen}
-        items={notifications}
+        items={visibleNotifications}
         onItemsChange={setNotifications}
         onClose={() => setNotificationOpen(false)}
       />

@@ -102,6 +102,16 @@ export default function InquiryDetailPage() {
             <p className={styles.inquiryContentText}>{inquiry.content}</p>
           </section>
 
+          {inquiry.attachment && (
+            <section className={`${styles.card} ${styles.stackSm}`}>
+              <h2 className={styles.titleMd}>{t.help.detail.attachmentTitle}</h2>
+              <a className={styles.smallPillButton} href={inquiry.attachment.downloadUrl}>
+                {t.help.detail.attachmentDownload}
+              </a>
+              <p className={styles.mutedText}>{inquiry.attachment.fileName}</p>
+            </section>
+          )}
+
           {inquiry.relatedAnalysis && (
             <InquiryRelatedAnalysisCard
               analysis={inquiry.relatedAnalysis}

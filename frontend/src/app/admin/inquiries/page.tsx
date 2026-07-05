@@ -217,6 +217,16 @@ export default function AdminInquiriesPage() {
                     <span>{t.help.detail.createdAt}: {formatInquiryDate(selectedInquiry.createdAt)}</span>
                   </div>
 
+                  {selectedInquiry.attachment && (
+                    <section className={`${styles.inquiryRelatedPanel} ${styles.stackSm}`}>
+                      <h2 className={styles.titleMd}>{t.help.detail.attachmentTitle}</h2>
+                      <a className={styles.smallPillButton} href={selectedInquiry.attachment.downloadUrl}>
+                        {t.help.detail.attachmentDownload}
+                      </a>
+                      <p className={styles.mutedText}>{selectedInquiry.attachment.fileName}</p>
+                    </section>
+                  )}
+
                   {selectedInquiry.relatedAnalysis && (
                     <InquiryRelatedAnalysisCard
                       analysis={selectedInquiry.relatedAnalysis}

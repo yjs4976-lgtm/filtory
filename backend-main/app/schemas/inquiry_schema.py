@@ -8,6 +8,8 @@ def inquiry_to_dict(inquiry, include_member=False):
 
     answer = _latest_answer(inquiry)
 
+    attachment = inquiry_attachment_to_dict(inquiry)
+
     data = {
         "id": inquiry.id,
         "category": inquiry.category,
@@ -16,7 +18,8 @@ def inquiry_to_dict(inquiry, include_member=False):
         "content": inquiry.content,
         "status": inquiry.status,
         "relatedAnalysisId": inquiry.related_analysis_id,
-        "attachmentUrl": None,
+        "attachmentUrl": attachment["downloadUrl"] if attachment else None,
+        "attachment": attachment,
         "createdAt": _isoformat(inquiry.created_at),
         "updatedAt": _isoformat(inquiry.updated_at),
         "answer": inquiry_answer_to_dict(answer),
@@ -27,6 +30,18 @@ def inquiry_to_dict(inquiry, include_member=False):
         data["member"] = member_summary_to_dict(inquiry.member)
 
     return data
+
+
+def inquiry_attachment_to_dict(inquiry):
+    if not getattr(inquiry, "attachment_path", None):
+        return None
+
+    return {
+        "fileName": inquiry.attachment_file_name or "attachment",
+        "contentType": inquiry.attachment_content_type or "application/octet-stream",
+        "size": inquiry.attachment_size,
+        "downloadUrl": f"/api/inquiries/{inquiry.id}/attachment",
+    }
 
 
 def inquiry_answer_to_dict(answer):

@@ -1,4 +1,6 @@
-from flask import Blueprint, g, request
+from io import BytesIO
+
+from flask import Blueprint, g, request, send_file
 
 from app.services import InquiryService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
@@ -11,10 +13,15 @@ inquiry_bp = Blueprint("inquiries", __name__)
 @inquiry_bp.route("/inquiries", methods=["POST"])
 @require_auth
 def create_inquiry():
-    payload = request.get_json(silent=True) or {}
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        payload = request.form.to_dict()
+        attachment_file = request.files.get("attachment")
+    else:
+        payload = request.get_json(silent=True) or {}
+        attachment_file = None
 
     try:
-        inquiry = InquiryService.create_inquiry(g.current_member.id, payload)
+        inquiry = InquiryService.create_inquiry(g.current_member.id, payload, attachment_file=attachment_file)
         return success_response(inquiry, "Inquiry created", 201)
     except ValueError as e:
         return error_response(str(e), 400)
@@ -42,5 +49,20 @@ def get_my_inquiry(inquiry_id):
     try:
         inquiry = InquiryService.get_my_inquiry(g.current_member.id, inquiry_id)
         return success_response(inquiry)
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@inquiry_bp.route("/inquiries/<int:inquiry_id>/attachment", methods=["GET"])
+@require_auth
+def download_inquiry_attachment(inquiry_id):
+    try:
+        attachment = InquiryService.get_attachment_for_member(g.current_member, inquiry_id)
+        return send_file(
+            BytesIO(attachment["content"]),
+            mimetype=attachment["content_type"],
+            as_attachment=True,
+            download_name=attachment["file_name"],
+        )
     except ValueError as e:
         return error_response(str(e), 404)

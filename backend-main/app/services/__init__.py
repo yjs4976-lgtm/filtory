@@ -7,6 +7,7 @@ from app.services.hospital_service import HospitalService
 from app.services.inquiry_service import InquiryService
 from app.services.mail_service import MailService
 from app.services.member_service import MemberService
+from app.services.notification_service import NotificationService
 from app.services.profile_image_service import ProfileImageService
 from app.services.report_service import ReportService
 from app.services.saved_hospital_service import SavedHospitalService
@@ -24,6 +25,7 @@ __all__ = [
     "InquiryService",
     "MailService",
     "MemberService",
+    "NotificationService",
     "ProfileImageService",
     "ReportService",
     "SavedHospitalService",

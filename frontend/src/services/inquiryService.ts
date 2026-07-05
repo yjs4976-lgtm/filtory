@@ -47,6 +47,12 @@ export type Inquiry = {
   status: InquiryStatus
   relatedAnalysisId?: number | null
   attachmentUrl?: string | null
+  attachment?: {
+    fileName: string
+    contentType?: string | null
+    size?: number | null
+    downloadUrl: string
+  } | null
   createdAt?: string | null
   updatedAt?: string | null
   answer?: InquiryAnswer | null
@@ -60,6 +66,7 @@ export type CreateInquiryPayload = {
   title: string
   content: string
   relatedAnalysisId?: number | null
+  attachmentFile?: File | null
 }
 
 export type InquiryFilters = {
@@ -90,10 +97,17 @@ function toQuery(filters: InquiryFilters = {}) {
 
 export const inquiryService = {
   async createInquiry(payload: CreateInquiryPayload) {
+    const body = payload.attachmentFile ? toInquiryFormData(payload) : {
+      category: payload.category,
+      subCategory: payload.subCategory,
+      title: payload.title,
+      content: payload.content,
+      relatedAnalysisId: payload.relatedAnalysisId,
+    }
     const result = await apiClient<Inquiry>("/api/inquiries", {
       method: "POST",
       auth: true,
-      body: payload,
+      body,
     })
     return result.data
   },
@@ -153,4 +167,19 @@ export const inquiryService = {
     })
     return result.data
   },
+}
+
+function toInquiryFormData(payload: CreateInquiryPayload) {
+  const formData = new FormData()
+  formData.set("category", payload.category)
+  if (payload.subCategory) formData.set("subCategory", payload.subCategory)
+  formData.set("title", payload.title)
+  formData.set("content", payload.content)
+  if (payload.relatedAnalysisId) {
+    formData.set("relatedAnalysisId", String(payload.relatedAnalysisId))
+  }
+  if (payload.attachmentFile) {
+    formData.set("attachment", payload.attachmentFile)
+  }
+  return formData
 }

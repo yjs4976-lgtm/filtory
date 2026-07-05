@@ -115,7 +115,22 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
     onItemsChange(items.map((item) => ({ ...item, isRead: true })))
   }
 
-  const handleNavigate = (href: string) => {
+  const handleNavigate = async (item: NotificationItem) => {
+    if (!item.isRead) {
+      try {
+        await notificationService.markAsRead(item.id)
+        onItemsChange(items.map((nextItem) => (
+          nextItem.id === item.id ? { ...nextItem, isRead: true } : nextItem
+        )))
+      } catch {
+        // Navigation is still useful even if marking as read fails.
+      }
+    }
+    onClose()
+    router.push(item.link!)
+  }
+
+  const handleRouteNavigate = (href: string) => {
     onClose()
     router.push(href)
   }
@@ -214,7 +229,7 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
           <button
             type="button"
             className={`${styles.secondaryButton} ${styles.notificationFooterButton} ${styles.notificationFooterGlass}`}
-            onClick={() => handleNavigate(ROUTES.MYPAGE_HISTORY)}
+            onClick={() => handleRouteNavigate(ROUTES.MYPAGE_HISTORY)}
           >
             <FileText className={styles.iconSm} />
             {t.notificationCenter.actions.viewHistory}
@@ -222,7 +237,7 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
           <button
             type="button"
             className={`${styles.primaryButton} ${styles.notificationFooterButton} ${styles.notificationFooterPrimary}`}
-            onClick={() => handleNavigate(ROUTES.MYPAGE_SETTINGS)}
+            onClick={() => handleRouteNavigate(ROUTES.MYPAGE_SETTINGS)}
           >
             <Settings className={styles.iconSm} />
             {t.notificationCenter.actions.settings}
@@ -238,7 +253,7 @@ function NotificationSheetCard({
   onNavigate,
 }: {
   item: NotificationItem
-  onNavigate: (href: string) => void
+  onNavigate: (item: NotificationItem) => void
 }) {
   const { t } = useLanguage()
   const template = t.notificationCenter.cardTemplates[item.type] ?? t.notificationCenter.cardTemplates.system
@@ -270,7 +285,7 @@ function NotificationSheetCard({
   }
 
   return (
-    <button type="button" className={styles.notificationCard} onClick={() => onNavigate(item.link!)}>
+    <button type="button" className={styles.notificationCard} onClick={() => onNavigate(item)}>
       {cardContent}
     </button>
   )

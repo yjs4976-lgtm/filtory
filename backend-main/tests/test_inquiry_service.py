@@ -28,7 +28,7 @@ def test_list_my_inquiries_returns_items_and_total(monkeypatch):
 
 
 def test_inquiry_data_rejects_attachment_url():
-    with pytest.raises(ValueError, match="Attachments are not supported yet"):
+    with pytest.raises(ValueError, match="External attachment URLs are not allowed"):
         InquiryService._inquiry_data(
             {
                 "category": "ANALYSIS_RESULT",

@@ -9,6 +9,7 @@ from app.api.health_api import health_bp
 from app.api.hospital_api import hospital_bp
 from app.api.inquiry_api import inquiry_bp
 from app.api.member_api import member_bp
+from app.api.notification_api import notification_bp
 from app.api.report_api import report_bp
 from app.api.social_auth_api import social_auth_bp
 from app.api.subscription_api import subscription_bp
@@ -53,6 +54,7 @@ def create_app():
     app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")
     app.register_blueprint(social_auth_bp, url_prefix="/api/social-auth")
     app.register_blueprint(member_bp, url_prefix="/api/members")
+    app.register_blueprint(notification_bp, url_prefix="/api/notifications")
     app.register_blueprint(hospital_bp, url_prefix="/api/hospitals")
     app.register_blueprint(inquiry_bp, url_prefix="/api")
     app.register_blueprint(analysis_bp, url_prefix="/api/analysis")
