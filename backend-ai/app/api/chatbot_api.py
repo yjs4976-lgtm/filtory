@@ -31,7 +31,12 @@ def create_chatbot_message(
 
 
 def _verify_internal_token(expected_token: str | None, received_token: str | None):
-    if not expected_token:
-        return
-    if not received_token or not secrets.compare_digest(expected_token, received_token):
+    expected = str(expected_token or "").strip()
+    received = str(received_token or "").strip()
+
+    # The AI server is private infrastructure; fail closed if deployment forgot the shared token.
+    if not expected:
+        raise HTTPException(status_code=503, detail="AI service authentication is not configured")
+
+    if not received or not secrets.compare_digest(expected, received):
         raise HTTPException(status_code=401, detail="Invalid internal token")

@@ -95,6 +95,17 @@ class MemberRepository:
         return social_account
 
     @staticmethod
+    def delete_social_accounts_by_member_id(member_id):
+        if not member_id:
+            return 0
+
+        return (
+            SocialAccount.query
+            .filter(SocialAccount.member_id == member_id)
+            .delete(synchronize_session=False)
+        )
+
+    @staticmethod
     def create_terms_agreement(data):
         agreement = MemberTermsAgreement(**data)
         db.session.add(agreement)

@@ -112,6 +112,28 @@ def test_analyze_reviews_creates_completion_notification(monkeypatch):
     assert session.rolled_back is False
 
 
+def test_enrichment_suggestion_failure_does_not_block_analysis(monkeypatch):
+    session = SimpleNamespace(rolled_back=False, committed=False)
+    session.commit = lambda: setattr(session, "committed", True)
+    session.rollback = lambda: setattr(session, "rolled_back", True)
+
+    def fail_create(*args, **kwargs):
+        raise RuntimeError("missing optional table")
+
+    monkeypatch.setattr(analysis_service_module.db, "session", session)
+    monkeypatch.setattr(AnalysisService, "_create_enrichment_suggestion", staticmethod(fail_create))
+
+    AnalysisService._try_create_enrichment_suggestion(
+        {"english_name": "Example Clinic"},
+        hospital_id=1,
+        analysis_request_id=2,
+        member_id=3,
+    )
+
+    assert session.rolled_back is True
+    assert session.committed is False
+
+
 def test_ai_review_analysis_client_sends_internal_token_header(monkeypatch):
     captured_headers = {}
 

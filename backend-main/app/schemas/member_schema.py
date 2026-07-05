@@ -38,6 +38,15 @@ def member_to_dict(member, include_private=False):
     if member is None:
         return None
 
+    social_providers = {
+        provider: False
+        for provider in ("google", "naver", "kakao")
+    }
+    for account in getattr(member, "social_accounts", []) or []:
+        provider = getattr(account, "provider", None)
+        if provider in social_providers:
+            social_providers[provider] = True
+
     data = {
         "id": member.id,
         "login_id": member.login_id,
@@ -55,6 +64,8 @@ def member_to_dict(member, include_private=False):
         "deleted_at": _isoformat(member.deleted_at),
         "created_at": _isoformat(member.created_at),
         "updated_at": _isoformat(member.updated_at),
+        "hasPassword": bool(member.password_hash),
+        "socialProviders": social_providers,
     }
 
     if include_private:

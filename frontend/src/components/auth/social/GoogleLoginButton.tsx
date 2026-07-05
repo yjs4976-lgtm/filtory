@@ -3,11 +3,11 @@
 import { SocialLoginButton } from "@/components/auth/SocialLoginButton";
 import { authService } from "@/services/authService";
 
-export function GoogleLoginButton() {
+export function GoogleLoginButton({ nextPath }: { nextPath?: string | null }) {
   return (
     <SocialLoginButton
       provider="google"
-      onClick={() => authService.socialLogin("google")}
+      onClick={() => authService.socialLogin("google", nextPath)}
     />
   );
 }

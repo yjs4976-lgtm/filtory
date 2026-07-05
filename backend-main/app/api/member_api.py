@@ -1,4 +1,7 @@
+from datetime import datetime, timezone
+
 from flask import Blueprint, g, request
+from flask_jwt_extended import get_jwt
 
 from app.services import AnalysisService, AuthService, MemberService, ProfileImageService, SavedHospitalService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
@@ -6,6 +9,18 @@ from app.utils.response import auth_success_response, error_response, success_re
 from app.utils.security import require_admin, require_member_or_admin
 
 member_bp = Blueprint("members", __name__)
+
+
+def _current_jwt_is_fresh():
+    fresh = get_jwt().get("fresh", False)
+
+    if isinstance(fresh, bool):
+        return fresh
+
+    if isinstance(fresh, (int, float)):
+        return fresh > datetime.now(timezone.utc).timestamp()
+
+    return False
 
 
 @member_bp.route("/", methods=["GET"])
@@ -57,6 +72,25 @@ def update_member(member_id):
         return error_response(str(e), 400)
 
 
+@member_bp.route("/<int:member_id>/password", methods=["PATCH"])
+@require_member_or_admin
+def change_member_password(member_id):
+    payload = request.get_json(silent=True) or {}
+
+    if g.current_member.id != member_id:
+        return error_response("Member permission is required", 403)
+
+    try:
+        result = MemberService.change_password(
+            member_id,
+            payload.get("currentPassword") or payload.get("current_password"),
+            payload.get("newPassword") or payload.get("new_password") or payload.get("password"),
+        )
+        return success_response(result, "Password changed")
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @member_bp.route("/<int:member_id>/profile-image", methods=["POST"])
 @require_member_or_admin
 def upload_profile_image(member_id):
@@ -80,11 +114,18 @@ def delete_profile_image(member_id):
 @member_bp.route("/<int:member_id>", methods=["DELETE"])
 @require_member_or_admin
 def deactivate_member(member_id):
+    payload = request.get_json(silent=True) or {}
+
     try:
-        member = MemberService.deactivate_member(member_id)
+        member = MemberService.deactivate_member(
+            member_id,
+            password=payload.get("password"),
+            requester=g.current_member,
+            fresh_auth=_current_jwt_is_fresh(),
+        )
         return success_response(member, "Member deactivated")
     except ValueError as e:
-        return error_response(str(e), 404)
+        return error_response(str(e), 400)
 
 
 @member_bp.route("/find-email", methods=["POST"])

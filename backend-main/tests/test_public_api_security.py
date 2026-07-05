@@ -40,9 +40,12 @@ def client(app):
     return app.test_client()
 
 
-def auth_header(app, member_id):
+def auth_header(app, member_id, provider="local"):
     with app.app_context():
-        token = create_access_token(identity=str(member_id))
+        token = create_access_token(
+            identity=str(member_id),
+            additional_claims={"provider": provider},
+        )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -235,6 +238,31 @@ def test_analysis_request_create_uses_current_member(app, client, monkeypatch):
 
     assert response.status_code == 201
     assert captured["member_id"] == 1
+
+
+def test_social_member_can_start_review_analysis(app, client, monkeypatch):
+    captured = {}
+
+    def fake_analyze_reviews(member_id, payload):
+        captured["member_id"] = member_id
+        captured["payload"] = payload
+        return {"id": 22, "totalScore": 80}
+
+    monkeypatch.setattr(AnalysisService, "analyze_reviews", staticmethod(fake_analyze_reviews))
+
+    response = client.post(
+        "/api/analysis/analyze",
+        json={
+            "category": "derma",
+            "hospitalName": "테스트피부과",
+            "reviewText": "상담이 자세했고 대기 시간 안내를 받았습니다.",
+        },
+        headers=auth_header(app, 1, provider="naver"),
+    )
+
+    assert response.status_code == 201
+    assert captured["member_id"] == 1
+    assert captured["payload"]["hospitalName"] == "테스트피부과"
 
 
 def test_analysis_request_result_rejects_other_member(app, client, monkeypatch):

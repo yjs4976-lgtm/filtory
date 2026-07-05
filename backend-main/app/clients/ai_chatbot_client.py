@@ -4,6 +4,8 @@ import os
 import urllib.error
 import urllib.request
 
+from flask import current_app, has_app_context
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,10 +24,16 @@ class AIChatbotClient:
             "language": language,
             "analysisContext": analysis_context or {},
         }
-        headers = {"Content-Type": "application/json"}
-        internal_token = str(os.getenv("AI_INTERNAL_TOKEN") or "").strip()
-        if internal_token:
-            headers["X-Internal-Token"] = internal_token
+        internal_token = cls._internal_token()
+        if not internal_token:
+            logger.warning("Remote AI chatbot is enabled but AI_INTERNAL_TOKEN is not configured; using local fallback")
+            return None
+
+        # Keep the browser out of the AI trust boundary; only backend-main can call backend-ai.
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Token": internal_token,
+        }
 
         request = urllib.request.Request(
             url,
@@ -60,18 +68,26 @@ class AIChatbotClient:
 
     @classmethod
     def _api_url(cls):
-        if not cls._is_enabled(os.getenv("ENABLE_REMOTE_CHATBOT")):
+        if not cls._is_enabled(_config_value("ENABLE_REMOTE_CHATBOT") or os.getenv("ENABLE_REMOTE_CHATBOT")):
             return None
 
-        explicit_url = str(os.getenv("AI_CHATBOT_API_URL") or "").strip()
+        explicit_url = str(_config_value("AI_CHATBOT_API_URL") or os.getenv("AI_CHATBOT_API_URL") or "").strip()
         return explicit_url or cls.DEFAULT_URL
 
     @classmethod
     def _timeout_seconds(cls):
         try:
-            return float(os.getenv("AI_CHATBOT_TIMEOUT_SECONDS") or cls.DEFAULT_TIMEOUT_SECONDS)
+            return float(
+                _config_value("AI_CHATBOT_TIMEOUT_SECONDS")
+                or os.getenv("AI_CHATBOT_TIMEOUT_SECONDS")
+                or cls.DEFAULT_TIMEOUT_SECONDS
+            )
         except (TypeError, ValueError):
             return cls.DEFAULT_TIMEOUT_SECONDS
+
+    @classmethod
+    def _internal_token(cls):
+        return str(_config_value("AI_INTERNAL_TOKEN") or os.getenv("AI_INTERNAL_TOKEN") or "").strip()
 
     @staticmethod
     def _is_enabled(value):
@@ -83,3 +99,9 @@ class AIChatbotClient:
             return exc.read().decode("utf-8")[:500]
         except Exception:
             return ""
+
+
+def _config_value(key):
+    if not has_app_context():
+        return None
+    return current_app.config.get(key)

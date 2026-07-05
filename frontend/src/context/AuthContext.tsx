@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
 import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/types";
 import { clearAuthSession, readStoredUser, saveAuthSession, saveStoredUser } from "@/lib/authStorage";
@@ -25,6 +25,8 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const initialPathnameRef = useRef(pathname);
 
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,10 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const storedUser = readStoredUser();
-        try {
-          await authService.refresh();
-        } catch {
-          // Access token or existing auth cookie may still be enough for /me.
+        if (initialPathnameRef.current !== ROUTES.AUTH_CALLBACK) {
+          try {
+            await authService.refresh();
+          } catch {
+            // Access token or existing auth cookie may still be enough for /me.
+          }
         }
 
         const meResult = await authService.me();

@@ -6,7 +6,7 @@ import type {
   WithdrawalRequest,
 } from "@/lib/types";
 import { USE_MOCK } from "@/lib/constants";
-import { apiClient } from "./apiClient";
+import { ApiClientError, apiClient } from "./apiClient";
 import { normalizeUser } from "./authTransforms";
 
 type BackendUpdateProfilePayload = {
@@ -14,7 +14,6 @@ type BackendUpdateProfilePayload = {
   real_name?: string
   nickname?: string
   phone?: string
-  password?: string
   profile_img_url?: string | null
 }
 
@@ -108,15 +107,34 @@ export const memberService = {
     }
   },
 
-  async withdrawUser(userId: User["id"], password: string, reason?: string) {
+  async changePassword(userId: User["id"], currentPassword: string, newPassword: string) {
+    return apiClient<{ changed: boolean }>(`${getMemberPath(userId)}/password`, {
+      method: "PATCH",
+      auth: true,
+      body: {
+        currentPassword,
+        newPassword,
+      },
+    });
+  },
+
+  async withdrawUser(userId: User["id"], password?: string, reason?: string) {
+    const body: WithdrawPayload = {
+      ...(password ? { password } : {}),
+      ...(reason ? { reason } : {}),
+    }
+
     try {
       return await apiClient<null>(getMemberPath(userId), {
         method: "DELETE",
-        body: { password, reason } satisfies WithdrawPayload,
+        body,
         auth: true,
       });
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
+        if (error instanceof ApiClientError) {
+          throw new Error(error.message)
+        }
         throw new Error("회원 탈퇴에 실패했습니다.");
       }
 
@@ -132,7 +150,6 @@ export const memberService = {
     return this.updateProfile(userId, {
       name: payload.name,
       nickname: payload.nickname ?? payload.name ?? "",
-      password: payload.password,
       profileImageUrl: payload.profileImageUrl,
     }, currentUser);
   },
@@ -153,7 +170,6 @@ function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUp
     real_name: payload.name,
     nickname: payload.nickname,
     phone: payload.phone,
-    password: payload.password,
     profile_img_url: profileImgUrl,
   }
 }

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -15,6 +16,8 @@ from app.schemas import (
     integrated_analysis_to_dict,
 )
 from app.services.hospital_service import HospitalService
+
+logger = logging.getLogger(__name__)
 
 
 class AnalysisService:
@@ -173,12 +176,6 @@ class AnalysisService:
                 }
             )
             db.session.flush()
-            AnalysisService._create_enrichment_suggestion(
-                data["hospital"],
-                hospital_id=hospital.id,
-                analysis_request_id=analysis_request.id,
-                member_id=member_id,
-            )
 
             for review_text in data["reviews"]:
                 review = ReviewRepository.create(
@@ -201,6 +198,10 @@ class AnalysisService:
             raise
         except Exception as exc:
             db.session.rollback()
+            logger.warning(
+                "Failed to prepare review analysis request: %s",
+                exc.__class__.__name__,
+            )
             raise RuntimeError("Failed to prepare review analysis request") from exc
 
         backend_ai_payload = AnalysisService._backend_ai_payload(data, hospital)
@@ -240,16 +241,29 @@ class AnalysisService:
             db.session.commit()
         except Exception as exc:
             db.session.rollback()
+            logger.warning(
+                "Failed to save review analysis result: %s",
+                exc.__class__.__name__,
+            )
             AnalysisService._mark_request_failed(analysis_request, "Failed to save review analysis result")
             raise RuntimeError("Failed to save review analysis result") from exc
 
-        return integrated_analysis_to_dict(
+        response = integrated_analysis_to_dict(
             analysis_request,
             analysis_result,
             hospital,
             reviews,
             ai_response,
         )
+
+        AnalysisService._try_create_enrichment_suggestion(
+            data["hospital"],
+            hospital_id=hospital.id,
+            analysis_request_id=analysis_request.id,
+            member_id=member_id,
+        )
+
+        return response
 
     @staticmethod
     def create_request(payload):
@@ -654,7 +668,26 @@ class AnalysisService:
             member_id=member_id,
         )
         if suggestion:
-            HospitalEnrichmentSuggestionRepository.create(suggestion)
+            return HospitalEnrichmentSuggestionRepository.create(suggestion)
+        return None
+
+    @staticmethod
+    def _try_create_enrichment_suggestion(hospital, *, hospital_id, analysis_request_id, member_id):
+        try:
+            created = AnalysisService._create_enrichment_suggestion(
+                hospital,
+                hospital_id=hospital_id,
+                analysis_request_id=analysis_request_id,
+                member_id=member_id,
+            )
+            if created:
+                db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.warning(
+                "Hospital enrichment suggestion was skipped: %s",
+                exc.__class__.__name__,
+            )
 
     @staticmethod
     def _enrichment_suggestion_data(hospital, *, hospital_id, analysis_request_id, member_id):

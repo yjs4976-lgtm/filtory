@@ -3,17 +3,28 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.orm.attributes import set_committed_value
+
 from app.extensions import db
 from app.models import Member
 from app.repositories import MemberRepository
 from app.schemas import extract_member_data, member_to_dict
-from app.utils.security import hash_password
-from app.utils.validators import validate_email
+from app.utils.security import hash_password, verify_password
+from app.utils.validators import validate_email, validate_password
 
 
 class MemberService:
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
     PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
+    PROFILE_PASSWORD_FIELDS = {
+        "password",
+        "password_hash",
+        "passwordHash",
+        "currentPassword",
+        "current_password",
+        "newPassword",
+        "new_password",
+    }
     CREATE_FIELDS = PROFILE_FIELDS | {"login_id"}
     TERMS_PAYLOAD_MAP = {
         "termsAgreed": "terms",
@@ -69,6 +80,10 @@ class MemberService:
         if not member:
             raise ValueError("Member not found")
 
+        payload = dict(payload or {})
+        if any(key in payload and payload.get(key) not in (None, "") for key in MemberService.PROFILE_PASSWORD_FIELDS):
+            raise ValueError("Use the password change endpoint")
+
         data = extract_member_data(payload)
         data = {key: value for key, value in data.items() if key in MemberService.PROFILE_FIELDS}
         _normalize_member_data(data)
@@ -89,10 +104,6 @@ class MemberService:
         if "nickname" in data:
             MemberService._validate_nickname(data["nickname"], member_id=member.id)
 
-        if payload.get("password"):
-            data["password_hash"] = hash_password(payload["password"])
-            data["password_changed_at"] = datetime.now(timezone.utc)
-
         try:
             member = MemberRepository.update(member, data)
             db.session.commit()
@@ -102,12 +113,40 @@ class MemberService:
             raise
 
     @staticmethod
-    def deactivate_member(member_id):
+    def change_password(member_id, current_password, new_password):
+        member = MemberRepository.get_by_id(member_id)
+        if not member or not member.active or member.deleted_at:
+            raise ValueError("Member not found")
+
+        _validate_current_password(member, current_password)
+        validate_password(new_password)
+
+        try:
+            member.password_hash = hash_password(new_password)
+            member.password_changed_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return {"changed": True}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def deactivate_member(member_id, password=None, requester=None, fresh_auth=False):
         member = MemberRepository.get_by_id(member_id)
         if not member:
             raise ValueError("Member not found")
 
+        requester_is_admin = str(getattr(requester, "role", "") or "").lower() == "admin"
+        if not requester_is_admin:
+            if not requester or requester.id != member.id:
+                raise ValueError("Member permission is required")
+            if member.password_hash:
+                _validate_current_password(member, password)
+            elif not _has_social_account(member) or not fresh_auth:
+                raise ValueError("Fresh account verification is required")
+
         try:
+            _release_member_identity_for_rejoin(member)
             member = MemberRepository.update(
                 member,
                 {
@@ -245,17 +284,24 @@ class MemberService:
         if not social_id:
             raise ValueError("social_id is required")
 
-        social_account = MemberRepository.get_social_account(provider, social_id)
-        if social_account:
-            if not social_account.member.active or social_account.member.deleted_at:
-                raise ValueError("Member not found")
-            MemberService._fill_missing_social_profile(social_account.member, payload)
-            return member_to_dict(social_account.member)
-
-        social_email = _normalize_email(payload.get("social_email"))
-        member = MemberRepository.get_by_email(social_email) if social_email else None
-
         try:
+            social_account = MemberRepository.get_social_account(provider, social_id)
+            if social_account:
+                if social_account.member.active and not social_account.member.deleted_at:
+                    MemberService._fill_missing_social_profile(social_account.member, payload)
+                    return member_to_dict(social_account.member)
+
+                _release_member_identity_for_rejoin(social_account.member)
+                db.session.flush()
+
+            social_email = _normalize_email(payload.get("social_email"))
+            member = MemberRepository.get_by_email(social_email) if social_email else None
+
+            if member and (not member.active or member.deleted_at):
+                _release_member_identity_for_rejoin(member)
+                db.session.flush()
+                member = None
+
             if not member:
                 member = MemberRepository.create(
                     {
@@ -438,3 +484,39 @@ def _mask_login_id(login_id):
         return "*" * len(login_id)
     visible_length = min(3, len(login_id) - 1)
     return f"{login_id[:visible_length]}{'*' * (len(login_id) - visible_length)}"
+
+
+def _has_social_account(member):
+    return bool(getattr(member, "social_accounts", None))
+
+
+def _release_member_identity_for_rejoin(member):
+    member.email = None
+    member.login_id = None
+    member.nickname = None
+    member.real_name = None
+    member.phone = None
+    member.profile_img_url = None
+    member.email_verified = False
+
+    social_accounts = list(getattr(member, "social_accounts", []) or [])
+    if isinstance(member, Member):
+        MemberRepository.delete_social_accounts_by_member_id(member.id)
+        set_committed_value(member, "social_accounts", [])
+    else:
+        delete = getattr(db.session, "delete", None)
+        for account in social_accounts:
+            if callable(delete):
+                delete(account)
+
+        if hasattr(member, "social_accounts"):
+            member.social_accounts = []
+
+
+def _validate_current_password(member, password):
+    if not member.password_hash:
+        raise ValueError("Password change is unavailable for social login accounts")
+    if not password:
+        raise ValueError("Current password is required")
+    if not member.password_hash or not verify_password(member.password_hash, password):
+        raise ValueError("Current password is invalid")

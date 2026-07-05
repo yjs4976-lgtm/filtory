@@ -83,7 +83,7 @@ function normalizeSourceUrl(item: BackendHospital, provider: string) {
     return undefined
   }
 
-  return item.source_url ?? item.kakao_place_url ?? item.naver_place_url ?? undefined
+  return firstText(item.source_url, item.kakao_place_url, item.naver_place_url)
 }
 
 function toOptionalCoordinate(value: number | string | null | undefined): number | undefined {
@@ -98,6 +98,19 @@ function toPositiveNumber(value: number | string | null | undefined): number | u
 
   const numericValue = Number(value)
   return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : undefined
+}
+
+function textOrUndefined(value: string | null | undefined): string | undefined {
+  const text = String(value ?? "").trim()
+  return text || undefined
+}
+
+function firstText(...values: Array<string | null | undefined>): string | undefined {
+  for (const value of values) {
+    const text = textOrUndefined(value)
+    if (text) return text
+  }
+  return undefined
 }
 
 function providerReviewCount(
@@ -123,7 +136,19 @@ function providerReviewCount(
   return naverReviewCount ?? googleReviewCount
 }
 
-function toHospitalItem(item: BackendHospital): HospitalItem {
+function buildNaverMapSearchUrl(provider: string | undefined, sourceName: string | undefined, hospitalName: string, address?: string) {
+  const providerHint = `${provider ?? ""} ${sourceName ?? ""}`.toLowerCase()
+  if (!providerHint.includes("naver") && !providerHint.includes("네이버")) return undefined
+
+  const query = [hospitalName, address]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ")
+
+  return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : undefined
+}
+
+function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCategory): HospitalItem {
   const provider = item.provider ?? item.source_provider ?? undefined
   const sourceName = item.source_name ?? provider ?? undefined
   const safeLatitude = toOptionalCoordinate(item.latitude)
@@ -133,23 +158,28 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
   const naverReviewCount = toPositiveNumber(item.naver_review_count)
   const googleReviewCount = toPositiveNumber(item.google_review_count)
   const reviewCount = providerReviewCount(provider, sourceName, naverReviewCount, googleReviewCount)
-  const category = normalizeCategory(item.category)
+  const rawCategory = textOrUndefined(item.category)
+  const category = normalizeCategory(rawCategory ?? requestedCategory)
+  const hasSpecificCategory = Boolean(rawCategory)
   const address = item.address ?? ""
   const roadAddress = item.road_address ?? undefined
+  const hospitalName = String(item.hospital_name ?? "Hospital")
   const regionKoLabel = extractRegionLabelFromAddress(roadAddress || address)
+  const naverMapFallbackUrl = buildNaverMapSearchUrl(provider, sourceName, hospitalName, roadAddress || address)
+  const mapUrl = firstText(item.map_url, item.kakao_place_url, item.naver_place_url, item.google_map_url, naverMapFallbackUrl)
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),
     provider,
     externalPlaceId: item.external_place_id ?? undefined,
-    name: String(item.hospital_name ?? "Hospital"),
+    name: hospitalName,
     hospitalNameKo: item.hospital_name ?? undefined,
     hospitalNameEn: item.english_name ?? undefined,
     hospitalEnglishName: item.english_name ?? undefined,
     englishName: item.english_name ?? undefined,
     category,
-    categoryKoLabel: categoryLabels[category].ko,
-    categoryEnLabel: categoryLabels[category].en,
+    categoryKoLabel: hasSpecificCategory ? categoryLabels[category].ko : "병원",
+    categoryEnLabel: hasSpecificCategory ? categoryLabels[category].en : "Clinic",
     region: (item.region || "seoul") as HospitalRegionCode,
     address,
     roadAddress,
@@ -163,12 +193,12 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     googleReviewCount,
     sourceName,
     sourceUrl: normalizeSourceUrl(item, provider ?? ""),
-    mapUrl: item.map_url ?? item.kakao_place_url ?? item.naver_place_url ?? item.google_map_url ?? undefined,
-    kakaoPlaceUrl: item.kakao_place_url ?? undefined,
-    naverPlaceUrl: item.naver_place_url ?? undefined,
-    naverPlaceId: item.naver_place_id ?? undefined,
-    googleMapUrl: item.google_map_url ?? undefined,
-    googlePlaceId: item.google_place_id ?? undefined,
+    mapUrl,
+    kakaoPlaceUrl: textOrUndefined(item.kakao_place_url),
+    naverPlaceUrl: textOrUndefined(item.naver_place_url),
+    naverPlaceId: textOrUndefined(item.naver_place_id),
+    googleMapUrl: textOrUndefined(item.google_map_url),
+    googlePlaceId: textOrUndefined(item.google_place_id),
     googleRegistered: item.google_registered ?? undefined,
     hasEnglishInfo: item.has_english_info ?? undefined,
     hasEnglishReviews: item.has_english_reviews ?? undefined,
@@ -201,6 +231,6 @@ export const hospitalSearchService = {
     const result = await apiClient<BackendHospital[]>(`/api/hospitals/search${suffix}`)
     const records = Array.isArray(result.data) ? result.data : []
 
-    return records.map(toHospitalItem)
+    return records.map((record) => toHospitalItem(record, category))
   },
 }

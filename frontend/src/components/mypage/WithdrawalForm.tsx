@@ -27,14 +27,16 @@ export function WithdrawalForm() {
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const withdrawalReason = reason === OTHER_REASON ? otherReason.trim() : reason
-  const canWithdraw = password.length > 0 && withdrawalReason.length > 0 && confirmText === t.mypage.withdrawalConfirmText && checked && !isSubmitting
+  const requiresPassword = user?.hasPassword !== false
+  const hasPasswordConfirmation = !requiresPassword || password.length > 0
+  const canWithdraw = hasPasswordConfirmation && withdrawalReason.length > 0 && confirmText === t.mypage.withdrawalConfirmText && checked && !isSubmitting
 
   const handleWithdrawal = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
 
     if (!canWithdraw) {
-      setError(t.mypage.withdrawalError)
+      setError(requiresPassword ? t.mypage.withdrawalError : t.mypage.withdrawalErrorSocial)
       return
     }
 
@@ -49,7 +51,7 @@ export function WithdrawalForm() {
       }
 
       setIsSubmitting(true)
-      await memberService.withdrawUser(user.id, password, withdrawalReason)
+      await memberService.withdrawUser(user.id, requiresPassword ? password : undefined, withdrawalReason)
       showToast({
         title: t.mypage.withdrawalToast,
         tone: "success",
@@ -99,18 +101,25 @@ export function WithdrawalForm() {
 
       {error && <p className={styles.formError}>{error}</p>}
 
-      <label className={styles.label} htmlFor="withdraw-password">
-        {t.mypage.passwordConfirmLabel}
-        <input
-          id="withdraw-password"
-          className={styles.input}
-          type="password"
-          placeholder={t.mypage.passwordConfirmPlaceholder}
-          value={password}
-          autoComplete="current-password"
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+      {requiresPassword ? (
+        <label className={styles.label} htmlFor="withdraw-password">
+          {t.mypage.passwordConfirmLabel}
+          <input
+            id="withdraw-password"
+            className={styles.input}
+            type="password"
+            placeholder={t.mypage.passwordConfirmPlaceholder}
+            value={password}
+            autoComplete="current-password"
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+      ) : (
+        <div className={`${styles.softCard} ${styles.stackSm}`}>
+          <strong>{t.mypage.withdrawalSocialAccountNoticeTitle}</strong>
+          <p className={styles.mutedText}>{t.mypage.withdrawalSocialAccountNoticeDescription}</p>
+        </div>
+      )}
 
       <label className={styles.row}>
         <input

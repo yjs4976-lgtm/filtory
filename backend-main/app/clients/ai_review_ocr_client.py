@@ -5,7 +5,7 @@ import os
 import urllib.error
 import urllib.request
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,15 @@ class AIReviewOcrClient:
             "language": "en" if language == "en" else "ko",
             "images": [cls._build_image_payload(file) for file in files],
         }
-        headers = {"Content-Type": "application/json"}
-        internal_token = str(os.getenv("AI_INTERNAL_TOKEN") or "").strip()
-        if internal_token:
-            headers["X-Internal-Token"] = internal_token
+        internal_token = cls._internal_token()
+        if not internal_token:
+            raise RuntimeError("AI_INTERNAL_TOKEN is not configured")
+
+        # OCR images may contain sensitive review screenshots, so backend-ai must stay behind a server token.
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Token": internal_token,
+        }
 
         request = urllib.request.Request(
             cls._api_url(),
@@ -84,16 +89,20 @@ class AIReviewOcrClient:
 
     @classmethod
     def _api_url(cls):
-        base_url = str(current_app.config.get("BACKEND_AI_BASE_URL") or "http://127.0.0.1:8000").strip()
+        base_url = str(_config_value("BACKEND_AI_BASE_URL") or os.getenv("BACKEND_AI_BASE_URL") or "http://127.0.0.1:8000").strip()
         return f"{base_url.rstrip('/')}{cls.REVIEW_OCR_PATH}"
 
     @classmethod
     def _timeout_seconds(cls):
-        value = current_app.config.get("BACKEND_AI_TIMEOUT_SECONDS", 20)
+        value = _config_value("BACKEND_AI_TIMEOUT_SECONDS") or os.getenv("BACKEND_AI_TIMEOUT_SECONDS") or 20
         try:
             return float(value)
         except (TypeError, ValueError):
             return 20
+
+    @classmethod
+    def _internal_token(cls):
+        return str(_config_value("AI_INTERNAL_TOKEN") or os.getenv("AI_INTERNAL_TOKEN") or "").strip()
 
     @staticmethod
     def _read_error_body(exc):
@@ -101,3 +110,9 @@ class AIReviewOcrClient:
             return exc.read().decode("utf-8")[:500]
         except Exception:
             return ""
+
+
+def _config_value(key):
+    if not has_app_context():
+        return None
+    return current_app.config.get(key)
