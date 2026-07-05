@@ -671,6 +671,16 @@ function buildConvenienceQuestions(checks: NormalizedConvenienceCheck[], languag
         : hasCheckStatus(checks, ["englishGuide", "englishReviews"], "notConfirmed")
           ? "needsCheck"
           : "unknown"
+  const contactBookingStatus = findConvenienceCheck(checks, "contactBooking")?.status
+  const websitePlaceStatus = findConvenienceCheck(checks, "websitePlaceLink")?.status
+  const bookingStatus: ConvenienceQuestionStatus =
+    contactBookingStatus === "confirmed"
+      ? "confirmed"
+      : websitePlaceStatus === "confirmed"
+        ? "partial"
+        : contactBookingStatus === "notConfirmed" || websitePlaceStatus === "notConfirmed"
+          ? "needsCheck"
+          : "unknown"
 
   const definitions: {
     key: "navigation" | "booking" | "english" | "preview"
@@ -685,7 +695,7 @@ function buildConvenienceQuestions(checks: NormalizedConvenienceCheck[], languag
     {
       key: "booking",
       label: { ko: "예약하거나 문의할 수 있나요?", en: "Can users contact or book?" },
-      status: combineConvenienceStatus(checks, ["contactBooking", "websitePlaceLink"]),
+      status: bookingStatus,
     },
     {
       key: "english",
@@ -719,7 +729,7 @@ function deriveConvenienceReadiness(
   const key: ConvenienceReadinessKey =
     confirmedCount >= 3
       ? "ready"
-      : confirmedCount + partialCount >= 1 || needsCheckCount >= 2
+      : confirmedCount + partialCount >= 1 || needsCheckCount >= 1
         ? "needsCheck"
         : "unknown"
 

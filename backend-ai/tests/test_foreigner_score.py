@@ -61,12 +61,32 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["mapLocation"], "confirmed")
 
+    def test_multiple_positive_location_reviews_are_not_cancelled_by_one_negative(self):
+        payload = make_payload(
+            reviews=[
+                "병원이 역에서 가까워요.",
+                "위치가 좋아서 찾기 쉬웠어요.",
+                "주차장에서는 조금 멀었어요.",
+            ]
+        )
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["mapLocation"], "confirmed")
+
     def test_review_booking_signal_confirms_contact_booking(self):
         payload = make_payload(reviews=["방문 전에 전화로 예약했고 안내를 받았습니다."])
 
         checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
 
         self.assertEqual(checks["contactBooking"], "confirmed")
+
+    def test_failed_inquiry_does_not_confirm_booking(self):
+        payload = make_payload(reviews=["병원에 문의했지만 답변을 받지 못했습니다."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["contactBooking"], "notConfirmed")
 
     def test_review_photo_signal_confirms_photo_information(self):
         payload = make_payload(reviews=["네이버 사진과 실제 내부가 비슷해서 방문 전에 참고하기 좋았어요."])
@@ -83,6 +103,20 @@ class ForeignerScoreTest(unittest.TestCase):
         checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
 
         self.assertEqual(checks["englishGuide"], "notConfirmed")
+
+    def test_generic_foreigner_mention_does_not_confirm_english_support(self):
+        payload = make_payload(reviews=["I am a foreigner and visited this clinic."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "unknown")
+
+    def test_explicit_english_support_sentence_is_confirmed(self):
+        payload = make_payload(reviews=["The doctor explained everything in English."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "confirmed")
 
     def test_foreigner_score_accepts_user_photo_info(self):
         payload = make_payload(hasPhotos=True)

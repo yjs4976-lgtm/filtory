@@ -138,8 +138,8 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
     nextPage: label.nextPage,
     pageStatus: label.pageStatus,
   }
-  const unresolvedConvenienceQuestions = viewModel.globalAccessibility.questions.filter((question) => question.status !== "confirmed")
-  const unresolvedConvenienceTitle = label.unconfirmedInformationCount.replace("{count}", String(unresolvedConvenienceQuestions.length))
+  const unresolvedConvenienceChecks = viewModel.globalAccessibility.checks.filter((check) => check.status !== "confirmed")
+  const unresolvedConvenienceTitle = label.unconfirmedInformationCount.replace("{count}", String(unresolvedConvenienceChecks.length))
   const detailedAnalysisPages = [
     {
       title: label.coreInsight,
@@ -230,14 +230,16 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
             </div>
           ))}
         </div>
-        {unresolvedConvenienceQuestions.length > 0 && (
+        {unresolvedConvenienceChecks.length > 0 && (
           <details className={styles.resultInlineDisclosure}>
             <summary>{unresolvedConvenienceTitle}</summary>
             <div className={styles.resultUnresolvedQuestionList}>
-              {unresolvedConvenienceQuestions.map((question) => (
-                <div key={question.key} className={styles.resultUnresolvedQuestionItem}>
-                  <strong>{question.label}</strong>
-                  <span>{question.description}</span>
+              {unresolvedConvenienceChecks.map((check) => (
+                <div key={check.key} className={styles.resultUnresolvedQuestionItem}>
+                  <strong>{check.label}</strong>
+                  <span>
+                    {check.status === "notConfirmed" ? label.needsChecking : label.notEnoughInformation}
+                  </span>
                 </div>
               ))}
             </div>

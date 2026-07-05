@@ -592,11 +592,9 @@ function buildAccessibilityMetadataPayload(
   const hasEnglishReviews = booleanOverride(input.hasEnglishReviews, fallback.hasEnglishReviews)
   const inputMapUrl = input.googleMapUrl.trim()
   const inputMapUrlInfo = classifyMapUrl(inputMapUrl)
-  const isClassifiedMapUrl = Boolean(inputMapUrlInfo.googleMapUrl || inputMapUrlInfo.naverPlaceUrl || inputMapUrlInfo.kakaoPlaceUrl)
-  const unclassifiedMapUrl = inputMapUrl && !isClassifiedMapUrl ? inputMapUrl : ""
 
   return {
-    googleMapUrl: textOverride(inputMapUrlInfo.googleMapUrl ?? unclassifiedMapUrl, fallback.googleMapUrl),
+    googleMapUrl: textOverride(inputMapUrlInfo.googleMapUrl, fallback.googleMapUrl),
     kakaoPlaceUrl: textOverride(inputMapUrlInfo.kakaoPlaceUrl, fallback.kakaoPlaceUrl),
     naverPlaceUrl: textOverride(inputMapUrlInfo.naverPlaceUrl, fallback.naverPlaceUrl),
     phone: textOverride(input.phone, fallback.phone),
@@ -775,11 +773,12 @@ function createApiAnalysisResult({
     hospital?.englishName
   const mapUrlInfo = accessibilityInput?.googleMapUrl ? classifyMapUrl(accessibilityInput.googleMapUrl) : {}
   const manualMapUrl = accessibilityInput?.googleMapUrl.trim() || undefined
+  const manualMapUrlSupported = Boolean(mapUrlInfo.googleMapUrl || mapUrlInfo.naverPlaceUrl || mapUrlInfo.kakaoPlaceUrl)
+  const hospitalMapUrlInfo = hospital?.mapUrl ? classifyMapUrl(hospital.mapUrl) : {}
+  const hospitalMapUrlSupported = Boolean(hospitalMapUrlInfo.googleMapUrl || hospitalMapUrlInfo.naverPlaceUrl || hospitalMapUrlInfo.kakaoPlaceUrl)
   const resultNaverPlaceUrl = mapUrlInfo.naverPlaceUrl || hospital?.naverPlaceUrl
   const resultKakaoPlaceUrl = mapUrlInfo.kakaoPlaceUrl || hospital?.kakaoPlaceUrl
-  const resultGoogleMapUrl = mapUrlInfo.googleMapUrl || hospital?.googleMapUrl || (
-    manualMapUrl && !resultNaverPlaceUrl && !resultKakaoPlaceUrl ? manualMapUrl : undefined
-  )
+  const resultGoogleMapUrl = mapUrlInfo.googleMapUrl || hospital?.googleMapUrl
   const resultHomepageUrl = accessibilityInput?.homepageUrl.trim() || hospital?.homepageUrl
   const resultPhone = accessibilityInput?.phone.trim() || hospital?.phone
   const resultTreatmentItems = accessibilityInput?.treatmentItems.trim() || hospital?.treatmentItems
@@ -812,7 +811,7 @@ function createApiAnalysisResult({
     regionDistrictCode: regionPayload.regionDistrictCode,
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
-    mapUrl: manualMapUrl || hospital?.mapUrl,
+    mapUrl: (manualMapUrlSupported ? manualMapUrl : undefined) || (hospitalMapUrlSupported ? hospital?.mapUrl : undefined),
     googleMapUrl: resultGoogleMapUrl,
     naverPlaceUrl: resultNaverPlaceUrl,
     kakaoPlaceUrl: resultKakaoPlaceUrl,
@@ -1205,8 +1204,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setAccessibilityInput((current) => ({
       ...current,
       [field]: value,
-      ...(field === "hasPhotos" && value === true ? { hasGooglePhotos: current.hasGooglePhotos ?? true } : {}),
-      ...(field === "hasGooglePhotos" && value === true ? { hasPhotos: current.hasPhotos ?? true } : {}),
     }))
   }
 
@@ -2504,13 +2501,18 @@ function VisitInfoAssistPanel({
   const providerName = String(selectedHospital?.provider ?? "").toLowerCase()
   const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버") || providerName.includes("naver")
   const naverPlaceHref = selectedHospital ? buildNaverPlaceHref(selectedHospital, isNaverSource) : undefined
-  const selectedMapLink =
+  const rawSelectedMapLink =
     naverPlaceHref ||
     selectedHospital?.naverPlaceUrl ||
-    selectedHospital?.mapUrl ||
     selectedHospital?.kakaoPlaceUrl ||
     selectedHospital?.googleMapUrl ||
-    selectedHospital?.sourceUrl
+    selectedHospital?.mapUrl
+  const selectedMapLink = (() => {
+    if (!rawSelectedMapLink) return undefined
+    const info = classifyMapUrl(rawSelectedMapLink)
+    const isSupportedMapUrl = Boolean(info.naverPlaceUrl || info.kakaoPlaceUrl || info.googleMapUrl)
+    return isSupportedMapUrl ? rawSelectedMapLink : undefined
+  })()
   const selectedHomepageLink = selectedHospital?.homepageUrl
   const englishName = selectedHospital?.hospitalEnglishName || selectedHospital?.hospitalNameEn || selectedHospital?.englishName
 
