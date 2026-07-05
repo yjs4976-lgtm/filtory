@@ -7,6 +7,17 @@ from app.utils.security import require_admin, require_auth
 
 report_bp = Blueprint("reports", __name__)
 
+REPORT_CREATE_MANAGED_FIELDS = {
+    "admin_member_id",
+    "adminMemberId",
+    "admin_memo",
+    "adminMemo",
+    "admin_response",
+    "adminResponse",
+    "resolved_at",
+    "resolvedAt",
+}
+
 
 @report_bp.route("/", methods=["GET"])
 @require_admin
@@ -31,7 +42,10 @@ def list_reports():
 @require_auth
 def create_report():
     payload = request.get_json(silent=True) or {}
+    for key in REPORT_CREATE_MANAGED_FIELDS:
+        payload.pop(key, None)
     payload["reporter_member_id"] = g.current_member.id
+    payload["status"] = "pending"
 
     try:
         report = ReportService.create_report(payload)

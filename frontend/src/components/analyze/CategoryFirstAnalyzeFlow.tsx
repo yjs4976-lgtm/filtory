@@ -199,6 +199,36 @@ function normalizeHospitalSearchText(value?: string) {
     .replace(/\s+/g, " ")
 }
 
+function normalizeRegionSearchText(value?: string) {
+  return normalizeHospitalSearchText(value)
+    .replaceAll("서울특별시", "서울")
+    .replaceAll("서울시", "서울")
+    .replaceAll("부산광역시", "부산")
+    .replaceAll("부산시", "부산")
+    .replaceAll("인천광역시", "인천")
+    .replaceAll("인천시", "인천")
+    .replaceAll("대구광역시", "대구")
+    .replaceAll("대구시", "대구")
+    .replaceAll("대전광역시", "대전")
+    .replaceAll("대전시", "대전")
+    .replaceAll("광주광역시", "광주")
+    .replaceAll("광주시", "광주")
+    .replaceAll("울산광역시", "울산")
+    .replaceAll("울산시", "울산")
+    .replaceAll("세종특별자치시", "세종")
+    .replaceAll("경기도", "경기")
+    .replaceAll("강원특별자치도", "강원")
+    .replaceAll("강원도", "강원")
+    .replaceAll("충청북도", "충북")
+    .replaceAll("충청남도", "충남")
+    .replaceAll("전북특별자치도", "전북")
+    .replaceAll("전라북도", "전북")
+    .replaceAll("전라남도", "전남")
+    .replaceAll("경상북도", "경북")
+    .replaceAll("경상남도", "경남")
+    .replaceAll("제주특별자치도", "제주")
+}
+
 type HospitalWithCoordinate = HospitalItem & { latitude: number; longitude: number }
 
 function getHospitalCoordinate(hospital: HospitalItem) {
@@ -218,14 +248,18 @@ function hasValidKoreaCoordinate(hospital: HospitalItem): hospital is HospitalWi
 
 function hospitalMatchesRegion(hospital: HospitalItem, region: SelectedAnalyzeRegion | null, regionLabel: string) {
   if (!region) return true
-  const normalizedRegionLabel = normalizeHospitalSearchText(regionLabel)
-  const normalizedAddress = normalizeHospitalSearchText(hospital.address)
-  const normalizedManualRegion = normalizeHospitalSearchText(hospital.manualRegionLabel)
+  const normalizedRegionLabel = normalizeRegionSearchText(regionLabel)
+  const normalizedAddress = normalizeRegionSearchText(hospital.address)
+  const normalizedRoadAddress = normalizeRegionSearchText(hospital.roadAddress)
+  const normalizedHospitalRegion = normalizeRegionSearchText(String(hospital.region ?? ""))
+  const normalizedManualRegion = normalizeRegionSearchText(hospital.manualRegionLabel)
   const provinceCode = region.provinceCode.toLowerCase()
 
   return (
     hospital.region === provinceCode ||
+    Boolean(normalizedRegionLabel && normalizedHospitalRegion.includes(normalizedRegionLabel)) ||
     Boolean(normalizedRegionLabel && normalizedAddress.includes(normalizedRegionLabel)) ||
+    Boolean(normalizedRegionLabel && normalizedRoadAddress.includes(normalizedRegionLabel)) ||
     Boolean(normalizedRegionLabel && normalizedManualRegion.includes(normalizedRegionLabel))
   )
 }

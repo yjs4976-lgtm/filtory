@@ -57,7 +57,6 @@ def list_analysis_requests():
         if requested_member_id and requested_member_id != g.current_member.id:
             return error_response("Member permission is required", 403)
         requested_member_id = g.current_member.id
-        requested_hospital_id = None
 
     requests = AnalysisService.list_requests(
         member_id=requested_member_id,
