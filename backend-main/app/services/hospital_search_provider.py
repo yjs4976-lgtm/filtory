@@ -5,7 +5,7 @@ import re
 import time
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from flask import current_app
@@ -106,7 +106,7 @@ class HospitalSearchProvider:
 
         results = []
         page = 1
-        max_pages = 4
+        max_pages = 2
 
         while len(results) < limit and page <= max_pages:
             size = max(1, min(limit - len(results), 15))
@@ -154,7 +154,7 @@ class HospitalSearchProvider:
         results = []
         total_items = 0
         start = 1
-        max_pages = 4
+        max_pages = 2
         pages_loaded = 0
 
         while len(results) < limit and pages_loaded < max_pages:
@@ -326,20 +326,24 @@ class HospitalSearchProvider:
         provider_category = cls._category_from_naver(item) or category
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
+        hospital_name = cls._strip_html(item.get("title")) or "병원"
+        address = cls._strip_html(item.get("address"))
+        road_address = cls._strip_html(item.get("roadAddress"))
+        map_url = place_url or cls._naver_map_search_url(hospital_name, road_address or address)
 
         return {
             "id": f"naver:{cls._stable_id(item)}",
             "provider": "naver",
             "source_provider": "naver",
             "external_place_id": cls._stable_id(item),
-            "hospital_name": cls._strip_html(item.get("title")) or "병원",
+            "hospital_name": hospital_name,
             "category": provider_category,
-            "region": cls._region_from_address(cls._strip_html(item.get("address"))),
-            "address": cls._strip_html(item.get("address")),
-            "road_address": cls._strip_html(item.get("roadAddress")),
+            "region": cls._region_from_address(address),
+            "address": address,
+            "road_address": road_address,
             "phone": cls._text(item.get("telephone")),
             "homepage_url": homepage_url,
-            "map_url": place_url,
+            "map_url": map_url,
             "naver_place_url": place_url,
             "naver_place_id": cls._naver_place_id_from_link(place_url),
             "source_url": place_url,
@@ -453,6 +457,14 @@ class HospitalSearchProvider:
         return None
 
     @staticmethod
+    def _naver_map_search_url(hospital_name, address=None):
+        query = " ".join(str(part or "").strip() for part in (hospital_name, address) if str(part or "").strip())
+        if not query:
+            return None
+
+        return f"https://map.naver.com/p/search/{quote(query)}"
+
+    @staticmethod
     def _verified_naver_place_url(link):
         if not link:
             return None
@@ -497,9 +509,16 @@ class HospitalSearchProvider:
 
     @classmethod
     def _category_from_naver(cls, item):
-        return cls._category_from_text(
+        category = cls._category_from_text(
             f"{cls._strip_html(item.get('category')) or ''} {cls._strip_html(item.get('title')) or ''}"
         )
+        if category:
+            return category
+
+        if cls._is_naver_hospital(item):
+            return None
+
+        return None
 
     @staticmethod
     def _category_from_text(value):
@@ -514,21 +533,37 @@ class HospitalSearchProvider:
 
     @classmethod
     def _matches_requested_category(cls, result_category, requested_category):
-        if result_category not in cls.SUPPORTED_CATEGORIES:
-            return False
-        return not requested_category or result_category == requested_category
+        if not requested_category:
+            return result_category is None or result_category in cls.SUPPORTED_CATEGORIES
+        return result_category in {requested_category, None}
 
     @classmethod
     def _is_naver_hospital(cls, item):
         category = cls._strip_html(item.get("category")) or ""
         title = cls._strip_html(item.get("title")) or ""
         text = f"{category} {title}"
-        if "한의원" in text:
+        if any(keyword in text for keyword in ("한의원", "한방", "약국", "동물병원", "요양원")):
             return False
 
         return any(
             keyword in text
-            for keyword in ("병원", "의원", "클리닉", "피부과", "안과", "치과")
+            for keyword in (
+                "건강,의료",
+                "의료",
+                "병원",
+                "의원",
+                "클리닉",
+                "피부과",
+                "안과",
+                "치과",
+                "외과",
+                "내과",
+                "정형외과",
+                "성형외과",
+                "이비인후과",
+                "산부인과",
+                "정신건강의학과",
+            )
         )
 
     @classmethod

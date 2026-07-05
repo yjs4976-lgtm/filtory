@@ -163,8 +163,8 @@ export const authService = {
     });
   },
 
-  socialLogin(provider: SocialProvider) {
-    this.startSocialLogin(provider);
+  socialLogin(provider: SocialProvider, nextPath?: string | null) {
+    this.startSocialLogin(provider, nextPath);
   },
 
   findId(payload: FindIdRequest) {
@@ -191,8 +191,13 @@ export const authService = {
     });
   },
 
-  startSocialLogin(provider: SocialProvider) {
-    const nextUrl = `${window.location.origin}/auth/callback`;
+  startSocialLogin(provider: SocialProvider, nextPath?: string | null) {
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    const safeNextPath = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "";
+    if (safeNextPath) {
+      callbackUrl.searchParams.set("next", safeNextPath);
+    }
+    const nextUrl = callbackUrl.toString();
     const url = `${API_BASE_URL}/api/auth/social-login?provider=${provider}&next=${encodeURIComponent(
       nextUrl
     )}`;

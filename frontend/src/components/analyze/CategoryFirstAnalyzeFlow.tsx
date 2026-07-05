@@ -390,6 +390,21 @@ function splitReviewText(value: string) {
     .filter(Boolean)
 }
 
+function uniqueReviewTexts(values: string[]) {
+  const seen = new Set<string>()
+  const results: string[] = []
+
+  values.forEach((value) => {
+    const content = value.trim()
+    const key = normalizeReviewContent(content)
+    if (!content || !key || seen.has(key)) return
+    seen.add(key)
+    results.push(content)
+  })
+
+  return results
+}
+
 function splitCsvLine(line: string) {
   const cells: string[] = []
   let current = ""
@@ -646,7 +661,8 @@ function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   }
 }
 
-function textOverride(value: string, fallback?: string) {
+function textOverride(value?: string | null, fallback?: string) {
+  if (typeof value !== "string") return fallback
   return value.trim() || fallback
 }
 
@@ -1001,6 +1017,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const [isSaved, setIsSaved] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const regionSearchRef = useRef<HTMLInputElement>(null)
+  const reviewImportSectionRef = useRef<HTMLElement | null>(null)
   const initialSearchAppliedRef = useRef(false)
 
   const reviews = useMemo(() => (selectedHospital ? getDemoReviewsForHospital(selectedHospital) : []), [selectedHospital])
@@ -1020,11 +1037,30 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       readyCount,
     }
   }, [reviewDrafts])
-  const isReviewAnalysisDisabled = isAnalyzing || reviewInboxSummary.totalCount === 0 || reviewInboxSummary.readyCount <= 0
   const analysisReadyReviewDrafts = useMemo(
     () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
     [reviewDrafts]
   )
+  const includedReviewDraftTexts = useMemo(
+    () => uniqueReviewTexts(reviewDrafts.filter((review) => review.included).map((review) => review.content)),
+    [reviewDrafts]
+  )
+  const pendingReviewTexts = useMemo(() => uniqueReviewTexts(splitReviewText(directReviewText)), [directReviewText])
+  const pendingReadyReviewTexts = useMemo(() => {
+    const pendingDrafts = splitReviewText(directReviewText).map((content, index) => ({
+      id: `pending-${index}`,
+      content,
+      source: "manual" as ReviewDraftSource,
+      included: true,
+      status: "ready" as ReviewDraftStatus,
+    }))
+
+    return normalizeReviewDrafts(pendingDrafts)
+      .filter((review) => review.included && review.status === "ready")
+      .map((review) => review.content.trim())
+      .filter(Boolean)
+  }, [directReviewText])
+  const isReviewAnalysisDisabled = isAnalyzing
   const selectedRegionLabel = selectedRegion
     ? getRegionLabel(selectedRegion.provinceCode, selectedRegion.districtCode, currentLanguage)
     : ""
@@ -1471,6 +1507,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     resetSearchState()
   }
 
+  const scrollToReviewImport = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      reviewImportSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    })
+  }, [])
+
   const handleOpenReviews = useCallback((hospital: HospitalItem) => {
     const nextReviews = getDemoReviewsForHospital(hospital)
     setSelectedHospital(hospital)
@@ -1479,7 +1524,8 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setReviewPage(0)
     setAnalysisResult(null)
     setIsSaved(false)
-  }, [])
+    scrollToReviewImport()
+  }, [scrollToReviewImport])
 
   const handleSelectManualHospital = () => {
     if (directHospitalKeyword.length <= 1) return
@@ -1496,6 +1542,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     setAnalysisResult(null)
     setIsSaved(false)
     setInputError("")
+    scrollToReviewImport()
   }
 
   const handleToggleReview = (reviewId: string) => {
@@ -1555,6 +1602,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     if (requireLoginForAnalysis()) return
 
     setIsAnalyzing(true)
+    setReviewFeedback(t.analyze.reviewInbox.analysisSendingFeedback)
     setAnalyzeError("")
     setInputError("")
     setAnalysisResult(null)
@@ -1617,8 +1665,24 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       })
       router.push(ROUTES.RESULT)
     } catch (error) {
+      setReviewFeedback("")
+
       if (error instanceof ApiClientError && error.status === 401) {
         requireLoginForAnalysis(true)
+        return
+      }
+
+      if (error instanceof ApiClientError) {
+        setAnalyzeError(
+          t.analyze.analyzeErrorWithStatus
+            .replace("{status}", String(error.status))
+            .replace("{message}", error.message)
+        )
+        return
+      }
+
+      if (error instanceof Error) {
+        setAnalyzeError(t.analyze.analyzeErrorWithMessage.replace("{message}", error.message))
         return
       }
 
@@ -1631,7 +1695,17 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const handleAnalyzeDirectReview = async () => {
     const hospitalName = directHospitalName.trim()
     if (isAnalyzing) return
-    if (reviewInboxSummary.totalCount === 0 || reviewInboxSummary.readyCount <= 0) {
+    const readyReviewTexts = analysisReadyReviewDrafts.map((review) => review.content.trim())
+    const targetReviews =
+      readyReviewTexts.length > 0
+        ? readyReviewTexts
+        : pendingReadyReviewTexts.length > 0
+          ? pendingReadyReviewTexts
+          : includedReviewDraftTexts.length > 0
+            ? includedReviewDraftTexts
+            : pendingReviewTexts
+
+    if (targetReviews.length === 0) {
       setInputError(t.analyze.reviewInboxRequired)
       setAnalyzeError("")
       return
@@ -1642,13 +1716,15 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       return
     }
 
-    const targetReviews = analysisReadyReviewDrafts.map((review) => review.content.trim())
+    setReviewFeedback(t.analyze.reviewInbox.analysisPreparingFeedback.replace("{count}", String(targetReviews.length)))
+
     await analyzeWithApi({
+      hospital: selectedHospital ?? undefined,
       hospitalName,
-      reviewText: mergeReviewDraftsForAnalysis(analysisReadyReviewDrafts),
+      reviewText: readyReviewTexts.length > 0 ? mergeReviewDraftsForAnalysis(analysisReadyReviewDrafts) : targetReviews.join("\n\n"),
       reviews: targetReviews,
       selectedReviewCount: targetReviews.length,
-      totalReviewCount: reviewDrafts.length,
+      totalReviewCount: reviewDrafts.length > 0 ? reviewDrafts.length : pendingReviewTexts.length,
     })
   }
 
@@ -1795,7 +1871,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     </section>
   ) : null
 
-  const selectedHospitalReviewSection = selectedHospital ? (
+  const selectedHospitalReviewSection = selectedHospital && reviews.length > 0 ? (
     <section className={`${styles.card} ${styles.stackSm}`}>
       <div className={styles.sectionHeader}>
         <div>
@@ -1806,63 +1882,55 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         </div>
       </div>
 
-      {reviews.length === 0 ? (
-        <article className={styles.emptyCard}>
-          <h3 className={styles.titleMd}>{t.analyze.noReviews}</h3>
-        </article>
-      ) : (
-        <>
-          <div className={styles.selectionToolbar}>
-            <button type="button" className={styles.smallPillButton} onClick={handleSelectAll}>
-              {t.analyze.selectAll}
-            </button>
-            <button type="button" className={styles.smallPillButton} onClick={handleClearSelection}>
-              {t.analyze.clearSelection}
-            </button>
-            <span className={styles.neutralPill}>
-              {t.analyze.selectedReviews} {selectedReviewIds.length}/{reviews.length}
-            </span>
-          </div>
-          <div
-            className={styles.reviewList}
-            onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
-            onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, reviewTotalPages, setReviewPage)}
-          >
-            {visibleReviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                review={review}
-                checked={selectedReviewIds.includes(review.id)}
-                onToggle={() => handleToggleReview(review.id)}
-              />
-            ))}
-          </div>
-          <PaginationControls
-            currentPage={reviewPage}
-            totalPages={reviewTotalPages}
-            onPrev={() => handleSwipe("prev", reviewTotalPages, setReviewPage)}
-            onNext={() => handleSwipe("next", reviewTotalPages, setReviewPage)}
+      <div className={styles.selectionToolbar}>
+        <button type="button" className={styles.smallPillButton} onClick={handleSelectAll}>
+          {t.analyze.selectAll}
+        </button>
+        <button type="button" className={styles.smallPillButton} onClick={handleClearSelection}>
+          {t.analyze.clearSelection}
+        </button>
+        <span className={styles.neutralPill}>
+          {t.analyze.selectedReviews} {selectedReviewIds.length}/{reviews.length}
+        </span>
+      </div>
+      <div
+        className={styles.reviewList}
+        onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+        onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0]?.clientX ?? 0, reviewTotalPages, setReviewPage)}
+      >
+        {visibleReviews.map((review) => (
+          <ReviewCard
+            key={review.id}
+            review={review}
+            checked={selectedReviewIds.includes(review.id)}
+            onToggle={() => handleToggleReview(review.id)}
           />
-          <div className={styles.actionRow}>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              disabled={isAnalyzing || selectedReviews.length === 0}
-              onClick={() => handleAnalyze(selectedReviews)}
-            >
-              {t.analyze.analyzeSelectedReviews}
-            </button>
-            <button type="button" className={styles.primaryButton} disabled={isAnalyzing} onClick={() => handleAnalyze(reviews)}>
-              {t.analyze.analyzeAllReviews}
-            </button>
-          </div>
-        </>
-      )}
+        ))}
+      </div>
+      <PaginationControls
+        currentPage={reviewPage}
+        totalPages={reviewTotalPages}
+        onPrev={() => handleSwipe("prev", reviewTotalPages, setReviewPage)}
+        onNext={() => handleSwipe("next", reviewTotalPages, setReviewPage)}
+      />
+      <div className={styles.actionRow}>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          disabled={isAnalyzing || selectedReviews.length === 0}
+          onClick={() => handleAnalyze(selectedReviews)}
+        >
+          {t.analyze.analyzeSelectedReviews}
+        </button>
+        <button type="button" className={styles.primaryButton} disabled={isAnalyzing} onClick={() => handleAnalyze(reviews)}>
+          {t.analyze.analyzeAllReviews}
+        </button>
+      </div>
     </section>
   ) : null
 
   const reviewImportSection = selectedHospital ? (
-    <section className={`${styles.card} ${styles.stackSm}`}>
+    <section ref={reviewImportSectionRef} className={`${styles.card} ${styles.stackSm}`}>
       <div>
         <h2 className={styles.titleMd}>{t.analyze.reviewSourceTitle}</h2>
         <p className={styles.bodyText}>{t.analyze.reviewSourceDescription}</p>
@@ -1892,16 +1960,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         onClear={handleClearReviewDrafts}
         onStartAnalysis={handleAnalyzeDirectReview}
       />
-    </section>
-  ) : null
-
-  const analyzeGuideSection = selectedHospital ? (
-    <section className={`${styles.card} ${styles.stackSm}`}>
-      <p className={styles.memberEyebrow}>ANALYZE GUIDE</p>
-      <h2 className={styles.titleMd}>{t.about.howTitle}</h2>
-      <ol className={styles.compactList}>
-        {t.about.steps.map((step: string) => <li key={step}>{step}</li>)}
-      </ol>
     </section>
   ) : null
 
@@ -2111,8 +2169,6 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
       {selectedHospitalReviewSection}
 
       {reviewImportSection}
-
-      {analyzeGuideSection}
 
       {isAnalyzing && (
         <section className={`${styles.emptyCard} ${styles.stackSm}`}>
@@ -2380,6 +2436,10 @@ function ReviewInputWorkspace({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const detectedCount = splitReviewText(value).length
   const hasReviewText = value.trim().length > 0
+  const readinessText = t.analyze.reviewReadyStatus
+    .replace("{hospitalName}", selectedHospital?.name || "-")
+    .replace("{pendingCount}", String(detectedCount))
+    .replace("{importedCount}", String(reviews.length))
   const reviewExamples = t.analyze.reviewExamples
   const activeSentences = reviewExamples.sentences[activeExampleCategory]
 
@@ -2474,6 +2534,20 @@ function ReviewInputWorkspace({
         onChange={(event) => onChange(event.target.value)}
       />
 
+      <section className={styles.reviewReadyPanel} aria-live="polite">
+        <p className={styles.reviewReadyText}>{readinessText}</p>
+        {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
+        <button
+          type="button"
+          className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
+          disabled={isAnalyzeDisabled}
+          onClick={onStartAnalysis}
+        >
+          {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
+          {isAnalyzing ? t.analyze.submitting : t.analyze.analyzePastedReviewsButton}
+        </button>
+      </section>
+
       <div className={styles.reviewExampleToggleRow}>
         <button
           type="button"
@@ -2548,23 +2622,6 @@ function ReviewInputWorkspace({
         onDelete={onDelete}
         onClear={onClear}
       />
-
-      <section className={styles.reviewStartPanel}>
-        <div>
-          <h3 className={styles.titleSm}>{t.analyze.analysisStartTitle}</h3>
-          <p className={styles.bodyText}>{t.analyze.analysisStartDescription}</p>
-        </div>
-        {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
-        <button
-          type="button"
-          className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
-          disabled={isAnalyzeDisabled}
-          onClick={onStartAnalysis}
-        >
-          {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
-          {isAnalyzing ? t.analyze.submitting : t.analyze.directAnalyzeButton}
-        </button>
-      </section>
     </section>
   )
 }
@@ -2765,9 +2822,7 @@ function ReviewStatusPanel({
       )}
       {feedback && <p className={styles.reviewFeedback}>{feedback}</p>}
       {reviews.length === 0 ? (
-        <article className={`${styles.emptyCard} ${styles.stackSm}`}>
-          <h3 className={styles.titleSm}>{t.analyze.reviewInbox.emptyTitle}</h3>
-          <p className={styles.bodyText}>{t.analyze.reviewInbox.emptyDescription}</p>
+        <article className={styles.reviewMinimumGuide}>
           <p className={styles.mutedText}>{t.analyze.reviewInbox.minimumReviewGuide}</p>
         </article>
       ) : (
@@ -3273,7 +3328,10 @@ function HospitalResultCard({
   const providerName = String(hospital.provider ?? "").toLowerCase()
   const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버") || providerName.includes("naver")
   const naverPlaceHref = buildNaverPlaceHref(hospital, isNaverSource)
-  const categoryLabel = t.categories[hospital.category]
+  const categoryLabel =
+    language === "en"
+      ? hospital.categoryEnLabel || t.categories[hospital.category]
+      : hospital.categoryKoLabel || t.categories[hospital.category]
   const displayName = getHospitalCardName(hospital, language, categoryLabel)
   const displayRegionLabel = getHospitalCardRegionLabel(hospital, regionLabel, language)
   const displayAddress = getHospitalCardAddressLabel(hospital)

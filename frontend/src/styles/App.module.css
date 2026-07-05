@@ -4968,6 +4968,34 @@ button.notificationCard {
   background: #ffffff;
 }
 
+.reviewReadyPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--lavender);
+  border-radius: 18px;
+  background: var(--lavender-soft);
+  padding: 12px;
+}
+
+.reviewReadyText {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.reviewMinimumGuide {
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.reviewMinimumGuide p {
+  margin: 0;
+}
+
 .reviewAnalyzeButton:disabled {
   background: var(--lavender-soft);
   color: var(--graypurple);

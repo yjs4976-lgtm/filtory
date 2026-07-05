@@ -29,7 +29,8 @@ export function AuthCallbackHandler() {
 
         const result = await authService.me();
         saveLogin({ user: result.data });
-        router.replace(ROUTES.HOME);
+        const nextPath = searchParams.get("next");
+        router.replace(nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : ROUTES.HOME);
       } catch {
         setMessage(t.auth.socialProcessingError);
       }

@@ -45,6 +45,126 @@ def test_naver_search_keeps_broad_hospital_category_for_requested_category(monke
     assert results[0]["naver_place_id"] == "12345"
 
 
+def test_naver_region_only_search_keeps_broad_hospital_category(monkeypatch):
+    app = Flask(__name__)
+    app.config.update(
+        NAVER_SEARCH_CLIENT_ID="client-id",
+        NAVER_SEARCH_CLIENT_SECRET="client-secret",
+        HOSPITAL_SEARCH_TIMEOUT_SECONDS=1,
+    )
+
+    monkeypatch.setattr(
+        HospitalSearchProvider,
+        "_get_json",
+        staticmethod(
+            lambda url, headers: {
+                "items": [
+                    {
+                        "title": "강남예시의원",
+                        "category": "병원,의원",
+                        "address": "서울 강남구 예시로 1",
+                        "roadAddress": "서울 강남구 예시로 1",
+                        "link": "https://map.naver.com/p/entry/place/12345",
+                        "mapx": "1269840000",
+                        "mapy": "375610000",
+                    }
+                ]
+            },
+        ),
+    )
+
+    with app.app_context():
+        results = HospitalSearchProvider.search_naver(
+            query="서울 강남구 병원",
+            category=None,
+            limit=10,
+        )
+
+    assert len(results) == 1
+    assert results[0]["source_provider"] == "naver"
+    assert results[0]["category"] is None
+    assert results[0]["hospital_name"] == "강남예시의원"
+
+
+def test_naver_region_only_search_keeps_healthcare_category(monkeypatch):
+    app = Flask(__name__)
+    app.config.update(
+        NAVER_SEARCH_CLIENT_ID="client-id",
+        NAVER_SEARCH_CLIENT_SECRET="client-secret",
+        HOSPITAL_SEARCH_TIMEOUT_SECONDS=1,
+    )
+
+    monkeypatch.setattr(
+        HospitalSearchProvider,
+        "_get_json",
+        staticmethod(
+            lambda url, headers: {
+                "items": [
+                    {
+                        "title": "강남메디컬센터",
+                        "category": "건강,의료",
+                        "address": "서울 강남구 예시로 2",
+                        "roadAddress": "서울 강남구 예시로 2",
+                        "link": "https://map.naver.com/p/entry/place/22345",
+                        "mapx": "1269840000",
+                        "mapy": "375610000",
+                    }
+                ]
+            },
+        ),
+    )
+
+    with app.app_context():
+        results = HospitalSearchProvider.search_naver(
+            query="서울 강남구 병원",
+            category=None,
+            limit=10,
+        )
+
+    assert len(results) == 1
+    assert results[0]["source_provider"] == "naver"
+    assert results[0]["category"] is None
+    assert results[0]["hospital_name"] == "강남메디컬센터"
+
+
+def test_naver_region_only_search_excludes_non_clinic_healthcare(monkeypatch):
+    app = Flask(__name__)
+    app.config.update(
+        NAVER_SEARCH_CLIENT_ID="client-id",
+        NAVER_SEARCH_CLIENT_SECRET="client-secret",
+        HOSPITAL_SEARCH_TIMEOUT_SECONDS=1,
+    )
+
+    monkeypatch.setattr(
+        HospitalSearchProvider,
+        "_get_json",
+        staticmethod(
+            lambda url, headers: {
+                "items": [
+                    {
+                        "title": "강남예시약국",
+                        "category": "건강,의료",
+                        "address": "서울 강남구 예시로 3",
+                        "roadAddress": "서울 강남구 예시로 3",
+                        "link": "https://map.naver.com/p/entry/place/32345",
+                        "mapx": "1269840000",
+                        "mapy": "375610000",
+                    }
+                ]
+            },
+        ),
+    )
+
+    with app.app_context():
+        results = HospitalSearchProvider.search_naver(
+            query="서울 강남구 병원",
+            category=None,
+            limit=10,
+        )
+
+    assert results == []
+
+
 def test_naver_external_link_is_used_as_homepage_not_place_map_or_source_url(monkeypatch):
     app = Flask(__name__)
     app.config.update(
@@ -83,7 +203,7 @@ def test_naver_external_link_is_used_as_homepage_not_place_map_or_source_url(mon
     assert len(results) == 1
     assert results[0]["source_url"] is None
     assert results[0]["homepage_url"] == "https://clinic.example.com"
-    assert results[0]["map_url"] is None
+    assert results[0]["map_url"].startswith("https://map.naver.com/p/search/")
     assert results[0]["naver_place_url"] is None
     assert results[0]["naver_place_id"] is None
 
