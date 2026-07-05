@@ -911,8 +911,8 @@ class OpenAIReviewAnalysisService:
             has_context=map_context_exists,
         )
 
-        contact_signal = payload.phone or payload.homepageUrl
-        contact_context_exists = bool(payload.phone or payload.homepageUrl or payload.naverPlaceUrl or payload.kakaoPlaceUrl or payload.googleMapUrl)
+        contact_signal = payload.phone
+        contact_context_exists = OpenAIReviewAnalysisService._has_context_value(payload.phone)
         contact_direct_status = OpenAIReviewAnalysisService._check_status(
             contact_signal,
             has_context=contact_context_exists,

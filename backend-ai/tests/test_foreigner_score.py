@@ -81,6 +81,14 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["contactBooking"], "confirmed")
 
+    def test_homepage_only_does_not_confirm_contact_booking(self):
+        payload = make_payload(homepageUrl="https://clinic.example.com")
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["contactBooking"], "unknown")
+        self.assertEqual(checks["websitePlaceLink"], "confirmed")
+
     def test_failed_inquiry_does_not_confirm_booking(self):
         payload = make_payload(reviews=["병원에 문의했지만 답변을 받지 못했습니다."])
 
@@ -159,6 +167,7 @@ class ForeignerScoreTest(unittest.TestCase):
             hasEnglishReviews=True,
             hasGooglePhotos=True,
             homepageUrl="https://clinic.example.com",
+            phone="02-0000-0000",
         )
 
         self.assertEqual(OpenAIReviewAnalysisService.calculate_foreigner_score(payload), 100)
@@ -170,7 +179,7 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["mapLocation"], "confirmed")
         self.assertEqual(checks["websitePlaceLink"], "confirmed")
-        self.assertEqual(checks["contactBooking"], "notConfirmed")
+        self.assertEqual(checks["contactBooking"], "unknown")
 
     def test_photo_info_distinguishes_unknown_and_explicit_false(self):
         unknown_payload = make_payload()
