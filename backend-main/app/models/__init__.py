@@ -8,6 +8,7 @@ from app.models.hospital_enrichment_suggestion import HospitalEnrichmentSuggesti
 from app.models.inquiry import Inquiry
 from app.models.inquiry_answer import InquiryAnswer
 from app.models.member import Member
+from app.models.member_notification import MemberNotification
 from app.models.member_saved_hospital import MemberSavedHospital
 from app.models.member_subscription import MemberSubscription
 from app.models.member_terms_agreement import MemberTermsAgreement
@@ -28,6 +29,7 @@ __all__ = [
     "Inquiry",
     "InquiryAnswer",
     "Member",
+    "MemberNotification",
     "MemberSavedHospital",
     "MemberSubscription",
     "MemberTermsAgreement",

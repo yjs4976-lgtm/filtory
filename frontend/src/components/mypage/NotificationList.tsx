@@ -13,15 +13,28 @@ export function NotificationList() {
   const { t } = useLanguage()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const unreadCount = useMemo(() => items.filter((item) => !item.isRead).length, [items])
 
   useEffect(() => {
     let alive = true
-    notificationService.getNotifications().then((nextItems) => {
-      if (!alive) return
-      setItems(nextItems)
-      setIsLoading(false)
-    })
+    notificationService
+      .getNotifications()
+      .then((result) => {
+        if (!alive) return
+        setItems(result.items)
+        setPage(result.page)
+        setTotal(result.total)
+      })
+      .catch(() => {
+        if (!alive) return
+        setItems([])
+      })
+      .finally(() => {
+        if (alive) setIsLoading(false)
+      })
     return () => {
       alive = false
     }
@@ -30,6 +43,19 @@ export function NotificationList() {
   const handleMarkAllAsRead = async () => {
     await notificationService.markAllAsRead()
     setItems((prevItems) => prevItems.map((item) => ({ ...item, isRead: true })))
+  }
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || items.length >= total) return
+    try {
+      setIsLoadingMore(true)
+      const result = await notificationService.getNotifications(page + 1)
+      setItems((prevItems) => [...prevItems, ...result.items])
+      setPage(result.page)
+      setTotal(result.total)
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   if (isLoading) return <LoadingSpinner label={t.mypage.notificationLoading} />
@@ -48,6 +74,11 @@ export function NotificationList() {
           <NotificationCard key={item.id} item={item} />
         ))}
       </div>
+      {items.length < total && (
+        <button type="button" className={styles.smallPillButton} disabled={isLoadingMore} onClick={handleLoadMore}>
+          {isLoadingMore ? t.common.loading : t.common.more}
+        </button>
+      )}
     </section>
   )
 }

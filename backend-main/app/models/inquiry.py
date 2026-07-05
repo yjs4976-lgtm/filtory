@@ -31,6 +31,10 @@ class Inquiry(db.Model):
         db.ForeignKey("public.analysis_requests.id", ondelete="SET NULL"),
     )
     attachment_url = db.Column(db.Text)
+    attachment_path = db.Column(db.Text)
+    attachment_file_name = db.Column(db.String(255))
+    attachment_content_type = db.Column(db.String(100))
+    attachment_size = db.Column(db.Integer)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
 

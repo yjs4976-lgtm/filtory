@@ -137,10 +137,14 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
 
     try {
       const messageLanguage = detectMessageLanguage(trimmed, language)
-      const fallbackAnalysisContext = selectedAnalysisResult ?? buildCurrentChatAnalysisContext()
-      const analysisResultId = connectedAnalysisResultId ?? (
-        fallbackAnalysisContext ? getAnalysisResultId(fallbackAnalysisContext) : null
-      )
+      const fallbackAnalysisContext = isAnalysisConnected
+        ? selectedAnalysisResult ?? buildCurrentChatAnalysisContext()
+        : null
+      const analysisResultId = isAnalysisConnected
+        ? connectedAnalysisResultId ?? (
+          fallbackAnalysisContext ? getAnalysisResultId(fallbackAnalysisContext) : null
+        )
+        : null
       const result = await sendChatMessage({
         message: trimmed,
         language: messageLanguage,
@@ -163,6 +167,8 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
 
   const clearConnectedResult = () => {
     setConnectedAnalysisResultId(null)
+    setSelectedAnalysisResult(null)
+    setRecommendedQuestions(null)
     clearSelectedChatbotAnalysisContext()
     if (connectedAnalysisResultId) {
       router.replace(ROUTES.CHATBOT)

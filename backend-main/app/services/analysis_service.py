@@ -228,6 +228,15 @@ class AnalysisService:
             analysis_request.request_status = "success"
             analysis_request.completed_at = datetime.now(timezone.utc)
             analysis_request.error_message = None
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_analysis_completed_notification(
+                member_id,
+                hospital.hospital_name if hospital else None,
+                analysis_request.id,
+                analysis_result.id,
+                analysis_result.total_score,
+            )
             db.session.commit()
         except Exception as exc:
             db.session.rollback()

@@ -17,6 +17,10 @@ class SupabaseStorageClient:
         self.bucket = bucket
 
     def upload_public_object(self, object_path, content, content_type):
+        self.upload_object(object_path, content, content_type)
+        return self.public_url(object_path)
+
+    def upload_object(self, object_path, content, content_type):
         object_url = self._object_url(object_path)
         request = Request(
             object_url,
@@ -34,14 +38,39 @@ class SupabaseStorageClient:
             with urlopen(request, timeout=15):
                 pass
         except HTTPError as e:
-            raise ValueError(f"Profile image upload failed: {_read_error_detail(e)}") from e
+            raise ValueError(f"Storage upload failed: {_read_error_detail(e)}") from e
         except (URLError, TimeoutError) as e:
-            raise ValueError("Profile image upload failed") from e
+            raise ValueError("Storage upload failed") from e
 
-        return self.public_url(object_path)
+        return object_path
+
+    def download_object(self, object_path):
+        request = Request(
+            self._object_url(object_path),
+            headers={
+                "Authorization": f"Bearer {self.secret_key}",
+                "apikey": self.secret_key,
+            },
+            method="GET",
+        )
+
+        try:
+            with urlopen(request, timeout=15) as response:
+                content_type = response.headers.get("Content-Type") or "application/octet-stream"
+                return response.read(), content_type
+        except HTTPError as e:
+            raise ValueError(f"Storage download failed: {_read_error_detail(e)}") from e
+        except (URLError, TimeoutError) as e:
+            raise ValueError("Storage download failed") from e
 
     def delete_public_url(self, public_url):
         object_path = self.object_path_from_public_url(public_url)
+        if not object_path:
+            return
+
+        self.delete_object(object_path)
+
+    def delete_object(self, object_path):
         if not object_path:
             return
 

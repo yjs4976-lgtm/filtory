@@ -90,6 +90,12 @@ class Member(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    notifications = db.relationship(
+        "MemberNotification",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Member id={self.id} email={self.email}>"

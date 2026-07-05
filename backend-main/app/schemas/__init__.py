@@ -9,6 +9,7 @@ from app.schemas.analysis_schema import (
     integrated_analysis_to_dict,
 )
 from app.schemas.inquiry_schema import inquiry_to_dict, inquiry_answer_to_dict
+from app.schemas.notification_schema import notification_to_dict
 from app.schemas.hospital_schema import extract_hospital_data, hospital_to_dict
 from app.schemas.member_schema import extract_member_data, member_to_dict
 from app.schemas.report_schema import extract_report_data, report_to_dict
@@ -29,6 +30,7 @@ __all__ = [
     "analysis_result_to_dict",
     "inquiry_to_dict",
     "inquiry_answer_to_dict",
+    "notification_to_dict",
     "extract_analysis_request_data",
     "extract_analysis_result_data",
     "extract_hospital_data",

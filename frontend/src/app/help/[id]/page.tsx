@@ -24,6 +24,7 @@ export default function InquiryDetailPage() {
   const [inquiry, setInquiry] = useState<Inquiry | null>(null)
   const [isFetching, setIsFetching] = useState(true)
   const [error, setError] = useState("")
+  const [downloadError, setDownloadError] = useState("")
   const inquiryId = Number(params.id)
   const hasValidInquiryId = Number.isInteger(inquiryId) && inquiryId > 0
 
@@ -53,6 +54,15 @@ export default function InquiryDetailPage() {
   }, [hasValidInquiryId, inquiryId, isAuthenticated, isLoading, t.help.detail.loadFailed])
 
   const currentStep = inquiry ? Math.max(0, INQUIRY_STATUSES.indexOf(inquiry.status)) : 0
+  const handleDownloadAttachment = async () => {
+    if (!inquiry?.attachment) return
+    try {
+      setDownloadError("")
+      await inquiryService.downloadAttachment(inquiry.id, inquiry.attachment.fileName)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : t.help.detail.loadFailed)
+    }
+  }
 
   return (
     <AppShell title={t.help.title} showBack>
@@ -101,6 +111,17 @@ export default function InquiryDetailPage() {
             <h2 className={styles.titleMd}>{t.help.detail.contentTitle}</h2>
             <p className={styles.inquiryContentText}>{inquiry.content}</p>
           </section>
+
+          {inquiry.attachment && (
+            <section className={`${styles.card} ${styles.stackSm}`}>
+              <h2 className={styles.titleMd}>{t.help.detail.attachmentTitle}</h2>
+              <button type="button" className={styles.smallPillButton} onClick={handleDownloadAttachment}>
+                {t.help.detail.attachmentDownload}
+              </button>
+              {downloadError && <p className="form-error">{downloadError}</p>}
+              <p className={styles.mutedText}>{inquiry.attachment.fileName}</p>
+            </section>
+          )}
 
           {inquiry.relatedAnalysis && (
             <InquiryRelatedAnalysisCard

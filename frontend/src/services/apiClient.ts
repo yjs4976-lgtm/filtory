@@ -3,7 +3,7 @@ import type { ApiResponse } from "@/lib/types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-interface RequestOptions {
+export interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
   auth?: boolean;
@@ -63,11 +63,20 @@ function getRequestUrl(path: string) {
   return `${API_BASE_URL}${path}`;
 }
 
-export async function apiClient<T>(
-  path: string,
-  options: RequestOptions = {}
-): Promise<ApiResponse<T>> {
-  const { method = "GET", body, headers: customHeaders } = options;
+async function refreshAuthSession() {
+  try {
+    const response = await fetch(getRequestUrl("/api/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function authenticatedFetch(path: string, options: RequestOptions = {}, retryOnUnauthorized = true) {
+  const { method = "GET", body, headers: customHeaders, auth = false } = options;
 
   const headers = new Headers(customHeaders);
 
@@ -88,6 +97,25 @@ export async function apiClient<T>(
     throw new ApiNetworkError(error);
   }
 
+  if (
+    response.status === 401 &&
+    auth &&
+    retryOnUnauthorized &&
+    !path.startsWith("/api/auth/refresh") &&
+    await refreshAuthSession()
+  ) {
+    return authenticatedFetch(path, options, false);
+  }
+
+  return response;
+}
+
+export async function apiClient<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<ApiResponse<T>> {
+  const response = await authenticatedFetch(path, options);
+
   const result = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -103,4 +131,25 @@ export async function apiClient<T>(
     message: "요청이 완료되었습니다.",
     data: result as T,
   };
+}
+
+export async function apiBlobClient(
+  path: string,
+  options: RequestOptions = {}
+): Promise<Blob> {
+  const response = await authenticatedFetch(path, {
+    ...options,
+    method: options.method ?? "GET",
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new ApiClientError(
+      payload?.message || "파일 다운로드에 실패했습니다.",
+      response.status,
+      payload,
+    );
+  }
+
+  return response.blob();
 }

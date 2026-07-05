@@ -103,6 +103,16 @@ export default function AdminInquiriesPage() {
     }
   }
 
+  const handleDownloadAttachment = async () => {
+    if (!selectedInquiry?.attachment) return
+    try {
+      setError("")
+      await inquiryService.downloadAttachment(selectedInquiry.id, selectedInquiry.attachment.fileName)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : t.help.admin.saveFailed)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
@@ -216,6 +226,16 @@ export default function AdminInquiriesPage() {
                     <span>{t.help.admin.writer}: {selectedInquiry.member?.nickname || selectedInquiry.member?.email || "-"}</span>
                     <span>{t.help.detail.createdAt}: {formatInquiryDate(selectedInquiry.createdAt)}</span>
                   </div>
+
+                  {selectedInquiry.attachment && (
+                    <section className={`${styles.inquiryRelatedPanel} ${styles.stackSm}`}>
+                      <h2 className={styles.titleMd}>{t.help.detail.attachmentTitle}</h2>
+                      <button type="button" className={styles.smallPillButton} onClick={handleDownloadAttachment}>
+                        {t.help.detail.attachmentDownload}
+                      </button>
+                      <p className={styles.mutedText}>{selectedInquiry.attachment.fileName}</p>
+                    </section>
+                  )}
 
                   {selectedInquiry.relatedAnalysis && (
                     <InquiryRelatedAnalysisCard

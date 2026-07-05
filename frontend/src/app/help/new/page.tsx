@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ImagePlus, MessageCircle } from "lucide-react"
+import { ImagePlus, MessageCircle, X } from "lucide-react"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
@@ -24,6 +24,19 @@ function getInitialRelatedAnalysisId(value: string | null) {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/csv",
+  "application/vnd.ms-excel",
+])
+const ALLOWED_ATTACHMENT_EXTENSIONS = /\.(jpe?g|png|webp|pdf|txt|csv)$/i
+
 export default function NewInquiryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -39,7 +52,8 @@ export default function NewInquiryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const [attachmentNotice, setAttachmentNotice] = useState(false)
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null)
 
   const subcategories = useMemo(() => t.help.subcategories[category] ?? [], [category, t.help.subcategories])
   const selectableRecords = useMemo(() => (
@@ -127,6 +141,7 @@ export default function NewInquiryPage() {
         title: title.trim(),
         content: content.trim(),
         relatedAnalysisId,
+        attachmentFile,
       })
       setSuccess(true)
       window.setTimeout(() => router.push(`${ROUTES.HELP}/${inquiry.id}`), 900)
@@ -134,6 +149,29 @@ export default function NewInquiryPage() {
       setError(error instanceof Error ? error.message : t.help.form.errors.submitFailed)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleAttachmentChange = (file?: File) => {
+    if (!file) return
+    const hasAllowedExtension = ALLOWED_ATTACHMENT_EXTENSIONS.test(file.name)
+    const hasAllowedType = !file.type || ALLOWED_ATTACHMENT_TYPES.has(file.type)
+    if (!hasAllowedExtension || !hasAllowedType) {
+      setError(t.help.form.errors.attachmentInvalid)
+      return
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setError(t.help.form.errors.attachmentTooLarge)
+      return
+    }
+    setError("")
+    setAttachmentFile(file)
+  }
+
+  const clearAttachment = () => {
+    setAttachmentFile(null)
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = ""
     }
   }
 
@@ -255,11 +293,24 @@ export default function NewInquiryPage() {
 
           <section className={`${styles.card} ${styles.stackSm}`}>
             <h2 className={styles.titleMd}>{t.help.form.attachment}</h2>
-            <button type="button" className={styles.inquiryUploadBox} onClick={() => setAttachmentNotice(true)}>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              className={styles.visuallyHidden}
+              accept="image/jpeg,image/png,image/webp,application/pdf,text/plain,text/csv,.jpg,.jpeg,.png,.webp,.pdf,.txt,.csv"
+              onChange={(event) => handleAttachmentChange(event.target.files?.[0])}
+            />
+            <button type="button" className={styles.inquiryUploadBox} onClick={() => attachmentInputRef.current?.click()}>
               <ImagePlus className={styles.iconMd} />
-              <span>{t.help.form.attachment}</span>
+              <span>{attachmentFile ? attachmentFile.name : t.help.form.attachmentSelect}</span>
             </button>
-            {attachmentNotice && <p className={styles.mutedText}>{t.help.form.attachmentDescription}</p>}
+            <p className={styles.mutedText}>{t.help.form.attachmentDescription}</p>
+            {attachmentFile && (
+              <button type="button" className={styles.smallPillButton} onClick={clearAttachment}>
+                <X className={styles.iconXs} />
+                {t.help.form.attachmentRemove}
+              </button>
+            )}
           </section>
 
           <button type="submit" className={styles.primaryButton} disabled={isSubmitting || success}>
