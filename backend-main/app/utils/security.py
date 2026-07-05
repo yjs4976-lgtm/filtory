@@ -63,7 +63,7 @@ def require_admin(view_func):
         except ValueError as e:
             return error_response(str(e), 401)
 
-        if member.role != "admin":
+        if str(member.role or "").lower() != "admin":
             return error_response("Admin permission is required", 403)
 
         g.current_member = member

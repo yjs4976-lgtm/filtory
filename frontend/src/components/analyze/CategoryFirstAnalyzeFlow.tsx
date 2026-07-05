@@ -3207,9 +3207,11 @@ function HospitalResultCard({
               {t.analyze.officialHospitalBadge}
             </span>
           )}
-          <span className={styles.neutralPill}>
-            {t.analyze.reviewCount} {hospital.reviewCount ?? 0}
-          </span>
+          {typeof hospital.reviewCount === "number" && hospital.reviewCount > 0 && (
+            <span className={styles.neutralPill}>
+              {t.analyze.reviewCount} {hospital.reviewCount}
+            </span>
+          )}
           {hospital.sourceName && (
             <span className={styles.neutralPill}>
               {t.analyze.source} {hospital.sourceName}
