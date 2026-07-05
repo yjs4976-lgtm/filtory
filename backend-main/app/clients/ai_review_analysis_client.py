@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 
@@ -14,10 +15,15 @@ class AIReviewAnalysisClient:
     @classmethod
     def analyze(cls, payload):
         url = cls._api_url()
+        headers = {"Content-Type": "application/json"}
+        internal_token = str(os.getenv("AI_INTERNAL_TOKEN") or "").strip()
+        if internal_token:
+            headers["X-Internal-Token"] = internal_token
+
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
 

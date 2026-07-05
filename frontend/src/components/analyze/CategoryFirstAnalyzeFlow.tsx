@@ -549,6 +549,57 @@ function isSameHref(left?: string, right?: string) {
   return left.replace(/\/$/, "") === right.replace(/\/$/, "")
 }
 
+function hasKoreanText(value?: string) {
+  return /[가-힣]/.test(value ?? "")
+}
+
+function getLatinNamePrefix(value?: string) {
+  const matches = value?.match(/[A-Za-z0-9]+(?:[&+.'-]?[A-Za-z0-9]+)*/g)
+  return matches?.join(" ").trim() || ""
+}
+
+function getHospitalCardName(hospital: HospitalItem, language: "ko" | "en", categoryLabel: string) {
+  if (language === "ko") return getHospitalDisplayName(hospital, language)
+
+  const explicitEnglishName =
+    hospital.hospitalEnglishName ||
+    hospital.hospitalNameEn ||
+    hospital.englishName
+
+  if (explicitEnglishName && !hasKoreanText(explicitEnglishName)) {
+    return explicitEnglishName
+  }
+
+  const latinPrefix = getLatinNamePrefix(hospital.name || hospital.hospitalNameKo)
+  return latinPrefix ? `${latinPrefix} ${categoryLabel}` : hospital.name || hospital.hospitalNameKo || categoryLabel
+}
+
+function getHospitalCardRegionLabel(hospital: HospitalItem, fallbackRegionLabel: string, language: "ko" | "en") {
+  if (language === "ko") {
+    return hospital.regionKoLabel || extractRegionLabelFromAddress(hospital.roadAddress || hospital.address) || fallbackRegionLabel
+  }
+
+  return (
+    hospital.regionEnLabel ||
+    getEnglishRegionLabelFromKorean(hospital.regionKoLabel) ||
+    getEnglishRegionLabelFromKorean(hospital.manualRegionLabel) ||
+    getEnglishRegionLabelFromKorean(hospital.roadAddress || hospital.address) ||
+    getEnglishRegionLabelFromKorean(hospital.region) ||
+    getEnglishRegionLabelFromKorean(fallbackRegionLabel) ||
+    formatHistoryRegionLabel(fallbackRegionLabel, "en")
+  )
+}
+
+function getHospitalCardAddressLabel(hospital: HospitalItem, regionLabel: string, language: "ko" | "en") {
+  const address = hospital.roadAddress || hospital.address
+  if (!address) return ""
+
+  if (language === "ko") return address
+  if (!hasKoreanText(address)) return address
+
+  return regionLabel
+}
+
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
@@ -3223,6 +3274,11 @@ function HospitalResultCard({
   const providerName = String(hospital.provider ?? "").toLowerCase()
   const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버") || providerName.includes("naver")
   const naverPlaceHref = buildNaverPlaceHref(hospital, isNaverSource)
+  const categoryLabel = t.categories[hospital.category]
+  const displayName = getHospitalCardName(hospital, language, categoryLabel)
+  const displayRegionLabel = getHospitalCardRegionLabel(hospital, regionLabel, language)
+  const displayAddress = getHospitalCardAddressLabel(hospital, displayRegionLabel, language)
+  const shouldShowAddress = Boolean(displayAddress && displayAddress !== displayRegionLabel)
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
@@ -3230,11 +3286,11 @@ function HospitalResultCard({
         <MapPinned className={styles.iconSm} />
       </span>
       <div className={styles.recordBody}>
-        <strong className={styles.recordName}>{getHospitalDisplayName(hospital, language)}</strong>
+        <strong className={styles.recordName}>{displayName}</strong>
         <p className={styles.recordDate}>
-          {t.categories[hospital.category]} · {regionLabel}
+          {categoryLabel} · {displayRegionLabel}
         </p>
-        <p className={styles.recordMeta}>{hospital.address}</p>
+        {shouldShowAddress && <p className={styles.recordMeta}>{displayAddress}</p>}
         <div className={styles.badgeRow}>
           {hospital.isOfficialHospital && (
             <span className={styles.officialPill}>
