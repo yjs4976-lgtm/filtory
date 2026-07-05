@@ -3,6 +3,8 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.orm.attributes import set_committed_value
+
 from app.extensions import db
 from app.models import Member
 from app.repositories import MemberRepository
@@ -136,10 +138,12 @@ class MemberService:
 
         requester_is_admin = str(getattr(requester, "role", "") or "").lower() == "admin"
         if not requester_is_admin:
+            if not requester or requester.id != member.id:
+                raise ValueError("Member permission is required")
             if member.password_hash:
                 _validate_current_password(member, password)
-            elif not _has_social_account(member) or not fresh_auth:
-                raise ValueError("Fresh account verification is required")
+            elif not _has_social_account(member):
+                raise ValueError("Account verification is required")
 
         try:
             _release_member_identity_for_rejoin(member)
@@ -496,13 +500,17 @@ def _release_member_identity_for_rejoin(member):
     member.email_verified = False
 
     social_accounts = list(getattr(member, "social_accounts", []) or [])
-    delete = getattr(db.session, "delete", None)
-    for account in social_accounts:
-        if callable(delete):
-            delete(account)
+    if isinstance(member, Member):
+        MemberRepository.delete_social_accounts_by_member_id(member.id)
+        set_committed_value(member, "social_accounts", [])
+    else:
+        delete = getattr(db.session, "delete", None)
+        for account in social_accounts:
+            if callable(delete):
+                delete(account)
 
-    if hasattr(member, "social_accounts"):
-        member.social_accounts = []
+        if hasattr(member, "social_accounts"):
+            member.social_accounts = []
 
 
 def _validate_current_password(member, password):

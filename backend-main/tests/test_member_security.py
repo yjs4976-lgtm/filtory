@@ -243,7 +243,7 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     )
     monkeypatch.setattr(member_service_module, "member_to_dict", lambda target: {"id": target.id, "active": target.active})
 
-    result = MemberService.deactivate_member(1, requester=member, fresh_auth=True)
+    result = MemberService.deactivate_member(1, requester=member, fresh_auth=False)
 
     assert result == {"id": 1, "active": False}
     assert member.active is False
@@ -255,7 +255,7 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     assert deleted_accounts == [social_account]
 
 
-def test_social_account_cannot_deactivate_without_fresh_auth(monkeypatch):
+def test_social_account_cannot_deactivate_for_different_requester(monkeypatch):
     member = SimpleNamespace(
         id=1,
         active=True,
@@ -264,11 +264,12 @@ def test_social_account_cannot_deactivate_without_fresh_auth(monkeypatch):
         role="user",
         social_accounts=[SimpleNamespace(provider="google")],
     )
+    requester = SimpleNamespace(id=2, role="user")
 
     monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: member if member_id == 1 else None))
 
-    with pytest.raises(ValueError, match="Fresh account verification is required"):
-        MemberService.deactivate_member(1, requester=member, fresh_auth=False)
+    with pytest.raises(ValueError, match="Member permission is required"):
+        MemberService.deactivate_member(1, requester=requester, fresh_auth=False)
 
 
 def test_passwordless_non_social_account_cannot_deactivate(monkeypatch):
@@ -283,7 +284,7 @@ def test_passwordless_non_social_account_cannot_deactivate(monkeypatch):
 
     monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: member if member_id == 1 else None))
 
-    with pytest.raises(ValueError, match="Fresh account verification is required"):
+    with pytest.raises(ValueError, match="Account verification is required"):
         MemberService.deactivate_member(1, requester=member, fresh_auth=True)
 
 

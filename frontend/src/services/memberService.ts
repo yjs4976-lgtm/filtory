@@ -6,7 +6,7 @@ import type {
   WithdrawalRequest,
 } from "@/lib/types";
 import { USE_MOCK } from "@/lib/constants";
-import { apiClient } from "./apiClient";
+import { ApiClientError, apiClient } from "./apiClient";
 import { normalizeUser } from "./authTransforms";
 
 type BackendUpdateProfilePayload = {
@@ -130,8 +130,11 @@ export const memberService = {
         body,
         auth: true,
       });
-    } catch {
+    } catch (error) {
       if (!USE_MOCK) {
+        if (error instanceof ApiClientError) {
+          throw new Error(error.message)
+        }
         throw new Error("회원 탈퇴에 실패했습니다.");
       }
 
