@@ -208,14 +208,23 @@ def test_local_account_deactivation_requires_current_password(monkeypatch):
 
 
 def test_social_account_can_deactivate_without_password(monkeypatch):
+    social_account = SimpleNamespace(provider="google")
     member = SimpleNamespace(
         id=1,
         active=True,
         deleted_at=None,
         password_hash=None,
         role="user",
-        social_accounts=[SimpleNamespace(provider="google")],
+        email="social@example.com",
+        login_id=None,
+        nickname="social-user",
+        real_name="Social User",
+        phone="01012345678",
+        profile_img_url="https://example.com/profile.png",
+        email_verified=True,
+        social_accounts=[social_account],
     )
+    deleted_accounts = []
 
     monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: member if member_id == 1 else None))
     monkeypatch.setattr(
@@ -226,7 +235,11 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     monkeypatch.setattr(
         member_service_module.db,
         "session",
-        SimpleNamespace(commit=lambda: None, rollback=lambda: None),
+        SimpleNamespace(
+            commit=lambda: None,
+            rollback=lambda: None,
+            delete=lambda account: deleted_accounts.append(account),
+        ),
     )
     monkeypatch.setattr(member_service_module, "member_to_dict", lambda target: {"id": target.id, "active": target.active})
 
@@ -236,6 +249,10 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     assert member.active is False
     assert member.status == "withdrawn"
     assert member.deleted_at is not None
+    assert member.email is None
+    assert member.nickname is None
+    assert member.social_accounts == []
+    assert deleted_accounts == [social_account]
 
 
 def test_social_account_cannot_deactivate_without_fresh_auth(monkeypatch):
@@ -268,6 +285,95 @@ def test_passwordless_non_social_account_cannot_deactivate(monkeypatch):
 
     with pytest.raises(ValueError, match="Fresh account verification is required"):
         MemberService.deactivate_member(1, requester=member, fresh_auth=True)
+
+
+def test_withdrawn_social_account_can_register_again(monkeypatch):
+    old_member = SimpleNamespace(
+        id=1,
+        active=False,
+        deleted_at=object(),
+        email="social@example.com",
+        login_id=None,
+        nickname="old-social-user",
+        real_name=None,
+        phone=None,
+        profile_img_url=None,
+        email_verified=True,
+        social_accounts=[],
+    )
+    old_social_account = SimpleNamespace(
+        member=old_member,
+        provider="google",
+        social_id="google-123",
+    )
+    old_member.social_accounts = [old_social_account]
+    deleted_accounts = []
+    created_social_account = {}
+
+    def fake_create(data):
+        return SimpleNamespace(
+            id=2,
+            active=True,
+            deleted_at=None,
+            password_hash=None,
+            social_accounts=[],
+            **data,
+        )
+
+    def fake_get_by_email(email):
+        return old_member if old_member.email == email else None
+
+    monkeypatch.setattr(
+        MemberRepository,
+        "get_social_account",
+        staticmethod(lambda provider, social_id: old_social_account),
+    )
+    monkeypatch.setattr(MemberRepository, "get_by_email", staticmethod(fake_get_by_email))
+    monkeypatch.setattr(MemberRepository, "get_by_nickname", staticmethod(lambda nickname: None))
+    monkeypatch.setattr(MemberRepository, "create", staticmethod(fake_create))
+    monkeypatch.setattr(
+        MemberRepository,
+        "create_social_account",
+        staticmethod(lambda data: created_social_account.update(data) or SimpleNamespace(**data)),
+    )
+    monkeypatch.setattr(
+        member_service_module.db,
+        "session",
+        SimpleNamespace(
+            flush=lambda: None,
+            commit=lambda: None,
+            rollback=lambda: None,
+            delete=lambda account: deleted_accounts.append(account),
+        ),
+    )
+    monkeypatch.setattr(
+        member_service_module,
+        "member_to_dict",
+        lambda member: {"id": member.id, "email": member.email, "nickname": member.nickname},
+    )
+
+    result = MemberService.login_or_register_social(
+        {
+            "provider": "google",
+            "social_id": "google-123",
+            "social_email": "social@example.com",
+            "social_nickname": "new-social-user",
+            "email_verified": True,
+        }
+    )
+
+    assert result == {
+        "id": 2,
+        "email": "social@example.com",
+        "nickname": "new-social-user",
+    }
+    assert old_member.email is None
+    assert old_member.nickname is None
+    assert old_member.social_accounts == []
+    assert deleted_accounts == [old_social_account]
+    assert created_social_account["member_id"] == 2
+    assert created_social_account["provider"] == "google"
+    assert created_social_account["social_id"] == "google-123"
 
 
 def test_member_schema_exposes_password_and_social_provider_flags():

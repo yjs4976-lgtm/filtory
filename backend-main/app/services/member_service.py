@@ -142,6 +142,7 @@ class MemberService:
                 raise ValueError("Fresh account verification is required")
 
         try:
+            _release_member_identity_for_rejoin(member)
             member = MemberRepository.update(
                 member,
                 {
@@ -279,17 +280,24 @@ class MemberService:
         if not social_id:
             raise ValueError("social_id is required")
 
-        social_account = MemberRepository.get_social_account(provider, social_id)
-        if social_account:
-            if not social_account.member.active or social_account.member.deleted_at:
-                raise ValueError("Member not found")
-            MemberService._fill_missing_social_profile(social_account.member, payload)
-            return member_to_dict(social_account.member)
-
-        social_email = _normalize_email(payload.get("social_email"))
-        member = MemberRepository.get_by_email(social_email) if social_email else None
-
         try:
+            social_account = MemberRepository.get_social_account(provider, social_id)
+            if social_account:
+                if social_account.member.active and not social_account.member.deleted_at:
+                    MemberService._fill_missing_social_profile(social_account.member, payload)
+                    return member_to_dict(social_account.member)
+
+                _release_member_identity_for_rejoin(social_account.member)
+                db.session.flush()
+
+            social_email = _normalize_email(payload.get("social_email"))
+            member = MemberRepository.get_by_email(social_email) if social_email else None
+
+            if member and (not member.active or member.deleted_at):
+                _release_member_identity_for_rejoin(member)
+                db.session.flush()
+                member = None
+
             if not member:
                 member = MemberRepository.create(
                     {
@@ -476,6 +484,25 @@ def _mask_login_id(login_id):
 
 def _has_social_account(member):
     return bool(getattr(member, "social_accounts", None))
+
+
+def _release_member_identity_for_rejoin(member):
+    member.email = None
+    member.login_id = None
+    member.nickname = None
+    member.real_name = None
+    member.phone = None
+    member.profile_img_url = None
+    member.email_verified = False
+
+    social_accounts = list(getattr(member, "social_accounts", []) or [])
+    delete = getattr(db.session, "delete", None)
+    for account in social_accounts:
+        if callable(delete):
+            delete(account)
+
+    if hasattr(member, "social_accounts"):
+        member.social_accounts = []
 
 
 def _validate_current_password(member, password):
