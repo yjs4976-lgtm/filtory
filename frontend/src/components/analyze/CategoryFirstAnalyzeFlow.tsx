@@ -92,6 +92,8 @@ type AnalyzeCategoryFilter = HospitalCategory | null
 type AccessibilityEnhancementInput = {
   googleMapUrl: string
   homepageUrl: string
+  phone: string
+  treatmentItems: string
   englishName: string
   hasEnglishInfo: boolean | null
   hasEnglishReviews: boolean | null
@@ -161,6 +163,8 @@ function createEmptyAccessibilityEnhancement(): AccessibilityEnhancementInput {
   return {
     googleMapUrl: "",
     homepageUrl: "",
+    phone: "",
+    treatmentItems: "",
     englishName: "",
     hasEnglishInfo: null,
     hasEnglishReviews: null,
@@ -572,6 +576,10 @@ function buildAccessibilityMetadataPayload(
 ): Pick<
   ReviewAnalyzeRequest,
   | "googleMapUrl"
+  | "kakaoPlaceUrl"
+  | "naverPlaceUrl"
+  | "phone"
+  | "treatmentItems"
   | "homepageUrl"
   | "englishName"
   | "hasEnglishInfo"
@@ -582,9 +590,15 @@ function buildAccessibilityMetadataPayload(
 > {
   const fallback = buildHospitalMetadataPayload(hospital)
   const hasEnglishReviews = booleanOverride(input.hasEnglishReviews, fallback.hasEnglishReviews)
+  const inputMapUrl = input.googleMapUrl.trim()
+  const inputMapUrlInfo = classifyMapUrl(inputMapUrl)
 
   return {
-    googleMapUrl: textOverride(input.googleMapUrl, fallback.googleMapUrl),
+    googleMapUrl: textOverride(inputMapUrlInfo.googleMapUrl, fallback.googleMapUrl),
+    kakaoPlaceUrl: textOverride(inputMapUrlInfo.kakaoPlaceUrl, fallback.kakaoPlaceUrl),
+    naverPlaceUrl: textOverride(inputMapUrlInfo.naverPlaceUrl, fallback.naverPlaceUrl),
+    phone: textOverride(input.phone, fallback.phone),
+    treatmentItems: splitTreatmentItems(textOverride(input.treatmentItems, Array.isArray(fallback.treatmentItems) ? fallback.treatmentItems.join(", ") : "")),
     homepageUrl: textOverride(input.homepageUrl, fallback.homepageUrl),
     englishName: textOverride(input.englishName, fallback.englishName),
     hasEnglishInfo: booleanOverride(input.hasEnglishInfo, fallback.hasEnglishInfo),
@@ -757,6 +771,17 @@ function createApiAnalysisResult({
     hospital?.hospitalEnglishName ||
     hospital?.hospitalNameEn ||
     hospital?.englishName
+  const mapUrlInfo = accessibilityInput?.googleMapUrl ? classifyMapUrl(accessibilityInput.googleMapUrl) : {}
+  const manualMapUrl = accessibilityInput?.googleMapUrl.trim() || undefined
+  const manualMapUrlSupported = Boolean(mapUrlInfo.googleMapUrl || mapUrlInfo.naverPlaceUrl || mapUrlInfo.kakaoPlaceUrl)
+  const hospitalMapUrlInfo = hospital?.mapUrl ? classifyMapUrl(hospital.mapUrl) : {}
+  const hospitalMapUrlSupported = Boolean(hospitalMapUrlInfo.googleMapUrl || hospitalMapUrlInfo.naverPlaceUrl || hospitalMapUrlInfo.kakaoPlaceUrl)
+  const resultNaverPlaceUrl = mapUrlInfo.naverPlaceUrl || hospital?.naverPlaceUrl
+  const resultKakaoPlaceUrl = mapUrlInfo.kakaoPlaceUrl || hospital?.kakaoPlaceUrl
+  const resultGoogleMapUrl = mapUrlInfo.googleMapUrl || hospital?.googleMapUrl
+  const resultHomepageUrl = accessibilityInput?.homepageUrl.trim() || hospital?.homepageUrl
+  const resultPhone = accessibilityInput?.phone.trim() || hospital?.phone
+  const resultTreatmentItems = accessibilityInput?.treatmentItems.trim() || hospital?.treatmentItems
 
   return {
     id: `analysis-${Date.now()}`,
@@ -786,6 +811,15 @@ function createApiAnalysisResult({
     regionDistrictCode: regionPayload.regionDistrictCode,
     sourceName: hospital?.sourceName,
     sourceUrl: hospital?.sourceUrl,
+    mapUrl: (manualMapUrlSupported ? manualMapUrl : undefined) || (hospitalMapUrlSupported ? hospital?.mapUrl : undefined),
+    googleMapUrl: resultGoogleMapUrl,
+    naverPlaceUrl: resultNaverPlaceUrl,
+    kakaoPlaceUrl: resultKakaoPlaceUrl,
+    homepageUrl: resultHomepageUrl,
+    phone: resultPhone,
+    treatmentItems: resultTreatmentItems,
+    hasPhotos: accessibilityInput?.hasPhotos ?? (hospital?.imageUrl ? true : undefined),
+    hasGooglePhotos: accessibilityInput?.hasGooglePhotos ?? hospital?.hasGooglePhotos,
     score: response.totalScore,
     foreignerFriendlyScore: globalAccessibilityScore,
     createdAt: new Date().toISOString(),
@@ -1151,6 +1185,26 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const handleClearReviewDrafts = () => {
     setReviewDrafts([])
     setReviewFeedback("")
+  }
+
+  const handleAccessibilityTextChange = (
+    field: "googleMapUrl" | "homepageUrl" | "phone" | "treatmentItems" | "englishName",
+    value: string
+  ) => {
+    setAccessibilityInput((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const handleAccessibilityBooleanChange = (
+    field: "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos",
+    value: boolean | null
+  ) => {
+    setAccessibilityInput((current) => ({
+      ...current,
+      [field]: value,
+    }))
   }
 
   const handleSearch = useCallback(async (options: {
@@ -1740,7 +1794,11 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         isExtractingScreenshotText={isExtractingScreenshotText}
         screenshotFileNames={screenshotFileNames}
         uploadedReviewFileName={uploadedReviewFileName}
+        selectedHospital={selectedHospital}
+        accessibilityInput={accessibilityInput}
         onChange={setDirectReviewText}
+        onAccessibilityTextChange={handleAccessibilityTextChange}
+        onAccessibilityBooleanChange={handleAccessibilityBooleanChange}
         onAddReviews={handleAddManualReviews}
         onReadScreenshotReviews={handleReadScreenshotReviews}
         onCombinedImportChange={handleCombinedReviewImportChange}
@@ -2194,7 +2252,11 @@ function ReviewInputWorkspace({
   isExtractingScreenshotText,
   screenshotFileNames,
   uploadedReviewFileName,
+  selectedHospital,
+  accessibilityInput,
   onChange,
+  onAccessibilityTextChange,
+  onAccessibilityBooleanChange,
   onAddReviews,
   onReadScreenshotReviews,
   onCombinedImportChange,
@@ -2214,7 +2276,11 @@ function ReviewInputWorkspace({
   isExtractingScreenshotText: boolean
   screenshotFileNames: string[]
   uploadedReviewFileName: string
+  selectedHospital: HospitalItem | null
+  accessibilityInput: AccessibilityEnhancementInput
   onChange: (value: string) => void
+  onAccessibilityTextChange: (field: "googleMapUrl" | "homepageUrl" | "phone" | "treatmentItems" | "englishName", value: string) => void
+  onAccessibilityBooleanChange: (field: "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos", value: boolean | null) => void
   onAddReviews: () => void
   onReadScreenshotReviews: () => void
   onCombinedImportChange: (event: ChangeEvent<HTMLInputElement>) => void
@@ -2270,6 +2336,13 @@ function ReviewInputWorkspace({
         <span>{t.analyze.imageImportSupportText}</span>
         <span>{t.analyze.fileSupportText}</span>
       </div>
+
+      <VisitInfoAssistPanel
+        selectedHospital={selectedHospital}
+        value={accessibilityInput}
+        onTextChange={onAccessibilityTextChange}
+        onBooleanChange={onAccessibilityBooleanChange}
+      />
 
       <Link href={`${ROUTES.HELP}?topic=review-input`} className={styles.reviewInputHelpCard}>
         <span className={styles.analysisHelpIcon}>
@@ -2408,6 +2481,155 @@ function ReviewInputWorkspace({
           {isAnalyzing ? t.analyze.submitting : t.analyze.directAnalyzeButton}
         </button>
       </section>
+    </section>
+  )
+}
+
+function VisitInfoAssistPanel({
+  selectedHospital,
+  value,
+  onTextChange,
+  onBooleanChange,
+}: {
+  selectedHospital: HospitalItem | null
+  value: AccessibilityEnhancementInput
+  onTextChange: (field: "googleMapUrl" | "homepageUrl" | "phone" | "treatmentItems" | "englishName", value: string) => void
+  onBooleanChange: (field: "hasEnglishInfo" | "hasEnglishReviews" | "hasGooglePhotos" | "hasPhotos", value: boolean | null) => void
+}) {
+  const { t } = useLanguage()
+  const sourceName = selectedHospital?.sourceName?.toLowerCase() ?? ""
+  const providerName = String(selectedHospital?.provider ?? "").toLowerCase()
+  const isNaverSource = sourceName.includes("naver") || sourceName.includes("네이버") || providerName.includes("naver")
+  const naverPlaceHref = selectedHospital ? buildNaverPlaceHref(selectedHospital, isNaverSource) : undefined
+  const rawSelectedMapLink =
+    naverPlaceHref ||
+    selectedHospital?.naverPlaceUrl ||
+    selectedHospital?.kakaoPlaceUrl ||
+    selectedHospital?.googleMapUrl ||
+    selectedHospital?.mapUrl
+  const selectedMapLink = (() => {
+    if (!rawSelectedMapLink) return undefined
+    const info = classifyMapUrl(rawSelectedMapLink)
+    const isSupportedMapUrl = Boolean(info.naverPlaceUrl || info.kakaoPlaceUrl || info.googleMapUrl)
+    return isSupportedMapUrl ? rawSelectedMapLink : undefined
+  })()
+  const selectedHomepageLink = selectedHospital?.homepageUrl
+  const englishName = selectedHospital?.hospitalEnglishName || selectedHospital?.hospitalNameEn || selectedHospital?.englishName
+
+  return (
+    <section className={styles.visitInfoAssistPanel}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h3 className={styles.titleSm}>{t.analyze.visitInfoAssistTitle}</h3>
+          <p className={styles.bodyText}>{t.analyze.visitInfoAssistDescription}</p>
+        </div>
+      </div>
+
+      {(selectedMapLink || selectedHomepageLink) && (
+        <div className={styles.visitInfoQuickActions}>
+          {selectedMapLink && (
+            <button
+              type="button"
+              className={styles.smallPillButton}
+              onClick={() => onTextChange("googleMapUrl", selectedMapLink)}
+            >
+              <LinkIcon className={styles.iconXs} aria-hidden="true" />
+              {t.analyze.useSelectedMapLink}
+            </button>
+          )}
+          {selectedHomepageLink && (
+            <button
+              type="button"
+              className={styles.smallPillButton}
+              onClick={() => onTextChange("homepageUrl", selectedHomepageLink)}
+            >
+              <LinkIcon className={styles.iconXs} aria-hidden="true" />
+              {t.analyze.useSelectedHomepageLink}
+            </button>
+          )}
+          {naverPlaceHref && <SourceLink href={naverPlaceHref} label={t.analyze.naverOriginalLink} />}
+        </div>
+      )}
+
+      <div className={styles.visitInfoFieldGrid}>
+        <label className={styles.label} htmlFor="analysis-map-link">
+          <span className={styles.mutedText}>{t.analyze.googleMapUrlLabel}</span>
+          <input
+            id="analysis-map-link"
+            className={styles.input}
+            value={value.googleMapUrl}
+            onChange={(event) => onTextChange("googleMapUrl", event.target.value)}
+            placeholder={t.analyze.mapUrlPlaceholder}
+          />
+        </label>
+        <label className={styles.label} htmlFor="analysis-homepage-link">
+          <span className={styles.mutedText}>{t.analyze.homepageUrlLabel}</span>
+          <input
+            id="analysis-homepage-link"
+            className={styles.input}
+            value={value.homepageUrl}
+            onChange={(event) => onTextChange("homepageUrl", event.target.value)}
+            placeholder={t.analyze.homepageUrlPlaceholder}
+          />
+        </label>
+        <label className={styles.label} htmlFor="analysis-phone">
+          <span className={styles.mutedText}>{t.analyze.phoneInfoLabel}</span>
+          <input
+            id="analysis-phone"
+            className={styles.input}
+            value={value.phone}
+            onChange={(event) => onTextChange("phone", event.target.value)}
+            placeholder={selectedHospital?.phone || t.analyze.phoneInfoPlaceholder}
+          />
+        </label>
+        <label className={styles.label} htmlFor="analysis-treatment-items">
+          <span className={styles.mutedText}>{t.analyze.treatmentInfoLabel}</span>
+          <input
+            id="analysis-treatment-items"
+            className={styles.input}
+            value={value.treatmentItems}
+            onChange={(event) => onTextChange("treatmentItems", event.target.value)}
+            placeholder={selectedHospital?.treatmentItems || t.analyze.treatmentInfoPlaceholder}
+          />
+        </label>
+        <label className={styles.label} htmlFor="analysis-english-name">
+          <span className={styles.mutedText}>{t.analyze.englishNameLabel}</span>
+          <input
+            id="analysis-english-name"
+            className={styles.input}
+            value={value.englishName}
+            onChange={(event) => onTextChange("englishName", event.target.value)}
+            placeholder={englishName || t.analyze.englishNamePlaceholder}
+          />
+        </label>
+      </div>
+
+      <div className={styles.visitInfoToggleGrid}>
+        <label className={styles.visitInfoToggle}>
+          <input
+            type="checkbox"
+            checked={value.hasEnglishInfo === true}
+            onChange={(event) => onBooleanChange("hasEnglishInfo", event.target.checked ? true : null)}
+          />
+          <span>{t.analyze.hasEnglishInfoLabel}</span>
+        </label>
+        <label className={styles.visitInfoToggle}>
+          <input
+            type="checkbox"
+            checked={value.hasEnglishReviews === true}
+            onChange={(event) => onBooleanChange("hasEnglishReviews", event.target.checked ? true : null)}
+          />
+          <span>{t.analyze.hasEnglishReviewsLabel}</span>
+        </label>
+        <label className={styles.visitInfoToggle}>
+          <input
+            type="checkbox"
+            checked={value.hasPhotos === true || value.hasGooglePhotos === true}
+            onChange={(event) => onBooleanChange("hasPhotos", event.target.checked ? true : null)}
+          />
+          <span>{t.analyze.hasPhotosLabel}</span>
+        </label>
+      </div>
     </section>
   )
 }

@@ -2,9 +2,9 @@ import type { Language } from "./types"
 
 export const RESULT_DISPLAY_LABELS = {
   globalAccessibility: {
-    ko: "외국인 방문 편의도",
-    en: "Visitor information accessibility",
-    shortEn: "Visitor info",
+    ko: "외국인 방문 준비도",
+    en: "Visitor readiness",
+    shortEn: "Readiness",
   },
 } as const
 

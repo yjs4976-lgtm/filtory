@@ -52,6 +52,15 @@ export type AnalysisHistoryItem = {
   regionDistrictCode?: string
   sourceName?: string
   sourceUrl?: string
+  mapUrl?: string
+  googleMapUrl?: string
+  naverPlaceUrl?: string
+  kakaoPlaceUrl?: string
+  homepageUrl?: string
+  phone?: string
+  treatmentItems?: string | string[]
+  hasPhotos?: boolean
+  hasGooglePhotos?: boolean
   score: number
   foreignerFriendlyScore?: number
   createdAt: string
