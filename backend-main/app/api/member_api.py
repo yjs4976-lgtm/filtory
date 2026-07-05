@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from flask import Blueprint, g, request
 from flask_jwt_extended import get_jwt
 
@@ -7,6 +9,18 @@ from app.utils.response import auth_success_response, error_response, success_re
 from app.utils.security import require_admin, require_member_or_admin
 
 member_bp = Blueprint("members", __name__)
+
+
+def _current_jwt_is_fresh():
+    fresh = get_jwt().get("fresh", False)
+
+    if isinstance(fresh, bool):
+        return fresh
+
+    if isinstance(fresh, (int, float)):
+        return fresh > datetime.now(timezone.utc).timestamp()
+
+    return False
 
 
 @member_bp.route("/", methods=["GET"])
@@ -107,7 +121,7 @@ def deactivate_member(member_id):
             member_id,
             password=payload.get("password"),
             requester=g.current_member,
-            fresh_auth=bool(get_jwt().get("fresh")),
+            fresh_auth=_current_jwt_is_fresh(),
         )
         return success_response(member, "Member deactivated")
     except ValueError as e:

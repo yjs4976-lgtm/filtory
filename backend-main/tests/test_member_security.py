@@ -109,6 +109,37 @@ def test_deactivate_member_passes_password_to_service(app, client, monkeypatch):
     }
 
 
+def test_deactivate_member_passes_stale_fresh_to_service(app, client, monkeypatch):
+    captured = {}
+
+    def fake_deactivate_member(member_id, password=None, requester=None, fresh_auth=False):
+        captured.update(
+            {
+                "member_id": member_id,
+                "password": password,
+                "requester_id": requester.id,
+                "fresh_auth": fresh_auth,
+            }
+        )
+        return {"id": member_id, "active": False}
+
+    monkeypatch.setattr(MemberService, "deactivate_member", staticmethod(fake_deactivate_member))
+
+    response = client.delete(
+        "/api/members/1",
+        json={"password": "current-password"},
+        headers=auth_header(app, 1, fresh=False),
+    )
+
+    assert response.status_code == 200
+    assert captured == {
+        "member_id": 1,
+        "password": "current-password",
+        "requester_id": 1,
+        "fresh_auth": False,
+    }
+
+
 def test_change_password_validates_current_password(monkeypatch):
     member = SimpleNamespace(
         id=1,
@@ -243,7 +274,7 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     )
     monkeypatch.setattr(member_service_module, "member_to_dict", lambda target: {"id": target.id, "active": target.active})
 
-    result = MemberService.deactivate_member(1, requester=member, fresh_auth=False)
+    result = MemberService.deactivate_member(1, requester=member, fresh_auth=True)
 
     assert result == {"id": 1, "active": False}
     assert member.active is False
@@ -253,6 +284,22 @@ def test_social_account_can_deactivate_without_password(monkeypatch):
     assert member.nickname is None
     assert member.social_accounts == []
     assert deleted_accounts == [social_account]
+
+
+def test_social_account_cannot_deactivate_without_fresh_auth(monkeypatch):
+    member = SimpleNamespace(
+        id=1,
+        active=True,
+        deleted_at=None,
+        password_hash=None,
+        role="user",
+        social_accounts=[SimpleNamespace(provider="google")],
+    )
+
+    monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: member if member_id == 1 else None))
+
+    with pytest.raises(ValueError, match="Fresh account verification is required"):
+        MemberService.deactivate_member(1, requester=member, fresh_auth=False)
 
 
 def test_social_account_cannot_deactivate_for_different_requester(monkeypatch):
@@ -284,7 +331,7 @@ def test_passwordless_non_social_account_cannot_deactivate(monkeypatch):
 
     monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: member if member_id == 1 else None))
 
-    with pytest.raises(ValueError, match="Account verification is required"):
+    with pytest.raises(ValueError, match="Fresh account verification is required"):
         MemberService.deactivate_member(1, requester=member, fresh_auth=True)
 
 

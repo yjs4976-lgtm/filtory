@@ -160,7 +160,7 @@ function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCateg
   const reviewCount = providerReviewCount(provider, sourceName, naverReviewCount, googleReviewCount)
   const rawCategory = textOrUndefined(item.category)
   const category = normalizeCategory(rawCategory ?? requestedCategory)
-  const hasSpecificCategory = Boolean(rawCategory || requestedCategory)
+  const hasSpecificCategory = Boolean(rawCategory)
   const address = item.address ?? ""
   const roadAddress = item.road_address ?? undefined
   const hospitalName = String(item.hospital_name ?? "Hospital")

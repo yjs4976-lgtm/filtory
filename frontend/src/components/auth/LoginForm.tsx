@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
+import { sanitizeInternalNextPath } from "@/lib/navigation";
 import { ROUTES } from "@/lib/routes";
 import { PasswordField } from "./PasswordField";
 import styles from "@/styles/App.module.css";
@@ -41,8 +42,8 @@ export function LoginForm() {
         description: t.auth.loginToastDescription,
         tone: "success",
       });
-      const nextPath = searchParams.get("next");
-      router.push(nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : ROUTES.MYPAGE);
+      const nextPath = sanitizeInternalNextPath(searchParams.get("next"));
+      router.push(nextPath ?? ROUTES.MYPAGE);
     } catch (error) {
       setError(error instanceof Error ? error.message : t.auth.loginFailed);
     } finally {

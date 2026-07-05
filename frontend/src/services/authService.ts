@@ -1,4 +1,5 @@
 import { API_BASE_URL, USE_MOCK } from "@/lib/constants";
+import { sanitizeInternalNextPath } from "@/lib/navigation";
 import type {
   FindIdRequest,
   FindIdResponse,
@@ -193,7 +194,7 @@ export const authService = {
 
   startSocialLogin(provider: SocialProvider, nextPath?: string | null) {
     const callbackUrl = new URL("/auth/callback", window.location.origin);
-    const safeNextPath = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "";
+    const safeNextPath = sanitizeInternalNextPath(nextPath);
     if (safeNextPath) {
       callbackUrl.searchParams.set("next", safeNextPath);
     }

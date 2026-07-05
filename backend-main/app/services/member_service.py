@@ -142,8 +142,8 @@ class MemberService:
                 raise ValueError("Member permission is required")
             if member.password_hash:
                 _validate_current_password(member, password)
-            elif not _has_social_account(member):
-                raise ValueError("Account verification is required")
+            elif not _has_social_account(member) or not fresh_auth:
+                raise ValueError("Fresh account verification is required")
 
         try:
             _release_member_identity_for_rejoin(member)

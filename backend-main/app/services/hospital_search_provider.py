@@ -323,7 +323,7 @@ class HospitalSearchProvider:
         link = cls._text(item.get("link"))
         place_url = cls._verified_naver_place_url(link)
         homepage_url = None if place_url else cls._verified_homepage_url(link)
-        provider_category = cls._category_from_naver(item) or category
+        provider_category = cls._category_from_naver(item)
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
         hospital_name = cls._strip_html(item.get("title")) or "병원"
@@ -535,7 +535,7 @@ class HospitalSearchProvider:
     def _matches_requested_category(cls, result_category, requested_category):
         if not requested_category:
             return result_category is None or result_category in cls.SUPPORTED_CATEGORIES
-        return result_category in {requested_category, None}
+        return result_category == requested_category
 
     @classmethod
     def _is_naver_hospital(cls, item):
