@@ -24,13 +24,14 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [notificationTotal, setNotificationTotal] = useState(0)
+  const [notificationPage, setNotificationPage] = useState(1)
+  const [isNotificationLoadingMore, setIsNotificationLoadingMore] = useState(false)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const userId = user?.id
   const visibleNotifications = useMemo(() => (userId ? notifications : []), [notifications, userId])
+  const visibleUnreadNotificationCount = userId ? unreadNotificationCount : 0
   const displayName = user?.nickname || user?.name || t.nav.my
-  const unreadNotificationCount = useMemo(
-    () => visibleNotifications.filter((item) => !item.isRead).length,
-    [visibleNotifications]
-  )
 
   useEffect(() => {
     if (!showBell) return
@@ -38,18 +39,43 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
     if (!userId) return
 
     let alive = true
-    notificationService.getNotifications().then((nextItems) => {
-      if (!alive) return
-      setNotifications(nextItems)
-    }).catch(() => {
-      if (!alive) return
-      setNotifications([])
-    })
+    Promise.all([
+      notificationService.getNotifications(1, 20),
+      notificationService.getUnreadCount(),
+    ])
+      .then(([notificationPage, unreadCount]) => {
+        if (!alive) return
+        setNotifications(notificationPage.items)
+        setNotificationTotal(notificationPage.total)
+        setNotificationPage(notificationPage.page)
+        setUnreadNotificationCount(unreadCount)
+      })
+      .catch(() => {
+        if (!alive) return
+        setNotifications([])
+        setNotificationTotal(0)
+        setNotificationPage(1)
+        setUnreadNotificationCount(0)
+      })
 
     return () => {
       alive = false
     }
   }, [isLoading, showBell, userId])
+
+  const loadMoreNotifications = async () => {
+    if (isNotificationLoadingMore || visibleNotifications.length >= notificationTotal) return
+    try {
+      setIsNotificationLoadingMore(true)
+      const nextPage = notificationPage + 1
+      const result = await notificationService.getNotifications(nextPage, 20)
+      setNotifications((current) => [...current, ...result.items])
+      setNotificationTotal(result.total)
+      setNotificationPage(result.page)
+    } finally {
+      setIsNotificationLoadingMore(false)
+    }
+  }
 
   return (
     <>
@@ -119,7 +145,7 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
                 onClick={() => setNotificationOpen(true)}
               >
                 <Bell className={styles.iconMd} />
-                {unreadNotificationCount > 0 && <span className={styles.notificationDot} />}
+                {visibleUnreadNotificationCount > 0 && <span className={styles.notificationDot} />}
               </button>
             )}
           </div>
@@ -131,6 +157,10 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
         open={notificationOpen}
         items={visibleNotifications}
         onItemsChange={setNotifications}
+        total={notificationTotal}
+        isLoadingMore={isNotificationLoadingMore}
+        onLoadMore={loadMoreNotifications}
+        onUnreadCountChange={setUnreadNotificationCount}
         onClose={() => setNotificationOpen(false)}
       />
     </>

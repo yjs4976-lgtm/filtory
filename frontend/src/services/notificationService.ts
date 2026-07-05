@@ -12,6 +12,13 @@ type BackendNotification = {
   actionLabel?: string | null
 }
 
+export type NotificationPage = {
+  items: NotificationItem[]
+  total: number
+  page: number
+  perPage: number
+}
+
 function normalizeNotification(item: BackendNotification): NotificationItem {
   return {
     id: Number(item.id),
@@ -51,14 +58,33 @@ function formatNotificationDate(value: string) {
 }
 
 export const notificationService = {
-  async getNotifications(): Promise<NotificationItem[]> {
+  async getNotifications(page = 1, perPage = 20): Promise<NotificationPage> {
     try {
-      const result = await apiClient<BackendNotification[]>("/api/notifications", {
+      const result = await apiClient<BackendNotification[]>(`/api/notifications?page=${page}&per_page=${perPage}`, {
         auth: true,
       })
-      return (result.data ?? []).map(normalizeNotification)
+      return {
+        items: (result.data ?? []).map(normalizeNotification),
+        total: result.meta?.count ?? result.data?.length ?? 0,
+        page: result.meta?.page ?? page,
+        perPage: result.meta?.per_page ?? perPage,
+      }
     } catch (error) {
-      if (error instanceof ApiClientError && error.status === 401) return []
+      if (error instanceof ApiClientError && error.status === 401) {
+        return { items: [], total: 0, page: 1, perPage }
+      }
+      throw error
+    }
+  },
+
+  async getUnreadCount() {
+    try {
+      const result = await apiClient<{ count: number }>("/api/notifications/unread-count", {
+        auth: true,
+      })
+      return Math.max(0, Number(result.data?.count ?? 0))
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 401) return 0
       throw error
     }
   },

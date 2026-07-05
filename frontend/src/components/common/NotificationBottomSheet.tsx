@@ -72,11 +72,24 @@ function NotificationIcon({ type }: { type: NotificationType }) {
 interface NotificationBottomSheetProps {
   open: boolean
   items: NotificationItem[]
+  total?: number
+  isLoadingMore?: boolean
   onItemsChange: (items: NotificationItem[]) => void
+  onLoadMore?: () => Promise<void> | void
+  onUnreadCountChange?: (next: number | ((current: number) => number)) => void
   onClose: () => void
 }
 
-export function NotificationBottomSheet({ open, items, onItemsChange, onClose }: NotificationBottomSheetProps) {
+export function NotificationBottomSheet({
+  open,
+  items,
+  total = items.length,
+  isLoadingMore = false,
+  onItemsChange,
+  onLoadMore,
+  onUnreadCountChange,
+  onClose,
+}: NotificationBottomSheetProps) {
   const router = useRouter()
   const { t } = useLanguage()
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all")
@@ -113,6 +126,7 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
     if (unreadCount === 0) return
     await notificationService.markAllAsRead()
     onItemsChange(items.map((item) => ({ ...item, isRead: true })))
+    onUnreadCountChange?.(0)
   }
 
   const handleNavigate = async (item: NotificationItem) => {
@@ -122,6 +136,7 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
         onItemsChange(items.map((nextItem) => (
           nextItem.id === item.id ? { ...nextItem, isRead: true } : nextItem
         )))
+        onUnreadCountChange?.((current) => Math.max(0, current - 1))
       } catch {
         // Navigation is still useful even if marking as read fails.
       }
@@ -226,6 +241,16 @@ export function NotificationBottomSheet({ open, items, onItemsChange, onClose }:
         </div>
 
         <div className={styles.notificationSheetFooter}>
+          {onLoadMore && items.length < total && (
+            <button
+              type="button"
+              className={`${styles.secondaryButton} ${styles.notificationFooterButton} ${styles.notificationFooterGlass}`}
+              disabled={isLoadingMore}
+              onClick={onLoadMore}
+            >
+              {isLoadingMore ? t.common.loading : t.common.more}
+            </button>
+          )}
           <button
             type="button"
             className={`${styles.secondaryButton} ${styles.notificationFooterButton} ${styles.notificationFooterGlass}`}

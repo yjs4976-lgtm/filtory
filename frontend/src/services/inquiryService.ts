@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient"
+import { apiBlobClient, apiClient } from "./apiClient"
 
 export type InquiryCategory =
   | "ANALYSIS_RESULT"
@@ -167,6 +167,13 @@ export const inquiryService = {
     })
     return result.data
   },
+
+  async downloadAttachment(inquiryId: number, fileName: string) {
+    const blob = await apiBlobClient(`/api/inquiries/${inquiryId}/attachment`, {
+      auth: true,
+    })
+    saveBlob(blob, fileName || "attachment")
+  },
 }
 
 function toInquiryFormData(payload: CreateInquiryPayload) {
@@ -182,4 +189,17 @@ function toInquiryFormData(payload: CreateInquiryPayload) {
     formData.set("attachment", payload.attachmentFile)
   }
   return formData
+}
+
+function saveBlob(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+
+  anchor.href = objectUrl
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+
+  URL.revokeObjectURL(objectUrl)
 }

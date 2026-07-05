@@ -125,6 +125,7 @@ class InquiryService:
 
         cleaned_content = InquiryService._clean_required_text(content, "Answer content is required", min_length=2)
         latest_answer = InquiryService._latest_answer(inquiry)
+        is_first_answer = latest_answer is None
 
         try:
             if latest_answer:
@@ -144,9 +145,11 @@ class InquiryService:
                     }
                 )
             InquiryRepository.update(inquiry, {"status": "ANSWERED"})
-            from app.services.notification_service import NotificationService
 
-            NotificationService.create_inquiry_answered_notification(inquiry)
+            if is_first_answer:
+                from app.services.notification_service import NotificationService
+
+                NotificationService.create_inquiry_answered_notification(inquiry)
             db.session.commit()
             return InquiryService.get_admin_inquiry(inquiry.id)
         except Exception:
