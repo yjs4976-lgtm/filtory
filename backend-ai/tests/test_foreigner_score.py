@@ -66,7 +66,7 @@ class ForeignerScoreTest(unittest.TestCase):
             reviews=[
                 "병원이 역에서 가까워요.",
                 "위치가 좋아서 찾기 쉬웠어요.",
-                "주차장에서는 조금 멀었어요.",
+                "위치가 멀어서 찾아가기 어려웠어요.",
             ]
         )
 
@@ -111,12 +111,29 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(checks["englishGuide"], "unknown")
 
+    def test_no_foreign_patients_does_not_mean_no_english_support(self):
+        payload = make_payload(reviews=["There were no foreign patients when I visited."])
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "unknown")
+
     def test_explicit_english_support_sentence_is_confirmed(self):
         payload = make_payload(reviews=["The doctor explained everything in English."])
 
         checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
 
         self.assertEqual(checks["englishGuide"], "confirmed")
+
+    def test_explicit_no_english_support_is_not_overridden_by_review(self):
+        payload = make_payload(
+            hasEnglishInfo=False,
+            reviews=["The doctor explained everything in English."],
+        )
+
+        checks = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
+
+        self.assertEqual(checks["englishGuide"], "notConfirmed")
 
     def test_foreigner_score_accepts_user_photo_info(self):
         payload = make_payload(hasPhotos=True)

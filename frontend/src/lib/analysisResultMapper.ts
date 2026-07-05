@@ -414,10 +414,6 @@ function globalAccessRatingToScore(value: unknown) {
   return numeric <= 5 ? numeric * 20 : numeric
 }
 
-function countFromScore(score: number, totalCount = 6) {
-  return Math.max(0, Math.min(totalCount, Math.round((score / 100) * totalCount)))
-}
-
 function hasMetadataSignal(...values: unknown[]) {
   return values.some((value) => {
     if (Array.isArray(value)) return value.some((item) => stringValue(item).length > 0)
@@ -426,12 +422,7 @@ function hasMetadataSignal(...values: unknown[]) {
   })
 }
 
-function informationChecks(
-  score: number,
-  language: Language,
-  root: Record<string, unknown>,
-  result: Record<string, unknown>
-) {
+function informationChecks(language: Language, root: Record<string, unknown>, result: Record<string, unknown>) {
   const labels = {
     ko: [
       ["location", "주소 / 위치 정보"],
@@ -490,13 +481,10 @@ function informationChecks(
     homepage: hasMetadataSignal(root.homepageUrl, root.homepage_url, result.homepageUrl),
     photos: hasMetadataSignal(root.hasPhotos, root.hasGooglePhotos, root.imageUrl, result.hasPhotos, result.hasGooglePhotos),
   }
-  const hasDirectMetadata = Object.values(statusByKey).some(Boolean)
-  const checkedCount = countFromScore(score, labels[language].length)
-
-  return labels[language].map(([key, label], index) => ({
+  return labels[language].map(([key, label]) => ({
     key,
     label,
-    checked: hasDirectMetadata ? Boolean(statusByKey[key]) : index < checkedCount,
+    checked: Boolean(statusByKey[key]),
   }))
 }
 
@@ -726,10 +714,14 @@ function deriveConvenienceReadiness(
   const partialCount = questions.filter((item) => item.status === "partial").length
   const needsCheckCount = questions.filter((item) => item.status === "needsCheck").length
 
+  const englishQuestion = questions.find((item) => item.key === "english")
+  const hasConfirmedEnglishSupport = englishQuestion?.status === "confirmed"
+  const hasAnyVisitSignal = confirmedCount + partialCount >= 1 || needsCheckCount >= 1
+
   const key: ConvenienceReadinessKey =
-    confirmedCount >= 3
+    confirmedCount >= 3 && hasConfirmedEnglishSupport
       ? "ready"
-      : confirmedCount + partialCount >= 1 || needsCheckCount >= 1
+      : hasAnyVisitSignal
         ? "needsCheck"
         : "unknown"
 
@@ -873,7 +865,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const confidenceDescription =
     stringValue(firstValue(result.analysisConfidenceDescription, root.analysisConfidenceDescription)) ||
     fallbackConfidenceDescription(confidenceKey, language)
-  const informationCheckItems = informationChecks(informationScore, language, root, result)
+  const informationCheckItems = informationChecks(language, root, result)
   const globalAccessibilityChecks = normalizeChecks(firstValue(result.globalAccessibilityChecks, root.globalAccessibilityChecks), language)
   const visitAccessibilityGroup = groupSummary(globalAccessibilityChecks, "visit", language)
   const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)

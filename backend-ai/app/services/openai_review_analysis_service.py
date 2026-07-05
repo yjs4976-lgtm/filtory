@@ -113,10 +113,10 @@ class OpenAIReviewAnalysisService:
     ]
     ENGLISH_GUIDANCE_NEGATIVE_PATTERNS = [
         r"영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)",
-        r"통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)",
-        r"외국인.{0,8}(불가|안\s*됨|진료\s*안|받지\s*않)",
-        r"(no|not|without).{0,32}(english|interpreter|translation|foreigner)",
-        r"(english|interpreter|translation|foreigner).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)",
+        r"외국인.{0,12}(진료|응대|안내|지원).{0,8}(없|불가|안\s*됨|지원하지)",
+        r"(no|not|without).{0,32}(english|interpreter|interpretation|translation)",
+        r"(english|interpreter|interpretation|translation).{0,32}(not\s+available|unavailable|unsupported|not\s+supported|no\s+support)",
+        r"(foreigner|international).{0,16}(support|service|guidance|assistance).{0,16}(not\s+available|unavailable|unsupported|not\s+supported)",
     ]
     LOCATION_ACCESS_KEYWORDS = [
         "역에서 가까",
@@ -940,9 +940,17 @@ class OpenAIReviewAnalysisService:
             "mapLocation": OpenAIReviewAnalysisService._combine_check_status(map_direct_status, location_review_status),
             "contactBooking": OpenAIReviewAnalysisService._combine_check_status(contact_direct_status, booking_review_status),
             "websitePlaceLink": OpenAIReviewAnalysisService._check_status(place_link, has_context=bool(place_link or payload.sourceProvider)),
-            "photoInfo": OpenAIReviewAnalysisService._combine_check_status(photo_direct_status, photo_review_status),
+            "photoInfo": OpenAIReviewAnalysisService._combine_check_status(
+                photo_direct_status,
+                photo_review_status,
+                prefer_direct_absence=True,
+            ),
             "englishName": OpenAIReviewAnalysisService._check_status(payload.englishName, has_context=payload.englishName is not None),
-            "englishGuide": OpenAIReviewAnalysisService._combine_check_status(english_direct_status, english_review_status),
+            "englishGuide": OpenAIReviewAnalysisService._combine_check_status(
+                english_direct_status,
+                english_review_status,
+                prefer_direct_absence=True,
+            ),
             "englishReviews": OpenAIReviewAnalysisService._check_status(payload.hasEnglishReviews, has_context=payload.hasEnglishReviews is not None),
         }
 
@@ -987,10 +995,19 @@ class OpenAIReviewAnalysisService:
         return "notConfirmed"
 
     @staticmethod
-    def _combine_check_status(direct_status: str, review_status: str) -> str:
-        if "confirmed" in (direct_status, review_status):
+    def _combine_check_status(
+        direct_status: str,
+        review_status: str,
+        *,
+        prefer_direct_absence: bool = False,
+    ) -> str:
+        if prefer_direct_absence and direct_status == "notConfirmed":
+            return "notConfirmed"
+        if direct_status == "confirmed":
             return "confirmed"
-        if "notConfirmed" in (direct_status, review_status):
+        if review_status == "confirmed":
+            return "confirmed"
+        if direct_status == "notConfirmed" or review_status == "notConfirmed":
             return "notConfirmed"
         return "unknown"
 
