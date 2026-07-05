@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from flask import current_app
 from itsdangerous import BadSignature, URLSafeSerializer
 
@@ -32,11 +34,12 @@ class SocialAuthService:
     def build_authorization_url(provider, backend_redirect_uri, frontend_next_url):
         client = SocialAuthService._get_client(provider)
         client_id = SocialAuthService._get_client_config(provider, "CLIENT_ID")
+        safe_frontend_next_url = SocialAuthService.sanitize_frontend_next_url(frontend_next_url)
 
         state = _get_state_serializer().dumps(
             {
                 "provider": provider,
-                "frontend_next_url": frontend_next_url,
+                "frontend_next_url": safe_frontend_next_url,
             }
         )
 
@@ -76,8 +79,30 @@ class SocialAuthService:
 
         if data.get("frontend_redirect_uri") and not data.get("frontend_next_url"):
             data["frontend_next_url"] = data["frontend_redirect_uri"]
+        data["frontend_next_url"] = SocialAuthService.sanitize_frontend_next_url(
+            data.get("frontend_next_url")
+        )
 
         return data
+
+    @staticmethod
+    def sanitize_frontend_next_url(url):
+        fallback = current_app.config.get("FRONTEND_CALLBACK_URL") or current_app.config.get("FRONTEND_BASE_URL")
+        if not url:
+            return fallback
+
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return fallback
+
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return fallback
+
+        if _url_origin(url) in _allowed_frontend_origins():
+            return url
+
+        return fallback
 
     @staticmethod
     def _get_client(provider):
@@ -98,3 +123,25 @@ class SocialAuthService:
 
 def _get_state_serializer():
     return URLSafeSerializer(current_app.config["JWT_SECRET_KEY"], salt="social-oauth-state")
+
+
+def _url_origin(url):
+    parsed = urlparse(url)
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}".rstrip("/")
+
+
+def _allowed_frontend_origins():
+    origins = set()
+    for value in [
+        current_app.config.get("FRONTEND_BASE_URL"),
+        current_app.config.get("FRONTEND_CALLBACK_URL"),
+    ]:
+        if not value:
+            continue
+        try:
+            parsed = urlparse(value)
+        except ValueError:
+            continue
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            origins.add(f"{parsed.scheme.lower()}://{parsed.netloc.lower()}".rstrip("/"))
+    return origins

@@ -56,6 +56,7 @@ const {
   extractRegionLabelFromAddress,
   formatHistoryRegionLabel,
   getEnglishRegionLabelFromKorean,
+  getEnglishHospitalNameFromKorean,
   getHistoryHospitalName,
   getHistoryMetaText,
   getHistoryRegionLabel,
@@ -74,6 +75,16 @@ assert.equal(
 assert.equal(
   getEnglishRegionLabelFromKorean("서울 강남구"),
   "Gangnam-gu, Seoul"
+)
+
+assert.equal(
+  getEnglishRegionLabelFromKorean("서울특별시 강서구"),
+  "Gangseo-gu, Seoul"
+)
+
+assert.equal(
+  formatHistoryRegionLabel("서울특별시 강서구", "en"),
+  "Gangseo-gu, Seoul"
 )
 
 assert.equal(
@@ -112,10 +123,26 @@ assert.equal(
   getHistoryHospitalName(
     {
       hospitalNameKo: "예시피부과",
+      categoryEnLabel: "Skin Clinic",
     },
     "en"
   ),
-  "예시피부과"
+  "Yesi Skin Clinic"
+)
+
+assert.equal(
+  getEnglishHospitalNameFromKorean("혜민안과병원", "Eye Clinic"),
+  "Hyemin Eye Clinic"
+)
+
+assert.equal(
+  getEnglishHospitalNameFromKorean("미라클의원", "Skin Clinic"),
+  "Miracle Skin Clinic"
+)
+
+assert.equal(
+  getEnglishHospitalNameFromKorean("데이뷰의원 강서발산점", "Skin Clinic"),
+  "Dayview Gangseo Balsan Branch Skin Clinic"
 )
 
 assert.equal(

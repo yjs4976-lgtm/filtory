@@ -92,6 +92,137 @@ const PROVINCE_EN_LABELS: Record<string, string> = {
   제주: "Jeju-do",
 }
 
+const DISTRICT_EN_LABELS: Record<string, string> = {
+  강남구: "Gangnam-gu",
+  강동구: "Gangdong-gu",
+  강북구: "Gangbuk-gu",
+  강서구: "Gangseo-gu",
+  관악구: "Gwanak-gu",
+  광진구: "Gwangjin-gu",
+  구로구: "Guro-gu",
+  금천구: "Geumcheon-gu",
+  노원구: "Nowon-gu",
+  도봉구: "Dobong-gu",
+  동대문구: "Dongdaemun-gu",
+  동작구: "Dongjak-gu",
+  마포구: "Mapo-gu",
+  서대문구: "Seodaemun-gu",
+  서초구: "Seocho-gu",
+  성동구: "Seongdong-gu",
+  성북구: "Seongbuk-gu",
+  송파구: "Songpa-gu",
+  양천구: "Yangcheon-gu",
+  영등포구: "Yeongdeungpo-gu",
+  용산구: "Yongsan-gu",
+  은평구: "Eunpyeong-gu",
+  종로구: "Jongno-gu",
+  중구: "Jung-gu",
+  중랑구: "Jungnang-gu",
+  수원시: "Suwon-si",
+  성남시: "Seongnam-si",
+  고양시: "Goyang-si",
+  용인시: "Yongin-si",
+  부천시: "Bucheon-si",
+  안양시: "Anyang-si",
+  안산시: "Ansan-si",
+  화성시: "Hwaseong-si",
+  남양주시: "Namyangju-si",
+  평택시: "Pyeongtaek-si",
+  의정부시: "Uijeongbu-si",
+  시흥시: "Siheung-si",
+  파주시: "Paju-si",
+  김포시: "Gimpo-si",
+  광명시: "Gwangmyeong-si",
+  광주시: "Gwangju-si",
+  군포시: "Gunpo-si",
+  하남시: "Hanam-si",
+  오산시: "Osan-si",
+  양주시: "Yangju-si",
+  이천시: "Icheon-si",
+  구리시: "Guri-si",
+  안성시: "Anseong-si",
+  포천시: "Pocheon-si",
+  의왕시: "Uiwang-si",
+  여주시: "Yeoju-si",
+  동두천시: "Dongducheon-si",
+  과천시: "Gwacheon-si",
+  분당구: "Bundang-gu",
+  수정구: "Sujeong-gu",
+  중원구: "Jungwon-gu",
+  장안구: "Jangan-gu",
+  권선구: "Gwonseon-gu",
+  팔달구: "Paldal-gu",
+  영통구: "Yeongtong-gu",
+  동안구: "Dongan-gu",
+  만안구: "Manan-gu",
+  단원구: "Danwon-gu",
+  상록구: "Sangnok-gu",
+  기흥구: "Giheung-gu",
+  수지구: "Suji-gu",
+  처인구: "Cheoin-gu",
+  일산동구: "Ilsandong-gu",
+  일산서구: "Ilsanseo-gu",
+  덕양구: "Deogyang-gu",
+  미추홀구: "Michuhol-gu",
+  연수구: "Yeonsu-gu",
+  남동구: "Namdong-gu",
+  부평구: "Bupyeong-gu",
+  계양구: "Gyeyang-gu",
+  서구: "Seo-gu",
+  동구: "Dong-gu",
+  강화군: "Ganghwa-gun",
+  옹진군: "Ongjin-gun",
+  금정구: "Geumjeong-gu",
+  기장군: "Gijang-gun",
+  남구: "Nam-gu",
+  동래구: "Dongnae-gu",
+  부산진구: "Busanjin-gu",
+  북구: "Buk-gu",
+  사상구: "Sasang-gu",
+  사하구: "Saha-gu",
+  수영구: "Suyeong-gu",
+  연제구: "Yeonje-gu",
+  영도구: "Yeongdo-gu",
+  해운대구: "Haeundae-gu",
+  달서구: "Dalseo-gu",
+  달성군: "Dalseong-gun",
+  수성구: "Suseong-gu",
+  유성구: "Yuseong-gu",
+  대덕구: "Daedeok-gu",
+  광산구: "Gwangsan-gu",
+  울주군: "Ulju-gun",
+  세종시: "Sejong-si",
+  춘천시: "Chuncheon-si",
+  원주시: "Wonju-si",
+  강릉시: "Gangneung-si",
+  속초시: "Sokcho-si",
+  청주시: "Cheongju-si",
+  충주시: "Chungju-si",
+  제천시: "Jecheon-si",
+  천안시: "Cheonan-si",
+  아산시: "Asan-si",
+  서산시: "Seosan-si",
+  논산시: "Nonsan-si",
+  전주시: "Jeonju-si",
+  군산시: "Gunsan-si",
+  익산시: "Iksan-si",
+  정읍시: "Jeongeup-si",
+  목포시: "Mokpo-si",
+  여수시: "Yeosu-si",
+  순천시: "Suncheon-si",
+  나주시: "Naju-si",
+  포항시: "Pohang-si",
+  경주시: "Gyeongju-si",
+  구미시: "Gumi-si",
+  경산시: "Gyeongsan-si",
+  창원시: "Changwon-si",
+  김해시: "Gimhae-si",
+  진주시: "Jinju-si",
+  양산시: "Yangsan-si",
+  제주시: "Jeju-si",
+  서귀포시: "Seogwipo-si",
+}
+
 const METROPOLITAN_REGION_LABELS = new Set(["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종"])
 
 const BRANCH_LOCATION_EN_LABELS: Record<string, string> = {
@@ -118,6 +249,110 @@ const BRANCH_LOCATION_EN_LABELS: Record<string, string> = {
 }
 
 const BRANCH_LOCATION_TOKENS = Object.keys(BRANCH_LOCATION_EN_LABELS).sort((left, right) => right.length - left.length)
+
+const HANGUL_INITIALS = [
+  "g",
+  "kk",
+  "n",
+  "d",
+  "tt",
+  "r",
+  "m",
+  "b",
+  "pp",
+  "s",
+  "ss",
+  "",
+  "j",
+  "jj",
+  "ch",
+  "k",
+  "t",
+  "p",
+  "h",
+]
+
+const HANGUL_VOWELS = [
+  "a",
+  "ae",
+  "ya",
+  "yae",
+  "eo",
+  "e",
+  "yeo",
+  "ye",
+  "o",
+  "wa",
+  "wae",
+  "oe",
+  "yo",
+  "u",
+  "wo",
+  "we",
+  "wi",
+  "yu",
+  "eu",
+  "ui",
+  "i",
+]
+
+const HANGUL_FINALS = [
+  "",
+  "k",
+  "k",
+  "ks",
+  "n",
+  "nj",
+  "nh",
+  "t",
+  "l",
+  "lk",
+  "lm",
+  "lb",
+  "ls",
+  "lt",
+  "lp",
+  "lh",
+  "m",
+  "p",
+  "ps",
+  "t",
+  "t",
+  "ng",
+  "t",
+  "t",
+  "k",
+  "t",
+  "p",
+  "t",
+]
+
+const HOSPITAL_NAME_PHRASE_LABELS: Record<string, string> = {
+  미라클: "Miracle",
+  데이뷰: "Dayview",
+  톤즈: "Tonz",
+  차앤박: "Cha & Park",
+  연세: "Yonsei",
+  서울: "Seoul",
+  강남: "Gangnam",
+  강서: "Gangseo",
+  발산: "Balsan",
+  송파: "Songpa",
+  서초: "Seocho",
+  인천: "Incheon",
+  부평: "Bupyeong",
+  혜민: "Hyemin",
+  하나: "Hana",
+  밝음: "Bright",
+  명동: "Myeongdong",
+  분당: "Bundang",
+  서현: "Seohyeon",
+  점: "Branch",
+  본점: "Main Branch",
+}
+
+const HOSPITAL_NAME_PHRASES = Object.keys(HOSPITAL_NAME_PHRASE_LABELS).sort((left, right) => right.length - left.length)
+const HOSPITAL_NAME_MEDICAL_TERMS = /피부과|안과|치과|성형외과|정형외과|병원|의원|클리닉/g
 
 function cleanLabel(value?: unknown) {
   const label = String(value ?? "").trim()
@@ -160,9 +395,78 @@ function normalizeEnglishDistrict(value: string) {
   )
 }
 
+function hasKoreanText(value?: string) {
+  return /[가-힣]/.test(value ?? "")
+}
+
+function titleCaseWords(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+function romanizeHangulSyllable(char: string) {
+  const code = char.charCodeAt(0) - 0xac00
+  if (code < 0 || code > 11171) return char
+
+  const initialIndex = Math.floor(code / 588)
+  const vowelIndex = Math.floor((code % 588) / 28)
+  const finalIndex = code % 28
+
+  return `${HANGUL_INITIALS[initialIndex]}${HANGUL_VOWELS[vowelIndex]}${HANGUL_FINALS[finalIndex]}`
+}
+
+function replaceKnownHospitalNamePhrases(value: string) {
+  let result = value
+  for (const phrase of HOSPITAL_NAME_PHRASES) {
+    result = result.replaceAll(phrase, ` ${HOSPITAL_NAME_PHRASE_LABELS[phrase]} `)
+  }
+  return result
+}
+
+function romanizeHospitalNameText(value: string) {
+  const replaced = replaceKnownHospitalNamePhrases(value)
+  return replaced
+    .replace(/[가-힣]+/g, (word) => titleCaseWords([...word].map(romanizeHangulSyllable).join("")))
+    .replace(/\s+/g, " ")
+    .replace(/\s+([&'./-])\s+/g, " $1 ")
+    .trim()
+}
+
+function categoryToEnglishClinicLabel(value?: unknown) {
+  const text = String(value ?? "").trim().toLowerCase()
+  if (["derma", "dermatology", "skin", "피부과"].includes(text)) return "Skin Clinic"
+  if (["eye", "ophthalmology", "ophthalmic", "안과"].includes(text)) return "Eye Clinic"
+  if (["dental", "dentistry", "dentist", "치과"].includes(text)) return "Dental Clinic"
+  return "Clinic"
+}
+
+export function getEnglishHospitalNameFromKorean(value?: unknown, categoryLabel?: string) {
+  const label = cleanLabel(value)
+  if (!label) return ""
+  if (!hasKoreanText(label)) return label
+
+  const baseName = label
+    .replace(/[()]/g, " ")
+    .replace(HOSPITAL_NAME_MEDICAL_TERMS, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+  const romanizedBaseName = romanizeHospitalNameText(baseName || label)
+  const resolvedCategoryLabel = categoryLabel || "Clinic"
+  if (!romanizedBaseName) return resolvedCategoryLabel
+  if (/\b(?:clinic|hospital|dental|eye|skin)\b/i.test(romanizedBaseName)) return romanizedBaseName
+
+  return `${romanizedBaseName} ${resolvedCategoryLabel}`
+}
+
 export function formatHistoryRegionLabel(value?: unknown, language: Language = "ko") {
   const label = cleanLabel(value)
   if (!label || language !== "en") return label
+
+  const koreanRegionLabel = getEnglishRegionLabelFromKorean(label)
+  if (koreanRegionLabel) return koreanRegionLabel
 
   const provinceMatch = KOREA_REGION_OPTIONS
     .map((option) => {
@@ -222,10 +526,10 @@ export function getEnglishRegionLabelFromKorean(value?: unknown) {
 
   const districtLabels = districtParts.map((part) => {
     const district = province?.districts.find((option) => option.label.ko === part)
-    return district?.label.en ?? ""
+    return district?.label.en ?? DISTRICT_EN_LABELS[part] ?? ""
   }).filter(Boolean)
 
-  return districtLabels.length > 0 ? formatEnglishRegionParts([...districtLabels, provinceEn]) : ""
+  return districtLabels.length > 0 ? formatEnglishRegionParts([...districtLabels, provinceEn]) : provinceEn
 }
 
 function formatStoredRegionLabel(value: unknown, language: Language) {
@@ -296,12 +600,15 @@ export function getHistoryHospitalName(record: HistoryDisplayRecord, language: L
     )
     if (englishName) return englishName
 
-    return pickString(
+    const koreanName = pickString(
       record.hospitalNameKo,
       record.hospital_name_ko,
       record.hospitalName,
       record.hospital_name
     )
+    const categoryLabel = pickString(record.categoryEnLabel, record.category_en_label) || categoryToEnglishClinicLabel(record.category)
+
+    return getEnglishHospitalNameFromKorean(koreanName, categoryLabel) || koreanName
   }
 
   return pickString(

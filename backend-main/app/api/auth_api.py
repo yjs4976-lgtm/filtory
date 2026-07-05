@@ -137,6 +137,7 @@ def start_social_login():
         or request.args.get("redirect_uri")
         or _default_frontend_callback_url()
     )
+    frontend_next_url = AuthService.sanitize_frontend_next_url(frontend_next_url)
 
     try:
         backend_redirect_uri = _provider_backend_redirect_uri(provider)

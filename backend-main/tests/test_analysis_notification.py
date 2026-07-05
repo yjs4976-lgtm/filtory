@@ -110,3 +110,42 @@ def test_analyze_reviews_creates_completion_notification(monkeypatch):
     assert request.request_status == "success"
     assert session.commit_count == 2
     assert session.rolled_back is False
+
+
+def test_ai_review_analysis_client_sends_internal_token_header(monkeypatch):
+    captured_headers = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"totalScore":80,"trustScore":75}'
+
+    def fake_urlopen(request, timeout):
+        captured_headers.update(request.headers)
+        return FakeResponse()
+
+    monkeypatch.setenv("AI_INTERNAL_TOKEN", "secret-token")
+    monkeypatch.setattr(AIReviewAnalysisClient, "_api_url", staticmethod(lambda: "http://127.0.0.1:8000/api/reviews/analyze"))
+    monkeypatch.setattr(AIReviewAnalysisClient, "_timeout_seconds", staticmethod(lambda: 3))
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    AIReviewAnalysisClient.analyze({"reviewText": "상담이 자세했어요."})
+
+    assert captured_headers["X-internal-token"] == "secret-token"
+
+
+def test_ai_review_analysis_client_requires_internal_token(monkeypatch):
+    monkeypatch.delenv("AI_INTERNAL_TOKEN", raising=False)
+    monkeypatch.setattr(AIReviewAnalysisClient, "_api_url", staticmethod(lambda: "http://127.0.0.1:8000/api/reviews/analyze"))
+
+    try:
+        AIReviewAnalysisClient.analyze({"reviewText": "상담이 자세했어요."})
+    except RuntimeError as exc:
+        assert str(exc) == "AI_INTERNAL_TOKEN is not configured"
+    else:
+        raise AssertionError("AI_INTERNAL_TOKEN must be required")

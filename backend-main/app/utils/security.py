@@ -80,7 +80,7 @@ def require_member_or_admin(view_func):
         except ValueError as e:
             return error_response(str(e), 401)
 
-        if member.id != member_id and member.role != "admin":
+        if member.id != member_id and str(member.role or "").lower() != "admin":
             return error_response("Member permission is required", 403)
 
         g.current_member = member

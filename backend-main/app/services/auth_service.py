@@ -178,6 +178,10 @@ class AuthService:
         )
 
     @staticmethod
+    def sanitize_frontend_next_url(frontend_next_url):
+        return SocialAuthService.sanitize_frontend_next_url(frontend_next_url)
+
+    @staticmethod
     def complete_social_login(code, state, backend_redirect_uri):
         if not code:
             raise ValueError("code is required")
