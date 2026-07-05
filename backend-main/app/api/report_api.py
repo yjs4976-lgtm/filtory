@@ -1,13 +1,27 @@
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 
 from app.services import ReportService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
+from app.utils.security import require_admin, require_auth
 
 report_bp = Blueprint("reports", __name__)
 
+REPORT_CREATE_MANAGED_FIELDS = {
+    "admin_member_id",
+    "adminMemberId",
+    "admin_memo",
+    "adminMemo",
+    "admin_response",
+    "adminResponse",
+    "reporterMemberId",
+    "resolved_at",
+    "resolvedAt",
+}
+
 
 @report_bp.route("/", methods=["GET"])
+@require_admin
 def list_reports():
     pagination = get_pagination_params(request.args)
 
@@ -26,8 +40,13 @@ def list_reports():
 
 
 @report_bp.route("/", methods=["POST"])
+@require_auth
 def create_report():
     payload = request.get_json(silent=True) or {}
+    for key in REPORT_CREATE_MANAGED_FIELDS:
+        payload.pop(key, None)
+    payload["reporter_member_id"] = g.current_member.id
+    payload["status"] = "pending"
 
     try:
         report = ReportService.create_report(payload)
@@ -37,6 +56,7 @@ def create_report():
 
 
 @report_bp.route("/<int:report_id>", methods=["GET"])
+@require_admin
 def get_report(report_id):
     try:
         report = ReportService.get_report(report_id)
@@ -46,6 +66,7 @@ def get_report(report_id):
 
 
 @report_bp.route("/<int:report_id>", methods=["PATCH"])
+@require_admin
 def update_report(report_id):
     payload = request.get_json(silent=True) or {}
 
@@ -57,6 +78,7 @@ def update_report(report_id):
 
 
 @report_bp.route("/<int:report_id>/resolve", methods=["POST"])
+@require_admin
 def resolve_report(report_id):
     payload = request.get_json(silent=True) or {}
 

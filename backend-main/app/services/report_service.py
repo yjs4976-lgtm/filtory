@@ -35,6 +35,10 @@ class ReportService:
     @staticmethod
     def create_report(payload):
         data = extract_report_data(payload)
+        data["status"] = "pending"
+        data.pop("admin_member_id", None)
+        data.pop("admin_memo", None)
+        data.pop("resolved_at", None)
         ReportService._validate_report_data(data)
 
         try:

@@ -159,7 +159,7 @@ class InquiryService:
     @staticmethod
     def get_attachment_for_member(member, inquiry_id):
         inquiry = InquiryRepository.get_with_context_by_id(inquiry_id)
-        if not inquiry or (member.role != "admin" and inquiry.member_id != member.id):
+        if not inquiry or (str(member.role or "").lower() != "admin" and inquiry.member_id != member.id):
             raise ValueError("Inquiry attachment not found")
         if not inquiry.attachment_path:
             raise ValueError("Inquiry attachment not found")

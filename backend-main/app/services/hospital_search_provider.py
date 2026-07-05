@@ -46,29 +46,56 @@ class HospitalSearchProvider:
     def search(cls, *, keyword="", category=None, region=None, limit=10):
         limit = max(1, int(limit or 10))
         search_region = cls.REGION_LABELS.get(str(region or "").strip().lower(), region)
-        query = cls._build_query(keyword=keyword, category=category, region=search_region)
-        if not query:
+        query_variants = cls._build_query_variants(
+            keyword=keyword,
+            category=category,
+            region=search_region,
+        )
+        if not query_variants:
             return []
 
-        cache_key = cls._cache_key(query=query, category=category, limit=limit)
+        naver_configured = cls._has_naver_config()
+        cache_key = cls._cache_key(queries=query_variants, category=category, limit=limit)
         cached_results = cls._get_cached(cache_key)
         if cached_results is not None:
             return cached_results[:limit]
 
-        naver_results = cls.search_naver(
-            query=query,
-            category=category,
-            limit=limit,
-        )
+        naver_results = []
+        for query in query_variants:
+            remaining_limit = limit - len(naver_results)
+            if remaining_limit <= 0:
+                break
+            naver_results = cls._dedupe(
+                [
+                    *naver_results,
+                    *cls.search_naver(
+                        query=query,
+                        category=category,
+                        limit=remaining_limit,
+                    ),
+                ]
+            )
+
         if len(naver_results) >= limit:
             results = naver_results[:limit]
             cls._set_cached(cache_key, results)
             return results
 
-        remaining_limit = max(0, limit - len(naver_results))
-        kakao_results = cls.search_kakao(query=query, category=category, limit=remaining_limit)
+        kakao_results = []
+        for query in query_variants:
+            remaining_limit = limit - len(naver_results) - len(kakao_results)
+            if remaining_limit <= 0:
+                break
+            kakao_results = cls._dedupe(
+                [
+                    *kakao_results,
+                    *cls.search_kakao(query=query, category=category, limit=remaining_limit),
+                ]
+            )
+
         results = cls._dedupe([*naver_results, *kakao_results])[:limit]
-        cls._set_cached(cache_key, results)
+        if naver_results or not naver_configured:
+            cls._set_cached(cache_key, results)
         return results
 
     @classmethod
@@ -77,30 +104,43 @@ class HospitalSearchProvider:
         if not api_key:
             return []
 
-        params = {
-            "query": query,
-            "size": max(1, min(limit, 15)),
-            "category_group_code": cls.KAKAO_CATEGORY_GROUP_CODE,
-        }
-
-        payload = cls._get_json(
-            f"{cls.KAKAO_KEYWORD_URL}?{urlencode(params)}",
-            {"Authorization": f"KakaoAK {api_key}"},
-        )
-        documents = payload.get("documents") if isinstance(payload, dict) else []
-        if not isinstance(documents, list):
-            return []
-
         results = []
-        for item in documents:
-            if not isinstance(item, dict):
-                continue
-            if item.get("category_group_code") != cls.KAKAO_CATEGORY_GROUP_CODE:
-                continue
-            result = cls._from_kakao(item, category)
-            if cls._matches_requested_category(result.get("category"), category):
-                results.append(result)
-        return results
+        page = 1
+        max_pages = 4
+
+        while len(results) < limit and page <= max_pages:
+            size = max(1, min(limit - len(results), 15))
+            params = {
+                "query": query,
+                "size": size,
+                "page": page,
+                "category_group_code": cls.KAKAO_CATEGORY_GROUP_CODE,
+            }
+
+            payload = cls._get_json(
+                f"{cls.KAKAO_KEYWORD_URL}?{urlencode(params)}",
+                {"Authorization": f"KakaoAK {api_key}"},
+            )
+            documents = payload.get("documents") if isinstance(payload, dict) else []
+            if not isinstance(documents, list) or not documents:
+                break
+
+            for item in documents:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("category_group_code") != cls.KAKAO_CATEGORY_GROUP_CODE:
+                    continue
+                result = cls._from_kakao(item, category)
+                if cls._matches_requested_category(result.get("category"), category):
+                    results = cls._dedupe([*results, result])
+                    if len(results) >= limit:
+                        break
+
+            if len(documents) < size:
+                break
+            page += 1
+
+        return results[:limit]
 
     @classmethod
     def search_naver(cls, *, query, category=None, limit=10):
@@ -111,32 +151,56 @@ class HospitalSearchProvider:
                 current_app.logger.info("Naver hospital search skipped: missing search API configuration")
             return []
 
-        payload = cls._get_json(
-            f"{cls.NAVER_LOCAL_URL}?{urlencode({'query': query, 'display': max(1, min(limit, 5))})}",
-            {
-                "X-Naver-Client-Id": client_id,
-                "X-Naver-Client-Secret": client_secret,
-            },
-        )
-        items = payload.get("items") if isinstance(payload, dict) else []
-        if not isinstance(items, list):
-            current_app.logger.warning("Naver hospital search returned no items list")
-            return []
-
         results = []
-        for item in items:
-            if not isinstance(item, dict) or not cls._is_naver_hospital(item):
-                continue
-            result = cls._from_naver(item, category)
-            if cls._matches_requested_category(result.get("category"), category):
-                results.append(result)
-        if items and not results:
+        total_items = 0
+        start = 1
+        max_pages = 4
+        pages_loaded = 0
+
+        while len(results) < limit and pages_loaded < max_pages:
+            display = max(1, min(limit - len(results), 5))
+            payload = cls._get_json(
+                f"{cls.NAVER_LOCAL_URL}?{urlencode({'query': query, 'display': display, 'start': start, 'sort': 'comment'})}",
+                {
+                    "X-Naver-Client-Id": client_id,
+                    "X-Naver-Client-Secret": client_secret,
+                },
+            )
+            items = payload.get("items") if isinstance(payload, dict) else []
+            if not isinstance(items, list):
+                current_app.logger.warning("Naver hospital search returned no items list")
+                return results
+            if not items:
+                break
+
+            total_items += len(items)
+            for item in items:
+                if not isinstance(item, dict) or not cls._is_naver_hospital(item):
+                    continue
+                result = cls._from_naver(item, category)
+                if cls._matches_requested_category(result.get("category"), category):
+                    results = cls._dedupe([*results, result])
+                    if len(results) >= limit:
+                        break
+
+            if len(items) < display:
+                break
+            start += display
+            pages_loaded += 1
+
+        if total_items and not results:
             current_app.logger.info(
                 "Naver hospital search returned %s items but all were filtered out for category=%s",
-                len(items),
+                total_items,
                 category,
             )
-        return results
+        return results[:limit]
+
+    @staticmethod
+    def _has_naver_config():
+        return bool(current_app.config.get("NAVER_SEARCH_CLIENT_ID")) and bool(
+            current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")
+        )
 
     @classmethod
     def _build_query(cls, *, keyword="", category=None, region=None):
@@ -144,6 +208,52 @@ class HospitalSearchProvider:
         if not category_keyword and region and not keyword:
             category_keyword = "병원"
         parts = [region, keyword, category_keyword]
+        seen = set()
+        cleaned = []
+        for part in parts:
+            value = str(part or "").strip()
+            if not value:
+                continue
+            normalized = value.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            cleaned.append(value)
+        return " ".join(cleaned)
+
+    @classmethod
+    def _build_query_variants(cls, *, keyword="", category=None, region=None):
+        category_keyword = cls.CATEGORY_KEYWORDS.get(category or "", "")
+        if not category_keyword and region and not keyword:
+            category_keyword = "병원"
+
+        variants = [
+            cls._compose_query(region, keyword, category_keyword),
+            cls._compose_query(keyword, region),
+            cls._compose_query(region, keyword),
+            cls._compose_query(keyword, category_keyword),
+            cls._compose_query(region, category_keyword),
+            cls._compose_query(category_keyword, region),
+        ]
+        if keyword:
+            variants.append(cls._compose_query(keyword))
+        elif region:
+            variants.append(cls._compose_query(region, "병원"))
+
+        results = []
+        seen = set()
+        for query in variants:
+            if not query:
+                continue
+            normalized = query.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            results.append(query)
+        return results
+
+    @staticmethod
+    def _compose_query(*parts):
         seen = set()
         cleaned = []
         for part in parts:
@@ -421,14 +531,13 @@ class HospitalSearchProvider:
             for keyword in ("병원", "의원", "클리닉", "피부과", "안과", "치과")
         )
 
-    @staticmethod
-    def _cache_key(*, query, category, limit):
+    @classmethod
+    def _cache_key(cls, *, queries, category, limit):
         return (
-            str(query or "").strip().lower(),
+            tuple(str(query or "").strip().lower() for query in queries),
             str(category or "").strip().lower(),
             int(limit or 10),
-            bool(current_app.config.get("NAVER_SEARCH_CLIENT_ID"))
-            and bool(current_app.config.get("NAVER_SEARCH_CLIENT_SECRET")),
+            cls._has_naver_config(),
             bool(current_app.config.get("KAKAO_REST_API_KEY")),
         )
 

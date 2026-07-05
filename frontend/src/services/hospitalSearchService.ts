@@ -93,13 +93,46 @@ function toOptionalCoordinate(value: number | string | null | undefined): number
   return Number.isFinite(numericValue) ? numericValue : undefined
 }
 
+function toPositiveNumber(value: number | string | null | undefined): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : undefined
+}
+
+function providerReviewCount(
+  provider: string | undefined,
+  sourceName: string | undefined,
+  naverReviewCount: number | undefined,
+  googleReviewCount: number | undefined,
+): number | undefined {
+  const providerHint = `${provider ?? ""} ${sourceName ?? ""}`.toLowerCase()
+
+  if (providerHint.includes("naver") || providerHint.includes("네이버")) {
+    return naverReviewCount
+  }
+
+  if (providerHint.includes("google") || providerHint.includes("구글")) {
+    return googleReviewCount
+  }
+
+  if (providerHint.includes("kakao") || providerHint.includes("카카오")) {
+    return undefined
+  }
+
+  return naverReviewCount ?? googleReviewCount
+}
+
 function toHospitalItem(item: BackendHospital): HospitalItem {
-  const reviewCount = Number(item.google_review_count ?? item.naver_review_count ?? 0)
   const provider = item.provider ?? item.source_provider ?? undefined
+  const sourceName = item.source_name ?? provider ?? undefined
   const safeLatitude = toOptionalCoordinate(item.latitude)
   const safeLongitude = toOptionalCoordinate(item.longitude)
   const naverRating = toOptionalCoordinate(item.naver_rating)
   const googleRating = toOptionalCoordinate(item.google_rating)
+  const naverReviewCount = toPositiveNumber(item.naver_review_count)
+  const googleReviewCount = toPositiveNumber(item.google_review_count)
+  const reviewCount = providerReviewCount(provider, sourceName, naverReviewCount, googleReviewCount)
   const category = normalizeCategory(item.category)
   const address = item.address ?? ""
   const roadAddress = item.road_address ?? undefined
@@ -125,10 +158,10 @@ function toHospitalItem(item: BackendHospital): HospitalItem {
     phone: item.phone ?? undefined,
     reviewCount,
     naverRating,
-    naverReviewCount: item.naver_review_count ?? undefined,
+    naverReviewCount,
     googleRating,
-    googleReviewCount: item.google_review_count ?? undefined,
-    sourceName: item.source_name ?? provider ?? undefined,
+    googleReviewCount,
+    sourceName,
     sourceUrl: normalizeSourceUrl(item, provider ?? ""),
     mapUrl: item.map_url ?? item.kakao_place_url ?? item.naver_place_url ?? item.google_map_url ?? undefined,
     kakaoPlaceUrl: item.kakao_place_url ?? undefined,

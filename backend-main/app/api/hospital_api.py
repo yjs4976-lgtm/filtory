@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from app.services import HospitalService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
+from app.utils.security import require_admin
 
 hospital_bp = Blueprint("hospitals", __name__)
 
@@ -47,6 +48,7 @@ def search_hospitals():
 
 
 @hospital_bp.route("/", methods=["POST"])
+@require_admin
 def create_hospital():
     payload = request.get_json(silent=True) or {}
 
@@ -67,6 +69,7 @@ def get_hospital(hospital_id):
 
 
 @hospital_bp.route("/<int:hospital_id>", methods=["PATCH"])
+@require_admin
 def update_hospital(hospital_id):
     payload = request.get_json(silent=True) or {}
 
