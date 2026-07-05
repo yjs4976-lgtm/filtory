@@ -14,6 +14,7 @@ REPORT_CREATE_MANAGED_FIELDS = {
     "adminMemo",
     "admin_response",
     "adminResponse",
+    "reporterMemberId",
     "resolved_at",
     "resolvedAt",
 }

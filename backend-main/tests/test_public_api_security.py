@@ -78,6 +78,7 @@ def test_report_create_requires_login_and_uses_current_member(app, client, monke
         "/api/reports/",
         json={
             "reporter_member_id": 999,
+            "reporterMemberId": 888,
             "report_type": "other",
             "hospital_id": 1,
             "status": "resolved",
@@ -94,6 +95,7 @@ def test_report_create_requires_login_and_uses_current_member(app, client, monke
     assert anonymous_response.status_code == 401
     assert user_response.status_code == 201
     assert captured["reporter_member_id"] == 1
+    assert "reporterMemberId" not in captured
     assert captured["status"] == "pending"
     assert "admin_member_id" not in captured
     assert "adminMemberId" not in captured
