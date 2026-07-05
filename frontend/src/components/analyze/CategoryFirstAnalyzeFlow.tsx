@@ -47,6 +47,7 @@ import { getTrustLevelKey, normalizeTrustLevelKey } from "@/lib/score"
 import { writeCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import {
   extractRegionLabelFromAddress,
+  getEnglishHospitalNameFromKorean,
   formatHistoryRegionLabel,
   getEnglishRegionLabelFromKorean,
 } from "@/lib/historyDisplay"
@@ -571,7 +572,10 @@ function getHospitalCardName(hospital: HospitalItem, language: "ko" | "en", cate
   }
 
   const latinPrefix = getLatinNamePrefix(hospital.name || hospital.hospitalNameKo)
-  return latinPrefix ? `${latinPrefix} ${categoryLabel}` : hospital.name || hospital.hospitalNameKo || categoryLabel
+  return (
+    getEnglishHospitalNameFromKorean(hospital.name || hospital.hospitalNameKo, categoryLabel) ||
+    (latinPrefix ? `${latinPrefix} ${categoryLabel}` : categoryLabel)
+  )
 }
 
 function getHospitalCardRegionLabel(hospital: HospitalItem, fallbackRegionLabel: string, language: "ko" | "en") {
