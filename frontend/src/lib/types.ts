@@ -1,0 +1,621 @@
+export type Language = "ko" | "en"
+export type HospitalCategory = "derma" | "eye" | "dental"
+export type HospitalRegionCode =
+  | "seoul"
+  | "gyeonggi"
+  | "incheon"
+  | "busan"
+  | "daegu"
+  | "daejeon"
+  | "gwangju"
+  | "ulsan"
+  | "sejong"
+  | "gangwon"
+  | "chungbuk"
+  | "chungnam"
+  | "jeonbuk"
+  | "jeonnam"
+  | "gyeongbuk"
+  | "gyeongnam"
+  | "jeju"
+export type UserRole = "USER" | "ADMIN"
+export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "DORMANT"
+export type SocialProvider = "google" | "naver" | "kakao"
+
+export type AnalysisHistoryItem = {
+  id: string
+  userId?: string | number
+  analysisRequestId?: number
+  analysisResultId?: number
+  hospitalId?: number
+  reviewIds?: number[]
+  hospitalName: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
+  englishName?: string
+  category: HospitalCategory
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  hospitalCategory?: HospitalCategory | string
+  hospitalAddress?: string
+  roadAddress?: string
+  address?: string
+  hospitalInfo?: string
+  region?: string
+  hospitalRegion?: string
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
+  sourceName?: string
+  sourceUrl?: string
+  mapUrl?: string
+  googleMapUrl?: string
+  naverPlaceUrl?: string
+  kakaoPlaceUrl?: string
+  homepageUrl?: string
+  phone?: string
+  treatmentItems?: string | string[]
+  hasPhotos?: boolean
+  hasGooglePhotos?: boolean
+  score: number
+  foreignerFriendlyScore?: number
+  createdAt: string
+  analyzedAt?: string
+  deletedAt?: string
+  deletedBy?: string | number
+  trustScore?: number
+  reviewTrustScore?: number
+  evidenceScore?: number
+  riskScore?: number
+  specificityScore?: number
+  balanceScore?: number
+  diversityScore?: number
+  informativeScore?: number
+  naturalnessScore?: number
+  promoSignalScore?: number
+  repetitionScore?: number
+  exaggerationScore?: number
+  eventDiscountScore?: number
+  reviewBurstScore?: number | null
+  reviewBurstStatus?: "available" | "unavailable" | string
+  analysisConfidence?: "low" | "medium" | "high" | string
+  analysisConfidenceDescription?: string
+  scoreBreakdown?: Record<string, number | string | boolean | null | undefined>
+  trustGrade?: string
+  trustLevel?: string
+  trustLevelKey?: string
+  adSuspicion?: string
+  adSuspicionScore?: number
+  adSuspicionLevel?: string
+  informationScore?: number
+  informationLevel?: string
+  infoCompletenessScore?: number
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: string
+  globalAccessRating?: number
+  reviewCount?: number
+  selectedReviewCount?: number
+  totalReviewCount?: number
+  repetitivePatternLevel?: "low" | "medium" | "high"
+  concreteExperienceLevel?: "low" | "medium" | "high"
+  positiveRatio?: number
+  negativeRatio?: number
+  summary?: string
+  suspiciousPhrases?: string[]
+  trustworthyPhrases?: string[]
+  repetitivePhrases?: string[]
+  detectedPatterns?: string[]
+  detectedReasons?: string[]
+  positiveSignals?: string[]
+  negativeSignals?: string[]
+  recommendation?: string
+  visitTip?: string
+  modelVersion?: string
+  foreignAccessibilityStars?: number
+  resultStatus?: "completed" | "pending" | "failed" | string
+}
+
+export type HospitalItem = {
+  id: string
+  provider?: "filtory" | "kakao" | "naver" | "hira" | string
+  externalPlaceId?: string
+  name: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
+  englishName?: string
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  category: HospitalCategory
+  region: HospitalRegionCode
+  address: string
+  phone?: string
+  reviewCount?: number
+  naverRating?: number
+  naverReviewCount?: number
+  googleRating?: number
+  googleReviewCount?: number
+  sourceName?: string
+  sourceUrl?: string
+  mapUrl?: string
+  kakaoPlaceUrl?: string
+  naverPlaceUrl?: string
+  naverPlaceId?: string
+  googleMapUrl?: string
+  roadAddress?: string
+  googlePlaceId?: string
+  googleRegistered?: boolean
+  hasEnglishInfo?: boolean
+  hasEnglishReviews?: boolean
+  englishReviews?: boolean
+  hasGooglePhotos?: boolean
+  latitude?: number
+  longitude?: number
+  lat?: number
+  lng?: number
+  homepageUrl?: string
+  description?: string
+  imageUrl?: string
+  treatmentItems?: string
+  isOfficialHospital?: boolean
+  officialSource?: "HIRA" | string
+  searchKeywords?: string[]
+  isManual?: boolean
+  manualRegionLabel?: string
+}
+
+export type ReviewImageItem = {
+  id: string
+  reviewId: string
+  imageUrl: string
+  altText?: string
+  sortOrder?: number
+}
+
+export type ReviewCommentItem = {
+  id: string
+  reviewId: string
+  memberId?: string | number
+  parentCommentId?: string
+  authorName: string
+  content: string
+  likeCount: number
+  dislikeCount: number
+  userReaction?: "like" | "dislike"
+  createdAt: string
+  replies?: ReviewCommentItem[]
+}
+
+export type HospitalReviewItem = {
+  id: string
+  hospitalId: string
+  memberId?: string | number
+  rating?: number
+  content: string
+  visitDate?: string
+  createdAt?: string
+  sourceName?: string
+  sourceUrl?: string
+  trustSignal?: "high" | "medium" | "low"
+  adSuspicion?: "low" | "medium" | "high"
+  images?: ReviewImageItem[]
+  comments?: ReviewCommentItem[]
+}
+
+export type ReviewAnalyzeRequest = {
+  category: HospitalCategory
+  hospitalName?: string
+  reviewText?: string
+  reviews?: string[]
+  reviewDates?: string[]
+  outputLanguage?: Language
+  region?: string
+  address?: string
+  phone?: string
+  treatmentItems?: string[]
+  description?: string
+  hasPhotos?: boolean
+  homepageUrl?: string
+  sourceProvider?: string
+  externalPlaceId?: string
+  kakaoPlaceUrl?: string
+  roadAddress?: string
+  latitude?: number
+  longitude?: number
+  naverPlaceUrl?: string
+  naverPlaceId?: string
+  naverRating?: number
+  naverReviewCount?: number
+  googleRating?: number
+  googleReviewCount?: number
+  googleMapUrl?: string
+  googleRegistered?: boolean
+  googlePlaceId?: string
+  englishName?: string
+  hasEnglishInfo?: boolean
+  hasEnglishReviews?: boolean
+  englishReviews?: boolean
+  hasGooglePhotos?: boolean
+}
+
+export type ReviewEvidence = {
+  suspiciousPhrases: string[]
+  specificPhrases: string[]
+  repetitivePhrases: string[]
+  warnings: string[]
+  positiveSignals: string[]
+  checkItems: string[]
+}
+
+export type ReviewAnalyzeResponse = {
+  analysisRequestId?: number
+  analysisResultId?: number
+  hospitalId?: number
+  reviewIds?: number[]
+  totalScore: number
+  trustScore: number
+  reviewTrustScore?: number
+  evidenceScore?: number
+  riskScore?: number
+  specificityScore?: number
+  balanceScore?: number
+  diversityScore?: number
+  informativeScore?: number
+  naturalnessScore?: number
+  promoSignalScore?: number
+  repetitionScore?: number
+  exaggerationScore?: number
+  eventDiscountScore?: number
+  reviewBurstScore?: number | null
+  reviewBurstStatus?: "available" | "unavailable" | string
+  analysisConfidence?: "low" | "medium" | "high" | string
+  analysisConfidenceDescription?: string
+  scoreBreakdown?: Record<string, number | string | boolean | null | undefined>
+  adScore?: number
+  placeScore?: number
+  foreignerScore?: number
+  grade?: string
+  trustGrade: string
+  trustLevelKey:
+    | "very_safe"
+    | "safe"
+    | "normal"
+    | "caution"
+    | "danger"
+    | "very_high"
+    | "high"
+    | "medium"
+    | "low"
+    | "very_low"
+  adSuspicion?: string
+  adSuspicionScore: number
+  adSuspicionLevel: "낮음" | "보통" | "높음" | "low" | "medium" | "high"
+  repetitionLevel?: "low" | "medium" | "high"
+  informationCompleteness?: "low" | "medium" | "high"
+  informationScore: number
+  reviewInformationScore?: number
+  reviewInformationLevel?: string
+  positiveSignals?: string[]
+  negativeSignals?: string[]
+  warningSignals?: string[]
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: "낮음" | "보통" | "높음" | "low" | "medium" | "high" | string
+  globalAccessibilityMaxScore?: number
+  globalAccessibilityChecks?: {
+    googleMapLink?: boolean | string
+    googlePlaceId?: boolean | string
+    mapLocation?: boolean | string
+    contactBooking?: boolean | string
+    englishName?: boolean | string
+    englishGuide?: boolean | string
+    englishReviews?: boolean | string
+    homepageOrBookingLink?: boolean | string
+    websitePlaceLink?: boolean | string
+    photoInfo?: boolean | string
+  }
+  detectedPatterns: string[]
+  suspiciousPhrases: string[]
+  repetitivePhrases: string[]
+  informationLevel: string
+  summary: string
+  recommendation: string
+  visitTip?: string
+  evidence: ReviewEvidence
+  analyzedReviewCount: number
+  modelVersion: string
+}
+
+export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
+  id: string
+  category: HospitalCategory
+  categoryKoLabel?: string
+  categoryEnLabel?: string
+  region?: string
+  regionId?: string
+  regionLabel?: string
+  regionKoLabel?: string
+  regionEnLabel?: string
+  regionProvinceCode?: string
+  regionDistrictCode?: string
+  hospitalAddress?: string
+  roadAddress?: string
+  address?: string
+  hospitalName: string
+  hospitalNameKo?: string
+  hospitalNameEn?: string
+  hospitalEnglishName?: string
+  englishName?: string
+  reviewText?: string
+  analyzedAt: string
+}
+
+export type ForeignerFriendlyCheck = {
+  googleMapLink: boolean
+  englishName: boolean
+  englishGuide: boolean
+  reservationLink: boolean
+  photoInfo: boolean
+}
+
+export type ForeignerFriendlyResult = {
+  checkedCount: number
+  score: number
+  stars: number
+  checkedItems: string[]
+  missingItems: string[]
+  message: string
+}
+
+export interface User {
+  id: number | string
+  email: string
+  nickname: string
+  name?: string
+  phone?: string
+  role: UserRole
+  status: UserStatus
+  provider?: "local" | SocialProvider
+  profileImageUrl?: string | null
+  socialProviders?: Partial<Record<SocialProvider, boolean>>
+  emailVerified?: boolean
+  hasPassword?: boolean
+  joinedAt?: string
+  lastLoginAt?: string
+  lastActiveAt?: string
+  analysisCount?: number
+  savedHospitalCount?: number
+  reportCount?: number
+  profileCompletion?: number
+  createdAt?: string
+}
+
+export interface ApiResponse<T> {
+  success: boolean
+  message: string
+  data: T
+  meta?: {
+    page?: number
+    per_page?: number
+    count?: number
+  }
+}
+
+export interface LoginRequest {
+  identifier: string
+  password: string
+}
+
+export interface SignupPayload {
+  name: string
+  phone: string
+  email: string
+  loginId: string
+  password: string
+  nickname?: string
+  termsAgreed: boolean
+  privacyAgreed: boolean
+  marketingAgreed?: boolean
+}
+
+export interface SignupRequest extends SignupPayload {
+  passwordConfirm?: string
+}
+
+export interface LoginResponse {
+  user: User
+}
+
+export interface FindIdRequest {
+  name: string
+  phone: string
+}
+
+export interface FindIdResponse {
+  id: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+  passwordConfirm: string;
+}
+
+export interface UpdateProfileRequest {
+  name?: string
+  nickname?: string
+  phone?: string
+  profileImageUrl?: string | null
+}
+
+export interface WithdrawalRequest {
+  password?: string
+  reason?: string
+}
+
+export interface UpdateProfilePayload {
+  name?: string
+  email?: string
+  nickname?: string
+  phone?: string
+  profileImageUrl?: string | null
+}
+
+export interface WithdrawPayload {
+  password?: string
+  reason?: string
+}
+
+export interface TermsAgreementState {
+  termsAgreed: boolean
+  privacyAgreed: boolean
+  marketingAgreed: boolean
+}
+
+export interface AdminSummary {
+  totalUsers: number;
+  activeUsers: number;
+  suspendedUsers: number;
+  withdrawnUsers: number;
+}
+
+export interface AdminUser extends Omit<User, "id"> {
+  id: number
+  lastLoginAt?: string;
+  analysisCount?: number
+  savedHospitalCount?: number
+  reportCount?: number
+  memo?: string
+}
+
+export type SavedHospital = {
+  id: number
+  hospitalName: string
+  category: HospitalCategory
+  address: string
+  trustScore: number
+  trustLevelKey?: string
+  trustLevel: string
+  adSuspicionScore: number
+  adSuspicionLevel: string
+  informationScore?: number
+  infoCompletenessScore: number
+  globalAccessibilityScore?: number
+  globalAccessibilityLevel?: string
+  globalAccessRating: number
+  savedAt: string
+  lastAnalyzedAt?: string
+}
+
+export type CompareHospital = SavedHospital & {
+  reviewCount: number
+  recentReviewRatio: number
+  negativeReviewRatio: number
+  dentalMetrics?: {
+    overtreatmentSuspicion: string
+    priceMentionLevel: string
+    explanationKindness: string
+    revisitReviewLevel: string
+    painMentionLevel: string
+    waitingMentionLevel: string
+  }
+  eyeMetrics?: {
+    examExplanation: string
+    surgeryReviewTrust: string
+    aftercareMention: string
+    equipmentInfo: string
+    waitingMentionLevel: string
+    consultationSatisfaction: string
+  }
+  dermatologyMetrics?: {
+    treatmentEffectReview: string
+    adReviewSuspicion: string
+    eventPhraseLevel: string
+    consultationKindness: string
+    revisitReviewLevel: string
+    beforeAfterDetail: string
+  }
+}
+
+export type CompareResult = {
+  category: HospitalCategory
+  hospitals: CompareHospital[]
+  recommendedHospitalId?: number
+  summary: string
+}
+
+export type MyReport = {
+  id: number
+  targetType: "review" | "hospital"
+  hospitalName: string
+  reason: string
+  status: "RECEIVED" | "REVIEWING" | "COMPLETED" | "REJECTED"
+  createdAt: string
+  adminReply?: string
+}
+
+export type NotificationType =
+  | "analysis_done"
+  | "analysis_saved"
+  | "suspicious_review"
+  | "trust_score_changed"
+  | "review_requested"
+  | "review_in_progress"
+  | "review_resolved"
+  | "info_updated"
+  | "security"
+  | "system"
+
+export type NotificationItem = {
+  id: number
+  title: string
+  message: string
+  type: NotificationType
+  isRead: boolean
+  createdAt: string
+  link?: string
+  actionLabel?: string
+}
+
+export type NotificationSettings = {
+  analysisCompleted: boolean
+  reportResult: boolean
+  savedHospitalUpdated: boolean
+  securityAlert: boolean
+  marketing: boolean
+}
+
+export type RecentViewedHospital = {
+  id: number
+  hospitalName: string
+  category: HospitalCategory
+  address: string
+  viewedAt: string
+  trustLevel?: string
+  globalAccessRating?: number
+}
+
+export type UserInsight = {
+  mostAnalyzedCategory: HospitalCategory
+  frequentArea: string
+  savedHospitalAverageTrustLevel: string
+  mainDecisionFactors: string[]
+  summary: string
+}
+
+export type LoginHistory = {
+  id: number
+  loggedInAt: string
+  method: string
+  device: string
+  location: string
+}

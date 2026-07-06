@@ -7,6 +7,7 @@
 frontend/.env.local
 backend-main/.env
 backend-ai/.env
+cookies.txt
 
 # =========================
 # Python
@@ -36,6 +37,7 @@ pnpm-lock.yaml
 .DS_Store
 .vscode/
 .idea/
+.DS_Store
 
 # =========================
 # Logs

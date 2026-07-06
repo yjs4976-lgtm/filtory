@@ -1,0 +1,25 @@
+export const theme = {
+  colors: {
+    background: "#FFFDF9",
+    subtle: "#FFFDF9",
+    foreground: "#1F2A44",
+    gray: "#A8A5B7",
+    card: "#FFFFFF",
+    primary: "#DCCFFF",
+    lavender: "#DCCFFF",
+    reviewPink: "#FFB6C9",
+    trustMint: "#BDEECF",
+    softPeach: "#FFD785",
+    border: "#F1E8DD",
+    trustVeryHigh: "#9B8AFB",
+    trustHigh: "#8FD8B5",
+    trustCaution: "#F6C56F",
+    trustConcern: "#F29A7E",
+    trustVeryConcern: "#E989B5",
+  },
+  radius: {
+    sm: 12,
+    md: 16,
+    lg: 24,
+  },
+} as const
