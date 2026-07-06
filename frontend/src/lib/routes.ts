@@ -23,7 +23,6 @@ export const ROUTES = {
   MYPAGE_PROFILE: "/mypage/profile",
   MYPAGE_HISTORY: "/mypage/history",
   MYPAGE_SAVED: "/mypage/saved",
-  MYPAGE_COMPARE: "/mypage/compare",
   MYPAGE_REPORTS: "/mypage/reports",
   MYPAGE_NOTIFICATIONS: "/mypage/notifications",
   MYPAGE_SETTINGS: "/mypage/settings",

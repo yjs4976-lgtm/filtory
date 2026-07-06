@@ -68,7 +68,6 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
 
   const serviceItems = [
     { href: ROUTES.ANALYZE, label: t.home.startAnalysis, icon: ClipboardList },
-    { href: ROUTES.MYPAGE_COMPARE, label: t.mypage.menu.compare, icon: HeartPulse },
   ]
 
   const supportItems = [

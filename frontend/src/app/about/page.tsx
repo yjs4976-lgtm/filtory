@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Bot, GitCompareArrows, ListChecks, SearchCheck, ShieldCheck, Sparkles } from "lucide-react"
+import { Bot, ListChecks, SearchCheck, ShieldCheck, Sparkles } from "lucide-react"
 import { AppShell } from "@/components/common/AppShell"
 import { SectionPager } from "@/components/common/SectionPager"
 import { useLanguage } from "@/context/LanguageContext"
@@ -15,7 +15,6 @@ export default function AboutPage() {
     { title: t.about.features.reviewTrust, description: t.about.features.reviewTrustDesc, icon: ShieldCheck },
     { title: t.about.features.adDetection, description: t.about.features.adDetectionDesc, icon: SearchCheck },
     { title: t.about.features.hospitalReviews, description: t.about.features.hospitalReviewsDesc, icon: ListChecks },
-    { title: t.about.features.compare, description: t.about.features.compareDesc, icon: GitCompareArrows },
     { title: t.about.features.history, description: t.about.features.historyDesc, icon: Sparkles },
     { title: t.about.features.chatbot, description: t.about.features.chatbotDesc, icon: Bot },
   ]
