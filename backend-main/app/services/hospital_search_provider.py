@@ -81,6 +81,8 @@ class HospitalSearchProvider:
             cls._set_cached(cache_key, results)
             return results
 
+        # 네이버 결과를 우선 쓰되, 부족한 경우에만 카카오로 보충한다.
+        # 진료과가 명확하지 않은 네이버 결과는 아래 category 필터에서 과장 표시를 막는다.
         kakao_results = []
         for query in query_variants:
             remaining_limit = limit - len(naver_results) - len(kakao_results)
@@ -323,6 +325,8 @@ class HospitalSearchProvider:
         link = cls._text(item.get("link"))
         place_url = cls._verified_naver_place_url(link)
         homepage_url = None if place_url else cls._verified_homepage_url(link)
+        # 네이버 Local API는 종종 "병원,의원" 같은 넓은 분류만 준다.
+        # 요청 진료과를 그대로 덮어쓰면 일반 의원이 피부과/치과로 보일 수 있어 실제 추론값만 저장한다.
         provider_category = cls._category_from_naver(item)
         longitude = cls._naver_coordinate(item.get("mapx"))
         latitude = cls._naver_coordinate(item.get("mapy"))
@@ -535,6 +539,7 @@ class HospitalSearchProvider:
     def _matches_requested_category(cls, result_category, requested_category):
         if not requested_category:
             return result_category is None or result_category in cls.SUPPORTED_CATEGORIES
+        # 특정 진료과 필터가 있을 때는 공급자 데이터나 병원명에서 진료과가 확인된 결과만 통과시킨다.
         return result_category == requested_category
 
     @classmethod

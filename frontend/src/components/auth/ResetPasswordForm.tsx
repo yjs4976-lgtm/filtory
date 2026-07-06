@@ -17,7 +17,7 @@ export function ResetPasswordForm() {
     typeof window === "undefined"
       ? ""
       : new URLSearchParams(window.location.hash.replace(/^#/, "")).get("token") || "";
-  // Query-string links remain valid while already-sent reset emails expire.
+  // 기존에 발송된 query-string 재설정 링크도 만료 전까지는 계속 받을 수 있게 둔다.
   const token = fragmentToken || searchParams.get("token") || "";
 
   const [password, setPassword] = useState("");

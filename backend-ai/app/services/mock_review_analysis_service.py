@@ -44,6 +44,8 @@ class MockReviewAnalysisService:
 
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
+        # Mock 분석도 OpenAI 응답처럼 최소 판단값을 만든 뒤 normalize_response_data를 태운다.
+        # 그래야 OpenAI 성공/실패와 관계없이 프론트가 같은 필드를 받는다.
         review_text = OpenAIReviewAnalysisService.merge_review_text(payload)
         promotional_phrases = cls._find_keywords(review_text, cls.PROMOTIONAL_KEYWORDS)
         specific_phrases = cls._find_keywords(review_text, cls.CONCRETE_KEYWORDS)
@@ -116,6 +118,7 @@ class MockReviewAnalysisService:
         concrete_count: int,
         repetitive_count: int,
     ) -> int:
+        # 기본 점수에서 구체성은 가산하고, 광고성/반복/너무 짧은 리뷰는 감점한다.
         score = 58
         score += min(concrete_count * 6, 30)
         score -= min(promotional_count * 7, 28)

@@ -104,6 +104,7 @@ async function authenticatedFetch(path: string, options: RequestOptions = {}, re
     !path.startsWith("/api/auth/refresh") &&
     await refreshAuthSession()
   ) {
+    // HttpOnly 쿠키 기반 인증이라 401을 받으면 refresh 쿠키로 세션을 갱신한 뒤 한 번만 재시도한다.
     return authenticatedFetch(path, options, false);
   }
 

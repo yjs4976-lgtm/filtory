@@ -138,7 +138,7 @@ export function NotificationBottomSheet({
         )))
         onUnreadCountChange?.((current) => Math.max(0, current - 1))
       } catch {
-        // Navigation is still useful even if marking as read fails.
+        // 읽음 처리 실패와 화면 이동 실패를 묶지 않는다. 사용자는 알림 링크로 계속 이동할 수 있어야 한다.
       }
     }
     onClose()

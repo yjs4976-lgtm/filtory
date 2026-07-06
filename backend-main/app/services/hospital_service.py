@@ -5,6 +5,8 @@ from app.services.hospital_search_provider import HospitalSearchProvider
 
 
 class HospitalService:
+    # 병원 검색/저장/분석용 병원 식별을 담당한다.
+    # 외부 검색 결과를 바로 믿지 않고 기존 DB 병원과 매칭한 뒤, 없을 때만 새 병원을 만든다.
     CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
     USER_ENRICHMENT_FIELDS = {
         "homepage_url",
@@ -39,6 +41,8 @@ class HospitalService:
 
     @staticmethod
     def search_hospitals(category=None, region=None, keyword=None, limit=20):
+        # 검색 결과는 외부 provider 결과를 우선 가져오고, DB에 저장된 병원 정보를 보충해서 중복 제거한다.
+        # 프론트는 provider 차이를 몰라도 같은 HospitalItem 형태로 받는다.
         category = HospitalService._normalize_category(category)
 
         if category and category not in HospitalService.CATEGORIES:
@@ -96,6 +100,11 @@ class HospitalService:
 
     @staticmethod
     def get_or_create_hospital_for_analysis(payload):
+        # 분석 요청에서 선택된 병원을 찾는 순서:
+        # 1. 내부 hospital_id
+        # 2. 네이버/구글/외부 provider 고유 id
+        # 3. 병원명+카테고리+주소
+        # 4. 없으면 분석용 병원 row 생성
         hospital_id = payload.get("hospital_id")
         if hospital_id:
             hospital = HospitalRepository.get_by_id(hospital_id)
@@ -152,6 +161,8 @@ class HospitalService:
 
     @staticmethod
     def _analysis_hospital_data(payload):
+        # 사용자가 분석 단계에서 보강한 영어명/사진 여부 같은 제안성 정보는 바로 hospitals 원본에 쓰지 않는다.
+        # 검증 전 정보는 별도 enrichment suggestion 흐름에서 다룬다.
         data = extract_hospital_data(payload)
         return {
             key: value
@@ -203,6 +214,7 @@ class HospitalService:
 
     @staticmethod
     def _dedupe_search_results(items):
+        # 같은 병원이 네이버/카카오/DB에서 함께 오면 병원명+주소 기준으로 하나의 카드로 합친다.
         results = []
         result_index_by_key = {}
         seen = set()
@@ -234,6 +246,7 @@ class HospitalService:
 
     @staticmethod
     def _prioritize_search_results(items):
+        # 리뷰 확인 UX를 위해 네이버 결과를 우선 노출하고, 부족하면 Filtory DB와 카카오 결과를 보조로 보여준다.
         priority = {
             "naver": 0,
             "filtory": 1,

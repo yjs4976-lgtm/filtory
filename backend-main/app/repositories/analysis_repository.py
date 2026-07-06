@@ -4,6 +4,8 @@ from sqlalchemy.orm import joinedload
 
 
 class AnalysisRepository:
+    # AnalysisService가 필요한 쿼리만 모아둔 저장소 계층이다.
+    # 권한 판단과 상태 변경 의미는 Service에서 처리하고, Repository는 DB 조회/생성/삭제에 집중한다.
     @staticmethod
     def get_request_by_id(request_id):
         return db.session.get(AnalysisRequest, request_id)
@@ -14,6 +16,7 @@ class AnalysisRepository:
 
     @staticmethod
     def get_result_with_context_by_id(result_id):
+        # joinedload는 relationship을 같은 조회에서 미리 가져와 lazy loading으로 인한 추가 쿼리를 줄인다.
         return (
             AnalysisResult.query.options(
                 joinedload(AnalysisResult.hospital),
@@ -45,6 +48,7 @@ class AnalysisRepository:
 
     @staticmethod
     def list_history_by_member(member_id, limit=20, offset=0, trashed=False):
+        # 히스토리는 병원 정보와 분석 결과를 함께 보여줘야 하므로 joinedload로 N+1 조회를 줄인다.
         deleted_filter = (
             AnalysisRequest.deleted_at.is_not(None)
             if trashed
@@ -71,6 +75,7 @@ class AnalysisRepository:
 
     @staticmethod
     def list_history_by_ids(member_id, request_ids, trashed=None):
+        # 휴지통 이동/복원/삭제는 반드시 현재 회원 id와 요청 id를 함께 조건으로 걸어 다른 회원 기록을 막는다.
         query = (
             AnalysisRequest.query.options(
                 joinedload(AnalysisRequest.hospital),

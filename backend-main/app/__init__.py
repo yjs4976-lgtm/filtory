@@ -18,9 +18,12 @@ from app.utils.response import error_response
 
 
 def create_app():
+    # Flask 앱 팩토리 패턴이다. 테스트/운영에서 같은 설정으로 새 app 인스턴스를 만들 수 있다.
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # Flask 확장 객체는 extensions.py에서 먼저 만들고, 여기서 실제 app에 연결한다.
+    # 이렇게 하면 순환 import를 줄이고 테스트 app도 쉽게 만들 수 있다.
     db.init_app(app)
     cors.init_app(
         app,
@@ -29,10 +32,12 @@ def create_app():
     )
     jwt.init_app(app)
 
+    # flask-jwt-extended가 토큰을 검증할 때마다 호출하는 blocklist hook이다.
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
         return TokenService.is_token_revoked(jwt_payload["jti"])
 
+    # JWT 에러 handler는 Flask 응답 형식에 맞춰 모두 JSON error_response로 통일한다.
     @jwt.unauthorized_loader
     def handle_missing_token(reason):
         return error_response(reason, 401)
@@ -49,6 +54,8 @@ def create_app():
     def handle_revoked_token(jwt_header, jwt_payload):
         return error_response("Token has been revoked", 401)
 
+    # Blueprint는 Flask에서 라우트 묶음을 모듈 단위로 등록하는 방식이다.
+    # 각 *_bp는 자기 파일에서 endpoint를 정의하고 여기서 URL prefix를 붙인다.
     app.register_blueprint(health_bp, url_prefix="/api/health")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")

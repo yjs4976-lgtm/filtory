@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIReviewAnalysisService:
+    # OpenAI가 맡는 일은 리뷰 문장의 판단 근거를 추출하는 것이다.
+    # 최종 점수, 등급, 응답 호환 필드는 이 서비스의 normalize_response_data()에서 서버 규칙으로 다시 계산한다.
     MODEL_VERSION = "openai-review-analyzer-v1"
     FALLBACK_MODEL_VERSION = "openai-review-analyzer-v1-fallback"
     CONCRETE_KEYWORDS = [
@@ -170,6 +172,8 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest, settings: Settings) -> ReviewAnalyzeResponse:
+        # OpenAI Responses API에 JSON schema를 강제해 응답 구조가 흔들리지 않게 한다.
+        # 실패하면 같은 응답 모델을 만족하는 안전 fallback을 반환한다.
         if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is not configured")
         if not settings.openai_review_model:
@@ -180,12 +184,15 @@ class OpenAIReviewAnalysisService:
         except ImportError as exc:
             raise RuntimeError("openai package is not installed") from exc
 
+        # OpenAI SDK Client 객체에 timeout/max_retries를 지정해 요청 단위 동작을 고정한다.
         client = OpenAI(
             api_key=settings.openai_api_key,
             timeout=settings.openai_timeout_seconds,
             max_retries=0,
         )
         try:
+            # responses.create()는 OpenAI Responses API 호출이다.
+            # text.format에 json_schema를 넣으면 모델 출력이 지정한 JSON schema를 따라야 한다.
             response = client.responses.create(
                 model=settings.openai_review_model,
                 input=[
@@ -222,6 +229,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _build_user_prompt(payload: ReviewAnalyzeRequest) -> str:
+        # 프롬프트에는 카테고리, 병원명, 리뷰 원문, 출력 언어만 넣고 민감한 회원 정보는 보내지 않는다.
         review_text = OpenAIReviewAnalysisService.merge_review_text(payload)
         return REVIEW_ANALYSIS_USER_PROMPT_TEMPLATE.format(
             category=payload.category,
@@ -232,6 +240,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _extract_output_text(response: Any) -> str:
+        # 최신 OpenAI SDK는 output_text shortcut을 제공하지만, 없을 때는 model_dump()로 원본 구조를 순회한다.
         output_text = getattr(response, "output_text", None)
         if output_text:
             return output_text
@@ -258,6 +267,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _parse_json_output(raw_text: str) -> dict[str, Any]:
+        # 모델이 JSON 앞뒤에 code fence나 설명을 붙여도 가능한 범위에서 JSON 객체만 복구한다.
         text = str(raw_text or "").strip()
         if text.startswith("```"):
             lines = text.splitlines()
@@ -287,6 +297,8 @@ class OpenAIReviewAnalysisService:
         payload: ReviewAnalyzeRequest,
         model_version: str,
     ) -> dict[str, Any]:
+        # OpenAI 원응답은 trustScore/adScore/evidence 같은 최소 판단만 믿고,
+        # placeScore, foreignerScore, totalScore, analyzedReviewCount, modelVersion은 서버가 확정한다.
         if not isinstance(data, dict):
             raise ValueError("OpenAI response JSON must be an object")
 
@@ -388,6 +400,8 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def fallback_response_data(cls, payload: ReviewAnalyzeRequest) -> dict[str, Any]:
+        # OpenAI 호출 실패 시 사용자에게 에러 페이지 대신 보수적인 기본 분석 결과를 보여주기 위한 응답이다.
+        # 이 fallback도 normalize_response_data()를 거쳐 실제 응답과 같은 key를 가진다.
         language = payload.outputLanguage
         data = {
             "trustScore": 50,
@@ -450,6 +464,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def calculate_place_score(payload: ReviewAnalyzeRequest) -> int:
+        # 병원 정보 완성도 점수다. 리뷰 신뢰도에는 섞지 않고 결과 화면의 정보 확인 항목에 사용한다.
         checks = [
             (payload.hospitalName, 15),
             (payload.address, 15),
@@ -464,6 +479,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def calculate_foreigner_score(payload: ReviewAnalyzeRequest) -> int:
+        # 외국인 방문 준비도 점수다. 지도/연락처/영어 정보/사진 같은 방문 전 확인 단서를 기준으로 한다.
         statuses = OpenAIReviewAnalysisService.global_accessibility_checks(payload)
         weights = {
             "mapLocation": 25,
@@ -484,7 +500,8 @@ class OpenAIReviewAnalysisService:
         place_score: int,
         foreigner_score: int,
     ) -> int:
-        # Total score mirrors review trust only; place/foreigner metadata is shown separately.
+        # 리뷰 신뢰도 점수는 병원 정보나 외국인 방문 준비도에 끌려가지 않도록 별도로 유지한다.
+        # place_score, foreigner_score는 결과 화면의 참고 정보로만 보여준다.
         return OpenAIReviewAnalysisService._clamp_score(trust_score)
 
     @classmethod
@@ -506,6 +523,8 @@ class OpenAIReviewAnalysisService:
         exaggeration_score = cls.calculate_context_score(review_texts, ["최고", "대박", "완벽", "무조건", "best", "perfect", "amazing"])
         event_discount_score = cls.calculate_context_score(review_texts, ["할인", "이벤트", "혜택", "무료", "discount", "event", "promotion", "free"])
         review_burst_score = cls.calculate_review_burst_score(payload.reviewDates)
+        # 광고성 위험은 광고 문구, 반복 표현, 과장 표현, 이벤트/할인 표현을 나눠 계산한다.
+        # 같은 문맥을 한 덩어리로 합치지 않아 리뷰별 긍정/부정 맥락이 서로 덮어쓰지 않게 한다.
         risk_parts = [
             (promo_signal_score, 0.40),
             (repetition_score, 0.25),
@@ -520,6 +539,8 @@ class OpenAIReviewAnalysisService:
         diversity_score = cls.calculate_diversity_score(review_texts, repetition_score)
         informative_score = cls._clamp_score(review_information_score)
         naturalness_score = cls._clamp_score(100 - max(promo_signal_score, int(exaggeration_score * 0.75)))
+        # 리뷰 신뢰도는 리뷰 자체의 근거성/다양성/자연스러움만 본다.
+        # 병원 정보 완성도나 외국인 방문 준비도는 이 점수에 섞지 않는다.
         evidence_score = cls._clamp_score(
             specificity_score * 0.35
             + balance_score * 0.20
@@ -565,6 +586,8 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def calculate_promo_signal_score(cls, review_texts: list[str]) -> int:
+        # 광고성 점수는 "광고"라는 단어만 보지 않고 추천 행동 유도 표현과 반복 정도를 함께 본다.
+        # 부정 문맥("광고 같지는 않았다")은 먼저 제외한다.
         if not review_texts:
             return 0
 
@@ -614,6 +637,8 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def calculate_review_burst_score(cls, review_dates: list[str]) -> int | None:
+        # 리뷰 날짜가 있을 때만 짧은 기간에 리뷰가 몰린 정도를 계산한다.
+        # 날짜 정보가 없으면 점수를 만들지 않고 unavailable로 남긴다.
         dates = sorted(cls._parse_review_dates(review_dates))
         if len(dates) < 2:
             return None
@@ -699,6 +724,8 @@ class OpenAIReviewAnalysisService:
         specificity_score: int,
         evidence_score: int,
     ) -> int:
+        # 리뷰 수가 너무 적거나 광고/반복/구체성 위험이 크면 최종 신뢰도 상한선을 둔다.
+        # 적은 리뷰 몇 개만으로 지나치게 높은 점수가 나오지 않게 하는 안전장치다.
         caps = []
         if review_count < 5:
             caps.append(60)
@@ -758,6 +785,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _weighted_average(parts: list[tuple[int, float]]) -> int:
+        # parts는 (점수, 가중치) tuple 목록이다. 가중치 합으로 나눠 0~100 범위 점수를 만든다.
         total_weight = sum(weight for _, weight in parts)
         if total_weight <= 0:
             return 0
@@ -771,7 +799,7 @@ class OpenAIReviewAnalysisService:
         place_score: int,
         foreigner_score: int,
     ) -> int:
-        # Reserved for future comparison ranking; it is not returned by this API yet.
+        # 병원 간 비교 정렬에 쓸 예비 점수다. 현재 API 응답에는 직접 노출하지 않는다.
         score = (
             trust_score * 0.40
             + (100 - ad_score) * 0.25
@@ -863,6 +891,8 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def global_accessibility_checks(payload: ReviewAnalyzeRequest) -> dict[str, str]:
+        # 외국인 방문 준비도 원천 체크다.
+        # 병원 메타데이터와 리뷰 안의 단서를 함께 보되, "영어 안내 없음" 같은 부정 문맥은 confirmed로 보지 않는다.
         review_texts = OpenAIReviewAnalysisService._review_texts(payload)
         place_link = payload.homepageUrl or payload.naverPlaceUrl or payload.kakaoPlaceUrl or payload.googleMapUrl
 

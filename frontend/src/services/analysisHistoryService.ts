@@ -77,7 +77,7 @@ export const analysisHistoryService = {
           body: { ids: requestIds },
         })
       } catch {
-        // A locally created analysis has no server request to delete yet.
+        // 로컬에만 있는 분석 기록은 아직 서버 request id가 없어서 서버 삭제를 건너뛸 수 있다.
       }
     }
     moveAnalysisHistoryItemsToTrash(ids, memberId)
@@ -98,7 +98,7 @@ export const analysisHistoryService = {
           body: { ids: requestIds },
         })
       } catch {
-        // A locally created analysis has no server request to restore yet.
+        // 로컬에만 있는 분석 기록은 아직 서버 request id가 없어서 서버 복원을 건너뛸 수 있다.
       }
     }
     restoreAnalysisHistoryItems(ids)
@@ -119,7 +119,7 @@ export const analysisHistoryService = {
           body: { ids: requestIds },
         })
       } catch {
-        // A locally created analysis has no server request to delete yet.
+        // 로컬에만 있는 분석 기록은 아직 서버 request id가 없어서 서버 삭제를 건너뛸 수 있다.
       }
     }
     permanentlyDeleteAnalysisHistoryItems(ids)
@@ -136,7 +136,7 @@ export const analysisHistoryService = {
           body: {},
         })
       } catch {
-        // A locally created analysis has no server request to delete yet.
+        // 로컬에만 있는 분석 기록은 아직 서버 request id가 없어서 서버 삭제를 건너뛸 수 있다.
       }
     }
     const trash = await getTrashHistory(undefined)

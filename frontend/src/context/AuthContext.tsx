@@ -74,9 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             await authService.refresh();
           } catch {
-            // Access token or existing auth cookie may still be enough for /me.
+            // refresh가 실패해도 남아 있는 access 쿠키만으로 /me가 통과할 수 있으니 한 번 더 확인한다.
           }
         }
+        // 소셜 callback 화면에서는 방금 받은 fresh access 쿠키를 refresh로 덮어쓰지 않는다.
+        // 이 fresh 값은 소셜 전용 계정 탈퇴 같은 본인 확인 흐름에서 필요하다.
 
         const meResult = await authService.me();
         if (storedUser?.id !== meResult.data.id) {

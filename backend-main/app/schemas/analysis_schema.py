@@ -66,6 +66,7 @@ def analysis_result_to_dict(analysis_result):
     if analysis_result is None:
         return None
 
+    # DB 컬럼명(snake_case)과 프론트가 기대하는 canonical camelCase 응답을 함께 내려준다.
     return {
         **analysis_result_to_canonical_dict(analysis_result),
         "id": analysis_result.id,
@@ -93,6 +94,8 @@ def analysis_result_to_canonical_dict(analysis_result):
     if analysis_result is None:
         return {}
 
+    # evidence_json.rawResponse에는 backend-ai의 원래 응답을 보존한다.
+    # 새 필드는 rawResponse에서 우선 읽고, 없으면 실제 DB 컬럼으로 fallback한다.
     evidence_json = analysis_result.evidence_json if isinstance(analysis_result.evidence_json, dict) else {}
     raw_response = evidence_json.get("rawResponse")
     raw = raw_response if isinstance(raw_response, dict) else {}
@@ -177,6 +180,8 @@ def extract_analysis_result_data(payload):
 
 
 def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, request_id, review_ids, output_language):
+    # backend-ai 응답을 analysis_results 테이블 컬럼 구조로 접어 넣는 저장용 변환 함수다.
+    # 화면에 필요한 상세 필드는 evidence_json.rawResponse에 원본 그대로 보관한다.
     ad_suspicion_score = _first_present(ai_response.get("adSuspicionScore"), ai_response.get("adScore"))
     place_score = _first_present(ai_response.get("placeScore"), ai_response.get("informationScore"))
     global_accessibility_score = _first_present(
@@ -226,6 +231,7 @@ def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, req
 
 
 def integrated_analysis_to_dict(analysis_request, analysis_result, hospital, reviews, ai_response):
+    # /api/analysis/analyze 응답은 방금 생성된 request/result/review id와 AI 결과를 한 번에 반환한다.
     return {
         "analysisRequestId": analysis_request.id,
         "analysisResultId": analysis_result.id if analysis_result else None,

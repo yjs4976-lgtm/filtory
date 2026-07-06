@@ -13,7 +13,7 @@ function getStoredLanguage() {
 }
 
 export function LanguageProvider({ children }) {
-  // Keep the first client render identical to SSR, then restore the saved preference.
+  // 첫 클라이언트 렌더는 SSR 결과와 맞추고, 다음 프레임에서 저장된 언어 설정을 복원한다.
   const [language, setLanguageState] = useState("ko")
 
   useEffect(() => {

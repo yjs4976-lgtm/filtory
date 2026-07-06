@@ -31,6 +31,7 @@ const GLOBAL_ACCESSIBILITY_DISPLAY_KEYS: GlobalAccessibilityCheckKey[] = [
   "englishReviews",
 ]
 
+// backend-ai, backend-main, 예전 로컬 mock에서 쓰던 key가 조금씩 달라서 한 곳에서 호환한다.
 const GLOBAL_ACCESSIBILITY_CHECK_ALIASES: Record<GlobalAccessibilityCheckKey, string[]> = {
   mapLocation: [
     "mapLocation",
@@ -138,6 +139,7 @@ function englishGuidanceStatusFromText(value?: string): boolean | undefined {
   const text = value?.trim().toLowerCase()
   if (!text) return undefined
 
+  // "영어 안내 없음" 같은 부정 문장을 영어 지원 확인으로 오탐하지 않도록 먼저 제외한다.
   const negativePatterns = [
     /영어.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
     /통역.{0,8}(없|불가|안\s*됨|지원하지|안\s*해|못\s*해)/,
@@ -163,6 +165,7 @@ function hasEnglishGuidanceContext(value?: string) {
 }
 
 function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
+  // 서버 응답이 없거나 mock fallback을 쓸 때도 병원 메타데이터와 리뷰 텍스트로 방문 준비도 항목을 보정한다.
   const placeLink = payload.homepageUrl || payload.naverPlaceUrl || payload.kakaoPlaceUrl || payload.googleMapUrl
   const reviewText = [payload.reviewText, ...(payload.reviews ?? [])]
     .filter((item): item is string => Boolean(item?.trim()))
@@ -203,6 +206,7 @@ function buildGlobalAccessibilityChecks(payload: ReviewAnalyzeRequest) {
 }
 
 function calculateGlobalAccessibilityFallbackScore(values: GlobalAccessibilityChecks) {
+  // 외국인 방문 준비도 점수는 표시용 보조 점수이며, 리뷰 신뢰도 점수와는 분리한다.
   const weights: Record<keyof GlobalAccessibilityChecks, number> = {
     mapLocation: 25,
     contactBooking: 20,

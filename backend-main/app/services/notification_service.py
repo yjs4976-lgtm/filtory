@@ -6,6 +6,7 @@ from app.schemas import notification_to_dict
 class NotificationService:
     @staticmethod
     def list_my_notifications(member_id, limit=20, offset=0):
+        # 알림 목록은 항상 현재 로그인 회원 id 기준으로 조회한다.
         notifications, total = NotificationRepository.list_by_member(
             member_id,
             limit=limit,
@@ -46,6 +47,7 @@ class NotificationService:
         if not member_id:
             return None
 
+        # 알림 종류별 상세 정보는 metadata_json에 넣어 프론트가 링크/배지를 유연하게 구성하게 한다.
         return NotificationRepository.create(
             {
                 "member_id": member_id,
@@ -59,6 +61,7 @@ class NotificationService:
 
     @staticmethod
     def create_analysis_completed_notification(member_id, hospital_name, analysis_request_id, analysis_result_id, total_score=None):
+        # 분석 완료 알림은 히스토리 화면으로 이동하고, request/result id는 metadata로 보존한다.
         score_text = f" 주요 점수 {total_score}점으로 저장됐어요." if total_score is not None else " 결과가 저장됐어요."
         return NotificationService.create_notification(
             member_id,

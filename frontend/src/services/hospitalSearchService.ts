@@ -77,6 +77,7 @@ function isVerifiedNaverPlaceUrl(value: unknown) {
 }
 
 function normalizeSourceUrl(item: BackendHospital, provider: string) {
+  // 네이버 결과의 link가 병원 홈페이지일 수 있으므로 검증된 네이버 플레이스 링크만 출처 링크로 쓴다.
   if (provider.toLowerCase() === "naver") {
     if (isVerifiedNaverPlaceUrl(item.source_url)) return item.source_url ?? undefined
     if (isVerifiedNaverPlaceUrl(item.naver_place_url)) return item.naver_place_url ?? undefined
@@ -119,6 +120,7 @@ function providerReviewCount(
   naverReviewCount: number | undefined,
   googleReviewCount: number | undefined,
 ): number | undefined {
+  // 리뷰 수는 공급자 기준으로만 표시한다. 카카오는 공식 검색 응답에 리뷰 수가 없어 가짜 0을 보여주지 않는다.
   const providerHint = `${provider ?? ""} ${sourceName ?? ""}`.toLowerCase()
 
   if (providerHint.includes("naver") || providerHint.includes("네이버")) {
@@ -149,6 +151,7 @@ function buildNaverMapSearchUrl(provider: string | undefined, sourceName: string
 }
 
 function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCategory): HospitalItem {
+  // 백엔드 검색 결과는 snake_case이고 프론트 화면은 camelCase 타입을 사용하므로 여기서 한 번만 변환한다.
   const provider = item.provider ?? item.source_provider ?? undefined
   const sourceName = item.source_name ?? provider ?? undefined
   const safeLatitude = toOptionalCoordinate(item.latitude)
@@ -161,6 +164,7 @@ function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCateg
   const rawCategory = textOrUndefined(item.category)
   const category = normalizeCategory(rawCategory ?? requestedCategory)
   const hasSpecificCategory = Boolean(rawCategory)
+  // rawCategory가 없으면 공급자가 진료과를 확정하지 못한 상태라 "병원/Clinic"으로 중립 표시한다.
   const address = item.address ?? ""
   const roadAddress = item.road_address ?? undefined
   const hospitalName = String(item.hospital_name ?? "Hospital")
@@ -218,6 +222,7 @@ function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCateg
 
 export const hospitalSearchService = {
   async searchHospitals({ keyword, category, region, regionLabel }: SearchParams): Promise<HospitalItem[]> {
+    // 지역 라벨이 있으면 코드보다 사용자가 본 실제 지역명을 우선 전달해 검색 정확도를 높인다.
     const params = new URLSearchParams()
     if (keyword.trim()) params.set("q", keyword.trim())
     if (category) params.set("category", categoryToBackend[category])

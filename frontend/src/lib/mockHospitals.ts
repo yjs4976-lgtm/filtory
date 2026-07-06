@@ -188,7 +188,7 @@ export const demoHospitals: HospitalItem[] = demoHospitalSeeds.map((hospital) =>
   }
 })
 
-// Sample hospitals are available only when an explicit local demo flag is enabled.
+// 샘플 병원 데이터는 로컬 개발에서 명시적으로 mock 플래그를 켰을 때만 사용한다.
 const demoEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_MOCK === "true"
 
 const sharedReviews = {

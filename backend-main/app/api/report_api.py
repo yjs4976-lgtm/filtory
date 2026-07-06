@@ -43,7 +43,7 @@ def list_reports():
 @require_auth
 def create_report():
     payload = request.get_json(silent=True) or {}
-    # Users can create reports, but moderation fields are always server/admin-owned.
+    # 사용자는 신고만 만들 수 있고, 처리 상태와 관리자 메모 같은 운영 필드는 서버가 소유한다.
     for key in REPORT_CREATE_MANAGED_FIELDS:
         payload.pop(key, None)
     payload["reporter_member_id"] = g.current_member.id
