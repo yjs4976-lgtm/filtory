@@ -516,43 +516,6 @@ export type SavedHospital = {
   lastAnalyzedAt?: string
 }
 
-export type CompareHospital = SavedHospital & {
-  reviewCount: number
-  recentReviewRatio: number
-  negativeReviewRatio: number
-  dentalMetrics?: {
-    overtreatmentSuspicion: string
-    priceMentionLevel: string
-    explanationKindness: string
-    revisitReviewLevel: string
-    painMentionLevel: string
-    waitingMentionLevel: string
-  }
-  eyeMetrics?: {
-    examExplanation: string
-    surgeryReviewTrust: string
-    aftercareMention: string
-    equipmentInfo: string
-    waitingMentionLevel: string
-    consultationSatisfaction: string
-  }
-  dermatologyMetrics?: {
-    treatmentEffectReview: string
-    adReviewSuspicion: string
-    eventPhraseLevel: string
-    consultationKindness: string
-    revisitReviewLevel: string
-    beforeAfterDetail: string
-  }
-}
-
-export type CompareResult = {
-  category: HospitalCategory
-  hospitals: CompareHospital[]
-  recommendedHospitalId?: number
-  summary: string
-}
-
 export type MyReport = {
   id: number
   targetType: "review" | "hospital"

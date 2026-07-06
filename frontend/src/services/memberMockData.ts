@@ -1,7 +1,6 @@
 import type {
   AdminUser,
   AnalysisHistoryItem,
-  CompareHospital,
   HospitalCategory,
   LoginHistory,
   MyReport,
@@ -149,37 +148,6 @@ export const mockSavedHospitals: SavedHospital[] = [
   },
 ]
 
-export const mockCompareHospitals: CompareHospital[] = mockSavedHospitals.map((hospital, index) => ({
-  ...hospital,
-  reviewCount: [124, 98, 212, 64][index] ?? 60,
-  recentReviewRatio: [72, 58, 81, 44][index] ?? 50,
-  negativeReviewRatio: [8, 15, 5, 22][index] ?? 12,
-  dentalMetrics: hospital.category === "dental" ? {
-    overtreatmentSuspicion: hospital.id === 202 ? "낮음" : "주의",
-    priceMentionLevel: "보통",
-    explanationKindness: "좋음",
-    revisitReviewLevel: "보통",
-    painMentionLevel: "낮음",
-    waitingMentionLevel: "보통",
-  } : undefined,
-  eyeMetrics: hospital.category === "eye" ? {
-    examExplanation: "상세함",
-    surgeryReviewTrust: "높음",
-    aftercareMention: "충분",
-    equipmentInfo: "좋음",
-    waitingMentionLevel: "낮음",
-    consultationSatisfaction: "높음",
-  } : undefined,
-  dermatologyMetrics: hospital.category === "derma" ? {
-    treatmentEffectReview: "구체적",
-    adReviewSuspicion: "낮음",
-    eventPhraseLevel: "낮음",
-    consultationKindness: "좋음",
-    revisitReviewLevel: "높음",
-    beforeAfterDetail: "충분",
-  } : undefined,
-}))
-
 export const mockReports: MyReport[] = [
   {
     id: 301,
@@ -303,7 +271,7 @@ export const mockAdminUsers: AdminUser[] = [
     analysisCount: 12,
     savedHospitalCount: 4,
     reportCount: 2,
-    memo: "병원 비교 기능을 자주 사용합니다.",
+    memo: "분석 기록을 자주 확인합니다.",
   },
   {
     id: 2,

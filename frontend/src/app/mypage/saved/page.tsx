@@ -16,7 +16,6 @@ export default function MySavedHospitalsPage() {
   const { t } = useLanguage()
   const { user } = useAuth()
   const [hospitals, setHospitals] = useState<SavedHospital[]>([])
-  const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -30,11 +29,6 @@ export default function MySavedHospitalsPage() {
       alive = false
     }
   }, [user?.id])
-
-  const handleAddToCompare = async (id: number) => {
-    await savedHospitalService.addToCompare(id)
-    setMessage(t.mypage.addedToCompare)
-  }
 
   const handleUnsave = async (id: number) => {
     const ok = window.confirm(t.mypage.unsaveConfirm)
@@ -50,7 +44,6 @@ export default function MySavedHospitalsPage() {
           <h1 className={styles.titleLg}>{t.mypage.savedPageTitle}</h1>
           <p className={styles.bodyText}>{t.mypage.savedPageDescription}</p>
         </section>
-        {message && <p className={styles.formSuccess}>{message}</p>}
         {isLoading ? (
           <LoadingSpinner label={t.mypage.loadingSavedHospitals} />
         ) : hospitals.length === 0 ? (
@@ -59,7 +52,6 @@ export default function MySavedHospitalsPage() {
           <SavedHospitalList
             hospitals={hospitals}
             preview={false}
-            onAddToCompare={handleAddToCompare}
             onUnsave={handleUnsave}
           />
         )}
