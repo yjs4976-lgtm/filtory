@@ -2,6 +2,7 @@ from app.extensions import db
 
 
 class Review(db.Model):
+    # 사용자가 붙여넣은 원본 리뷰 1개를 저장하는 ORM 모델이다.
     __tablename__ = "reviews"
     __table_args__ = (
         db.CheckConstraint("review_language in ('ko', 'en', 'unknown')", name="reviews_language_check"),
@@ -13,6 +14,7 @@ class Review(db.Model):
     )
 
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    # ForeignKey는 DB 외래키를 만들고, relationship과 함께 객체 간 연결에도 쓰인다.
     member_id = db.Column(db.BigInteger, db.ForeignKey("public.members.id", ondelete="SET NULL"))
     hospital_id = db.Column(
         db.BigInteger,
@@ -32,6 +34,7 @@ class Review(db.Model):
     )
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
 
+    # back_populates는 양방향 relationship의 짝을 명시한다.
     member = db.relationship("Member", back_populates="reviews")
     hospital = db.relationship("Hospital", back_populates="reviews")
     analysis_request = db.relationship("AnalysisRequest", back_populates="reviews")

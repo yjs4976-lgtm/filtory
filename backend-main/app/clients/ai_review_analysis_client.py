@@ -19,11 +19,14 @@ class AIReviewAnalysisClient:
         if not internal_token:
             raise RuntimeError("AI_INTERNAL_TOKEN is not configured")
 
+        # 리뷰 원문은 backend-main을 거쳐 내부 토큰으로만 backend-ai에 전달한다.
+        # 프론트가 AI 서버 주소나 토큰을 직접 알 필요가 없어야 한다.
         headers = {
             "Content-Type": "application/json",
             "X-Internal-Token": internal_token,
         }
 
+        # urllib.request.Request는 표준 라이브러리만으로 HTTP method/header/body를 지정하는 객체다.
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -32,6 +35,7 @@ class AIReviewAnalysisClient:
         )
 
         try:
+            # urlopen()은 실제 HTTP 요청을 보내고 file-like response 객체를 돌려준다.
             with urllib.request.urlopen(request, timeout=cls._timeout_seconds()) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
@@ -56,6 +60,7 @@ class AIReviewAnalysisClient:
 
     @classmethod
     def _api_url(cls):
+        # has_app_context()가 true면 Flask current_app.config를, 아니면 os.getenv를 사용해 테스트에서도 호출 가능하게 한다.
         base_url = str(_config_value("BACKEND_AI_BASE_URL") or os.getenv("BACKEND_AI_BASE_URL") or "http://127.0.0.1:8000").strip()
         return f"{base_url.rstrip('/')}{cls.REVIEW_ANALYSIS_PATH}"
 

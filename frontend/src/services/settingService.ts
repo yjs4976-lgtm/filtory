@@ -1,6 +1,6 @@
 import type { NotificationSettings } from "@/lib/types"
 
-// Kept as a compatibility type for the dormant component; no theme selector is rendered.
+// 현재 화면에는 테마 선택기를 노출하지 않지만, 비활성 컴포넌트와의 타입 호환을 위해 남긴다.
 export type AppTheme = "system" | "light" | "dark"
 export type AppSettingsPayload = NotificationSettings & {
   language: "ko" | "en"

@@ -2,10 +2,13 @@ from flask_jwt_extended import create_access_token, create_refresh_token, get_jw
 
 
 class TokenService:
+    # 개발 환경용 간단한 메모리 revoke 목록이다. 운영에서 다중 인스턴스를 쓰면 Redis 같은 공유 저장소가 필요하다.
     _revoked_jtis = set()
 
     @staticmethod
     def create_token_pair(member, provider="local", fresh=True):
+        # fresh access token은 방금 로그인/소셜 인증을 마친 상태를 뜻한다.
+        # 회원 탈퇴처럼 민감한 작업에서 일반 refresh access token과 구분해 사용한다.
         identity = str(member.id)
         claims = {
             "provider": provider,

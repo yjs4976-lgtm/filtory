@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class AnalysisService:
+    # 분석 도메인의 중심 서비스다.
+    # 프론트 요청을 받아 병원/리뷰/분석요청/분석결과/알림까지 이어지는 전체 업무 흐름을 조율한다.
+    # 실제 DB 조회/저장은 Repository가, AI 호출은 Client가, 응답 변환은 Schema helper가 맡는다.
     REQUEST_STATUSES = {"pending", "analyzing", "success", "failed", "canceled"}
     ANALYSIS_TYPES = {"single_review", "multi_review", "place_only", "full"}
 
@@ -44,6 +47,7 @@ class AnalysisService:
 
     @staticmethod
     def list_member_history(member_id, limit=20, offset=0, trashed=False):
+        # 마이페이지/히스토리 화면용 목록이다. request와 result, hospital을 합쳐 화면용 dict로 만든다.
         analysis_requests = AnalysisRepository.list_history_by_member(
             member_id,
             limit=limit,
@@ -62,6 +66,7 @@ class AnalysisService:
 
     @staticmethod
     def move_member_history_to_trash(member_id, request_ids, deleted_by_member_id):
+        # 휴지통 이동은 실제 row 삭제가 아니라 deleted_at/deleted_by만 채우는 soft delete다.
         normalized_ids = AnalysisService._normalize_request_ids(request_ids)
         analysis_requests = AnalysisRepository.list_history_by_ids(
             member_id,
@@ -110,6 +115,7 @@ class AnalysisService:
 
     @staticmethod
     def permanently_delete_member_history(member_id, request_ids=None):
+        # 휴지통에서 완전 삭제할 때만 row를 제거한다. ids가 없으면 해당 회원의 휴지통 전체를 비운다.
         normalized_ids = AnalysisService._normalize_request_ids(request_ids, allow_empty=True)
         if normalized_ids:
             analysis_requests = AnalysisRepository.list_history_by_ids(
@@ -160,6 +166,8 @@ class AnalysisService:
         reviews = []
 
         try:
+            # 분석 요청은 먼저 병원, 요청 기록, 원본 리뷰를 DB에 남긴 뒤 backend-ai를 호출한다.
+            # AI 호출 전에 commit해 두면 실패 시에도 어떤 요청이 실패했는지 추적할 수 있다.
             hospital = HospitalService.get_or_create_hospital_for_analysis(data["hospital"])
             db.session.flush()
 
@@ -207,12 +215,14 @@ class AnalysisService:
         backend_ai_payload = AnalysisService._backend_ai_payload(data, hospital)
 
         try:
+            # 실제 LLM/Mock 선택은 backend-ai가 담당하고, backend-main은 표준 payload만 전달한다.
             ai_response = AIReviewAnalysisClient.analyze(backend_ai_payload)
         except RuntimeError as exc:
             AnalysisService._mark_request_failed(analysis_request, "Backend AI review analysis failed")
             raise RuntimeError("Backend AI review analysis failed") from exc
 
         try:
+            # backend-ai 응답은 그대로 저장하지 않고 analysis_results 테이블 스키마에 맞게 정규화한다.
             review_ids = [review.id for review in reviews]
             result_data = analysis_ai_response_to_result_data(
                 ai_response,
@@ -231,6 +241,7 @@ class AnalysisService:
             analysis_request.error_message = None
             from app.services.notification_service import NotificationService
 
+            # 분석 완료 알림은 결과 저장과 같은 트랜잭션에서 생성해 히스토리/알림 상태를 맞춘다.
             NotificationService.create_analysis_completed_notification(
                 member_id,
                 hospital.hospital_name if hospital else None,
@@ -256,6 +267,7 @@ class AnalysisService:
             ai_response,
         )
 
+        # 병원 메타데이터 개선 제안은 실패해도 분석 결과 제공을 막지 않는 부가 작업이다.
         AnalysisService._try_create_enrichment_suggestion(
             data["hospital"],
             hospital_id=hospital.id,
@@ -267,6 +279,8 @@ class AnalysisService:
 
     @staticmethod
     def create_request(payload):
+        # 관리자/테스트용으로 분석 요청 row를 직접 만드는 낮은 수준의 API에서 사용한다.
+        # 일반 사용자의 실제 리뷰 분석은 analyze_reviews() 경로를 탄다.
         data = extract_analysis_request_data(payload)
         AnalysisService._validate_request_data(data)
         reviews_payload = payload.get("reviews", [])
@@ -321,6 +335,8 @@ class AnalysisService:
 
     @staticmethod
     def create_result(payload):
+        # 관리자/테스트용으로 분석 결과 row를 직접 저장하는 경로다.
+        # 실제 사용자 분석에서는 backend-ai 응답을 analysis_ai_response_to_result_data()로 변환해 저장한다.
         data = extract_analysis_result_data(payload)
         AnalysisService._validate_score_data(data)
 
@@ -407,6 +423,7 @@ class AnalysisService:
 
     @staticmethod
     def _history_item_to_dict(analysis_request):
+        # 히스토리 화면은 과거 mock/local 데이터와 실제 DB 데이터를 함께 읽어야 해서 camelCase/snake_case를 모두 채운다.
         hospital = analysis_request.hospital
         analysis_result = analysis_request.analysis_result
         request_options = (
@@ -505,6 +522,7 @@ class AnalysisService:
 
     @staticmethod
     def _mark_request_failed(analysis_request, message):
+        # AI 호출 또는 결과 저장이 실패했을 때 request row에 실패 상태를 남겨 사용자가 원인을 추적할 수 있게 한다.
         try:
             analysis_request.request_status = "failed"
             analysis_request.error_message = message

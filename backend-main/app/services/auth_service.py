@@ -17,6 +17,7 @@ from app.utils.validators import validate_email, validate_password, validate_req
 class AuthService:
     @staticmethod
     def register(payload):
+        # 일반 회원가입은 약관 동의와 비밀번호 정책을 통과한 뒤 MemberService로 생성 작업을 위임한다.
         login_id = payload.get("loginId") or payload.get("login_id")
         email = str(payload.get("email") or "").strip().lower()
         validate_required(
@@ -47,6 +48,7 @@ class AuthService:
 
     @staticmethod
     def login(payload):
+        # 로그인 ID와 이메일을 모두 허용하되, 탈퇴/비활성 계정은 후보에서 제외한다.
         identifier = payload.get("identifier") or payload.get("email")
         validate_required(
             {"identifier": identifier, "password": payload.get("password")},
@@ -87,6 +89,7 @@ class AuthService:
 
     @staticmethod
     def refresh(member_id, provider="local"):
+        # refresh token은 새 access token만 발급한다. 재인증이 아니므로 fresh=False로 내려간다.
         member = MemberRepository.get_by_id(int(member_id))
 
         if not member or not member.active or member.deleted_at:
@@ -186,6 +189,7 @@ class AuthService:
         if not code:
             raise ValueError("code is required")
 
+        # OAuth callback에서는 state에 담긴 provider와 프론트 callback URL을 먼저 검증한다.
         state_data = SocialAuthService.load_state(state)
         provider = state_data["provider"]
         social_payload = SocialAuthService.exchange_code_for_user_info(

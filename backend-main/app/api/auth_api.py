@@ -12,11 +12,13 @@ from app.utils.response import (
     success_response,
 )
 
+# Blueprint는 이 파일의 인증 관련 route들을 하나의 모듈로 묶어 create_app()에서 등록하게 해준다.
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
+    # request.get_json(silent=True)는 JSON 파싱 실패 시 예외 대신 None을 돌려준다.
     payload = request.get_json(silent=True) or {}
 
     try:
@@ -41,6 +43,7 @@ def login():
 @jwt_required()
 def me():
     try:
+        # get_jwt_identity()는 JWT의 sub(identity) 값을 꺼내며, 여기서는 member id 문자열이다.
         member = AuthService.authenticate(get_jwt_identity())
         return success_response(member)
     except ValueError as e:
@@ -51,6 +54,7 @@ def me():
 @jwt_required(refresh=True)
 def refresh():
     try:
+        # refresh=True는 access token이 아니라 refresh token만 이 endpoint를 통과하게 한다.
         result = AuthService.refresh(
             get_jwt_identity(),
             provider=get_jwt().get("provider", "local"),
@@ -131,12 +135,14 @@ def social_login():
 
 @auth_bp.route("/social-login", methods=["GET"])
 def start_social_login():
+    # GET social-login은 브라우저를 OAuth 제공자 인증 화면으로 redirect하는 endpoint다.
     provider = request.args.get("provider")
     frontend_next_url = (
         request.args.get("next")
         or request.args.get("redirect_uri")
         or _default_frontend_callback_url()
     )
+    # 사용자가 넘긴 next 값은 로그인 시작 시점과 callback state 복원 시점에 모두 검증한다.
     frontend_next_url = AuthService.sanitize_frontend_next_url(frontend_next_url)
 
     try:
@@ -183,6 +189,7 @@ def _complete_social_login_callback(backend_redirect_uri):
             state,
             backend_redirect_uri,
         )
+        # 소셜 로그인 완료 후 토큰은 body가 아니라 HttpOnly 쿠키에만 심어 프론트로 돌려보낸다.
         response = redirect(_append_query(frontend_redirect_uri, {"social_login": "success"}))
         set_auth_cookies(response, result.get("access_token"), result.get("refresh_token"))
         return response
@@ -202,6 +209,7 @@ def _provider_backend_redirect_uri(provider):
     if configured_redirect_uri:
         return configured_redirect_uri
 
+    # url_for(..., _external=True)는 현재 요청 host를 포함한 절대 URL을 만든다.
     return url_for("auth.provider_social_login_callback", provider=provider, _external=True)
 
 

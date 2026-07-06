@@ -2,6 +2,7 @@ from app.extensions import db
 
 
 class Hospital(db.Model):
+    # 병원 테이블을 SQLAlchemy ORM 모델로 표현한 클래스다.
     __tablename__ = "hospitals"
     __table_args__ = (
         db.CheckConstraint(
@@ -11,6 +12,7 @@ class Hospital(db.Model):
         {"schema": "public"},
     )
 
+    # Numeric은 위도/경도처럼 소수 정밀도가 중요한 DB 컬럼에 사용한다.
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     hospital_name = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(30), nullable=False)
@@ -55,6 +57,7 @@ class Hospital(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
 
+    # cascade="all, delete-orphan"은 부모 병원이 삭제될 때 연결된 자식 row도 ORM 관점에서 함께 정리한다.
     reviews = db.relationship(
         "Review",
         back_populates="hospital",

@@ -4,6 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# backend-ai 실행 시 프로젝트 루트의 환경 설정을 한 번 로드한다.
+# 실제 값은 코드에 두지 않고 배포 환경 변수 또는 로컬 .env에서만 주입한다.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 OPENAI_REVIEW_MODEL_DEFAULT = "gpt-4o-mini"
@@ -29,6 +31,8 @@ def _int_or_default(value: str | None, default: int) -> int:
 
 class Settings:
     def __init__(self):
+        # 리뷰 분석은 USE_OPENAI_REVIEW_ANALYZER와 OPENAI_API_KEY가 모두 준비됐을 때만 OpenAI를 사용한다.
+        # 설정이 부족하면 서비스 계층에서 Mock fallback으로 같은 응답 계약을 유지한다.
         self.use_openai_review_analyzer = _is_enabled(os.getenv("USE_OPENAI_REVIEW_ANALYZER"))
         self.openai_api_key = (os.getenv("OPENAI_API_KEY") or "").strip() or None
         self.openai_review_model = (os.getenv("OPENAI_REVIEW_MODEL") or "").strip() or OPENAI_REVIEW_MODEL_DEFAULT
@@ -48,4 +52,6 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    # lru_cache는 인자가 없는 함수 결과를 한 번만 만들고 재사용하게 해주는 표준 라이브러리 데코레이터다.
+    # 요청마다 환경 변수를 다시 파싱하지 않도록 프로세스 단위로 Settings를 캐싱한다.
     return Settings()

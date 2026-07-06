@@ -29,12 +29,13 @@ class AIChatbotClient:
             logger.warning("Remote AI chatbot is enabled but AI_INTERNAL_TOKEN is not configured; using local fallback")
             return None
 
-        # Keep the browser out of the AI trust boundary; only backend-main can call backend-ai.
+        # 브라우저가 backend-ai를 직접 호출하지 못하게 하고, backend-main만 내부 토큰으로 접근한다.
         headers = {
             "Content-Type": "application/json",
             "X-Internal-Token": internal_token,
         }
 
+        # Request 객체에 JSON byte body를 넣어 backend-ai FastAPI endpoint로 POST 요청을 만든다.
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -43,6 +44,7 @@ class AIChatbotClient:
         )
 
         try:
+            # response.read()는 bytes를 반환하므로 UTF-8로 decode한 뒤 JSON 객체로 파싱한다.
             with urllib.request.urlopen(request, timeout=cls._timeout_seconds()) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:

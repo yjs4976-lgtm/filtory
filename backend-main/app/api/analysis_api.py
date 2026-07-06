@@ -23,6 +23,7 @@ def analyze_reviews():
     payload = request.get_json(silent=True) or {}
 
     try:
+        # 프론트는 backend-ai를 직접 호출하지 않고, 로그인된 회원 기준으로 backend-main 분석 API만 호출한다.
         result = AnalysisService.analyze_reviews(g.current_member.id, payload)
         return success_response(result, "Review analysis complete", 201)
     except ValueError as e:
@@ -54,6 +55,8 @@ def list_analysis_requests():
     requested_hospital_id = request.args.get("hospital_id", type=int)
 
     if not _current_member_is_admin():
+        # 일반 회원은 member_id를 위조해도 자신의 분석 요청만 볼 수 있다.
+        # hospital_id 필터는 본인 기록 안에서만 적용되므로 유지한다.
         if requested_member_id and requested_member_id != g.current_member.id:
             return error_response("Member permission is required", 403)
         requested_member_id = g.current_member.id

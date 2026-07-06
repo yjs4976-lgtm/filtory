@@ -13,6 +13,7 @@ inquiry_bp = Blueprint("inquiries", __name__)
 @inquiry_bp.route("/inquiries", methods=["POST"])
 @require_auth
 def create_inquiry():
+    # 첨부파일이 있으면 multipart/form-data로 받고, 없으면 기존 JSON 문의 작성도 유지한다.
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         payload = request.form.to_dict()
         attachment_file = request.files.get("attachment")
@@ -57,6 +58,7 @@ def get_my_inquiry(inquiry_id):
 @require_auth
 def download_inquiry_attachment(inquiry_id):
     try:
+        # 첨부파일은 공개 URL로 열지 않고, 소유자 또는 관리자 검증 후 서버가 파일을 내려준다.
         attachment = InquiryService.get_attachment_for_member(g.current_member, inquiry_id)
         return send_file(
             BytesIO(attachment["content"]),

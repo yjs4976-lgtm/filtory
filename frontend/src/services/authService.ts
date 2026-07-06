@@ -198,6 +198,7 @@ export const authService = {
     if (safeNextPath) {
       callbackUrl.searchParams.set("next", safeNextPath);
     }
+    // OAuth 제공자 왕복 뒤에도 내부 경로로만 돌아오도록 검증된 callback URL만 백엔드에 넘긴다.
     const nextUrl = callbackUrl.toString();
     const url = `${API_BASE_URL}/api/auth/social-login?provider=${provider}&next=${encodeURIComponent(
       nextUrl

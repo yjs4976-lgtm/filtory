@@ -10,6 +10,7 @@ from app.services.review_ocr_service import ReviewOcrService
 
 logger = logging.getLogger(__name__)
 
+# APIRouter는 FastAPI의 라우트 묶음이다. prefix가 붙어 이 파일의 모든 endpoint가 /api/reviews 아래에 생긴다.
 router = APIRouter(prefix="/api/reviews", tags=["review-analysis"])
 
 
@@ -19,6 +20,8 @@ def analyze_review(
     x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
 ):
     settings = get_settings()
+    # Header(alias=...)는 HTTP 헤더 이름과 파이썬 변수명을 서로 다르게 매핑할 때 쓴다.
+    # 리뷰 분석 API는 backend-main에서 내부 토큰을 붙여 호출하는 서버 간 전용 엔드포인트다.
     _verify_internal_token(settings.ai_internal_token, x_internal_token)
     return ReviewAnalysisService.analyze(payload)
 
@@ -48,6 +51,7 @@ def _verify_internal_token(expected_token: str | None, received_token: str | Non
     received = str(received_token or "").strip()
 
     if not expected:
+        # 토큰이 설정되지 않은 배포는 외부 노출 위험이 있으므로 mock으로라도 처리하지 않는다.
         raise HTTPException(status_code=503, detail="AI service authentication is not configured")
 
     if not received or not secrets.compare_digest(expected, received):

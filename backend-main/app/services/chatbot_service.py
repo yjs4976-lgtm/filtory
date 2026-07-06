@@ -44,7 +44,7 @@ class ChatbotService:
         "Does a high score mean I can fully trust it?",
     ]
 
-    # Backward-compatible names used by older callers/tests.
+    # 예전 호출부와 테스트가 쓰던 이름을 유지하기 위한 호환 alias다.
     SUGGESTIONS_KO = GENERAL_SUGGESTIONS_KO
     SUGGESTIONS_EN = GENERAL_SUGGESTIONS_EN
 

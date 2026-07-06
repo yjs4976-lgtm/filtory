@@ -11,6 +11,7 @@ notification_bp = Blueprint("notifications", __name__)
 @notification_bp.route("", methods=["GET"])
 @require_auth
 def list_notifications():
+    # 알림 API는 URL에 member_id를 받지 않고 항상 현재 로그인 회원 기준으로 동작한다.
     pagination = get_pagination_params(request.args)
     notifications, total = NotificationService.list_my_notifications(
         g.current_member.id,

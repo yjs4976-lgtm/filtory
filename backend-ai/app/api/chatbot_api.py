@@ -34,7 +34,7 @@ def _verify_internal_token(expected_token: str | None, received_token: str | Non
     expected = str(expected_token or "").strip()
     received = str(received_token or "").strip()
 
-    # The AI server is private infrastructure; fail closed if deployment forgot the shared token.
+    # backend-ai는 외부에 직접 열지 않는 내부 서버다. 공유 토큰 설정이 빠지면 안전하게 실패시킨다.
     if not expected:
         raise HTTPException(status_code=503, detail="AI service authentication is not configured")
 

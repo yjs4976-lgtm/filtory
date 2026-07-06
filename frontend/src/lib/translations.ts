@@ -1,4 +1,4 @@
-// i18n maintenance: keep ko/en leaf keys mirrored; arrays count as one leaf key.
+// i18n 관리 메모: ko/en의 말단 key를 맞춘다. 배열은 하나의 말단 key로 본다.
 export const translations = {
   ko: {
     appName: "Filtory",

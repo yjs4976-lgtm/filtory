@@ -31,7 +31,7 @@ def error_response(message="error", status_code=400, errors=None):
 
 def auth_success_response(data=None, message="success", status_code=200):
     payload = dict(data or {})
-    # Auth tokens are delivered only through HttpOnly JWT cookies, not JSON bodies.
+    # 인증 토큰은 JSON 응답 본문에 넣지 않고 HttpOnly JWT 쿠키로만 내려보낸다.
     access_token = payload.pop("access_token", None)
     refresh_token = payload.pop("refresh_token", None)
 

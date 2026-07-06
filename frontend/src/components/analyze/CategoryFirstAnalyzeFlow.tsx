@@ -344,6 +344,7 @@ function createReviewDraftId() {
 }
 
 function normalizeReviewContent(content: string) {
+  // 중복 검사는 공백/구두점 차이 때문에 놓치지 않도록 비교용 문자열을 단순화한다.
   return content
     .replace(/[.,!?~。！？]/g, "")
     .replace(/\s+/g, " ")
@@ -358,6 +359,7 @@ function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDr
 }
 
 function normalizeReviewDrafts(drafts: ReviewDraft[]) {
+  // 붙여넣은 여러 리뷰를 분석 가능/짧음/중복 상태로 다시 계산한다.
   const counts = drafts.reduce<Record<string, number>>((acc, draft) => {
     const key = normalizeReviewContent(draft.content)
     if (key) acc[key] = (acc[key] ?? 0) + 1
@@ -374,6 +376,7 @@ function normalizeReviewDrafts(drafts: ReviewDraft[]) {
 }
 
 function splitReviewText(value: string) {
+  // 여러 리뷰를 한 번에 붙여넣으면 빈 줄 기준으로 먼저 나누고, 없으면 줄 단위로 나눈다.
   const trimmed = value.trim()
   if (!trimmed) return []
 
@@ -617,6 +620,7 @@ function getHospitalCardAddressLabel(hospital: HospitalItem) {
 function buildHospitalMetadataPayload(hospital?: HospitalItem) {
   if (!hospital) return {}
 
+  // 선택한 병원의 장소 링크와 편의 정보는 리뷰 분석 payload에 같이 실어 결과 화면 보조 항목에 활용한다.
   const englishName = hospital.hospitalEnglishName || hospital.hospitalNameEn
   const mapUrlInfo = classifyMapUrl(hospital.mapUrl)
   const sourceUrlInfo = classifyMapUrl(hospital.sourceUrl)
@@ -2668,6 +2672,7 @@ function VisitInfoAssistPanel({
 
       {(selectedMapLink || selectedHomepageLink) && (
         <div className={styles.visitInfoQuickActions}>
+          {/* 검색 결과에서 확인한 지도/홈페이지 링크를 분석 보조 정보로 바로 채울 수 있게 한다. */}
           {selectedMapLink && (
             <button
               type="button"
@@ -2963,6 +2968,7 @@ function HospitalSearchMap({
       }
 
       try {
+        // 검색 결과 중 좌표가 있는 병원만 지도에 표시하고, 마커를 누르면 해당 병원이 선택된다.
         const first = mapHospitals[0]
         const firstCoordinate = getHospitalCoordinate(first)
         const center = new kakaoMaps.LatLng(firstCoordinate.latitude ?? 37.5665, firstCoordinate.longitude ?? 126.978)

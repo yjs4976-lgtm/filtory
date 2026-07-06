@@ -34,6 +34,7 @@ class SocialAuthService:
     def build_authorization_url(provider, backend_redirect_uri, frontend_next_url):
         client = SocialAuthService._get_client(provider)
         client_id = SocialAuthService._get_client_config(provider, "CLIENT_ID")
+        # OAuth state에는 검증된 프론트 callback만 넣어 open redirect를 막는다.
         safe_frontend_next_url = SocialAuthService.sanitize_frontend_next_url(frontend_next_url)
 
         state = _get_state_serializer().dumps(
@@ -99,6 +100,7 @@ class SocialAuthService:
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return fallback
 
+        # CORS origin 전체가 아니라 로그인 callback으로 허용한 프론트 origin만 재이동 대상으로 인정한다.
         if _url_origin(url) in _allowed_frontend_origins():
             return url
 

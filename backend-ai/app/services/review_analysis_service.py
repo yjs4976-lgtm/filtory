@@ -12,6 +12,7 @@ class ReviewAnalysisService:
     def analyze(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
         settings = get_settings()
 
+        # 운영에서는 설정값으로 OpenAI 분석을 켜고, 실패하면 같은 schema의 mock 분석으로 fallback한다.
         if settings.use_openai_review_analyzer:
             if settings.openai_api_key and settings.openai_review_model:
                 try:
@@ -33,4 +34,5 @@ class ReviewAnalysisService:
 
     @classmethod
     def analyze_mock(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
+        # 테스트와 수동 점검에서 OpenAI 없이도 동일 응답 계약을 확인하기 위한 진입점이다.
         return MockReviewAnalysisService.analyze(payload)

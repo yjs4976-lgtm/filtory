@@ -32,7 +32,7 @@ class AIReviewOcrClient:
         if not internal_token:
             raise RuntimeError("AI_INTERNAL_TOKEN is not configured")
 
-        # OCR images may contain sensitive review screenshots, so backend-ai must stay behind a server token.
+        # OCR 이미지는 민감한 리뷰 캡처를 포함할 수 있으므로 내부 토큰이 없으면 backend-ai로 보내지 않는다.
         headers = {
             "Content-Type": "application/json",
             "X-Internal-Token": internal_token,

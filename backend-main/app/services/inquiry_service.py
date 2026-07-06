@@ -50,6 +50,7 @@ class InquiryService:
             inquiry = InquiryRepository.create(data)
             db.session.flush()
             if attachment_file and attachment_file.filename:
+                # 문의 id가 확정된 뒤 업로드해야 사용자별/문의별 안전한 저장 경로를 만들 수 있다.
                 storage = InquiryService._storage_client()
                 attachment_data = InquiryService._upload_attachment(
                     storage,
@@ -64,6 +65,7 @@ class InquiryService:
         except Exception:
             db.session.rollback()
             if storage and uploaded_attachment_path:
+                # DB 저장이 실패하면 이미 올라간 객체를 지워 첨부파일 고아 데이터를 남기지 않는다.
                 storage.delete_object(uploaded_attachment_path)
             raise
 
@@ -193,6 +195,7 @@ class InquiryService:
         )
         attachment_url = InquiryService._clean_optional_text(payload.get("attachmentUrl") or payload.get("attachment_url"))
         if attachment_url:
+            # 임의 외부 URL은 피싱/권한 우회 위험이 있어서 서버 저장소 업로드만 허용한다.
             raise ValueError("External attachment URLs are not allowed")
 
         return {

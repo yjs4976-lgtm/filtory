@@ -4,8 +4,10 @@ from app.models import EmailVerificationToken, Member, MemberTermsAgreement, Pas
 
 
 class MemberRepository:
+    # Repository는 SQLAlchemy query를 한 곳에 모아 Service가 ORM 세부 문법을 덜 알게 해준다.
     @staticmethod
     def get_by_id(member_id):
+        # db.session.get()은 primary key 조회 전용 API라 단건 조회에 가장 단순하다.
         return db.session.get(Member, member_id)
 
     @staticmethod
@@ -14,6 +16,7 @@ class MemberRepository:
         if not normalized_email:
             return None
 
+        # func.lower/trim은 DB 함수 호출 표현식이다. 이메일 비교를 대소문자/공백에 덜 민감하게 만든다.
         return Member.query.filter(
             func.lower(func.trim(Member.email)) == normalized_email
         ).first()
@@ -36,6 +39,7 @@ class MemberRepository:
         if not normalized_identifier:
             return []
 
+        # or_는 SQL의 OR 조건을 Python 코드에서 조합하는 SQLAlchemy helper다.
         return Member.query.filter(
             or_(
                 func.lower(func.trim(Member.email)) == normalized_identifier,
@@ -99,6 +103,8 @@ class MemberRepository:
         if not member_id:
             return 0
 
+        # bulk delete는 개별 객체를 로딩하지 않고 SQL DELETE를 실행한다.
+        # synchronize_session=False는 세션에 로드된 객체 동기화를 생략해 단순 삭제를 빠르게 처리한다.
         return (
             SocialAccount.query
             .filter(SocialAccount.member_id == member_id)

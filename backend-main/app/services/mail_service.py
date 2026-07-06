@@ -12,8 +12,8 @@ class MailService:
             raise ValueError("email and reset_token are required")
 
         frontend_base_url = current_app.config.get("FRONTEND_BASE_URL", "").rstrip("/")
-        # URL fragments are handled by the browser and are not sent in the HTTP
-        # request, so the one-time token is not written to frontend access logs.
+        # URL fragment는 브라우저 안에서만 처리되어 HTTP 요청과 프론트 접근 로그에 남지 않는다.
+        # 비밀번호 재설정 1회용 토큰은 query string보다 fragment에 두는 편이 안전하다.
         reset_url = (
             f"{frontend_base_url}/reset-password#token={quote(reset_token, safe='')}"
             if frontend_base_url

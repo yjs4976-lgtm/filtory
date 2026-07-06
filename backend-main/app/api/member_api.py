@@ -18,6 +18,8 @@ def _current_jwt_is_fresh():
         return fresh
 
     if isinstance(fresh, (int, float)):
+        # flask-jwt-extended는 fresh 값을 만료 시각 timestamp로 줄 수 있다.
+        # 숫자가 들어오면 단순 Truthy가 아니라 현재 시각보다 미래인지 확인해야 한다.
         return fresh > datetime.now(timezone.utc).timestamp()
 
     return False
@@ -117,6 +119,7 @@ def deactivate_member(member_id):
     payload = request.get_json(silent=True) or {}
 
     try:
+        # 소셜 전용 계정은 비밀번호가 없으므로 fresh OAuth 로그인 여부를 서비스까지 전달한다.
         member = MemberService.deactivate_member(
             member_id,
             password=payload.get("password"),

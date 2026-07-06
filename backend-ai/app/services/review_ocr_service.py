@@ -15,6 +15,7 @@ class ReviewOcrService:
 
     @classmethod
     def extract(cls, payload: ReviewOcrRequest, settings: Settings) -> ReviewOcrResponse:
+        # OCR은 이미지에 개인정보가 포함될 수 있어 Gemini 설정이 없으면 fallback 없이 실패시킨다.
         if not settings.gemini_api_key:
             raise RuntimeError("GEMINI_API_KEY is not configured")
 
@@ -28,6 +29,7 @@ class ReviewOcrService:
         image_parts = []
         for image in payload.images:
             image_bytes = cls._decode_image(image.dataBase64)
+            # Part.from_bytes는 이미지 bytes와 MIME 타입을 Gemini 멀티모달 입력 조각으로 만든다.
             image_parts.append(types.Part.from_bytes(data=image_bytes, mime_type=image.mimeType))
 
         contents = [cls._build_prompt(payload.language), *image_parts]
@@ -59,6 +61,7 @@ class ReviewOcrService:
     @classmethod
     def _decode_image(cls, data_base64: str) -> bytes:
         try:
+            # validate=True는 base64가 아닌 문자가 섞였을 때 조용히 무시하지 않고 예외를 낸다.
             image_bytes = base64.b64decode(data_base64, validate=True)
         except ValueError as exc:
             raise ValueError("Invalid image data") from exc
@@ -73,6 +76,7 @@ class ReviewOcrService:
     @staticmethod
     def _build_prompt(language: str) -> str:
         response_language = "Korean" if language == "ko" else "English"
+        # 모델 출력은 JSON만 허용해 backend-main이 리뷰 배열을 안정적으로 받을 수 있게 한다.
         return (
             "You extract hospital review text from screenshots. "
             "Read only visible user review content from the image. "
@@ -96,6 +100,7 @@ class ReviewOcrService:
 
     @classmethod
     def _parse_result(cls, raw_text: str) -> tuple[list[str], str]:
+        # Gemini가 markdown code fence나 배열만 반환해도 최대한 복구해 리뷰 목록으로 정규화한다.
         parsed = cls._parse_json_payload(raw_text)
         if isinstance(parsed, dict):
             parsed_reviews = parsed.get("reviews")
@@ -115,6 +120,7 @@ class ReviewOcrService:
 
     @staticmethod
     def _parse_json_payload(raw_text: str) -> Any:
+        # OCR 모델이 순수 JSON, markdown fenced JSON, 본문 속 JSON 중 무엇을 돌려줘도 순서대로 파싱을 시도한다.
         candidates = [raw_text.strip()]
         fenced_match = re.search(r"```(?:json)?\s*(.*?)```", raw_text, re.DOTALL | re.IGNORECASE)
         if fenced_match:

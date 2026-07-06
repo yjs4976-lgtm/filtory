@@ -5,6 +5,7 @@ from app.models import Hospital
 
 
 class HospitalRepository:
+    # Hospital 관련 SQLAlchemy query만 담당한다. 정렬/검색 조건은 여기서 SQL 표현식으로 만든다.
     PUBLIC_STATUS = "active"
 
     @staticmethod
@@ -75,6 +76,7 @@ class HospitalRepository:
 
         if keyword:
             pattern = f"%{keyword}%"
+            # ilike는 PostgreSQL에서 대소문자를 구분하지 않는 LIKE 검색으로 변환된다.
             query = query.filter(
                 or_(
                     Hospital.hospital_name.ilike(pattern),
@@ -101,6 +103,7 @@ class HospitalRepository:
         ordering = []
         if keyword and region:
             region_pattern = f"%{region}%"
+            # case()는 SQL CASE WHEN 표현식이다. 지역이 맞는 결과를 더 앞에 오도록 정렬 가중치를 만든다.
             ordering.append(
                 case(
                     (

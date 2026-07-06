@@ -792,17 +792,20 @@ function localizeSignalList(values: string[], language: Language, kind: "repetit
 }
 
 function languageSafeText(value: string, language: Language, fallback: string) {
+  // 영어 화면에 한글 LLM 문장이 섞이면 기본 안내문으로 대체해 UI 언어를 맞춘다.
   if (!value) return fallback
   if (language === "en" && containsHangul(value)) return fallback
   return value
 }
 
 export function normalizeAnalysisResult(input: unknown, options: { language?: Language } = {}): AnalysisResultViewModel {
+  // 결과 화면은 API 응답, 저장된 히스토리, 로컬 mock 데이터를 모두 같은 ViewModel로 맞춰 그린다.
   const language = options.language ?? "ko"
   const { root, result } = normalizeInput(input)
   const evidence = pickRecord(result, "evidence")
   const evidenceJson = pickRecord(root, "evidence_json")
   const totalScore = scoreValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
+  // reviewTrustScore를 화면의 신뢰도 기준으로 사용해 병원 정보 완성도와 섞이지 않게 한다.
   const reviewTrustScore = scoreValue(
     result.reviewTrustScore,
     result.review_trust_score,
@@ -867,6 +870,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     fallbackConfidenceDescription(confidenceKey, language)
   const informationCheckItems = informationChecks(language, root, result)
   const globalAccessibilityChecks = normalizeChecks(firstValue(result.globalAccessibilityChecks, root.globalAccessibilityChecks), language)
+  // 외국인 방문 준비도는 7개 원천 항목을 4개 사용자 질문으로 묶어 결과 화면을 짧게 보여준다.
   const visitAccessibilityGroup = groupSummary(globalAccessibilityChecks, "visit", language)
   const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)
   const globalAccessibilityQuestions = buildConvenienceQuestions(globalAccessibilityChecks, language)

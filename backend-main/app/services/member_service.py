@@ -14,6 +14,8 @@ from app.utils.validators import validate_email, validate_password
 
 
 class MemberService:
+    # 회원 생성/수정/탈퇴/비밀번호/소셜 재가입 정책을 담당하는 서비스다.
+    # API에서 넘어온 payload를 그대로 쓰지 않고 allowlist와 검증을 거쳐 DB에 반영한다.
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
     PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
     PROFILE_PASSWORD_FIELDS = {
@@ -46,6 +48,8 @@ class MemberService:
 
     @staticmethod
     def create_member(payload):
+        # 관리자 생성과 일반 회원가입에서 공통으로 쓰는 회원 생성 로직이다.
+        # 비밀번호는 원문을 저장하지 않고 password_hash로만 저장한다.
         data = extract_member_data(payload, include_private=False)
         data = {key: value for key, value in data.items() if key in MemberService.CREATE_FIELDS}
         _normalize_member_data(data)
@@ -81,6 +85,8 @@ class MemberService:
             raise ValueError("Member not found")
 
         payload = dict(payload or {})
+        # 프로필 수정 API로 비밀번호를 바꾸면 현재 비밀번호 검증을 우회할 수 있다.
+        # 비밀번호 변경은 반드시 별도 password endpoint에서만 처리한다.
         if any(key in payload and payload.get(key) not in (None, "") for key in MemberService.PROFILE_PASSWORD_FIELDS):
             raise ValueError("Use the password change endpoint")
 
@@ -114,6 +120,8 @@ class MemberService:
 
     @staticmethod
     def change_password(member_id, current_password, new_password):
+        # 일반 비밀번호 보유 계정만 사용할 수 있는 본인 비밀번호 변경 흐름이다.
+        # 소셜 전용 계정은 별도 비밀번호가 없으므로 이 경로에서 거절된다.
         member = MemberRepository.get_by_id(member_id)
         if not member or not member.active or member.deleted_at:
             raise ValueError("Member not found")
@@ -143,9 +151,11 @@ class MemberService:
             if member.password_hash:
                 _validate_current_password(member, password)
             elif not _has_social_account(member) or not fresh_auth:
+                # 소셜 전용 계정은 비밀번호가 없어서 최신 소셜 로그인으로 본인 확인을 대신한다.
                 raise ValueError("Fresh account verification is required")
 
         try:
+            # 탈퇴 후 같은 이메일/소셜 계정으로 재가입할 수 있도록 식별 정보를 해제한다.
             _release_member_identity_for_rejoin(member)
             member = MemberRepository.update(
                 member,
@@ -215,6 +225,7 @@ class MemberService:
 
     @staticmethod
     def request_password_reset(payload, request_ip=None, user_agent=None):
+        # 비밀번호 찾기는 계정 존재 여부를 노출하지 않도록 항상 requested=True 형태로 응답한다.
         email = _normalize_email(payload.get("email"))
         if not email:
             raise ValueError("email is required")

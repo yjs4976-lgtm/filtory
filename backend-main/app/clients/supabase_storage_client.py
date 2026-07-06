@@ -22,6 +22,7 @@ class SupabaseStorageClient:
 
     def upload_object(self, object_path, content, content_type):
         object_url = self._object_url(object_path)
+        # Supabase Storage REST API는 Authorization과 apikey 헤더를 함께 요구한다.
         request = Request(
             object_url,
             data=content,
@@ -87,7 +88,7 @@ class SupabaseStorageClient:
             with urlopen(request, timeout=15):
                 pass
         except (HTTPError, URLError, TimeoutError):
-            # The database reference has already been cleared. Do not fail profile updates on cleanup.
+            # DB 참조는 이미 지워진 상태다. 저장소 정리 실패만으로 프로필 수정까지 실패시키지 않는다.
             return
 
     def public_url(self, object_path):
@@ -104,6 +105,7 @@ class SupabaseStorageClient:
 
 
 def _normalize_supabase_project_url(base_url):
+    # 사용자가 /storage/v1 같은 API path까지 넣어도 프로젝트 base URL만 남기도록 정규화한다.
     parts = urlsplit(str(base_url).strip().rstrip("/"))
     path = parts.path.rstrip("/")
 
