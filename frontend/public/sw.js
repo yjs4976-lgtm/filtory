@@ -1,7 +1,7 @@
-const CACHE_NAME = "filtory-static-v1";
+const CACHE_PREFIX = "filtory-static-";
+const CACHE_NAME = `${CACHE_PREFIX}v1`;
 
 const PRECACHE_PATHS = [
-  "/",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -34,7 +34,11 @@ self.addEventListener("activate", (event) => {
       .then((cacheNames) =>
         Promise.all(
           cacheNames
-            .filter((cacheName) => cacheName !== CACHE_NAME)
+            .filter(
+              (cacheName) =>
+                cacheName.startsWith(CACHE_PREFIX) &&
+                cacheName !== CACHE_NAME
+            )
             .map((cacheName) => caches.delete(cacheName))
         )
       )
