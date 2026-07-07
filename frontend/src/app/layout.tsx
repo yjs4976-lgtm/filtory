@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { ServiceWorkerRegister } from "@/components/common/ServiceWorkerRegister";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ToastProvider } from "@/context/ToastContext";
 
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
+        <ServiceWorkerRegister />
         <LanguageProvider>
           <ToastProvider>
             <AuthProvider>

@@ -68,8 +68,4 @@ export const savedHospitalService = {
     return { success: true, deletedId: id }
   },
 
-  async addToCompare(id: number) {
-    // TODO: 실제 비교함 API가 생기면 POST /api/member/compare 호출로 교체합니다.
-    return { success: true, id }
-  },
 }

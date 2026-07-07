@@ -12,11 +12,10 @@ import styles from "@/styles/App.module.css"
 interface SavedHospitalListProps {
   hospitals?: SavedHospital[]
   preview?: boolean
-  onAddToCompare?: (id: number) => void
   onUnsave?: (id: number) => void
 }
 
-export function SavedHospitalList({ hospitals = [], preview = true, onAddToCompare, onUnsave }: SavedHospitalListProps) {
+export function SavedHospitalList({ hospitals = [], preview = true, onUnsave }: SavedHospitalListProps) {
   const { t } = useLanguage()
   const displayHospitals = preview ? hospitals.slice(0, 3) : hospitals
 
@@ -63,7 +62,6 @@ export function SavedHospitalList({ hospitals = [], preview = true, onAddToCompa
               <SavedHospitalCard
                 key={hospital.id}
                 hospital={hospital}
-                onAddToCompare={onAddToCompare ?? (() => undefined)}
                 onUnsave={onUnsave ?? (() => undefined)}
               />
             )

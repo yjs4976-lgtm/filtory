@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { GitCompareArrows, ShieldCheck, Trash2 } from "lucide-react"
+import { ShieldCheck, Trash2 } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
@@ -11,11 +11,10 @@ import styles from "@/styles/App.module.css"
 
 interface SavedHospitalCardProps {
   hospital: SavedHospital
-  onAddToCompare: (id: number) => void
   onUnsave: (id: number) => void
 }
 
-export function SavedHospitalCard({ hospital, onAddToCompare, onUnsave }: SavedHospitalCardProps) {
+export function SavedHospitalCard({ hospital, onUnsave }: SavedHospitalCardProps) {
   const { t } = useLanguage()
   const trustLevel = getTrustLevel(hospital.trustScore)
   const trustLevelKey = getTrustLevelKeyFromValue(hospital.trustScore, hospital.trustLevel)
@@ -50,10 +49,6 @@ export function SavedHospitalCard({ hospital, onAddToCompare, onUnsave }: SavedH
         <Link href={ROUTES.RESULT} className={styles.secondaryButton}>
           {t.mypage.detailView}
         </Link>
-        <button type="button" className={styles.secondaryButton} onClick={() => onAddToCompare(hospital.id)}>
-          <GitCompareArrows className={styles.iconSm} />
-          {t.mypage.addToCompare}
-        </button>
       </div>
       <button type="button" className={styles.dangerButton} onClick={() => onUnsave(hospital.id)}>
         <Trash2 className={styles.iconSm} />
