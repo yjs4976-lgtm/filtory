@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import current_app
 
@@ -12,6 +12,14 @@ from app.services.social_auth_service import SocialAuthService
 from app.services.token_service import TokenService
 from app.utils.security import verify_password
 from app.utils.validators import validate_email, validate_password, validate_required
+
+
+class LoginLockedError(ValueError):
+    """로그인 실패가 반복되어 일시 잠금 상태일 때 API 계층에서 429로 구분하기 위한 예외."""
+
+    def __init__(self, message, retry_after_seconds):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
 
 
 class AuthService:
@@ -55,8 +63,27 @@ class AuthService:
             ["identifier", "password"],
         )
 
+        now = datetime.now(timezone.utc)
         member = None
-        for candidate in MemberRepository.list_by_login_identifier(identifier):
+        active_candidates = [
+            candidate
+            for candidate in MemberRepository.list_by_login_identifier_for_update(identifier)
+            if candidate.active and not candidate.deleted_at
+        ]
+        for candidate in active_candidates:
+            AuthService._clear_expired_login_lock(candidate, now)
+
+        unlocked_candidates = [
+            candidate
+            for candidate in active_candidates
+            if not AuthService._is_login_locked(candidate, now)
+        ]
+
+        if active_candidates and not unlocked_candidates:
+            raise AuthService._build_login_locked_error(active_candidates[0], now)
+
+        # 같은 identifier가 email/login_id에 겹친 예외 상황에서도, 모든 후보를 확인한 뒤에만 실패를 기록한다.
+        for candidate in unlocked_candidates:
             if not candidate.active or candidate.deleted_at:
                 continue
             if verify_password(candidate.password_hash, payload["password"]):
@@ -64,10 +91,14 @@ class AuthService:
                 break
 
         if not member:
+            locked_member = AuthService._record_failed_login_attempts(unlocked_candidates, now)
+            if locked_member:
+                raise AuthService._build_login_locked_error(locked_member, now)
             raise ValueError("Invalid login ID, email, or password")
 
         try:
             member.last_login_at = datetime.now(timezone.utc)
+            AuthService._clear_login_failure_state(member)
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -201,3 +232,119 @@ class AuthService:
         result = AuthService.social_login_with_user_info(social_payload)
 
         return result, state_data["frontend_next_url"]
+
+    @staticmethod
+    def _is_login_locked(member, now):
+        locked_until = AuthService._aware_datetime(
+            getattr(member, "login_locked_until", None)
+        )
+        return bool(locked_until and locked_until > now)
+
+    @staticmethod
+    def _clear_expired_login_lock(member, now):
+        locked_until = AuthService._aware_datetime(
+            getattr(member, "login_locked_until", None)
+        )
+
+        if locked_until and locked_until <= now:
+            AuthService._clear_login_failure_state(member)
+
+    @staticmethod
+    def _record_failed_login_attempts(candidates, now):
+        locked_member = None
+
+        for candidate in candidates:
+            locked_until = AuthService._record_failed_login_attempt(candidate, now)
+            if locked_until and locked_member is None:
+                locked_member = candidate
+
+        if candidates:
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
+
+        return locked_member
+
+    @staticmethod
+    def _record_failed_login_attempt(member, now):
+        if not member:
+            return None
+
+        last_failed_at = AuthService._aware_datetime(
+            getattr(member, "last_failed_login_at", None)
+        )
+        window = timedelta(minutes=AuthService._login_failure_window_minutes())
+        within_window = bool(last_failed_at and now - last_failed_at <= window)
+        failed_count = (getattr(member, "failed_login_count", 0) or 0) if within_window else 0
+        failed_count += 1
+
+        member.failed_login_count = failed_count
+        member.last_failed_login_at = now
+
+        if failed_count >= AuthService._login_failure_limit():
+            member.login_locked_until = now + timedelta(
+                minutes=AuthService._login_lockout_minutes()
+            )
+            return member.login_locked_until
+
+        return None
+
+    @staticmethod
+    def _clear_login_failure_state(member):
+        member.failed_login_count = 0
+        member.last_failed_login_at = None
+        member.login_locked_until = None
+
+    @staticmethod
+    def _build_login_locked_error(member, now):
+        locked_until = AuthService._aware_datetime(
+            getattr(member, "login_locked_until", None)
+        )
+        remaining_minutes = 1
+        retry_after_seconds = AuthService._login_lockout_minutes() * 60
+
+        if locked_until and locked_until > now:
+            remaining_seconds = int((locked_until - now).total_seconds())
+            retry_after_seconds = max(1, remaining_seconds)
+            remaining_minutes = max(1, (remaining_seconds + 59) // 60)
+
+        return LoginLockedError(
+            "Too many failed login attempts.",
+            retry_after_seconds=retry_after_seconds,
+        )
+
+    @staticmethod
+    def _aware_datetime(value):
+        if value is None:
+            return None
+
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _config_int(name, default):
+        try:
+            value = current_app.config.get(name, default)
+        except RuntimeError:
+            value = default
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _login_failure_limit():
+        return max(1, AuthService._config_int("LOGIN_FAILURE_LIMIT", 5))
+
+    @staticmethod
+    def _login_failure_window_minutes():
+        return max(1, AuthService._config_int("LOGIN_FAILURE_WINDOW_MINUTES", 10))
+
+    @staticmethod
+    def _login_lockout_minutes():
+        return max(1, AuthService._config_int("LOGIN_LOCKOUT_MINUTES", 5))

@@ -2,6 +2,8 @@ import { API_BASE_URL } from "@/lib/constants";
 import type { ApiResponse } from "@/lib/types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+const CSRF_HEADER_NAME = "X-CSRF-TOKEN";
+const MUTATING_METHODS = new Set<HttpMethod>(["POST", "PUT", "PATCH", "DELETE"]);
 
 export interface RequestOptions {
   method?: HttpMethod;
@@ -63,10 +65,41 @@ function getRequestUrl(path: string) {
   return `${API_BASE_URL}${path}`;
 }
 
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") return null;
+
+  const prefix = `${encodeURIComponent(name)}=`;
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+
+  if (!cookie) return null;
+
+  return decodeURIComponent(cookie.slice(prefix.length));
+}
+
+function csrfCookieNameFor(path: string) {
+  return path.startsWith("/api/auth/refresh") ? "csrf_refresh_token" : "csrf_access_token";
+}
+
+function attachCsrfHeader(headers: Headers, path: string, method: HttpMethod) {
+  if (!MUTATING_METHODS.has(method) || headers.has(CSRF_HEADER_NAME)) return;
+
+  const csrfToken = getCookieValue(csrfCookieNameFor(path));
+  if (csrfToken) {
+    headers.set(CSRF_HEADER_NAME, csrfToken);
+  }
+}
+
 async function refreshAuthSession() {
   try {
+    const headers = new Headers();
+    attachCsrfHeader(headers, "/api/auth/refresh", "POST");
+
     const response = await fetch(getRequestUrl("/api/auth/refresh"), {
       method: "POST",
+      headers,
       credentials: "include",
     });
     return response.ok;
@@ -83,6 +116,7 @@ async function authenticatedFetch(path: string, options: RequestOptions = {}, re
   if (isJsonBody(body) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  attachCsrfHeader(headers, path, method);
 
   let response: Response;
 
