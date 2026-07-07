@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -49,7 +50,7 @@ def test_login_checks_all_matching_identifier_candidates(monkeypatch):
 
     monkeypatch.setattr(
         MemberRepository,
-        "list_by_login_identifier",
+        "list_by_login_identifier_for_update",
         staticmethod(lambda identifier: [wrong_email_match, correct_email_match]),
     )
     _patch_login_success_dependencies(monkeypatch)
@@ -72,7 +73,7 @@ def test_login_locks_account_after_repeated_failures(monkeypatch):
 
     monkeypatch.setattr(
         MemberRepository,
-        "list_by_login_identifier",
+        "list_by_login_identifier_for_update",
         staticmethod(lambda identifier: [member]),
     )
     monkeypatch.setattr(AuthService, "_login_failure_limit", staticmethod(lambda: 2))
@@ -104,7 +105,7 @@ def test_successful_login_clears_failure_state(monkeypatch):
 
     monkeypatch.setattr(
         MemberRepository,
-        "list_by_login_identifier",
+        "list_by_login_identifier_for_update",
         staticmethod(lambda identifier: [member]),
     )
     _patch_login_success_dependencies(monkeypatch)
@@ -122,12 +123,33 @@ def test_successful_login_clears_failure_state(monkeypatch):
     assert member.login_locked_until is None
 
 
+def test_expired_login_lock_resets_failure_counter(monkeypatch):
+    now = datetime.now(timezone.utc)
+    member = _member(1, "correct-password")
+    member.failed_login_count = 5
+    member.last_failed_login_at = now - timedelta(minutes=5)
+    member.login_locked_until = now - timedelta(seconds=1)
+
+    AuthService._clear_expired_login_lock(member, now)
+
+    assert member.failed_login_count == 0
+    assert member.last_failed_login_at is None
+    assert member.login_locked_until is None
+
+    monkeypatch.setattr(AuthService, "_login_failure_limit", staticmethod(lambda: 5))
+
+    locked_until = AuthService._record_failed_login_attempt(member, now)
+
+    assert member.failed_login_count == 1
+    assert locked_until is None
+
+
 def test_login_endpoint_returns_too_many_requests_for_locked_account(monkeypatch):
     app = Flask(__name__)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
 
     def raise_locked(payload):
-        raise LoginLockedError("Too many failed login attempts. Please try again in 5 minutes.")
+        raise LoginLockedError("Too many failed login attempts.", retry_after_seconds=300)
 
     monkeypatch.setattr(AuthService, "login", staticmethod(raise_locked))
 
@@ -137,6 +159,6 @@ def test_login_endpoint_returns_too_many_requests_for_locked_account(monkeypatch
     )
 
     assert response.status_code == 429
-    assert response.get_json()["message"] == (
-        "Too many failed login attempts. Please try again in 5 minutes."
-    )
+    assert response.headers["Retry-After"] == "300"
+    assert response.get_json()["message"] == "Too many failed login attempts."
+    assert response.get_json()["data"]["retryAfterSeconds"] == 300

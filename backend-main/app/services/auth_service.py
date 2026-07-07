@@ -17,6 +17,10 @@ from app.utils.validators import validate_email, validate_password, validate_req
 class LoginLockedError(ValueError):
     """로그인 실패가 반복되어 일시 잠금 상태일 때 API 계층에서 429로 구분하기 위한 예외."""
 
+    def __init__(self, message, retry_after_seconds):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
 
 class AuthService:
     @staticmethod
@@ -63,9 +67,12 @@ class AuthService:
         member = None
         active_candidates = [
             candidate
-            for candidate in MemberRepository.list_by_login_identifier(identifier)
+            for candidate in MemberRepository.list_by_login_identifier_for_update(identifier)
             if candidate.active and not candidate.deleted_at
         ]
+        for candidate in active_candidates:
+            AuthService._clear_expired_login_lock(candidate, now)
+
         unlocked_candidates = [
             candidate
             for candidate in active_candidates
@@ -234,6 +241,15 @@ class AuthService:
         return bool(locked_until and locked_until > now)
 
     @staticmethod
+    def _clear_expired_login_lock(member, now):
+        locked_until = AuthService._aware_datetime(
+            getattr(member, "login_locked_until", None)
+        )
+
+        if locked_until and locked_until <= now:
+            AuthService._clear_login_failure_state(member)
+
+    @staticmethod
     def _record_failed_login_attempts(candidates, now):
         locked_member = None
 
@@ -287,13 +303,16 @@ class AuthService:
             getattr(member, "login_locked_until", None)
         )
         remaining_minutes = 1
+        retry_after_seconds = AuthService._login_lockout_minutes() * 60
 
         if locked_until and locked_until > now:
             remaining_seconds = int((locked_until - now).total_seconds())
+            retry_after_seconds = max(1, remaining_seconds)
             remaining_minutes = max(1, (remaining_seconds + 59) // 60)
 
         return LoginLockedError(
-            f"Too many failed login attempts. Please try again in {remaining_minutes} minutes."
+            "Too many failed login attempts.",
+            retry_after_seconds=retry_after_seconds,
         )
 
     @staticmethod

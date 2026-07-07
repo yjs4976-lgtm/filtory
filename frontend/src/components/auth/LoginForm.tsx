@@ -12,6 +12,26 @@ import { ApiClientError } from "@/services/apiClient";
 import { PasswordField } from "./PasswordField";
 import styles from "@/styles/App.module.css";
 
+function retryAfterMinutesFromError(error: ApiClientError) {
+  const payload = error.payload;
+  const retryAfterSeconds = (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    payload.data &&
+    typeof payload.data === "object" &&
+    "retryAfterSeconds" in payload.data
+  )
+    ? Number(payload.data.retryAfterSeconds)
+    : NaN;
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return String(Math.max(1, Math.ceil(retryAfterSeconds / 60)));
+  }
+
+  return error.message.match(/\d+/)?.[0] ?? "5";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,7 +67,7 @@ export function LoginForm() {
       router.push(nextPath ?? ROUTES.MYPAGE);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 429) {
-        const minutes = error.message.match(/\d+/)?.[0] ?? "5";
+        const minutes = retryAfterMinutesFromError(error);
         setError(
           language === "en"
             ? `Too many failed login attempts. Please try again in ${minutes} minutes.`

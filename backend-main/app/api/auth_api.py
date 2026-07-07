@@ -37,7 +37,13 @@ def login():
         result = AuthService.login(payload)
         return auth_success_response(result, "Login complete")
     except LoginLockedError as e:
-        return error_response(str(e), 429)
+        response, status_code = error_response(
+            str(e),
+            429,
+            data={"retryAfterSeconds": e.retry_after_seconds},
+        )
+        response.headers["Retry-After"] = str(e.retry_after_seconds)
+        return response, status_code
     except ValueError as e:
         return error_response(str(e), 401)
 
