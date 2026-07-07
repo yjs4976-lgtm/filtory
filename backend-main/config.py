@@ -35,6 +35,10 @@ class Config:
     JWT_ACCESS_COOKIE_PATH = "/"
     JWT_REFRESH_COOKIE_PATH = "/api/auth/refresh"
 
+    LOGIN_FAILURE_LIMIT = int(os.getenv("LOGIN_FAILURE_LIMIT", "5"))
+    LOGIN_FAILURE_WINDOW_MINUTES = int(os.getenv("LOGIN_FAILURE_WINDOW_MINUTES", "10"))
+    LOGIN_LOCKOUT_MINUTES = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "5"))
+
     FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
     FRONTEND_CALLBACK_URL = os.getenv(
         "FRONTEND_CALLBACK_URL",

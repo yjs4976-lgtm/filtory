@@ -28,6 +28,9 @@ create table if not exists public.members (
 
   last_login_at timestamp with time zone,
   password_changed_at timestamp with time zone,
+  failed_login_count integer not null default 0,
+  last_failed_login_at timestamp with time zone,
+  login_locked_until timestamp with time zone,
   deleted_at timestamp with time zone,
 
   created_at timestamp with time zone not null default now(),
@@ -48,6 +51,10 @@ execute function public.set_updated_at();
 create unique index if not exists idx_members_login_id_normalized_unique
 on public.members (lower(btrim(login_id)))
 where login_id is not null and btrim(login_id) <> '';
+
+create index if not exists idx_members_login_locked_until
+on public.members(login_locked_until)
+where login_locked_until is not null;
 -- =========================================-- 2. 소셜 로그인 계정 연결 테이블-- =========================================
 
 create table if not exists public.social_accounts (
