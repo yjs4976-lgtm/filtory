@@ -1,44 +1,25 @@
 import type { RecentViewedHospital } from "@/lib/types"
+import { apiClient } from "./apiClient"
 
-const STORAGE_KEY = "filtory-recent-viewed-hospitals"
-
-function readStoredRecentHospitals(): RecentViewedHospital[] {
-  if (typeof window === "undefined") return []
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-
-    return parsed.filter((item): item is RecentViewedHospital => Boolean(item?.id && item?.hospitalName && item?.category))
-  } catch {
-    return []
-  }
-}
-
-function writeStoredRecentHospitals(items: RecentViewedHospital[]) {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-}
+export type RecentHospitalPage = { items: RecentViewedHospital[]; total: number }
 
 export const recentHospitalService = {
-  async getRecentViewedHospitals(): Promise<RecentViewedHospital[]> {
-    // TODO: 실제 최근 본 병원 API가 준비되면 /api/member/recent-hospitals로 교체합니다.
-    return readStoredRecentHospitals()
+  async getRecentHospitalPage(page = 1, size = 20): Promise<RecentHospitalPage> {
+    const result = await apiClient<RecentViewedHospital[]>(`/api/recent-hospitals?page=${page}&size=${size}`, { auth: true })
+    return { items: result.data, total: result.meta?.total ?? result.data.length }
   },
-
+  async getRecentViewedHospitals(): Promise<RecentViewedHospital[]> {
+    return (await this.getRecentHospitalPage()).items
+  },
+  async recordRecentHospital(hospitalId: number, analysisResultId?: number) {
+    await apiClient(`/api/recent-hospitals/${hospitalId}`, { method: "POST", body: { analysisResultId }, auth: true })
+  },
   async deleteRecentHospital(id: number) {
-    // TODO: 실제 최근 본 기록 삭제 API 연결 시 DELETE /api/member/recent-hospitals/:id 호출로 교체합니다.
-    const items = readStoredRecentHospitals()
-    writeStoredRecentHospitals(items.filter((item) => item.id !== id))
+    await apiClient(`/api/recent-hospitals/${id}`, { method: "DELETE", auth: true })
     return { success: true, deletedId: id }
   },
-
   async clearRecentHospitals() {
-    // TODO: 실제 전체 삭제 API 연결 시 DELETE /api/member/recent-hospitals 호출로 교체합니다.
-    writeStoredRecentHospitals([])
+    await apiClient("/api/recent-hospitals", { method: "DELETE", auth: true })
     return { success: true }
   },
 }

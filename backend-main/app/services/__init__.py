@@ -11,6 +11,7 @@ from app.services.notification_service import NotificationService
 from app.services.profile_image_service import ProfileImageService
 from app.services.report_service import ReportService
 from app.services.saved_hospital_service import SavedHospitalService
+from app.services.recent_hospital_service import RecentHospitalService
 from app.services.social_auth_service import SocialAuthService
 from app.services.subscription_service import SubscriptionService
 from app.services.token_service import TokenService
@@ -29,6 +30,7 @@ __all__ = [
     "ProfileImageService",
     "ReportService",
     "SavedHospitalService",
+    "RecentHospitalService",
     "SocialAuthService",
     "SubscriptionService",
     "TokenService",

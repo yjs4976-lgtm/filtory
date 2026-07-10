@@ -1,5 +1,5 @@
 import type { LoginHistory, SocialProvider } from "@/lib/types"
-import { memberService } from "./memberService"
+import { apiClient } from "./apiClient"
 
 export const securityService = {
   async getLoginHistory(): Promise<LoginHistory[]> {
@@ -7,8 +7,12 @@ export const securityService = {
     return []
   },
 
-  async changePassword(userId: string | number, currentPassword: string, newPassword: string) {
-    return memberService.changePassword(userId, currentPassword, newPassword)
+  async verifyPassword(currentPassword: string) {
+    return apiClient<{ verified: boolean }>("/api/auth/verify-password", { method: "POST", body: { currentPassword }, auth: true })
+  },
+
+  async changePassword(currentPassword: string, newPassword: string, newPasswordConfirm: string) {
+    return apiClient<{ changed: boolean }>("/api/auth/password", { method: "PATCH", body: { currentPassword, newPassword, newPasswordConfirm }, auth: true })
   },
 
   async toggleSocialProvider(provider: SocialProvider, connected: boolean) {

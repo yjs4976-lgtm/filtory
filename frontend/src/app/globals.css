@@ -23,6 +23,10 @@
   --trust-concern: #f29a7e;
   --trust-very-concern: #e989b5;
   --graypurple: #a8a5b7;
+  --favorite-mint: #bdeecf;
+  --favorite-mint-strong: #3f9f78;
+  --favorite-mint-soft: rgba(189, 238, 207, 0.28);
+  --favorite-mint-border: rgba(79, 191, 145, 0.36);
   --border: #f1e8dd;
 }
 

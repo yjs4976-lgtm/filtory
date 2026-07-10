@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useLanguage } from "@/context/LanguageContext"
 import type { HospitalItem, HospitalReviewItem, ReviewCommentItem } from "@/lib/types"
 import { hospitalDetailService } from "@/services/hospitalDetailService"
+import { recentHospitalService } from "@/services/recentHospitalService"
 import styles from "@/styles/App.module.css"
 
 type ReactionType = "like" | "dislike"
@@ -36,6 +37,8 @@ export default function HospitalDetailPage() {
         if (!alive) return
         setHospital(nextHospital)
         setReviews(nextReviews)
+        const hospitalId = Number(nextHospital.id)
+        if (user && Number.isInteger(hospitalId)) void recentHospitalService.recordRecentHospital(hospitalId).catch(() => undefined)
       } catch (error) {
         if (alive) setError(error instanceof Error ? error.message : t.hospital.loadFailed)
       } finally {
@@ -47,7 +50,7 @@ export default function HospitalDetailPage() {
     return () => {
       alive = false
     }
-  }, [params.id, t.hospital.loadFailed])
+  }, [params.id, t.hospital.loadFailed, user])
 
   const reviewCount = useMemo(() => reviews.length, [reviews.length])
 

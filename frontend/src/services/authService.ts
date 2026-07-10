@@ -192,6 +192,13 @@ export const authService = {
     });
   },
 
+  verifyPasswordResetToken(token: string) {
+    return apiClient<{ valid: boolean }>("/api/auth/password-reset/verify", {
+      method: "POST",
+      body: { token },
+    });
+  },
+
   startSocialLogin(provider: SocialProvider, nextPath?: string | null) {
     const callbackUrl = new URL("/auth/callback", window.location.origin);
     const safeNextPath = sanitizeInternalNextPath(nextPath);

@@ -1,9 +1,11 @@
 from urllib.parse import urlencode, urlparse
 
-from flask import Blueprint, current_app, redirect, request, url_for
+from flask import Blueprint, current_app, g, redirect, request, url_for
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.services import AuthService
+from app.services import MemberService
+from app.utils.security import require_auth
 from app.services.auth_service import LoginLockedError
 from app.utils.response import (
     auth_success_response,
@@ -104,6 +106,40 @@ def reset_password():
         return success_response(result, "Password reset complete")
     except ValueError as e:
         return error_response(str(e), 400)
+
+
+@auth_bp.route("/password-reset/verify", methods=["POST"])
+def verify_password_reset_token():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(AuthService.validate_password_reset_token(payload.get("token")))
+    except ValueError:
+        return error_response("Invalid or expired token", 400)
+
+
+@auth_bp.route("/verify-password", methods=["POST"])
+@require_auth
+def verify_password():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(MemberService.verify_current_password(g.current_member.id, payload.get("currentPassword")))
+    except ValueError:
+        return error_response("Current password is invalid", 400, data={"verified": False})
+
+
+@auth_bp.route("/password", methods=["PATCH"])
+@require_auth
+def change_password():
+    payload = request.get_json(silent=True) or {}
+    current_password = payload.get("currentPassword")
+    new_password = payload.get("newPassword")
+    new_password_confirm = payload.get("newPasswordConfirm")
+    if not new_password or new_password != new_password_confirm:
+        return error_response("Password confirmation does not match", 400)
+    try:
+        return success_response(MemberService.change_password(g.current_member.id, current_password, new_password))
+    except ValueError as error:
+        return error_response(str(error), 400)
 
 
 @auth_bp.route("/email-verification/resend", methods=["POST"])

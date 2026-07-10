@@ -157,12 +157,12 @@ def test_change_password_validates_current_password(monkeypatch):
     )
 
     with pytest.raises(ValueError):
-        MemberService.change_password(1, "wrong-password", "new-password")
+        MemberService.change_password(1, "wrong-password", "new-password-2")
 
-    result = MemberService.change_password(1, "old-password", "new-password")
+    result = MemberService.change_password(1, "old-password", "new-password-2")
 
     assert result == {"changed": True}
-    assert verify_password(member.password_hash, "new-password")
+    assert verify_password(member.password_hash, "new-password-2")
     assert member.password_changed_at is not None
 
 

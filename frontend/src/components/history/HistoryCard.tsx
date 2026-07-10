@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { ShieldCheck } from "lucide-react"
+import { FavoriteHospitalButton } from "@/components/favorites/FavoriteHospitalButton"
 import { useLanguage } from "@/context/LanguageContext"
 import { writeCurrentReviewAnalysisFromHistory } from "@/lib/analysisStorage"
 import { formatDisplayDate } from "@/lib/dateFormat"
@@ -24,9 +25,23 @@ export function HistoryCard({ item }: { item: AnalysisHistoryItem }) {
     writeCurrentReviewAnalysisFromHistory(item)
     router.push(ROUTES.RESULT)
   }
+  const favoriteHospital = {
+    id: String(item.hospitalId ?? item.externalPlaceId ?? ""),
+    internalHospitalId: item.hospitalId,
+    provider: item.hospitalId ? "filtory" : item.provider || item.sourceProvider,
+    externalPlaceId: item.hospitalId ? undefined : item.externalPlaceId,
+    name,
+    category: item.category,
+    region: "seoul" as const,
+    address: item.hospitalAddress || item.address || "",
+    roadAddress: item.roadAddress,
+    phone: item.phone,
+    mapUrl: item.mapUrl,
+  }
 
   return (
-    <button type="button" className={styles.recordButton} onClick={viewResult}>
+    <article className={`${styles.recordButton} ${styles.historyFavoriteCard}`}>
+      <button type="button" className={styles.historyFavoriteMain} onClick={viewResult}>
       <div className={styles.recordBody}>
         <p className={styles.recordName}>{name}</p>
         <p className={styles.recordDate}>
@@ -38,6 +53,8 @@ export function HistoryCard({ item }: { item: AnalysisHistoryItem }) {
         </span>
       </div>
       <span className={styles.score}>{trustScore}</span>
-    </button>
+      </button>
+      <FavoriteHospitalButton iconOnly hospital={favoriteHospital} initialFavorite={item.isFavorite} favoriteHospitalId={item.favoriteHospitalId} className={styles.historyRecordFavorite} />
+    </article>
   )
 }

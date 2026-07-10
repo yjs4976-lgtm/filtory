@@ -12,7 +12,6 @@ import styles from "@/styles/App.module.css"
 export function RecentViewedHospitalList() {
   const { t } = useLanguage()
   const [items, setItems] = useState<RecentViewedHospital[]>([])
-  const [message, setMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -26,10 +25,6 @@ export function RecentViewedHospitalList() {
       alive = false
     }
   }, [])
-
-  const handleSave = (id: number) => {
-    setMessage(t.mypage.recentSavedMessage.replace("{id}", String(id)))
-  }
 
   const handleDelete = async (id: number) => {
     const ok = window.confirm(t.mypage.deleteRecentConfirm)
@@ -50,13 +45,12 @@ export function RecentViewedHospitalList() {
 
   return (
     <section className={styles.stackSm}>
-      {message && <p className={styles.formSuccess}>{message}</p>}
       <button type="button" className={styles.dangerButton} onClick={handleClear}>
         {t.mypage.clearAllRecords}
       </button>
       <div className={styles.recordList}>
         {items.map((hospital) => (
-          <RecentViewedHospitalCard key={hospital.id} hospital={hospital} onSave={handleSave} onDelete={handleDelete} />
+          <RecentViewedHospitalCard key={hospital.id} hospital={hospital} onDelete={handleDelete} onFavoriteChange={(id, favorite) => setItems((current) => current.map((item) => item.id === id ? { ...item, isFavorite: favorite } : item))} />
         ))}
       </div>
     </section>

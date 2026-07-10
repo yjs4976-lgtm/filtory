@@ -24,14 +24,14 @@ export function SavedHospitalList({ hospitals = [], preview = true, onUnsave }: 
       <div className={styles.sectionHeader}>
         <h2 className={styles.titleSm}>{t.mypage.savedHospitals}</h2>
         {preview && (
-          <Link href={ROUTES.MYPAGE_SAVED} className={styles.seeAllButton}>
+          <Link href={ROUTES.MYPAGE_FAVORITE_HOSPITALS} className={styles.seeAllButton}>
             {t.mypage.seeAll}
           </Link>
         )}
       </div>
       {displayHospitals.length === 0 ? (
         <article className={`${styles.emptyCard} ${styles.stackSm}`}>
-          <span className={`${styles.iconBoxSmall} ${styles.iconPeach}`}>
+          <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}>
             <Bookmark className={styles.iconSm} />
           </span>
           <div>
@@ -44,8 +44,8 @@ export function SavedHospitalList({ hospitals = [], preview = true, onUnsave }: 
           {displayHospitals.map((hospital) =>
             preview ? (
               <article key={hospital.id} className={styles.recordButton}>
-                <span className={`${styles.iconBoxSmall} ${styles.iconPeach}`}>
-                  <Bookmark className={styles.iconSm} />
+                <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}>
+                  <Bookmark className={styles.iconSm} fill="currentColor" />
                 </span>
                 <span className={styles.recordBody}>
                   <strong className={styles.recordName}>{hospital.hospitalName}</strong>
