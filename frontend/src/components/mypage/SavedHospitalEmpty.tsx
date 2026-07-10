@@ -11,7 +11,7 @@ export function SavedHospitalEmpty() {
 
   return (
     <section className={`${styles.emptyCard} ${styles.stackSm}`}>
-      <span className={`${styles.iconBoxSmall} ${styles.iconPeach}`}>
+      <span className={`${styles.iconBoxSmall} ${styles.iconMint}`}>
         <Bookmark className={styles.iconSm} />
       </span>
       <h2 className={styles.titleMd}>{t.mypage.emptySavedTitle}</h2>

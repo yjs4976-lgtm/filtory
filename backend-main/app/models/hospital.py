@@ -6,7 +6,7 @@ class Hospital(db.Model):
     __tablename__ = "hospitals"
     __table_args__ = (
         db.CheckConstraint(
-            "category in ('dermatology', 'ophthalmology', 'dentistry')",
+            "category in ('dermatology', 'ophthalmology', 'dentistry', 'orthopedics')",
             name="hospitals_category_check",
         ),
         {"schema": "public"},
@@ -87,6 +87,9 @@ class Hospital(db.Model):
         back_populates="hospital",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    recently_viewed_by_members = db.relationship(
+        "MemberRecentViewedHospital", back_populates="hospital", cascade="all, delete-orphan", passive_deletes=True
     )
     admin_review_cases = db.relationship(
         "AdminReviewModerationCase",

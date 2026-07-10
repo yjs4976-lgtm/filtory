@@ -15,6 +15,7 @@ export const categoryLabels: Record<HospitalCategory, string> = {
   derma: "피부과",
   eye: "안과",
   dental: "치과",
+  orthopedics: "정형외과",
 }
 
 export function formatFivePointRating(rating = 0) {
@@ -191,7 +192,7 @@ export const mockNotifications: NotificationItem[] = [
   },
   {
     id: 403,
-    title: "저장한 병원 정보가 업데이트되었어요.",
+    title: "관심 병원 정보가 업데이트되었어요.",
     message: "밝은눈안과의 예약 링크 정보가 갱신됐어요.",
     type: "info_updated",
     isRead: true,

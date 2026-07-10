@@ -1,95 +1,32 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useLanguage } from "@/context/LanguageContext";
-import { ROUTES } from "@/lib/routes";
-import { authService } from "@/services/authService";
-import { PasswordField } from "./PasswordField";
-import styles from "@/styles/App.module.css";
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { NewPasswordForm } from "./NewPasswordForm"
+import { useLanguage } from "@/context/LanguageContext"
+import { useToast } from "@/hooks/useToast"
+import { passwordCopy } from "@/lib/passwordCopy"
+import { ROUTES } from "@/lib/routes"
+import { authService } from "@/services/authService"
+import styles from "@/styles/App.module.css"
 
 export function ResetPasswordForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { t } = useLanguage();
+  const router = useRouter(); const searchParams = useSearchParams(); const { showToast } = useToast()
+  const { language } = useLanguage() as { language: "ko" | "en" }; const c = passwordCopy[language]
+  const [token, setToken] = useState(""); const [state, setState] = useState<"checking" | "valid" | "invalid">("checking"); const [error, setError] = useState("")
 
-  const fragmentToken =
-    typeof window === "undefined"
-      ? ""
-      : new URLSearchParams(window.location.hash.replace(/^#/, "")).get("token") || "";
-  // 기존에 발송된 query-string 재설정 링크도 만료 전까지는 계속 받을 수 있게 둔다.
-  const token = fragmentToken || searchParams.get("token") || "";
+  useEffect(() => {
+    let alive = true
+    const fragmentToken = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("token") || ""
+    const candidate = fragmentToken || searchParams.get("token") || ""
+    if (!candidate) { const id = window.setTimeout(() => alive && setState("invalid"), 0); return () => { alive = false; window.clearTimeout(id) } }
+    authService.verifyPasswordResetToken(candidate).then(() => { if (!alive) return; setToken(candidate); setState("valid") }).catch(() => { if (alive) setState("invalid") })
+    return () => { alive = false }
+  }, [searchParams])
 
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-
-    if (!token) {
-      setError(t.auth.resetTokenMissing);
-      return;
-    }
-
-    if (!password || !passwordConfirm) {
-      setError(t.auth.resetPasswordRequired);
-      return;
-    }
-
-    if (password !== passwordConfirm) {
-      setError(t.auth.passwordMismatch);
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      await authService.resetPassword({
-        token,
-        password,
-        passwordConfirm,
-      });
-
-      alert(t.auth.resetPasswordSuccess);
-      router.push(ROUTES.LOGIN);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : t.auth.resetPasswordFailed
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <form className={styles.memberForm} onSubmit={handleSubmit}>
-      {error && <p className={styles.formError}>{error}</p>}
-
-      <PasswordField
-        label={t.auth.newPassword}
-        placeholder={t.auth.newPasswordPlaceholder}
-        value={password}
-        showLabel={t.auth.showPassword}
-        hideLabel={t.auth.hidePassword}
-        onChange={setPassword}
-      />
-
-      <PasswordField
-        label={t.auth.newPasswordConfirm}
-        placeholder={t.auth.newPasswordConfirmPlaceholder}
-        value={passwordConfirm}
-        showLabel={t.auth.showPassword}
-        hideLabel={t.auth.hidePassword}
-        onChange={setPasswordConfirm}
-      />
-
-      <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
-        {isSubmitting ? t.auth.resetPasswordSubmitting : t.auth.resetPasswordButton}
-      </button>
-    </form>
-  );
+  const reset = async (password: string, passwordConfirm: string) => { setError(""); try { await authService.resetPassword({ token, password, passwordConfirm }); showToast({ title: c.resetSuccess, tone: "success" }); router.replace(ROUTES.LOGIN) } catch (error) { const message = error instanceof Error ? error.message : ""; if (/token|expired|invalid/i.test(message)) setState("invalid"); else if (/policy|security|different/i.test(message)) setError(c.policyError); else setError(c.resetFailed) } }
+  if (state === "checking") return <p className={styles.passwordResetStatus} role="status">{c.resetVerifying}</p>
+  if (state === "invalid") return <section className={styles.passwordInvalidLink} role="alert"><h2>{c.invalidLink}</h2><p>{c.invalidLinkDescription}</p><Link href={ROUTES.FORGOT_PASSWORD} className={styles.primaryButton}>{c.requestLink}</Link></section>
+  return <NewPasswordForm mode="reset" onSubmit={reset} error={error} autoFocus/>
 }

@@ -8,6 +8,7 @@ from app.repositories.notification_repository import NotificationRepository
 from app.repositories.report_repository import ReportRepository
 from app.repositories.review_repository import ReviewRepository
 from app.repositories.saved_hospital_repository import SavedHospitalRepository
+from app.repositories.recent_hospital_repository import RecentHospitalRepository
 from app.repositories.subscription_repository import SubscriptionRepository
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "ReportRepository",
     "ReviewRepository",
     "SavedHospitalRepository",
+    "RecentHospitalRepository",
     "SubscriptionRepository",
 ]

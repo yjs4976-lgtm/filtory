@@ -21,18 +21,21 @@ export function MyActivityStats({ nickname, analysisCount, savedHospitalCount, r
       value: `${analysisCount}${t.mypage.analysisCountSuffix}`,
       icon: ChartNoAxesColumnIncreasing,
       href: ROUTES.MYPAGE_HISTORY,
+      tone: styles.iconLavender,
     },
     {
       label: t.mypage.savedHospitalsShort,
       value: `${savedHospitalCount}${t.mypage.savedCountSuffix}`,
       icon: Bookmark,
       href: ROUTES.MYPAGE_SAVED,
+      tone: styles.iconMint,
     },
     {
       label: t.mypage.reportsShort,
       value: `${reportCount}${t.mypage.reportCountSuffix}`,
       icon: AlertCircle,
       href: ROUTES.MYPAGE_REPORTS,
+      tone: styles.iconPink,
     },
   ]
   const greeting = t.mypage.activityGreeting.replace("{name}", nickname)
@@ -46,9 +49,9 @@ export function MyActivityStats({ nickname, analysisCount, savedHospitalCount, r
         </div>
       </div>
       <div className={styles.summaryGrid}>
-        {stats.map(({ label, value, icon: Icon, href }) => (
+        {stats.map(({ label, value, icon: Icon, href, tone }) => (
           <Link key={label} href={href} className={styles.summaryCard}>
-            <span className={`${styles.iconBoxSmall} ${styles.iconLavender}`}>
+            <span className={`${styles.iconBoxSmall} ${tone}`}>
               <Icon className={styles.iconSm} />
             </span>
             <span>{label}</span>

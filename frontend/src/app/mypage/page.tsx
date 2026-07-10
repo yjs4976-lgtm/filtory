@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
@@ -16,8 +16,7 @@ import { MyAnalysisSummary } from "@/components/mypage/MyAnalysisSummary"
 import { MyPageUserCard } from "@/components/mypage/MyPageUserCard"
 import { ProfileCompletionCard } from "@/components/mypage/ProfileCompletionCard"
 import { RecentAnalysisPreview } from "@/components/mypage/RecentAnalysisPreview"
-import { RecentViewedHospitals } from "@/components/mypage/RecentViewedHospitals"
-import { SavedHospitalList } from "@/components/mypage/SavedHospitalList"
+import { MyHospitals } from "@/components/mypage/MyHospitals"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
@@ -35,9 +34,31 @@ export default function MyPage() {
   const [records, setRecords] = useState<AnalysisHistoryItem[]>([])
   const [savedHospitals, setSavedHospitals] = useState<SavedHospital[]>([])
   const [recentHospitals, setRecentHospitals] = useState<RecentViewedHospital[]>([])
+  const [savedHospitalCount, setSavedHospitalCount] = useState(0)
+  const [recentHospitalCount, setRecentHospitalCount] = useState(0)
+  const [hospitalsLoading, setHospitalsLoading] = useState(true)
+  const [hospitalsError, setHospitalsError] = useState(false)
   const [reports, setReports] = useState<MyReport[]>([])
   const [latestInquiry, setLatestInquiry] = useState<Inquiry | null>(null)
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+
+  const loadHospitals = useCallback(async () => {
+    if (isLoading || !isAuthenticated) return
+    setHospitalsLoading(true); setHospitalsError(false)
+    try {
+      const [saved, recent] = await Promise.all([
+        savedHospitalService.getFavoriteHospitals({ page: 1, size: 3, sort: "latest" }),
+        recentHospitalService.getRecentHospitalPage(1, 3),
+      ])
+      setSavedHospitals(saved.items); setSavedHospitalCount(saved.total)
+      setRecentHospitals(recent.items); setRecentHospitalCount(recent.total)
+    } catch { setHospitalsError(true) } finally { setHospitalsLoading(false) }
+  }, [isAuthenticated, isLoading])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadHospitals(), 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadHospitals])
 
   useEffect(() => {
     let alive = true
@@ -48,22 +69,16 @@ export default function MyPage() {
 
     Promise.all([
       analysisHistoryService.getAnalysisHistory(user?.id),
-      savedHospitalService.getSavedHospitals(user?.id),
-      recentHospitalService.getRecentViewedHospitals(),
       reportService.getMyReports(),
     ])
-      .then(([historyItems, savedItems, recentItems, reportItems]) => {
+      .then(([historyItems, reportItems]) => {
         if (!alive) return
         setRecords(historyItems)
-        setSavedHospitals(savedItems)
-        setRecentHospitals(recentItems)
         setReports(reportItems)
       })
       .catch(() => {
         if (!alive) return
         setRecords([])
-        setSavedHospitals([])
-        setRecentHospitals([])
         setReports([])
       })
 
@@ -93,7 +108,7 @@ export default function MyPage() {
           <MyActivityStats
             nickname={user?.nickname || user?.name || "User"}
             analysisCount={records.length}
-            savedHospitalCount={savedHospitals.length}
+            savedHospitalCount={savedHospitalCount}
             reportCount={reports.length}
           />
           <ProfileCompletionCard user={user} />
@@ -112,10 +127,15 @@ export default function MyPage() {
     {
       id: "hospitals",
       content: (
-        <div className={styles.stackMd}>
-          <RecentViewedHospitals hospitals={recentHospitals} />
-          <SavedHospitalList hospitals={savedHospitals} />
-        </div>
+        <MyHospitals
+          recent={recentHospitals} favorites={savedHospitals}
+          recentTotal={recentHospitalCount} favoriteTotal={savedHospitalCount}
+          loading={hospitalsLoading} error={hospitalsError} onRetry={loadHospitals}
+          onFavoritesChange={(favorites, total, hospitalId, isFavorite) => {
+            setSavedHospitals(favorites); setSavedHospitalCount(total)
+            setRecentHospitals((items) => items.map((item) => item.id === hospitalId ? { ...item, isFavorite } : item))
+          }}
+        />
       ),
     },
     {

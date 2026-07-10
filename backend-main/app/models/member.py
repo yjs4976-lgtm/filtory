@@ -80,6 +80,9 @@ class Member(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    recent_viewed_hospitals = db.relationship(
+        "MemberRecentViewedHospital", back_populates="member", cascade="all, delete-orphan", passive_deletes=True
+    )
     admin_audit_logs = db.relationship("AdminAuditLog", back_populates="admin_member")
     submitted_reports = db.relationship(
         "ReviewReport",

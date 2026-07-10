@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 
 from app.repositories.member_repository import MemberRepository
 from app.services.member_service import (
@@ -25,6 +26,15 @@ def test_login_id_requires_allowed_characters_and_length():
 def test_mask_login_id_keeps_only_a_short_prefix():
     assert _mask_login_id("filtory") == "fil****"
     assert _mask_login_id("abcd") == "abc*"
+
+
+def test_find_member_id_returns_full_id_after_identity_match(monkeypatch):
+    member = SimpleNamespace(login_id="filtory.user-1")
+    monkeypatch.setattr(MemberRepository, "get_active_by_name_and_phone", staticmethod(lambda real_name, phone: member))
+
+    assert MemberService.find_member_id({"name": "Filtory", "phone": "010-0000-0000"}) == {
+        "id": "filtory.user-1"
+    }
 
 
 def test_normalize_email_trims_and_lowercases_value():

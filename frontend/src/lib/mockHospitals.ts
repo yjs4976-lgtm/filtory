@@ -25,6 +25,7 @@ const categoryLabels: Record<HospitalCategory, { ko: string; en: string }> = {
   derma: { ko: "피부과", en: "Skin Clinic" },
   eye: { ko: "안과", en: "Eye Clinic" },
   dental: { ko: "치과", en: "Dental Clinic" },
+  orthopedics: { ko: "정형외과", en: "Orthopedics" },
 }
 
 const demoHospitalSeeds: HospitalItem[] = [
@@ -209,6 +210,10 @@ const sharedReviews = {
     "스케일링 후 관리법을 자세히 알려줬고 과잉 진료 느낌은 적었습니다.",
     "임플란트 이벤트 표현이 반복되어 광고성 여부는 확인해볼 필요가 있어요.",
     "통증이 있었던 부분과 다음 방문 일정을 꼼꼼히 설명해줬습니다.",
+  ],
+  orthopedics: [
+    "통증 원인과 치료 계획을 이해하기 쉽게 설명해줬어요.",
+    "검사 결과와 재활 일정을 구체적으로 안내받았습니다.",
   ],
 } satisfies Record<HospitalCategory, string[]>
 

@@ -13,6 +13,8 @@ from app.api.notification_api import notification_bp
 from app.api.report_api import report_bp
 from app.api.social_auth_api import social_auth_bp
 from app.api.subscription_api import subscription_bp
+from app.api.favorite_hospital_api import favorite_hospital_bp
+from app.api.recent_hospital_api import recent_hospital_bp
 from app.services import TokenService
 from app.utils.response import error_response
 
@@ -68,5 +70,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(subscription_bp, url_prefix="/api/subscriptions")
     app.register_blueprint(report_bp, url_prefix="/api/reports")
+    app.register_blueprint(favorite_hospital_bp, url_prefix="/api/favorite-hospitals")
+    app.register_blueprint(recent_hospital_bp, url_prefix="/api/recent-hospitals")
 
     return app

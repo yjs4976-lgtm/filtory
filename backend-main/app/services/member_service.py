@@ -128,6 +128,8 @@ class MemberService:
 
         _validate_current_password(member, current_password)
         validate_password(new_password)
+        if verify_password(member.password_hash, new_password):
+            raise ValueError("New password must be different")
 
         try:
             member.password_hash = hash_password(new_password)
@@ -137,6 +139,14 @@ class MemberService:
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def verify_current_password(member_id, current_password):
+        member = MemberRepository.get_by_id(member_id)
+        if not member or not member.active or member.deleted_at:
+            raise ValueError("Member not found")
+        _validate_current_password(member, current_password)
+        return {"verified": True}
 
     @staticmethod
     def deactivate_member(member_id, password=None, requester=None, fresh_auth=False):
@@ -207,7 +217,8 @@ class MemberService:
         if not member or not member.login_id:
             raise ValueError("No matching member found")
 
-        return {"id": _mask_login_id(member.login_id)}
+        # 이름과 전화번호가 활성 회원과 일치한 성공 흐름에서만 로그인 아이디 전체를 반환한다.
+        return {"id": member.login_id}
 
     @staticmethod
     def check_nickname_available(nickname):
@@ -259,10 +270,14 @@ class MemberService:
     @staticmethod
     def reset_password(payload):
         raw_token = payload.get("token")
-        password = payload.get("password")
+        password = payload.get("password") or payload.get("newPassword")
+        password_confirm = payload.get("passwordConfirm") or payload.get("newPasswordConfirm")
 
-        if not raw_token or not password:
+        if not raw_token or not password or not password_confirm:
             raise ValueError("token and password are required")
+        if password != password_confirm:
+            raise ValueError("Passwords do not match")
+        validate_password(password)
 
         token = MemberRepository.get_password_reset_token(_hash_token(raw_token))
         now = datetime.now(timezone.utc)
@@ -273,6 +288,8 @@ class MemberService:
         member = MemberRepository.get_by_id(token.member_id)
         if not member or not member.active or member.deleted_at:
             raise ValueError("Member not found")
+        if member.password_hash and verify_password(member.password_hash, password):
+            raise ValueError("New password must be different")
 
         try:
             member.password_hash = hash_password(password)
@@ -283,6 +300,19 @@ class MemberService:
         except Exception:
             db.session.rollback()
             raise
+
+    @staticmethod
+    def validate_password_reset_token(raw_token):
+        if not raw_token:
+            raise ValueError("Invalid or expired token")
+        token = MemberRepository.get_password_reset_token(_hash_token(raw_token))
+        now = datetime.now(timezone.utc)
+        if not token or token.used_at or _as_aware_datetime(token.expires_at) < now:
+            raise ValueError("Invalid or expired token")
+        member = MemberRepository.get_by_id(token.member_id)
+        if not member or not member.active or member.deleted_at:
+            raise ValueError("Invalid or expired token")
+        return {"valid": True}
 
     @staticmethod
     def login_or_register_social(payload):

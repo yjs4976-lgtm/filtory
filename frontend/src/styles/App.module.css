@@ -4,6 +4,155 @@
   background: var(--background);
 }
 
+.favoritePage { display: grid; gap: 20px; color: #353047; }
+.favoriteHeader { display: grid; gap: 8px; padding: 20px; border-radius: 20px; background: #fffdf9; border: 1px solid #f1e8dd; }
+.favoriteHeader h1, .favoriteHeader p { margin: 0; overflow-wrap: anywhere; }
+.favoriteHeader strong { color: #65558f; }
+.favoriteFilters { display: grid; gap: 10px; min-width: 0; }
+.favoriteFilters > span { font-size: 13px; font-weight: 700; color: #706b7d; }
+.favoriteChips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.favoriteChip, .favoriteChipActive { flex: 0 0 auto; width: auto; padding: 9px 13px; border-radius: 999px; border: 1px solid #f1e8dd; background: #fff; color: #716d7e; }
+.favoriteChipActive { background: #dccfff; border-color: #c8b7f5; color: #3f3559; font-weight: 700; }
+.favoriteTools { display: flex; flex-wrap: wrap; gap: 10px; }
+.favoriteTools label { flex: 1 1 210px; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #fff; border: 1px solid #f1e8dd; border-radius: 12px; }
+.favoriteTools input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; }
+.favoriteTools select { width: auto; max-width: 100%; padding: 10px 12px; border: 1px solid #f1e8dd; border-radius: 12px; background: #fff; }
+.favoriteGrid, .favoriteSkeleton { display: grid; gap: 14px; }
+.favoriteCard { position: relative; min-width: 0; display: grid; gap: 13px; padding: 20px; border: 1px solid #f1e8dd; border-radius: 18px; background: #fff; }
+.favoriteCard h2 { margin: 0; padding-right: 42px; overflow-wrap: anywhere; font-size: 18px; }
+.favoriteCard p { margin: 0; color: #706b7d; overflow-wrap: anywhere; }
+.favoriteBookmark { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; padding: 0; }
+.favoriteBookmark:disabled { opacity: .45; }
+.favoriteActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.favoriteActions a, .favoriteEmpty a, .favoriteEmpty button, .favoritePager button { flex: 1 1 130px; text-align: center; padding: 10px 12px; border: 1px solid #cabcf0; border-radius: 11px; background: #fff; color: #4d4268; text-decoration: none; }
+.favoriteActions a:first-child { background: #dccfff; }
+.favoriteEmpty { display: grid; justify-items: center; gap: 10px; padding: 34px 20px; text-align: center; border: 1px solid #f1e8dd; border-radius: 18px; background: #fff; }
+.favoriteEmpty h2, .favoriteEmpty p { margin: 0; overflow-wrap: anywhere; }
+.favoriteEmpty > svg { width: 42px; height: 42px; padding: 10px; box-sizing: content-box; border-radius: 50%; background: var(--favorite-mint-soft); color: var(--favorite-mint-strong); }
+.favoriteSkeleton i { height: 190px; border-radius: 18px; background: linear-gradient(90deg, #fff 25%, #f4eff8 50%, #fff 75%); background-size: 200% 100%; animation: favoritePulse 1.3s infinite; }
+.favoritePager { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.favoritePager button { flex: 0 1 auto; }
+@keyframes favoritePulse { to { background-position: -200% 0; } }
+@media (min-width: 760px) { .favoriteGrid, .favoriteSkeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.favoriteToggleButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; min-width: 44px; min-height: 44px; padding: 9px 11px; border: 1px solid var(--favorite-mint-border); border-radius: 999px; background: #fff; color: var(--graypurple); }
+.favoriteToggleButton[data-favorite="true"] { border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); color: var(--favorite-mint-strong); }
+.favoriteToggleButton:hover, .favoriteToggleButton:focus-visible { background: var(--favorite-mint-soft); border-color: var(--favorite-mint-border); }
+.favoriteToggleButton svg { width: 19px; height: 19px; flex: 0 0 auto; }
+.favoriteModalBackdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(53,48,71,.36); }
+.favoriteModal { width: min(100%, 390px); display: grid; gap: 12px; padding: 24px; border: 1px solid #f1e8dd; border-radius: 20px; background: #fffdf9; box-shadow: 0 20px 60px rgba(53,48,71,.2); }
+.favoriteModal h2, .favoriteModal p { margin: 0; overflow-wrap: anywhere; }
+.favoriteModal > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.favoriteModal button { flex: 1 1 130px; padding: 10px; border: 1px solid #cabcf0; border-radius: 11px; background: #fff; }
+.favoriteModal button:last-child { background: #dccfff; }
+.myHospitalsCard { min-width: 0; display: grid; gap: 16px; padding: 18px; border: 1px solid #f1e8dd; border-radius: 20px; background: #fff; }
+.myHospitalsHeader { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.myHospitalsHeader > div { min-width: 0; }
+.myHospitalsHeader h2, .myHospitalsHeader p { margin: 0; overflow-wrap: anywhere; }
+.myHospitalsHeader h2 { font-size: 19px; }
+.myHospitalsHeader p { margin-top: 5px; color: #817c8f; font-size: 13px; line-height: 1.5; }
+.myHospitalsHeader > a { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px; color: #65558f; font-size: 13px; font-weight: 700; text-decoration: none; }
+.myHospitalsHeader > a svg { width: 16px; height: 16px; }
+.myHospitalTabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 4px; border-radius: 14px; background: #faf7ff; }
+.myHospitalTabs button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 8px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: #767182; font-weight: 650; }
+.myHospitalTabs button[aria-selected="true"] { border-color: #cabbf2; background: #dccfff; color: #403653; }
+.myHospitalTabs button span { min-width: 0; overflow-wrap: anywhere; }
+.myHospitalTabs button > svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--favorite-mint-strong); }
+.myHospitalTabs b { flex: 0 0 auto; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,.75); font-size: 12px; }
+.myHospitalList { display: grid; }
+.myHospitalList article { position: relative; min-width: 0; display: grid; grid-template-columns: 46px minmax(0, 1fr) 44px 20px; align-items: center; gap: 8px; padding: 13px 0; border-bottom: 1px solid #f1e8dd; }
+.myHospitalList article:last-child { border-bottom: 0; }
+.myHospitalImage { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px; background: #f3eeff; color: #8d78c8; }
+.myHospitalImage svg { width: 23px; height: 23px; }
+.myHospitalBody { min-width: 0; display: grid; gap: 4px; color: inherit; text-decoration: none; }
+.myHospitalBody > div { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.myHospitalBody strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.myHospitalBody p, .myHospitalBody small { margin: 0; color: #817c8f; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.myHospitalCategory { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; background: #eee7ff; }
+.myHospitalCategory_eye { background: #e6f8ed; }
+.myHospitalCategory_dental { background: #fff1d5; }
+.myHospitalCategory_orthopedics { background: #e9efff; }
+.myHospitalFavorite { width: 44px; min-width: 44px; height: 44px; padding: 0; border-color: transparent; }
+.myHospitalChevron { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #8d72d1; }
+.myHospitalChevron { width: 20px; color: #a8a5b7; }
+.myHospitalChevron svg { width: 18px; height: 18px; }
+.myHospitalEmpty { min-height: 190px; display: grid; justify-items: center; align-content: center; gap: 8px; padding: 22px 12px; text-align: center; }
+.myHospitalEmpty > svg { width: 42px; height: 42px; padding: 10px; box-sizing: content-box; border-radius: 50%; background: #f3eeff; color: #8d78c8; }
+.myHospitalEmpty[data-favorite="true"] > svg { background: var(--favorite-mint-soft); color: var(--favorite-mint-strong); }
+.myHospitalEmpty h3, .myHospitalEmpty p { margin: 0; overflow-wrap: anywhere; }
+.myHospitalEmpty h3 { font-size: 16px; }
+.myHospitalEmpty p { max-width: 310px; color: #817c8f; font-size: 13px; line-height: 1.55; }
+.myHospitalEmpty a, .myHospitalEmpty button { width: auto; margin-top: 4px; padding: 10px 15px; border: 1px solid #cabbf2; border-radius: 11px; background: #dccfff; color: #403653; font-weight: 700; text-decoration: none; }
+.myHospitalSkeleton { display: grid; gap: 1px; }
+.myHospitalSkeleton i { height: 72px; border-radius: 12px; background: linear-gradient(90deg, #fff 20%, #f3eff8 50%, #fff 80%); background-size: 200% 100%; animation: favoritePulse 1.3s infinite; }
+@media (max-width: 380px) { .myHospitalsHeader { flex-wrap: wrap; } .myHospitalTabs button { font-size: 12px; gap: 4px; } .myHospitalList article { grid-template-columns: 42px minmax(0, 1fr) 44px 18px; gap: 5px; } }
+.passwordSecurityCard { min-width: 0; display: grid; gap: 18px; overflow: hidden; }
+.passwordSecurityCard header h2, .passwordSecurityCard header p, .passwordSecurityCard > div h2, .passwordSecurityCard > div p { margin: 0; overflow-wrap: anywhere; }
+.passwordSecurityCard header p, .passwordSecurityCard > div p { margin-top: 6px; color: #817c8f; line-height: 1.55; }
+.passwordVerifyForm, .newPasswordForm, .passwordChangeStep { min-width: 0; display: grid; gap: 14px; }
+.passwordVerifyForm .primaryButton, .newPasswordForm .primaryButton { width: 100%; min-width: 0; white-space: normal; }
+.passwordVerifying { min-height: 20px; margin: 0; color: #817c8f; font-size: 13px; text-align: center; }
+.passwordVerified { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 9px; padding: 12px 14px; border: 1px solid #a9dfbd; border-radius: 12px; background: #eefbf3; color: #355d43; }
+.passwordVerified span { min-width: 0; display: inline-flex; align-items: center; gap: 7px; overflow-wrap: anywhere; }
+.passwordVerified svg { flex: 0 0 auto; width: 18px; height: 18px; }
+.passwordVerified button { width: auto; padding: 6px 9px; border: 1px solid #a9dfbd; border-radius: 9px; background: #fff; color: #355d43; }
+.passwordError { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff0f4; color: #744657; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.passwordMatch { margin: 0; padding: 10px 12px; border-radius: 10px; background: #eefbf3; color: #355d43; font-size: 13px; }
+.passwordStrength { display: grid; gap: 7px; }
+.passwordStrength > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.passwordStrength > span { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.passwordStrength i { height: 7px; border-radius: 999px; background: #e7e3ea; }
+.passwordStrength[data-strength="weak"] i:first-child { background: #ffb6c9; }
+.passwordStrength[data-strength="medium"] i:nth-child(-n+2) { background: #ffd785; }
+.passwordStrength[data-strength="strong"] i { background: #bdeecf; }
+.passwordPolicyList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.passwordPolicyList li { min-width: 0; display: flex; align-items: center; gap: 6px; color: #8b8798; font-size: 12px; overflow-wrap: anywhere; }
+.passwordPolicyList li[data-met="true"] { color: #3f6e50; }
+.passwordPolicyList svg { flex: 0 0 auto; width: 15px; height: 15px; }
+.passwordSocialIcon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #f0ebff; color: #7760b5; }
+.passwordSocialIcon svg { width: 23px; height: 23px; }
+.passwordResetStatus { margin: 20px 0; color: #817c8f; text-align: center; }
+.passwordInvalidLink { min-width: 0; display: grid; gap: 12px; text-align: center; }
+.passwordInvalidLink h2, .passwordInvalidLink p { margin: 0; overflow-wrap: anywhere; }
+.passwordInvalidLink p { color: #817c8f; line-height: 1.55; }
+.passwordInvalidLink .primaryButton { width: 100%; white-space: normal; text-decoration: none; }
+.passwordField input[aria-invalid="true"] { border-color: #e7a3b6; background: #fffafb; }
+@media (max-width: 380px) { .passwordPolicyList { grid-template-columns: 1fr; } }
+.hospitalResultCard { position: relative; padding-right: 58px; }
+.hospitalResultCard .recordName { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.favoriteSearchToggle { position: absolute; z-index: 2; top: 10px; right: 10px; padding: 0; border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); }
+.resultFavoriteAction { min-width: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 14px 16px; border: 1px solid #f1e8dd; border-radius: 16px; background: #fffdf9; }
+.resultFavoriteAction strong { min-width: 0; flex: 1 1 180px; overflow-wrap: anywhere; }
+.historyFavoriteCard { position: relative; min-width: 0; display: flex; align-items: center; gap: 6px; padding-right: 64px; }
+.historyFavoriteMain { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.favoriteToggleButton.favoriteBookmark { position: absolute; top: 12px; right: 12px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); }
+.historyFavoriteFilters { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 4px; border-radius: 14px; background: #faf7ff; }
+.historyFavoriteFilters button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 8px; border: 1px solid #ebe5f2; border-radius: 11px; background: #fff; color: #716c7d; overflow-wrap: anywhere; }
+.historyFavoriteFilters button[aria-selected="true"] { border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); color: #315d4a; font-weight: 700; }
+.historyFavoriteFilters svg { flex: 0 0 auto; width: 17px; height: 17px; color: var(--favorite-mint-strong); }
+.historyFavoriteFilters strong { flex: 0 0 auto; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,.8); font-size: 12px; }
+.historyRecordCard { position: relative; padding-right: 64px; }
+.historyRecordFavorite { position: absolute; z-index: 2; top: 12px; right: 12px; padding: 0; border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); }
+.historyRecordLayout .rowBetween { padding-right: 2px; }
+.historyFavoriteEmpty { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.historyFavoriteEmpty > svg { width: 42px; height: 42px; padding: 10px; box-sizing: content-box; border-radius: 50%; background: var(--favorite-mint-soft); color: var(--favorite-mint-strong); }
+.historyFavoriteEmpty h2, .historyFavoriteEmpty p { margin: 0; overflow-wrap: anywhere; }
+.historyFavoriteEmpty .primaryButton { width: auto; max-width: 100%; white-space: normal; }
+.toastAction { flex: 0 0 auto; width: auto; padding: 7px 10px; border: 1px solid rgba(74,62,103,.22); border-radius: 9px; background: rgba(255,255,255,.82); color: #4a3e67; font-weight: 800; }
+.toastAction:disabled { opacity: .55; }
+@media (max-width: 380px) { .historyFavoriteFilters button { font-size: 12px; gap: 4px; } .historyRecordCard { padding-right: 58px; } }
+.recentHospitalCard { position: relative; padding-right: 64px; }
+.recentHospitalFavorite { position: absolute; top: 12px; right: 12px; padding: 0; border-color: var(--favorite-mint-border); background: var(--favorite-mint-soft); }
+.findIdResult { min-width: 0; display: grid; gap: 14px; padding: 18px; border: 1px solid #f1e8dd; border-radius: 18px; background: #fffdf9; }
+.findIdResultIntro { min-width: 0; display: grid; gap: 5px; }
+.findIdResultIntro h2, .findIdResultIntro p { margin: 0; overflow-wrap: anywhere; }
+.findIdResultIntro h2 { font-size: 16px; line-height: 1.45; }
+.findIdResultIntro p { color: #817c8f; font-size: 13px; line-height: 1.5; }
+.findIdValue { min-width: 0; display: grid; gap: 6px; padding: 14px; border: 1px solid #ded3f8; border-radius: 13px; background: #f5f0ff; }
+.findIdValue span { color: #716b7e; font-size: 12px; font-weight: 700; }
+.findIdValue strong { min-width: 0; color: #403653; font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; user-select: all; }
+.findIdActions { min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.findIdActions > * { flex: 1 1 140px; min-width: 0; width: auto; white-space: normal; text-align: center; text-decoration: none; }
+
 .sidebarNav {
   display: none;
 }

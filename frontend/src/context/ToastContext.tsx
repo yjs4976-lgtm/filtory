@@ -11,6 +11,8 @@ interface ToastMessage {
   title: string;
   description?: string;
   tone: ToastTone;
+  actionLabel?: string;
+  onAction?: () => Promise<void> | void;
 }
 
 interface ToastContextValue {
@@ -21,6 +23,7 @@ export const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [pendingActions, setPendingActions] = useState<number[]>([]);
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -48,6 +51,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <strong>{toast.title}</strong>
               {toast.description && <span>{toast.description}</span>}
             </div>
+            {toast.actionLabel && toast.onAction && (
+              <button type="button" className={styles.toastAction} disabled={pendingActions.includes(toast.id)} onClick={async () => { if (pendingActions.includes(toast.id)) return; setPendingActions((current) => [...current, toast.id]); try { await toast.onAction?.(); removeToast(toast.id); } catch { /* 실패 안내는 action callback에서 표시하고 현재 Toast는 유지한다. */ } finally { setPendingActions((current) => current.filter((id) => id !== toast.id)); } }}>
+                {toast.actionLabel}
+              </button>
+            )}
             <button
               type="button"
               className={styles.toastClose}

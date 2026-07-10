@@ -3,11 +3,13 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AlertTriangle, ArchiveRestore, CheckSquare2, ChevronRight, MessageCircle, RotateCcw, Settings2, ShieldCheck, Trash2, X } from "lucide-react"
+import { AlertTriangle, ArchiveRestore, Bookmark, CheckSquare2, ChevronRight, MessageCircle, RotateCcw, Settings2, ShieldCheck, Trash2, X } from "lucide-react"
+import { FavoriteHospitalButton } from "@/components/favorites/FavoriteHospitalButton"
 import { EmptyState } from "@/components/common/EmptyState"
 import { LoginRequiredCard } from "@/components/common/LoginRequiredCard"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/useToast"
 import { useLanguage } from "@/context/LanguageContext"
 import { writeCurrentReviewAnalysisFromHistory } from "@/lib/analysisStorage"
 import {
@@ -20,7 +22,8 @@ import { formatDisplayDate } from "@/lib/dateFormat"
 import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
-import type { AnalysisHistoryItem, HospitalCategory } from "@/lib/types"
+import type { AnalysisHistoryItem, HospitalCategory, HospitalItem } from "@/lib/types"
+import { emitFavoriteHospitalChange, favoriteHospitalIdentity, findSavedFavorite, isInternalFavoriteHospital, savedHospitalService } from "@/services/savedHospitalService"
 import {
   analysisHistoryService,
   filterAndSortAnalysisHistory,
@@ -37,8 +40,20 @@ type ConfirmAction = {
   onConfirm: () => Promise<void> | void
 }
 
-const categoryOptions: Array<"all" | HospitalCategory> = ["all", "derma", "eye", "dental"]
+const categoryOptions: Array<"all" | HospitalCategory> = ["all", "derma", "eye", "dental", "orthopedics"]
 const PAGE_SIZE = 5
+
+function historyHospital(item: AnalysisHistoryItem, name = item.hospitalName): HospitalItem {
+  return {
+    id: String(item.hospitalId ?? item.externalPlaceId ?? ""),
+    internalHospitalId: item.hospitalId,
+    provider: item.hospitalId ? "filtory" : item.provider || item.sourceProvider,
+    externalPlaceId: item.hospitalId ? undefined : item.externalPlaceId,
+    name, category: item.category, region: "seoul",
+    address: item.hospitalAddress || item.address || "", roadAddress: item.roadAddress,
+    phone: item.phone, mapUrl: item.mapUrl,
+  }
+}
 
 function selectedText(template: string, count: number) {
   return template.replace("{count}", String(count))
@@ -46,6 +61,7 @@ function selectedText(template: string, count: number) {
 
 export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
   const { t } = useLanguage()
+  const { showToast } = useToast()
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const isTrashMode = mode === "trash"
   const [searchInput, setSearchInput] = useState("")
@@ -61,10 +77,19 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isManagementPanelOpen, setIsManagementPanelOpen] = useState(false)
+  const [hospitalFilter, setHospitalFilter] = useState<"all" | "favorites">("all")
+  const [favoriteHospitalCount, setFavoriteHospitalCount] = useState(0)
+  const favoriteText = {
+    all: t.history.favoriteFilterAll, favorites: t.history.favoriteFilterFavorites,
+    empty: t.history.favoriteRecordEmpty, emptyDescription: t.history.favoriteRecordEmptyDescription,
+    viewAll: t.history.viewAllRecords, added: t.history.favoriteAdded, removed: t.history.favoriteRemoved,
+    undo: t.history.favoriteUndo, undoFailed: t.history.favoriteUndoFailed,
+  }
 
-  const filteredHistories = useMemo(() => (
+  const baseFilteredHistories = useMemo(() => (
     filterAndSortAnalysisHistory(histories, { keyword: appliedSearchKeyword, category, sort })
   ), [appliedSearchKeyword, category, histories, sort])
+  const filteredHistories = useMemo(() => hospitalFilter === "favorites" ? baseFilteredHistories.filter((item) => item.isFavorite) : baseFilteredHistories, [baseFilteredHistories, hospitalFilter])
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const hasSelection = selectedIds.length > 0
   const totalPages = Math.max(1, Math.ceil(filteredHistories.length / PAGE_SIZE))
@@ -75,7 +100,7 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
   }, [filteredHistories, safeCurrentPage])
   const searchInputLength = searchInput.trim().length
   const isShortSearchInput = searchInputLength === 1
-  const isFilteredView = appliedSearchKeyword.trim().length >= 2 || category !== "all"
+  const isFilteredView = appliedSearchKeyword.trim().length >= 2 || category !== "all" || hospitalFilter === "favorites"
   const recordCountLabel = selectedText(
     isFilteredView ? t.history.searchResultCount : t.history.recordCount,
     filteredHistories.length
@@ -90,10 +115,16 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
     try {
       setIsLoading(true)
       setError("")
-      const nextItems = isTrashMode
-        ? await analysisHistoryService.getTrashHistory(user?.id)
-        : await analysisHistoryService.getAnalysisHistory(user?.id)
-      setHistories(nextItems)
+      const [nextItems, favorites] = await Promise.all([
+        isTrashMode ? analysisHistoryService.getTrashHistory(user?.id) : analysisHistoryService.getAnalysisHistory(user?.id),
+        isTrashMode ? Promise.resolve([]) : savedHospitalService.getAllFavoriteHospitals(),
+      ])
+      const withFavorites = nextItems.map((item) => {
+        const match = findSavedFavorite(historyHospital(item), favorites)
+        return { ...item, isFavorite: Boolean(match), favoriteHospitalId: match?.id }
+      })
+      setHistories(withFavorites)
+      setFavoriteHospitalCount(favorites.length)
       setSelectedIds((current) => current.filter((id) => nextItems.some((item) => item.id === id)))
     } catch (error) {
       setError(error instanceof Error ? error.message : t.history.loadFailed)
@@ -101,6 +132,41 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
       setIsLoading(false)
     }
   }, [isAuthenticated, isTrashMode, t.history.loadFailed, user])
+
+  const updateHospitalFavorite = useCallback((hospital: HospitalItem, favorite: boolean, savedId?: number) => {
+    const identity = favoriteHospitalIdentity(hospital)
+    setHistories((current) => current.map((item) => favoriteHospitalIdentity(historyHospital(item)) === identity ? { ...item, isFavorite: favorite, favoriteHospitalId: favorite ? savedId : undefined } : item))
+    setFavoriteHospitalCount((count) => Math.max(0, count + (favorite ? 1 : -1)))
+    emitFavoriteHospitalChange(hospital, favorite, savedId)
+  }, [])
+
+  const saveHistoryFavorite = async (hospital: HospitalItem) => isInternalFavoriteHospital(hospital)
+    ? savedHospitalService.saveHospital(undefined, hospital.internalHospitalId ?? Number(hospital.id))
+    : savedHospitalService.saveExternalHospital(hospital)
+
+  const handleFavoriteChange = (hospital: HospitalItem, favorite: boolean, savedId?: number) => {
+    updateHospitalFavorite(hospital, favorite, savedId)
+    showToast({
+      title: favorite ? favoriteText.added : favoriteText.removed,
+      tone: "success",
+      actionLabel: favoriteText.undo,
+      onAction: async () => {
+        try {
+          if (favorite) {
+            if (!savedId) throw new Error("FAVORITE_ID_REQUIRED")
+            await savedHospitalService.unsaveHospital(undefined, savedId)
+            updateHospitalFavorite(hospital, false)
+          } else {
+            const restored = await saveHistoryFavorite(hospital)
+            updateHospitalFavorite(hospital, true, restored.id)
+          }
+        } catch {
+          showToast({ title: favoriteText.undoFailed, tone: "info" })
+          throw new Error("UNDO_FAILED")
+        }
+      },
+    })
+  }
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -130,6 +196,7 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
     setAppliedSearchKeyword("")
     setCategory("all")
     setSort("latest")
+    setHospitalFilter("all")
     setSelectedIds([])
     setCurrentPage(1)
   }
@@ -233,6 +300,17 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
           )}
         </div>
       </section>
+
+      {!isTrashMode && (
+        <div className={styles.historyFavoriteFilters} role="tablist" aria-label={t.history.title}>
+          <button type="button" role="tab" aria-selected={hospitalFilter === "all"} onClick={() => { setHospitalFilter("all"); setCurrentPage(1) }}>
+            {favoriteText.all} <strong>{histories.length}</strong>
+          </button>
+          <button type="button" role="tab" aria-selected={hospitalFilter === "favorites"} onClick={() => { setHospitalFilter("favorites"); setCurrentPage(1) }}>
+            <Bookmark aria-hidden="true" fill="currentColor"/> {favoriteText.favorites} <strong>{favoriteHospitalCount}</strong>
+          </button>
+        </div>
+      )}
 
       <HistoryToolbar
         searchInput={searchInput}
@@ -423,7 +501,18 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
         />
       )}
 
-      {!error && histories.length > 0 && filteredHistories.length === 0 && (
+      {!error && histories.length > 0 && filteredHistories.length === 0 && hospitalFilter === "favorites" && (
+        <section className={`${styles.emptyCard} ${styles.historyFavoriteEmpty}`}>
+          <Bookmark aria-hidden="true" />
+          <h2 className={styles.titleMd}>{favoriteText.empty}</h2>
+          <p className={styles.mutedText}>{favoriteText.emptyDescription}</p>
+          <button type="button" className={styles.primaryButton} onClick={() => { setHospitalFilter("all"); setCurrentPage(1) }}>
+            {favoriteText.viewAll}
+          </button>
+        </section>
+      )}
+
+      {!error && histories.length > 0 && filteredHistories.length === 0 && hospitalFilter !== "favorites" && (
         <section className={`${styles.emptyCard} ${styles.stackSm}`}>
           <h2 className={styles.titleMd}>{t.history.searchEmptyTitle}</h2>
           <p className={styles.mutedText}>{t.history.searchEmptyDescription}</p>
@@ -466,6 +555,7 @@ export function HistoryManager({ mode = "active" }: { mode?: HistoryMode }) {
                   confirmLabel: t.history.permanentDeleteRecord,
                   onConfirm: () => permanentlyDeleteSelected([item.id]),
                 })}
+                onFavoriteChange={(hospital, favorite, savedId) => handleFavoriteChange(hospital, favorite, savedId)}
               />
             ))}
           </div>
@@ -612,6 +702,7 @@ function HistoryRecordCard({
   onMoveToTrash,
   onRestore,
   onPermanentDelete,
+  onFavoriteChange,
 }: {
   item: AnalysisHistoryItem
   mode: HistoryMode
@@ -621,6 +712,7 @@ function HistoryRecordCard({
   onMoveToTrash: () => void
   onRestore: () => void
   onPermanentDelete: () => void
+  onFavoriteChange: (hospital: HospitalItem, favorite: boolean, savedId?: number) => void
 }) {
   const router = useRouter()
   const { t, language } = useLanguage()
@@ -638,6 +730,7 @@ function HistoryRecordCard({
   const deletedAt = formatDisplayDate(item.deletedAt, language)
   const hospitalName = getHistoryHospitalName(item, language)
   const metaText = getHistoryMetaText(item, language, t.categories[item.category])
+  const hospital = historyHospital(item, hospitalName)
   const isTrashMode = mode === "trash"
   const askWithResult = () => {
     const analysisResultId = getAnalysisResultId(item)
@@ -653,7 +746,8 @@ function HistoryRecordCard({
   }
 
   return (
-    <article className={`${styles.card} ${styles.stackSm}`}>
+    <article className={`${styles.card} ${styles.stackSm} ${styles.historyRecordCard}`}>
+      {!isTrashMode && <FavoriteHospitalButton hospital={hospital} initialFavorite={item.isFavorite} favoriteHospitalId={item.favoriteHospitalId} iconOnly className={styles.historyRecordFavorite} showSuccessToast={false} onChange={(favorite, context) => onFavoriteChange(hospital, favorite, context.savedHospitalId)} />}
       <div className={styles.historyRecordLayout}>
         {selectable && (
           <label className={styles.historyCheckbox}>

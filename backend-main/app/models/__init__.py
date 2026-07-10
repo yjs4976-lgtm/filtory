@@ -10,6 +10,7 @@ from app.models.inquiry_answer import InquiryAnswer
 from app.models.member import Member
 from app.models.member_notification import MemberNotification
 from app.models.member_saved_hospital import MemberSavedHospital
+from app.models.member_recent_viewed_hospital import MemberRecentViewedHospital
 from app.models.member_subscription import MemberSubscription
 from app.models.member_terms_agreement import MemberTermsAgreement
 from app.models.password_reset_token import PasswordResetToken
@@ -31,6 +32,7 @@ __all__ = [
     "Member",
     "MemberNotification",
     "MemberSavedHospital",
+    "MemberRecentViewedHospital",
     "MemberSubscription",
     "MemberTermsAgreement",
     "PasswordResetToken",

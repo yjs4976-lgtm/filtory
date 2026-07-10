@@ -151,8 +151,12 @@ class AuthService:
 
     @staticmethod
     def reset_password(payload):
-        validate_password(payload.get("password"))
+        validate_password(payload.get("password") or payload.get("newPassword"))
         return MemberService.reset_password(payload)
+
+    @staticmethod
+    def validate_password_reset_token(raw_token):
+        return MemberService.validate_password_reset_token(raw_token)
 
     @staticmethod
     def request_email_verification(member_id, request_ip=None, user_agent=None):

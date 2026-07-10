@@ -50,18 +50,21 @@ const categoryToBackend: Record<HospitalCategory, string> = {
   derma: "derma",
   eye: "eye",
   dental: "dental",
+  orthopedics: "orthopedics",
 }
 
 const categoryLabels: Record<HospitalCategory, { ko: string; en: string }> = {
   derma: { ko: "피부과", en: "Skin Clinic" },
   eye: { ko: "안과", en: "Eye Clinic" },
   dental: { ko: "치과", en: "Dental Clinic" },
+  orthopedics: { ko: "정형외과", en: "Orthopedics" },
 }
 
 function normalizeCategory(category?: string | null): HospitalCategory {
   const value = String(category ?? "").toLowerCase()
   if (value === "ophthalmology" || value === "eye" || value === "안과") return "eye"
   if (value === "dentistry" || value === "dental" || value === "치과") return "dental"
+  if (value === "orthopedics" || value === "orthopedic" || value === "정형외과") return "orthopedics"
   return "derma"
 }
 
@@ -174,6 +177,7 @@ function toHospitalItem(item: BackendHospital, requestedCategory?: HospitalCateg
 
   return {
     id: String(item.id ?? `hospital-${item.hospital_name ?? Date.now()}`),
+    internalHospitalId: typeof item.id === "number" ? item.id : undefined,
     provider,
     externalPlaceId: item.external_place_id ?? undefined,
     name: hospitalName,

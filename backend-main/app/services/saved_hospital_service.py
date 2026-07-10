@@ -4,6 +4,63 @@ from app.schemas import saved_hospital_to_dict
 
 
 class SavedHospitalService:
+    CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}
+
+    @staticmethod
+    def list_favorite_hospitals(member_id, page=1, size=6, category=None, status=None, sort="latest", keyword=None):
+        if category and category not in SavedHospitalService.CATEGORIES:
+            raise ValueError("Invalid category")
+        if status and status not in {"analyzed", "not_analyzed"}:
+            raise ValueError("Invalid status")
+        if sort not in {"latest", "oldest", "name"}:
+            raise ValueError("Invalid sort")
+        if page < 1 or size < 1 or size > 50:
+            raise ValueError("Invalid pagination")
+        keyword = (keyword or "").strip()[:100] or None
+        rows = SavedHospitalRepository.list_filtered(member_id, category, status, keyword, sort, size, (page - 1) * size)
+        total = SavedHospitalRepository.count_filtered(member_id, category, status, keyword)
+        return [saved_hospital_to_dict(saved, result) for saved, result in rows], total
+
+    @staticmethod
+    def save_favorite_hospital(member_id, payload):
+        hospital_payload = payload.get("hospital")
+        if not (payload.get("hospitalId") or payload.get("hospital_id")) and hospital_payload:
+            hospital = SavedHospitalService._upsert_external_hospital(hospital_payload)
+            payload = {**payload, "hospitalId": hospital.id}
+        return SavedHospitalService.save_hospital(member_id, payload)
+
+    @staticmethod
+    def _upsert_external_hospital(payload):
+        name = str(payload.get("name") or payload.get("hospitalName") or "").strip()
+        category = payload.get("category")
+        frontend_categories = {"derma": "dermatology", "eye": "ophthalmology", "dental": "dentistry"}
+        category = frontend_categories.get(category, category)
+        if not name or category not in SavedHospitalService.CATEGORIES:
+            raise ValueError("Valid hospital name and category are required")
+        external_id = str(payload.get("externalPlaceId") or "").strip() or None
+        provider = str(payload.get("provider") or payload.get("sourceProvider") or "external").strip()[:20]
+        hospital = HospitalRepository.get_by_source_provider_external_place_id(provider, external_id) if external_id else None
+        road_address = str(payload.get("roadAddress") or "").strip() or None
+        address = str(payload.get("address") or "").strip() or None
+        if not hospital:
+            hospital = HospitalRepository.get_by_name_category_address(name, category, road_address or address)
+        if hospital:
+            return hospital
+        map_url = str(payload.get("mapUrl") or "").strip() or None
+        hospital = HospitalRepository.create({
+            "hospital_name": name, "category": category, "source_provider": provider,
+            "external_place_id": external_id, "address": address, "road_address": road_address,
+            "phone": str(payload.get("phone") or "").strip() or None,
+            "latitude": payload.get("latitude") or payload.get("lat"),
+            "longitude": payload.get("longitude") or payload.get("lng"),
+            "kakao_place_url": str(payload.get("kakaoPlaceUrl") or (map_url if provider == "kakao" else "")).strip() or None,
+            "naver_place_url": str(payload.get("naverPlaceUrl") or (map_url if provider == "naver" else "")).strip() or None,
+            "naver_place_id": str(payload.get("naverPlaceId") or "").strip() or None,
+            "google_map_url": str(payload.get("googleMapUrl") or (map_url if provider == "google" else "")).strip() or None,
+            "google_place_id": str(payload.get("googlePlaceId") or "").strip() or None,
+        })
+        db.session.flush()
+        return hospital
     @staticmethod
     def list_saved_hospitals(member_id, limit=20, offset=0):
         saved_hospitals = SavedHospitalRepository.list_by_member(member_id, limit=limit, offset=offset)
