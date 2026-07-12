@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Sparkles } from "lucide-react"
+import { Bone, Eye, Sparkles } from "lucide-react"
 import { ToothIcon } from "@/components/common/ToothIcon"
 import { useLanguage } from "@/context/LanguageContext"
 import styles from "@/styles/App.module.css"
@@ -9,6 +9,7 @@ const meta = {
   derma: { icon: Sparkles, box: styles.iconPink },
   eye: { icon: Eye, box: styles.iconLavender },
   dental: { icon: ToothIcon, box: styles.iconMint },
+  orthopedics: { icon: Bone, box: styles.iconPeach },
 }
 
 export function CategorySelector({ selected, onSelect, variant = "grid" }) {
@@ -17,6 +18,7 @@ export function CategorySelector({ selected, onSelect, variant = "grid" }) {
     { key: "derma", label: t.categories.derma, desc: t.categories.dermaDesc },
     { key: "eye", label: t.categories.eye, desc: t.categories.eyeDesc },
     { key: "dental", label: t.categories.dental, desc: t.categories.dentalDesc },
+    { key: "orthopedics", label: t.categories.orthopedics, desc: t.categories.orthopedicsDesc },
   ]
   const wrapperClass = variant === "pills" ? styles.categoryPills : styles.categoryGrid
 

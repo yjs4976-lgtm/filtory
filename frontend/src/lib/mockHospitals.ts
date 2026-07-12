@@ -296,6 +296,7 @@ function categoryTerms(category?: HospitalCategory) {
   if (category === "derma") return ["derma", "dermatology", "skin", "skin clinic", "피부과"]
   if (category === "eye") return ["eye", "ophthalmology", "eye clinic", "안과"]
   if (category === "dental") return ["dental", "dentistry", "dental clinic", "치과"]
+  if (category === "orthopedics") return ["orthopedics", "orthopedic", "orthopedic clinic", "정형외과", "정형"]
   return []
 }
 

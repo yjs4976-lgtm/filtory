@@ -2059,14 +2059,15 @@
 }
 
 .categoryChipGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .categoryChipButton {
   min-height: 38px;
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
@@ -2090,6 +2091,10 @@
 
 .categoryChipButton[data-tone="peach"] svg {
   color: var(--peach-text);
+}
+
+.categoryChipButton[data-tone="pink"] svg {
+  color: var(--pink-text);
 }
 
 .categoryChipSelected {
@@ -4272,14 +4277,14 @@ button.notificationCard {
 
 .categoryGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .categoryPills {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
