@@ -106,6 +106,18 @@ class Member(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    chatbot_conversations = db.relationship(
+        "ChatbotConversation",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    chatbot_messages = db.relationship(
+        "ChatbotMessage",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Member id={self.id} email={self.email}>"

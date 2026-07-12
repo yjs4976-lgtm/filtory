@@ -5358,6 +5358,77 @@ button.notificationCard {
   padding: 10px 16px 8px;
 }
 
+.chatHistoryBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px 8px;
+  overflow: hidden;
+}
+
+.chatHistoryList {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chatHistoryList::-webkit-scrollbar {
+  display: none;
+}
+
+.chatHistoryNewButton,
+.chatHistoryButton {
+  appearance: none;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.chatHistoryNewButton {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+}
+
+.chatHistoryButton {
+  max-width: 168px;
+  padding: 7px 12px;
+}
+
+.chatHistoryButton span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chatHistoryNewButton:hover,
+.chatHistoryNewButton:focus-visible,
+.chatHistoryButton:hover,
+.chatHistoryButton:focus-visible,
+.chatHistoryButtonActive {
+  border-color: rgba(150, 126, 224, 0.58);
+  background: #f7f0ff;
+  color: var(--foreground);
+}
+
+.chatHistoryNewButton:disabled,
+.chatHistoryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .messageAi {
   display: flex;
   align-items: flex-end;

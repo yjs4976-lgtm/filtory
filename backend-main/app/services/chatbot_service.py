@@ -2,13 +2,19 @@ import os
 import re
 import time
 
+from flask import has_app_context
+
 from app.clients.ai_chatbot_client import AIChatbotClient
+from app.repositories.chatbot_history_repository import ChatbotHistoryRepository
 from app.repositories import AnalysisRepository
 from app.schemas.analysis_schema import analysis_result_to_canonical_dict
+from app.services.chatbot_history_service import ChatbotHistoryService
 
 
 class ChatbotService:
     MAX_MESSAGE_LENGTH = 800
+    MAX_LLM_CONTEXT_MESSAGES = 6
+    MAX_LLM_CONTEXT_MESSAGE_LENGTH = 240
     _remote_ai_rate_limit_hits = {}
 
     ANALYSIS_SUGGESTIONS_KO = [
@@ -99,6 +105,11 @@ class ChatbotService:
         has_context = bool(analysis_context)
         normalized_message = message.lower()
         model_version = None
+        conversation_id = cls._optional_positive_int(
+            payload.get("conversationId")
+            or payload.get("conversation_id")
+            or payload.get("chatbotConversationId")
+        )
 
         guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
         if guardrail_answer:
@@ -124,6 +135,7 @@ class ChatbotService:
                             message,
                             language,
                             cls._safe_analysis_context(analysis_context, language),
+                            cls._conversation_context_for_ai(member_id, conversation_id, language),
                         )
                     if ai_answer:
                         answer = ai_answer["answer"]
@@ -140,6 +152,25 @@ class ChatbotService:
         }
         if model_version:
             result["modelVersion"] = model_version
+        if member_id and has_app_context():
+            try:
+                saved_conversation_id = ChatbotHistoryService.save_exchange(
+                    member_id=int(member_id),
+                    message=message,
+                    answer=answer,
+                    language=language,
+                    source=source,
+                    model_version=model_version,
+                    conversation_id=conversation_id,
+                    analysis_result_id=analysis_result_id,
+                )
+                if saved_conversation_id:
+                    result["conversationId"] = saved_conversation_id
+            except ValueError:
+                raise
+            except Exception:
+                if has_app_context():
+                    ChatbotHistoryRepository.rollback()
         return result
 
     @staticmethod
@@ -320,8 +351,45 @@ class ChatbotService:
         return cls.GENERAL_SUGGESTIONS_EN if language == "en" else cls.GENERAL_SUGGESTIONS_KO
 
     @staticmethod
-    def _answer_by_ai(message, language, analysis_context=None):
-        return AIChatbotClient.answer(message, language=language, analysis_context=analysis_context)
+    def _answer_by_ai(message, language, analysis_context=None, conversation_context=None):
+        return AIChatbotClient.answer(
+            message,
+            language=language,
+            analysis_context=analysis_context,
+            conversation_context=conversation_context,
+        )
+
+    @classmethod
+    def _conversation_context_for_ai(cls, member_id, conversation_id, language):
+        if not member_id or not conversation_id or not has_app_context():
+            return {}
+
+        messages = ChatbotHistoryRepository.get_recent_messages(
+            int(member_id),
+            int(conversation_id),
+            limit=cls.MAX_LLM_CONTEXT_MESSAGES,
+        )
+        recent_messages = []
+        for message in messages:
+            content = cls._truncate_context_text(message.content, cls.MAX_LLM_CONTEXT_MESSAGE_LENGTH)
+            if not content:
+                continue
+            recent_messages.append(
+                {
+                    "role": message.role,
+                    "content": content,
+                }
+            )
+
+        if not recent_messages:
+            return {}
+
+        return {
+            "strategy": "recent_messages_only",
+            "maxMessages": cls.MAX_LLM_CONTEXT_MESSAGES,
+            "language": language,
+            "recentMessages": recent_messages,
+        }
 
     @classmethod
     def _is_remote_ai_rate_limited(cls, key):
@@ -437,6 +505,13 @@ class ChatbotService:
                 continue
             safe_context[key] = value
         return safe_context
+
+    @staticmethod
+    def _truncate_context_text(value, limit):
+        text = str(value or "").strip()
+        if len(text) <= limit:
+            return text
+        return f"{text[:limit - 1]}…"
 
     @classmethod
     def _answer_small_talk(cls, text, language, has_context=False):

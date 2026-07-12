@@ -2,6 +2,7 @@ from app.services.admin_service import AdminService
 from app.services.analysis_service import AnalysisService
 from app.services.auth_service import AuthService
 from app.services.chatbot_service import ChatbotService
+from app.services.chatbot_history_service import ChatbotHistoryService
 from app.services.email_verification_service import EmailVerificationService
 from app.services.hospital_service import HospitalService
 from app.services.inquiry_service import InquiryService
@@ -21,6 +22,7 @@ __all__ = [
     "AnalysisService",
     "AuthService",
     "ChatbotService",
+    "ChatbotHistoryService",
     "EmailVerificationService",
     "HospitalService",
     "InquiryService",
