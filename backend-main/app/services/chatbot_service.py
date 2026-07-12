@@ -289,9 +289,11 @@ class ChatbotService:
             "dermatology": "피부과",
             "ophthalmology": "안과",
             "dentistry": "치과",
+            "orthopedics": "정형외과",
             "derma": "피부과",
             "eye": "안과",
             "dental": "치과",
+            "orthopedic": "정형외과",
         }.get(category, category or "병원")
 
     @classmethod
@@ -823,6 +825,17 @@ class ChatbotService:
             return (
                 "치과 리뷰는 비용 설명, 치료 필요성, 통증, 대기 시간, 재방문 과정, 대안 설명 여부를 보세요. "
                 "비싼 치료만 강하게 권했다는 내용이 반복되면 조심해서 비교하는 게 좋습니다."
+            )
+
+        if cls._has_any(text, ["정형외과", "정형", "관절", "척추", "도수", "물리치료", "orthopedics", "orthopedic", "joint", "spine"]):
+            if language == "en":
+                return (
+                    "For orthopedic reviews, compare whether the review explains the diagnosis, imaging or exam process, "
+                    "physical therapy, follow-up care, pain changes, and whether surgery or procedures were explained with alternatives."
+                )
+            return (
+                "정형외과 리뷰는 진단 설명, 영상검사나 진찰 과정, 물리치료/도수치료, 재방문 관리, 통증 변화가 구체적인지 보세요. "
+                "시술이나 수술만 강하게 권했다는 내용이 반복되면 대안 설명 여부를 함께 확인하는 게 좋습니다."
             )
 
         if cls._has_any(text, ["리뷰 수", "후기 수", "최신", "최근", "적어", "적은", "review count", "few reviews", "not many reviews", "recent", "latest"]):

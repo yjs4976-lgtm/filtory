@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Bone,
   ExternalLink,
   Eye,
   FileCheck2,
@@ -189,7 +190,7 @@ function detectCategoryFromKeyword(keyword: string): HospitalCategory | null {
 function normalizeCategoryParam(value: string | null): HospitalCategory | null {
   const normalizedValue = value?.trim().toLowerCase()
   if (!normalizedValue) return null
-  if (normalizedValue === "derma" || normalizedValue === "eye" || normalizedValue === "dental") {
+  if (normalizedValue === "derma" || normalizedValue === "eye" || normalizedValue === "dental" || normalizedValue === "orthopedics") {
     return normalizedValue
   }
 
@@ -1126,6 +1127,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     { key: "derma" as const, label: t.categories.derma, desc: t.categories.dermaDesc, icon: Sparkles },
     { key: "eye" as const, label: t.categories.eye, desc: t.categories.eyeDesc, icon: Eye },
     { key: "dental" as const, label: t.categories.dental, desc: t.categories.dentalDesc, icon: ToothIcon },
+    { key: "orthopedics" as const, label: t.categories.orthopedics, desc: t.categories.orthopedicsDesc, icon: Bone },
   ]
 
   useEffect(() => {

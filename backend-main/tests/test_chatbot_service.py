@@ -59,6 +59,14 @@ def test_chatbot_answers_category_specific_question():
     assert "치료 필요성" in result["answer"]
 
 
+def test_chatbot_answers_orthopedics_category_question():
+    result = ChatbotService.answer({"message": "정형외과 리뷰에서 뭘 봐야 해?"})
+
+    assert result["source"] == "keyword"
+    assert "진단 설명" in result["answer"]
+    assert "물리치료" in result["answer"]
+
+
 def test_chatbot_answers_friendly_greeting():
     result = ChatbotService.answer({"message": "안녕!"})
 

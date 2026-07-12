@@ -17,6 +17,7 @@ function normalizeCategory(value: unknown): AnalysisHistoryItem["category"] {
   const category = String(value ?? "").trim().toLowerCase()
   if (category === "eye" || category === "안과" || category === "ophthalmology") return "eye"
   if (category === "dental" || category === "치과" || category === "dentistry") return "dental"
+  if (category === "orthopedics" || category === "orthopedic" || category === "정형외과") return "orthopedics"
   return "derma"
 }
 

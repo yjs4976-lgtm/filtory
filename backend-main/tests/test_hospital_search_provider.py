@@ -83,6 +83,47 @@ def test_naver_search_keeps_matching_specific_category(monkeypatch):
     assert results[0]["naver_place_id"] == "12345"
 
 
+def test_naver_search_keeps_matching_orthopedics_category(monkeypatch):
+    app = Flask(__name__)
+    app.config.update(
+        NAVER_SEARCH_CLIENT_ID="client-id",
+        NAVER_SEARCH_CLIENT_SECRET="client-secret",
+        HOSPITAL_SEARCH_TIMEOUT_SECONDS=1,
+    )
+
+    monkeypatch.setattr(
+        HospitalSearchProvider,
+        "_get_json",
+        staticmethod(
+            lambda url, headers: {
+                "items": [
+                    {
+                        "title": "튼튼정형외과의원",
+                        "category": "병원,의원",
+                        "address": "서울 강남구 예시로 10",
+                        "roadAddress": "서울 강남구 예시로 10",
+                        "link": "https://map.naver.com/p/entry/place/98765",
+                        "mapx": "1269840000",
+                        "mapy": "375610000",
+                    }
+                ]
+            },
+        ),
+    )
+
+    with app.app_context():
+        results = HospitalSearchProvider.search_naver(
+            query="서울 강남구 정형외과",
+            category="orthopedics",
+            limit=10,
+        )
+
+    assert len(results) == 1
+    assert results[0]["source_provider"] == "naver"
+    assert results[0]["category"] == "orthopedics"
+    assert results[0]["naver_place_id"] == "98765"
+
+
 def test_naver_region_only_search_keeps_broad_hospital_category(monkeypatch):
     app = Flask(__name__)
     app.config.update(

@@ -33,7 +33,9 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
       ? "eye"
       : rawCategory === "dental" || rawCategory === "치과" || rawCategory === "dentistry"
         ? "dental"
-        : "derma"
+        : rawCategory === "orthopedics" || rawCategory === "orthopedic" || rawCategory === "정형외과"
+          ? "orthopedics"
+          : "derma"
   const createdAt = String(item.createdAt ?? item.created_at ?? item.analyzedAt ?? item.date ?? "")
   const id = String(item.id ?? "")
 
