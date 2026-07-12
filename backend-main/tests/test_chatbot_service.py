@@ -305,6 +305,44 @@ def test_chatbot_builds_small_recent_context_for_remote_ai(monkeypatch):
     assert len(context["recentMessages"][-1]["content"]) <= ChatbotService.MAX_LLM_CONTEXT_MESSAGE_LENGTH
 
 
+def test_chatbot_ignores_invalid_conversation_id_before_ai_and_starts_new_history(monkeypatch):
+    captured = {}
+
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
+        captured["conversation_context"] = conversation_context
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    def fake_save_exchange(**kwargs):
+        captured["saved_conversation_id"] = kwargs["conversation_id"]
+        return 111
+
+    monkeypatch.setattr(chatbot_service_module, "has_app_context", lambda: True)
+    monkeypatch.setattr(
+        chatbot_service_module.ChatbotHistoryRepository,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: None),
+    )
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    monkeypatch.setattr(chatbot_service_module.ChatbotHistoryService, "save_exchange", staticmethod(fake_save_exchange))
+    ChatbotService._remote_ai_rate_limit_hits.clear()
+
+    result = ChatbotService.answer(
+        {"message": "새로운 표현으로 설명해줘", "conversationId": 999},
+        member_id=1,
+        allow_remote_ai=True,
+        rate_limit_key="member:invalid-conversation",
+    )
+
+    assert result["source"] == "llm"
+    assert result["conversationId"] == 111
+    assert captured["conversation_context"] == {}
+    assert captured["saved_conversation_id"] is None
+
+
 def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
     from app.clients.ai_chatbot_client import AIChatbotClient
 
@@ -507,6 +545,102 @@ def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
     assert response.status_code == 200
     assert "conversationId" not in payload["data"]
     assert payload["data"]["source"] == "default"
+
+
+def test_chatbot_conversation_list_requires_login():
+    from app import create_app
+
+    client = create_app().test_client()
+    response = client.get("/api/chatbot/conversations")
+
+    assert response.status_code == 401
+
+
+def test_chatbot_conversation_list_returns_items_for_logged_in_user(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "list_conversations",
+        staticmethod(lambda member_id, limit, offset: ([{"id": 10, "title": "최근 대화"}], 1)),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"][0]["id"] == 10
+    assert payload["meta"]["count"] == 1
+
+
+def test_chatbot_conversation_detail_returns_404_for_other_member(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: (_ for _ in ()).throw(ValueError("Chatbot conversation not found"))),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations/999")
+
+    assert response.status_code == 404
+
+
+def test_chatbot_conversation_detail_returns_owned_conversation(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: {"id": conversation_id, "memberId": member_id, "messages": []}),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations/10")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["id"] == 10
+    assert payload["data"]["memberId"] == 123
 
 
 def test_chatbot_api_accepts_anonymous_analysis_context_with_result_id():

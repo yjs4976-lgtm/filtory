@@ -110,6 +110,7 @@ class ChatbotService:
             or payload.get("conversation_id")
             or payload.get("chatbotConversationId")
         )
+        conversation_id = cls._valid_conversation_id(member_id, conversation_id)
 
         guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
         if guardrail_answer:
@@ -207,6 +208,13 @@ class ChatbotService:
         except (TypeError, ValueError):
             return None
         return numeric_value if numeric_value > 0 else None
+
+    @staticmethod
+    def _valid_conversation_id(member_id, conversation_id):
+        if not member_id or not conversation_id or not has_app_context():
+            return None
+        conversation = ChatbotHistoryRepository.get_conversation(int(member_id), int(conversation_id))
+        return int(conversation_id) if conversation else None
 
     @staticmethod
     def _member_ids_match(left, right):

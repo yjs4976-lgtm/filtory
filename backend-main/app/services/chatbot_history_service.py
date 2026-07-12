@@ -38,8 +38,6 @@ class ChatbotHistoryService:
         conversation = None
         if conversation_id:
             conversation = ChatbotHistoryRepository.get_conversation(member_id, conversation_id)
-            if not conversation:
-                raise ValueError("Chatbot conversation not found")
 
         if not conversation:
             conversation = ChatbotHistoryRepository.create_conversation(
