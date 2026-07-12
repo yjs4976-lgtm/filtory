@@ -1998,7 +1998,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
                 key={key}
                 type="button"
                 className={`${styles.categoryChipButton} ${category === key ? styles.categoryChipSelected : ""}`}
-                data-tone={index === 0 ? "lavender" : index === 1 ? "mint" : index === 2 ? "peach" : "pink"}
+                data-tone={index === 0 ? "lavender" : index === 1 ? "mint" : "peach"}
                 aria-pressed={category === key}
                 onClick={() => (category === key ? clearSelectedCategory() : handleCategoryChange(key))}
               >
