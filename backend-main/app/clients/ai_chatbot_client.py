@@ -14,7 +14,7 @@ class AIChatbotClient:
     DEFAULT_TIMEOUT_SECONDS = 12
 
     @classmethod
-    def answer(cls, message, language="ko", analysis_context=None):
+    def answer(cls, message, language="ko", analysis_context=None, conversation_context=None):
         url = cls._api_url()
         if not url:
             return None
@@ -23,6 +23,7 @@ class AIChatbotClient:
             "message": message,
             "language": language,
             "analysisContext": analysis_context or {},
+            "conversationContext": conversation_context or {},
         }
         internal_token = cls._internal_token()
         if not internal_token:

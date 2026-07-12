@@ -1,8 +1,10 @@
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
-from app.services import ChatbotService
+from app.services import ChatbotHistoryService, ChatbotService
+from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
+from app.utils.security import require_auth
 
 chatbot_bp = Blueprint("chatbot", __name__)
 
@@ -23,6 +25,27 @@ def create_chatbot_message():
         )
     except ValueError as e:
         return error_response(str(e), 400)
+
+
+@chatbot_bp.route("/conversations", methods=["GET"])
+@require_auth
+def list_chatbot_conversations():
+    pagination = get_pagination_params(request.args)
+    items, total = ChatbotHistoryService.list_conversations(
+        g.current_member.id,
+        limit=pagination["limit"],
+        offset=pagination["offset"],
+    )
+    return success_response(items, meta=build_pagination_meta(pagination["page"], pagination["per_page"], total))
+
+
+@chatbot_bp.route("/conversations/<int:conversation_id>", methods=["GET"])
+@require_auth
+def get_chatbot_conversation(conversation_id):
+    try:
+        return success_response(ChatbotHistoryService.get_conversation(g.current_member.id, conversation_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
 
 
 def _optional_member_id():
