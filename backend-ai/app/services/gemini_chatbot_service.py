@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiChatbotService:
+    MAX_CONTEXT_MESSAGES = 6
+    MAX_CONTEXT_MESSAGE_LENGTH = 240
+
     # 로그인 사용자의 LLM 챗봇 답변을 생성하는 서비스다.
     # backend-main이 내부 토큰으로 호출하며, 실패 시 backend-main 로컬 챗봇 fallback이 사용될 수 있다.
     @classmethod
@@ -81,9 +84,9 @@ class GeminiChatbotService:
 
         raise RuntimeError(cls._error_message("Gemini chatbot is temporarily unavailable", last_error)) from last_error
 
-    @staticmethod
-    def _build_user_content(payload: ChatbotMessageRequest) -> str:
-        # LLM에는 사용자의 질문과 선택된 분석 컨텍스트만 JSON으로 전달한다.
+    @classmethod
+    def _build_user_content(cls, payload: ChatbotMessageRequest) -> str:
+        # LLM에는 사용자의 질문, 선택된 분석 컨텍스트, 짧게 제한한 최근 대화만 JSON으로 전달한다.
         # 영어 모드에서는 한글 문맥을 그대로 복사하지 말라는 지시를 함께 보낸다.
         data: dict[str, Any] = {
             "language": payload.language,
@@ -94,8 +97,43 @@ class GeminiChatbotService:
             ),
             "userMessage": payload.message,
             "analysisContext": payload.analysisContext or {},
+            "conversationContext": cls._safe_conversation_context(payload.conversationContext),
         }
         return json.dumps(data, ensure_ascii=False)
+
+    @classmethod
+    def _safe_conversation_context(cls, context: dict[str, Any] | None) -> dict[str, Any]:
+        if not isinstance(context, dict):
+            return {}
+
+        raw_messages = context.get("recentMessages")
+        if not isinstance(raw_messages, list):
+            return {}
+
+        recent_messages = []
+        for item in raw_messages[-cls.MAX_CONTEXT_MESSAGES:]:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            if role not in {"user", "assistant"}:
+                continue
+            content = cls._truncate(str(item.get("content") or "").strip(), cls.MAX_CONTEXT_MESSAGE_LENGTH)
+            if not content:
+                continue
+            recent_messages.append({"role": role, "content": content})
+
+        if not recent_messages:
+            return {}
+
+        return {
+            "strategy": "recent_messages_only",
+            "maxMessages": cls.MAX_CONTEXT_MESSAGES,
+            "recentMessages": recent_messages,
+        }
+
+    @staticmethod
+    def _truncate(value: str, limit: int) -> str:
+        return value if len(value) <= limit else f"{value[:limit - 1]}…"
 
     @staticmethod
     def _candidate_models(settings: Settings) -> list[str]:

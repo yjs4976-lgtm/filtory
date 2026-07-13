@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Bone,
   ExternalLink,
   Eye,
   FileCheck2,
@@ -24,6 +25,7 @@ import {
   X,
 } from "lucide-react"
 import { ToothIcon } from "@/components/common/ToothIcon"
+import { FavoriteHospitalButton } from "@/components/favorites/FavoriteHospitalButton"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
@@ -135,16 +137,18 @@ type KakaoMapsWindow = Window & {
 
 type ReviewExampleCategory = "kindness" | "waiting" | "cost" | "consultation" | "aftercare"
 
-const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental"> = {
+const categoryToHistoryName: Record<HospitalCategory, "skin" | "eye" | "dental" | "orthopedics"> = {
   derma: "skin",
   eye: "eye",
   dental: "dental",
+  orthopedics: "orthopedics",
 }
 
 const categoryKeywordMatchers: Record<HospitalCategory, string[]> = {
   derma: ["피부", "피부과", "derma", "skin"],
   eye: ["안과", "라식", "라섹", "백내장", "드림렌즈", "eye", "ophthalmology"],
   dental: ["치과", "교정", "임플란트", "스케일링", "dental", "dentist"],
+  orthopedics: ["정형외과", "정형", "관절", "척추", "orthopedics", "orthopedic"],
 }
 
 const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
@@ -186,7 +190,7 @@ function detectCategoryFromKeyword(keyword: string): HospitalCategory | null {
 function normalizeCategoryParam(value: string | null): HospitalCategory | null {
   const normalizedValue = value?.trim().toLowerCase()
   if (!normalizedValue) return null
-  if (normalizedValue === "derma" || normalizedValue === "eye" || normalizedValue === "dental") {
+  if (normalizedValue === "derma" || normalizedValue === "eye" || normalizedValue === "dental" || normalizedValue === "orthopedics") {
     return normalizedValue
   }
 
@@ -914,6 +918,9 @@ function createApiAnalysisResult({
     regionProvinceCode: regionPayload.regionProvinceCode,
     regionDistrictCode: regionPayload.regionDistrictCode,
     sourceName: hospital?.sourceName,
+    sourceProvider: hospital?.provider,
+    provider: hospital?.provider,
+    externalPlaceId: hospital?.externalPlaceId,
     sourceUrl: hospital?.sourceUrl,
     mapUrl: (manualMapUrlSupported ? manualMapUrl : undefined) || (hospitalMapUrlSupported ? hospital?.mapUrl : undefined),
     googleMapUrl: resultGoogleMapUrl,
@@ -1120,6 +1127,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     { key: "derma" as const, label: t.categories.derma, desc: t.categories.dermaDesc, icon: Sparkles },
     { key: "eye" as const, label: t.categories.eye, desc: t.categories.eyeDesc, icon: Eye },
     { key: "dental" as const, label: t.categories.dental, desc: t.categories.dentalDesc, icon: ToothIcon },
+    { key: "orthopedics" as const, label: t.categories.orthopedics, desc: t.categories.orthopedicsDesc, icon: Bone },
   ]
 
   useEffect(() => {
@@ -3344,6 +3352,7 @@ function HospitalResultCard({
 
   return (
     <article className={`${styles.recordButton} ${styles.hospitalResultCard}`}>
+      <FavoriteHospitalButton hospital={hospital} initialFavorite={hospital.isFavorite} favoriteHospitalId={hospital.favoriteHospitalId} iconOnly className={styles.favoriteSearchToggle} />
       <span className={`${styles.iconBoxSmall} ${styles.iconPink}`}>
         <MapPinned className={styles.iconSm} />
       </span>

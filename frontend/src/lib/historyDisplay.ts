@@ -440,6 +440,7 @@ function categoryToEnglishClinicLabel(value?: unknown) {
   if (["derma", "dermatology", "skin", "피부과"].includes(text)) return "Skin Clinic"
   if (["eye", "ophthalmology", "ophthalmic", "안과"].includes(text)) return "Eye Clinic"
   if (["dental", "dentistry", "dentist", "치과"].includes(text)) return "Dental Clinic"
+  if (["orthopedics", "orthopedic", "정형외과"].includes(text)) return "Orthopedic Clinic"
   return "Clinic"
 }
 

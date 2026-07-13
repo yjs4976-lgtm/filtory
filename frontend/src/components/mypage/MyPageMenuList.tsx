@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChevronRight, FileText, KeyRound, ShieldCheck, UserPen } from "lucide-react"
+import { Bookmark, ChevronRight, FileText, KeyRound, ShieldCheck, UserPen } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { ROUTES } from "@/lib/routes"
 import styles from "@/styles/App.module.css"
@@ -9,6 +9,7 @@ export function MyPageMenuList() {
   const menuItems = [
     { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.menu.profile, icon: UserPen },
     { href: ROUTES.HISTORY, label: t.mypage.menu.history, icon: FileText },
+    { href: ROUTES.MYPAGE_FAVORITE_HOSPITALS, label: t.mypage.savedPageTitle, icon: Bookmark, favorite: true },
     { href: ROUTES.MYPAGE_PROFILE, label: t.mypage.menu.password, icon: KeyRound },
     { href: ROUTES.MYPAGE_WITHDRAWAL, label: t.mypage.withdrawal, icon: ShieldCheck, danger: true },
   ]
@@ -17,9 +18,9 @@ export function MyPageMenuList() {
     <section className={styles.stackSm}>
       <h2 className={styles.titleSm}>{t.mypage.accountManagement}</h2>
       <div className={styles.recordList}>
-        {menuItems.map(({ href, label, icon: Icon, danger }) => (
+        {menuItems.map(({ href, label, icon: Icon, danger, favorite }) => (
           <Link key={label} href={href} className={styles.recordButton}>
-            <span className={`${styles.iconBoxSmall} ${danger ? styles.iconPink : styles.iconLavender}`}>
+            <span className={`${styles.iconBoxSmall} ${danger ? styles.iconPink : favorite ? styles.iconMint : styles.iconLavender}`}>
               <Icon className={styles.iconMd} />
             </span>
             <span className={styles.recordBody}>

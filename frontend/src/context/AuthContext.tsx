@@ -7,6 +7,8 @@ import type { LoginRequest, LoginResponse, SignupPayload, User } from "@/lib/typ
 import { clearAuthSession, readStoredUser, saveAuthSession, saveStoredUser } from "@/lib/authStorage";
 import { clearSelectedChatbotAnalysisContext } from "@/lib/chatbotContext";
 import { authService } from "@/services/authService";
+import { clearFavoriteHospitalCache, emitFavoriteHospitalChange, getInternalFavoriteHospitalId, isInternalFavoriteHospital, savedHospitalService } from "@/services/savedHospitalService";
+import type { HospitalItem } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const initialPathnameRef = useRef(pathname);
+  const pendingFavoriteHandledRef = useRef(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const saveLogin = useCallback((payload: LoginResponse) => {
     if (user?.id !== payload.user.id) {
       clearSelectedChatbotAnalysisContext();
+      clearFavoriteHospitalCache();
     }
     saveAuthSession(payload);
     setUser(payload.user);
@@ -62,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     clearAuthSession();
     clearSelectedChatbotAnalysisContext();
+    clearFavoriteHospitalCache();
     setUser(null);
     router.push(ROUTES.LOGIN);
   }, [router]);
@@ -83,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const meResult = await authService.me();
         if (storedUser?.id !== meResult.data.id) {
           clearSelectedChatbotAnalysisContext();
+          clearFavoriteHospitalCache();
         }
         saveStoredUser(meResult.data);
         setUser(meResult.data);
@@ -97,6 +103,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      pendingFavoriteHandledRef.current = false;
+      return;
+    }
+    if (pendingFavoriteHandledRef.current) return;
+    pendingFavoriteHandledRef.current = true;
+    const raw = sessionStorage.getItem("pendingFavoriteHospital");
+    if (!raw) return;
+    try {
+      const hospital = JSON.parse(raw) as HospitalItem;
+      const save = isInternalFavoriteHospital(hospital)
+        ? savedHospitalService.saveHospital(undefined, getInternalFavoriteHospitalId(hospital)!)
+        : savedHospitalService.saveExternalHospital(hospital);
+      void save.then((saved) => {
+        sessionStorage.removeItem("pendingFavoriteHospital");
+        emitFavoriteHospitalChange(hospital, true, saved.id);
+      }).catch(() => undefined);
+    } catch {
+      // 잘못된 임시 데이터는 재시도하지 않는다.
+      sessionStorage.removeItem("pendingFavoriteHospital");
+    }
+  }, [user]);
 
   const value = useMemo(
     () => ({

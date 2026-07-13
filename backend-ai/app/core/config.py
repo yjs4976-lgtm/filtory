@@ -5,8 +5,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # backend-ai 실행 시 프로젝트 루트의 환경 설정을 한 번 로드한다.
-# 실제 값은 코드에 두지 않고 배포 환경 변수 또는 로컬 .env에서만 주입한다.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+# 테스트/검증에서 env 파일 접근을 피해야 할 때는 FILTORY_SKIP_DOTENV=1로 끌 수 있다.
+if os.getenv("FILTORY_SKIP_DOTENV") != "1":
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 OPENAI_REVIEW_MODEL_DEFAULT = "gpt-4o-mini"
 

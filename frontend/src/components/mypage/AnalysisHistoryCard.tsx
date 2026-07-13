@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MessageCircle, ShieldCheck, Trash2 } from "lucide-react"
+import { FavoriteHospitalButton } from "@/components/favorites/FavoriteHospitalButton"
 import { useLanguage } from "@/context/LanguageContext"
 import { writeCurrentReviewAnalysisFromHistory } from "@/lib/analysisStorage"
 import {
@@ -16,7 +17,7 @@ import { getHistoryHospitalName, getHistoryMetaText } from "@/lib/historyDisplay
 import { ROUTES } from "@/lib/routes"
 import { formatSignalLevel, getTrustLevel, getTrustLevelKeyFromValue } from "@/lib/score"
 import { useAuth } from "@/hooks/useAuth"
-import type { AnalysisHistoryItem } from "@/lib/types"
+import type { AnalysisHistoryItem, HospitalItem } from "@/lib/types"
 import { formatFivePointRating } from "@/services/memberMockData"
 import styles from "@/styles/App.module.css"
 
@@ -41,6 +42,19 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
   const date = formatDisplayDate(item.analyzedAt ?? item.createdAt, language)
   const hospitalName = getHistoryHospitalName(item, language)
   const metaText = getHistoryMetaText(item, language, t.categories[item.category])
+  const favoriteHospital: HospitalItem = {
+    id: String(item.hospitalId ?? item.externalPlaceId ?? ""),
+    internalHospitalId: item.hospitalId,
+    provider: item.hospitalId ? "filtory" : item.provider || item.sourceProvider,
+    externalPlaceId: item.hospitalId ? undefined : item.externalPlaceId,
+    name: hospitalName,
+    category: item.category,
+    region: "seoul",
+    address: item.hospitalAddress || item.address || "",
+    roadAddress: item.roadAddress,
+    phone: item.phone,
+    mapUrl: item.mapUrl,
+  }
   const askWithResult = () => {
     const analysisResultId = getAnalysisResultId(item)
     if (analysisResultId) {
@@ -55,7 +69,8 @@ export function AnalysisHistoryCard({ item, onDelete }: AnalysisHistoryCardProps
   }
 
   return (
-    <article className={`${styles.card} ${styles.stackSm}`}>
+    <article className={`${styles.card} ${styles.stackSm} ${styles.historyRecordCard}`}>
+      <FavoriteHospitalButton hospital={favoriteHospital} initialFavorite={item.isFavorite} favoriteHospitalId={item.favoriteHospitalId} iconOnly className={styles.historyRecordFavorite} />
       <div className={styles.rowBetween}>
         <div>
           <h2 className={styles.titleMd}>{hospitalName}</h2>

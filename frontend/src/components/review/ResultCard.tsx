@@ -9,6 +9,7 @@ import { ResultActionCard } from "@/components/result/ResultActionCard"
 import { ResultGuideSection } from "@/components/result/ResultGuideSection"
 import { ResultInsightSection } from "@/components/result/ResultInsightSection"
 import { ResultScoreSection } from "@/components/result/ResultScoreSection"
+import { FavoriteHospitalButton } from "@/components/favorites/FavoriteHospitalButton"
 import { useLanguage } from "@/context/LanguageContext"
 import { normalizeAnalysisResult } from "@/lib/analysisResultMapper"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
@@ -16,10 +17,14 @@ import { getHistoryMetaText } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
 import type { CurrentReviewAnalysis } from "@/lib/types"
 import styles from "@/styles/App.module.css"
+import { recentHospitalService } from "@/services/recentHospitalService"
+import { useAuth } from "@/hooks/useAuth"
+import type { HospitalItem } from "@/lib/types"
 
 export function ResultCard() {
   const router = useRouter()
   const { t, language } = useLanguage()
+  const { isAuthenticated } = useAuth()
   const [analysisResult, setAnalysisResult] = useState<CurrentReviewAnalysis | null>(null)
   const viewModel = useMemo(
     () => (analysisResult ? normalizeAnalysisResult(analysisResult, { language }) : null),
@@ -33,6 +38,11 @@ export function ResultCard() {
 
     return () => window.clearTimeout(timeoutId)
   }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || !analysisResult?.hospitalId) return
+    void recentHospitalService.recordRecentHospital(analysisResult.hospitalId, analysisResult.analysisResultId).catch(() => undefined)
+  }, [analysisResult?.analysisResultId, analysisResult?.hospitalId, isAuthenticated])
 
   if (!viewModel) {
     return (
@@ -58,9 +68,23 @@ export function ResultCard() {
     : fallbackCategoryLabel
   const relatedAnalysisId = viewModel.ids.analysisRequestId
   const helpInquiryHref = `${ROUTES.HELP_NEW}?category=ANALYSIS_RESULT${relatedAnalysisId ? `&related_analysis_id=${relatedAnalysisId}` : ""}&title=${encodeURIComponent(t.help.resultHelpDefaultTitle)}`
+  const favoriteHospital: HospitalItem | null = analysisResult?.hospitalName ? {
+    id: String(analysisResult.hospitalId ?? analysisResult.externalPlaceId ?? ""),
+    internalHospitalId: analysisResult.hospitalId,
+    provider: analysisResult.hospitalId ? "filtory" : analysisResult.provider || analysisResult.sourceProvider,
+    externalPlaceId: analysisResult.hospitalId ? undefined : analysisResult.externalPlaceId,
+    name: analysisResult.hospitalName,
+    category: analysisResult.category,
+    region: "seoul",
+    address: analysisResult.hospitalAddress || analysisResult.address || "",
+    roadAddress: analysisResult.roadAddress,
+    phone: analysisResult.phone,
+    mapUrl: analysisResult.mapUrl,
+  } : null
 
   return (
     <div className={styles.resultStack}>
+      {favoriteHospital && <div className={styles.resultFavoriteAction}><strong>{favoriteHospital.name}</strong><FavoriteHospitalButton hospital={favoriteHospital} initialFavorite={analysisResult?.isFavorite} favoriteHospitalId={analysisResult?.favoriteHospitalId} /></div>}
       <ResultScoreSection
         viewModel={viewModel}
         categoryLabel={categoryLabel}

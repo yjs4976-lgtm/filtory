@@ -29,6 +29,9 @@ class Member(db.Model):
     email_verified = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("false"))
     last_login_at = db.Column(db.DateTime(timezone=True))
     password_changed_at = db.Column(db.DateTime(timezone=True))
+    failed_login_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    last_failed_login_at = db.Column(db.DateTime(timezone=True))
+    login_locked_until = db.Column(db.DateTime(timezone=True))
     deleted_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.text("now()"))
@@ -77,6 +80,9 @@ class Member(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    recent_viewed_hospitals = db.relationship(
+        "MemberRecentViewedHospital", back_populates="member", cascade="all, delete-orphan", passive_deletes=True
+    )
     admin_audit_logs = db.relationship("AdminAuditLog", back_populates="admin_member")
     submitted_reports = db.relationship(
         "ReviewReport",
@@ -96,6 +102,18 @@ class Member(db.Model):
     )
     notifications = db.relationship(
         "MemberNotification",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    chatbot_conversations = db.relationship(
+        "ChatbotConversation",
+        back_populates="member",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    chatbot_messages = db.relationship(
+        "ChatbotMessage",
         back_populates="member",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -8,15 +8,36 @@ import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
 import { sanitizeInternalNextPath } from "@/lib/navigation";
 import { ROUTES } from "@/lib/routes";
+import { ApiClientError } from "@/services/apiClient";
 import { PasswordField } from "./PasswordField";
 import styles from "@/styles/App.module.css";
+
+function retryAfterMinutesFromError(error: ApiClientError) {
+  const payload = error.payload;
+  const retryAfterSeconds = (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    payload.data &&
+    typeof payload.data === "object" &&
+    "retryAfterSeconds" in payload.data
+  )
+    ? Number(payload.data.retryAfterSeconds)
+    : NaN;
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return String(Math.max(1, Math.ceil(retryAfterSeconds / 60)));
+  }
+
+  return error.message.match(/\d+/)?.[0] ?? "5";
+}
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -45,7 +66,16 @@ export function LoginForm() {
       const nextPath = sanitizeInternalNextPath(searchParams.get("next"));
       router.push(nextPath ?? ROUTES.MYPAGE);
     } catch (error) {
-      setError(error instanceof Error ? error.message : t.auth.loginFailed);
+      if (error instanceof ApiClientError && error.status === 429) {
+        const minutes = retryAfterMinutesFromError(error);
+        setError(
+          language === "en"
+            ? `Too many failed login attempts. Please try again in ${minutes} minutes.`
+            : `로그인 실패가 반복되어 잠시 잠겼어요. ${minutes}분 후 다시 시도해 주세요.`
+        );
+      } else {
+        setError(error instanceof Error ? error.message : t.auth.loginFailed);
+      }
     } finally {
       setIsSubmitting(false);
     }

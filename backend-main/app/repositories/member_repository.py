@@ -34,18 +34,27 @@ class MemberRepository:
         return members[0] if members else None
 
     @staticmethod
-    def list_by_login_identifier(identifier):
+    def list_by_login_identifier(identifier, for_update=False):
         normalized_identifier = str(identifier or "").strip().lower()
         if not normalized_identifier:
             return []
 
         # or_는 SQL의 OR 조건을 Python 코드에서 조합하는 SQLAlchemy helper다.
-        return Member.query.filter(
+        query = Member.query.filter(
             or_(
                 func.lower(func.trim(Member.email)) == normalized_identifier,
                 func.lower(func.trim(Member.login_id)) == normalized_identifier,
             )
-        ).order_by(Member.id.asc()).all()
+        ).order_by(Member.id.asc())
+
+        if for_update:
+            query = query.with_for_update()
+
+        return query.all()
+
+    @staticmethod
+    def list_by_login_identifier_for_update(identifier):
+        return MemberRepository.list_by_login_identifier(identifier, for_update=True)
 
     @staticmethod
     def get_by_nickname(nickname):

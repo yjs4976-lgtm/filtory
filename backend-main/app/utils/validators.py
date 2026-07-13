@@ -21,8 +21,16 @@ def validate_email(email):
 
 
 def validate_password(password):
-    if not password or len(password) < 8:
-        raise ValueError("Password must be at least 8 characters")
+    if not password or len(password) < 8 or len(password) > 72:
+        raise ValueError("Password does not meet the security policy")
+    if any(character.isspace() for character in password):
+        raise ValueError("Password does not meet the security policy")
+    if not re.search(r"[A-Za-z]", password):
+        raise ValueError("Password does not meet the security policy")
+    if not re.search(r"\d", password):
+        raise ValueError("Password does not meet the security policy")
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise ValueError("Password does not meet the security policy")
 
 
 def validate_one_of(value, allowed_values, field_name):

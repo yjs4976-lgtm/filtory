@@ -12,6 +12,7 @@ import { memberService } from "@/services/memberService";
 import { PasswordField } from "./PasswordField";
 import { TermsAgreement } from "./TermsAgreement";
 import styles from "@/styles/App.module.css";
+import { evaluatePassword } from "@/lib/passwordPolicy";
 
 const EMAIL_DOMAINS = [
   "gmail.com",
@@ -376,22 +377,16 @@ function validatePassword(value: string, messages: Record<string, string>) {
     return { valid: false, message: messages.passwordRequired };
   }
 
-  if (value.trim() !== value) {
+  const policy = evaluatePassword(value);
+  if (!policy.noWhitespace) {
     return { valid: false, message: messages.passwordNoEdgeSpaces };
   }
 
-  if (value.length < 8) {
+  if (!policy.minLength || !policy.withinMax) {
     return { valid: false, message: messages.passwordMinLength };
   }
 
-  const groups = [
-    /[A-Z]/.test(value),
-    /[a-z]/.test(value),
-    /\d/.test(value),
-    /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(value),
-  ].filter(Boolean).length;
-
-  if (groups < 3) {
+  if (!policy.hasLetter || !policy.hasNumber || !policy.hasSpecial) {
     return { valid: false, message: messages.passwordStrength };
   }
 

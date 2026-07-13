@@ -1,5 +1,7 @@
 import pytest
+from types import SimpleNamespace
 
+import app.services.chatbot_service as chatbot_service_module
 from app.services.chatbot_service import ChatbotService
 from app.services.token_service import TokenService
 
@@ -57,6 +59,14 @@ def test_chatbot_answers_category_specific_question():
     assert result["source"] == "keyword"
     assert "비용 설명" in result["answer"]
     assert "치료 필요성" in result["answer"]
+
+
+def test_chatbot_answers_orthopedics_category_question():
+    result = ChatbotService.answer({"message": "정형외과 리뷰에서 뭘 봐야 해?"})
+
+    assert result["source"] == "keyword"
+    assert "진단 설명" in result["answer"]
+    assert "물리치료" in result["answer"]
 
 
 def test_chatbot_answers_friendly_greeting():
@@ -207,7 +217,7 @@ def test_chatbot_uses_english_analysis_labels_without_korean_name_fallback():
 
 
 def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         return {
             "answer": "AI fallback answer",
             "source": "llm",
@@ -228,7 +238,7 @@ def test_chatbot_uses_remote_ai_fallback_when_available(monkeypatch):
 
 
 def test_chatbot_does_not_use_remote_ai_without_login(monkeypatch):
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         raise AssertionError("remote AI should not be called")
 
     monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
@@ -244,7 +254,7 @@ def test_chatbot_remote_ai_rate_limit_falls_back_to_default(monkeypatch):
     monkeypatch.setenv("CHATBOT_REMOTE_AI_RATE_LIMIT_MAX_REQUESTS", "1")
     monkeypatch.setenv("CHATBOT_REMOTE_AI_RATE_LIMIT_WINDOW_SECONDS", "60")
 
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         calls.append(message)
         return {
             "answer": "AI fallback answer",
@@ -268,6 +278,69 @@ def test_chatbot_remote_ai_rate_limit_falls_back_to_default(monkeypatch):
     assert first_result["source"] == "llm"
     assert second_result["source"] == "default"
     assert calls == ["새로운 표현으로 풀어줄래"]
+
+
+def test_chatbot_builds_small_recent_context_for_remote_ai(monkeypatch):
+    long_content = "긴 답변 " * 80
+    messages = [
+        SimpleNamespace(role="user", content="첫 질문"),
+        SimpleNamespace(role="assistant", content="첫 답변"),
+        SimpleNamespace(role="user", content="둘째 질문"),
+        SimpleNamespace(role="assistant", content=long_content),
+    ]
+
+    monkeypatch.setattr(chatbot_service_module, "has_app_context", lambda: True)
+    monkeypatch.setattr(
+        chatbot_service_module.ChatbotHistoryRepository,
+        "get_recent_messages",
+        staticmethod(lambda member_id, conversation_id, limit: messages[-limit:]),
+    )
+
+    context = ChatbotService._conversation_context_for_ai(1, 10, "ko")
+
+    assert context["strategy"] == "recent_messages_only"
+    assert context["maxMessages"] == ChatbotService.MAX_LLM_CONTEXT_MESSAGES
+    assert context["recentMessages"][0] == {"role": "user", "content": "첫 질문"}
+    assert len(context["recentMessages"]) == 4
+    assert len(context["recentMessages"][-1]["content"]) <= ChatbotService.MAX_LLM_CONTEXT_MESSAGE_LENGTH
+
+
+def test_chatbot_ignores_invalid_conversation_id_before_ai_and_starts_new_history(monkeypatch):
+    captured = {}
+
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
+        captured["conversation_context"] = conversation_context
+        return {
+            "answer": "AI fallback answer",
+            "source": "llm",
+            "modelVersion": "gemini:test",
+        }
+
+    def fake_save_exchange(**kwargs):
+        captured["saved_conversation_id"] = kwargs["conversation_id"]
+        return 111
+
+    monkeypatch.setattr(chatbot_service_module, "has_app_context", lambda: True)
+    monkeypatch.setattr(
+        chatbot_service_module.ChatbotHistoryRepository,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: None),
+    )
+    monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    monkeypatch.setattr(chatbot_service_module.ChatbotHistoryService, "save_exchange", staticmethod(fake_save_exchange))
+    ChatbotService._remote_ai_rate_limit_hits.clear()
+
+    result = ChatbotService.answer(
+        {"message": "새로운 표현으로 설명해줘", "conversationId": 999},
+        member_id=1,
+        allow_remote_ai=True,
+        rate_limit_key="member:invalid-conversation",
+    )
+
+    assert result["source"] == "llm"
+    assert result["conversationId"] == 111
+    assert captured["conversation_context"] == {}
+    assert captured["saved_conversation_id"] is None
 
 
 def test_ai_chatbot_client_returns_none_when_remote_disabled(monkeypatch):
@@ -326,7 +399,7 @@ def test_ai_chatbot_client_sends_internal_token_header(monkeypatch):
 def test_chatbot_filters_analysis_context_before_ai_fallback(monkeypatch):
     captured_context = {}
 
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         captured_context.update(analysis_context or {})
         return {
             "answer": "AI fallback answer",
@@ -418,7 +491,7 @@ def test_chatbot_api_allows_remote_ai_for_logged_in_user(monkeypatch):
     app = create_app()
     client = app.test_client()
 
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         return {
             "answer": "AI fallback answer",
             "source": "llm",
@@ -426,6 +499,11 @@ def test_chatbot_api_allows_remote_ai_for_logged_in_user(monkeypatch):
         }
 
     monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    monkeypatch.setattr(
+        chatbot_service_module.ChatbotHistoryService,
+        "save_exchange",
+        staticmethod(lambda **kwargs: 456),
+    )
     ChatbotService._remote_ai_rate_limit_hits.clear()
 
     with app.app_context():
@@ -441,6 +519,7 @@ def test_chatbot_api_allows_remote_ai_for_logged_in_user(monkeypatch):
     assert response.status_code == 200
     assert payload["data"]["source"] == "llm"
     assert payload["data"]["answer"] == "AI fallback answer"
+    assert payload["data"]["conversationId"] == 456
 
 
 def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
@@ -448,10 +527,14 @@ def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
 
     client = create_app().test_client()
 
-    def fake_ai_answer(message, language, analysis_context=None):
+    def fake_ai_answer(message, language, analysis_context=None, conversation_context=None):
         raise AssertionError("remote AI should not be called")
 
+    def fake_save_exchange(**kwargs):
+        raise AssertionError("anonymous chat should stay client-side")
+
     monkeypatch.setattr(ChatbotService, "_answer_by_ai", staticmethod(fake_ai_answer))
+    monkeypatch.setattr(chatbot_service_module.ChatbotHistoryService, "save_exchange", staticmethod(fake_save_exchange))
 
     response = client.post(
         "/api/chatbot/message",
@@ -460,7 +543,104 @@ def test_chatbot_api_keeps_remote_ai_off_for_anonymous_user(monkeypatch):
     payload = response.get_json()
 
     assert response.status_code == 200
+    assert "conversationId" not in payload["data"]
     assert payload["data"]["source"] == "default"
+
+
+def test_chatbot_conversation_list_requires_login():
+    from app import create_app
+
+    client = create_app().test_client()
+    response = client.get("/api/chatbot/conversations")
+
+    assert response.status_code == 401
+
+
+def test_chatbot_conversation_list_returns_items_for_logged_in_user(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "list_conversations",
+        staticmethod(lambda member_id, limit, offset: ([{"id": 10, "title": "최근 대화"}], 1)),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"][0]["id"] == 10
+    assert payload["meta"]["count"] == 1
+
+
+def test_chatbot_conversation_detail_returns_404_for_other_member(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: (_ for _ in ()).throw(ValueError("Chatbot conversation not found"))),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations/999")
+
+    assert response.status_code == 404
+
+
+def test_chatbot_conversation_detail_returns_owned_conversation(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "get_conversation",
+        staticmethod(lambda member_id, conversation_id: {"id": conversation_id, "memberId": member_id, "messages": []}),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.get("/api/chatbot/conversations/10")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["id"] == 10
+    assert payload["data"]["memberId"] == 123
 
 
 def test_chatbot_api_accepts_anonymous_analysis_context_with_result_id():

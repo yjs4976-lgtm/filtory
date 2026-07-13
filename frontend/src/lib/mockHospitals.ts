@@ -25,6 +25,7 @@ const categoryLabels: Record<HospitalCategory, { ko: string; en: string }> = {
   derma: { ko: "피부과", en: "Skin Clinic" },
   eye: { ko: "안과", en: "Eye Clinic" },
   dental: { ko: "치과", en: "Dental Clinic" },
+  orthopedics: { ko: "정형외과", en: "Orthopedics" },
 }
 
 const demoHospitalSeeds: HospitalItem[] = [
@@ -210,6 +211,10 @@ const sharedReviews = {
     "임플란트 이벤트 표현이 반복되어 광고성 여부는 확인해볼 필요가 있어요.",
     "통증이 있었던 부분과 다음 방문 일정을 꼼꼼히 설명해줬습니다.",
   ],
+  orthopedics: [
+    "통증 원인과 치료 계획을 이해하기 쉽게 설명해줬어요.",
+    "검사 결과와 재활 일정을 구체적으로 안내받았습니다.",
+  ],
 } satisfies Record<HospitalCategory, string[]>
 
 export function getRegionLabel(region: HospitalRegionCode | string, language: Language) {
@@ -291,6 +296,7 @@ function categoryTerms(category?: HospitalCategory) {
   if (category === "derma") return ["derma", "dermatology", "skin", "skin clinic", "피부과"]
   if (category === "eye") return ["eye", "ophthalmology", "eye clinic", "안과"]
   if (category === "dental") return ["dental", "dentistry", "dental clinic", "치과"]
+  if (category === "orthopedics") return ["orthopedics", "orthopedic", "orthopedic clinic", "정형외과", "정형"]
   return []
 }
 

@@ -7,7 +7,7 @@ from app.services.hospital_search_provider import HospitalSearchProvider
 class HospitalService:
     # 병원 검색/저장/분석용 병원 식별을 담당한다.
     # 외부 검색 결과를 바로 믿지 않고 기존 DB 병원과 매칭한 뒤, 없을 때만 새 병원을 만든다.
-    CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
+    CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}
     USER_ENRICHMENT_FIELDS = {
         "homepage_url",
         "english_name",
@@ -23,6 +23,9 @@ class HospitalService:
         "안과": "ophthalmology",
         "dental": "dentistry",
         "치과": "dentistry",
+        "orthopedic": "orthopedics",
+        "orthopedics": "orthopedics",
+        "정형외과": "orthopedics",
     }
 
     @staticmethod

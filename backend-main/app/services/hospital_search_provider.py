@@ -38,8 +38,9 @@ class HospitalSearchProvider:
         "dermatology": "피부과",
         "ophthalmology": "안과",
         "dentistry": "치과",
+        "orthopedics": "정형외과",
     }
-    SUPPORTED_CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
+    SUPPORTED_CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}
     _CACHE = {}
 
     @classmethod
@@ -533,6 +534,8 @@ class HospitalSearchProvider:
             return "ophthalmology"
         if any(keyword in text for keyword in ("치과", "dental", "dentist")):
             return "dentistry"
+        if any(keyword in text for keyword in ("정형외과", "정형", "관절", "척추", "orthopedic", "orthopedics")):
+            return "orthopedics"
         return None
 
     @classmethod

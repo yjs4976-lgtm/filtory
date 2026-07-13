@@ -1,5 +1,5 @@
 export type Language = "ko" | "en"
-export type HospitalCategory = "derma" | "eye" | "dental"
+export type HospitalCategory = "derma" | "eye" | "dental" | "orthopedics"
 export type HospitalRegionCode =
   | "seoul"
   | "gyeonggi"
@@ -51,6 +51,9 @@ export type AnalysisHistoryItem = {
   regionProvinceCode?: string
   regionDistrictCode?: string
   sourceName?: string
+  sourceProvider?: string
+  provider?: string
+  externalPlaceId?: string
   sourceUrl?: string
   mapUrl?: string
   googleMapUrl?: string
@@ -117,11 +120,15 @@ export type AnalysisHistoryItem = {
   modelVersion?: string
   foreignAccessibilityStars?: number
   resultStatus?: "completed" | "pending" | "failed" | string
+  isFavorite?: boolean
+  favoriteHospitalId?: number
 }
 
 export type HospitalItem = {
   id: string
+  internalHospitalId?: number
   provider?: "filtory" | "kakao" | "naver" | "hira" | string
+  sourceProvider?: string
   externalPlaceId?: string
   name: string
   hospitalNameKo?: string
@@ -168,6 +175,8 @@ export type HospitalItem = {
   searchKeywords?: string[]
   isManual?: boolean
   manualRegionLabel?: string
+  isFavorite?: boolean
+  favoriteHospitalId?: number
 }
 
 export type ReviewImageItem = {
@@ -351,6 +360,13 @@ export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   hospitalNameEn?: string
   hospitalEnglishName?: string
   englishName?: string
+  sourceProvider?: string
+  provider?: string
+  externalPlaceId?: string
+  mapUrl?: string
+  phone?: string
+  isFavorite?: boolean
+  favoriteHospitalId?: number
   reviewText?: string
   analyzedAt: string
 }
@@ -403,6 +419,9 @@ export interface ApiResponse<T> {
     page?: number
     per_page?: number
     count?: number
+    size?: number
+    total?: number
+    totalPages?: number
   }
 }
 
@@ -514,6 +533,14 @@ export type SavedHospital = {
   globalAccessRating: number
   savedAt: string
   lastAnalyzedAt?: string
+  roadAddress?: string
+  phone?: string
+  mapUrl?: string
+  externalPlaceId?: string
+  sourceProvider?: string
+  isFavorite?: boolean
+  isAnalyzed?: boolean
+  analysisResultId?: number
 }
 
 export type MyReport = {
@@ -565,6 +592,15 @@ export type RecentViewedHospital = {
   viewedAt: string
   trustLevel?: string
   globalAccessRating?: number
+  isFavorite?: boolean
+  analysisResultId?: number
+  trustScore?: number
+  lastAnalyzedAt?: string
+  roadAddress?: string
+  phone?: string
+  mapUrl?: string
+  externalPlaceId?: string
+  sourceProvider?: string
 }
 
 export type UserInsight = {
