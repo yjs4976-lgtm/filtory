@@ -20,6 +20,20 @@ class ChatbotHistoryService:
         return cls._conversation_to_dict(conversation, include_messages=True)
 
     @classmethod
+    def delete_conversation(cls, member_id, conversation_id):
+        deleted = ChatbotHistoryRepository.delete_conversation(member_id, conversation_id)
+        if not deleted:
+            raise ValueError("Chatbot conversation not found")
+        ChatbotHistoryRepository.commit()
+        return {"deleted": 1}
+
+    @classmethod
+    def delete_all_conversations(cls, member_id):
+        deleted_count = ChatbotHistoryRepository.delete_all_conversations(member_id)
+        ChatbotHistoryRepository.commit()
+        return {"deleted": int(deleted_count or 0)}
+
+    @classmethod
     def save_exchange(
         cls,
         *,

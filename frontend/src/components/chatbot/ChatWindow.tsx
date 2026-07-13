@@ -83,6 +83,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const [historyItems, setHistoryItems] = useState<ChatbotConversation[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [isResponding, setIsResponding] = useState(false)
+  const [areSuggestionsOpen, setAreSuggestionsOpen] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const nextMessageId = useRef(1)
@@ -95,9 +96,10 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     ? getHistoryHospitalName(selectedAnalysisResult, language)
     : undefined
   const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
-  const visibleRecommendedQuestions = isAnalysisConnected
+  const currentRecommendedQuestions = isAnalysisConnected
     ? t.chatbot.linkedExamples
-    : recommendedQuestions?.questions ?? []
+    : recommendedQuestions?.questions ?? (messages.length === 0 ? t.chatbot.examples : [])
+  const suggestionsExpanded = areSuggestionsOpen
   const inputPlaceholder = isAnalysisConnected ? t.chatbot.linkedPlaceholder : t.chatbot.placeholder
   const contextTitle = connectedHospitalName
     ? t.chatbot.linkedResultTitle.replace("{hospitalName}", connectedHospitalName)
@@ -113,6 +115,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setMessages(nextMessages)
     nextMessageId.current = nextMessages.length + 1
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
   }
 
   useEffect(() => {
@@ -226,6 +229,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setConversationId(null)
     setConversationAnalysisResultId(null)
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
     nextMessageId.current = 1
   }
 
@@ -249,6 +253,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setMessages((prev) => [...prev, userMsg])
     setInput("")
     setIsResponding(true)
+    setAreSuggestionsOpen(false)
 
     try {
       const messageLanguage = detectMessageLanguage(trimmed, language)
@@ -298,6 +303,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setConnectedAnalysisResultId(null)
     setSelectedAnalysisResult(null)
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
     clearSelectedChatbotAnalysisContext()
     setConversationId(null)
     setConversationAnalysisResultId(null)
@@ -365,7 +371,12 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
         <div ref={endRef} />
       </div>
 
-      <RecommendedQuestions questions={visibleRecommendedQuestions} onSelect={send} />
+      <RecommendedQuestions
+        questions={currentRecommendedQuestions}
+        onSelect={send}
+        expanded={suggestionsExpanded}
+        onToggle={() => setAreSuggestionsOpen((current) => !current)}
+      />
 
       <div className={styles.chatbotSpacer} />
 

@@ -643,6 +643,95 @@ def test_chatbot_conversation_detail_returns_owned_conversation(monkeypatch):
     assert payload["data"]["memberId"] == 123
 
 
+def test_chatbot_conversation_delete_returns_404_for_other_member(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "delete_conversation",
+        staticmethod(lambda member_id, conversation_id: (_ for _ in ()).throw(ValueError("Chatbot conversation not found"))),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.delete("/api/chatbot/conversations/999")
+
+    assert response.status_code == 404
+
+
+def test_chatbot_conversation_delete_removes_owned_conversation(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    captured = {}
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "delete_conversation",
+        staticmethod(lambda member_id, conversation_id: _capture_delete_args(captured, member_id, conversation_id)),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.delete("/api/chatbot/conversations/10")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["deleted"] == 1
+    assert captured["args"] == (123, 10)
+
+
+def test_chatbot_conversation_clear_removes_current_member_conversations(monkeypatch):
+    import app.api.chatbot_api as chatbot_api_module
+    import app.utils.security as security_module
+    from app import create_app
+
+    captured = {}
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(
+        security_module.MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: SimpleNamespace(id=int(member_id), active=True, deleted_at=None, role="user")),
+    )
+    monkeypatch.setattr(
+        chatbot_api_module.ChatbotHistoryService,
+        "delete_all_conversations",
+        staticmethod(lambda member_id: _capture_clear_args(captured, member_id)),
+    )
+
+    with app.app_context():
+        access_token = TokenService.create_access_token_for_identity(123)
+    client.set_cookie("access_token_cookie", access_token)
+
+    response = client.delete("/api/chatbot/conversations")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["data"]["deleted"] == 3
+    assert captured["member_id"] == 123
+
+
 def test_chatbot_api_accepts_anonymous_analysis_context_with_result_id():
     from app import create_app
 
@@ -692,6 +781,16 @@ def test_chatbot_uses_local_analysis_context_when_logged_in_result_lookup_fails(
     assert result["source"] == "analysis"
     assert "임시분석치과" in result["answer"]
     assert "68/100" in result["answer"]
+
+
+def _capture_delete_args(captured, member_id, conversation_id):
+    captured["args"] = (member_id, conversation_id)
+    return {"deleted": 1}
+
+
+def _capture_clear_args(captured, member_id):
+    captured["member_id"] = member_id
+    return {"deleted": 3}
 
 
 def test_chatbot_explains_analysis_in_three_lines():

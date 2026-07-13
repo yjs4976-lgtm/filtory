@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { LanguageSettings } from "@/components/mypage/LanguageSettings"
 import { NotificationSettings } from "@/components/mypage/NotificationSettings"
 import { useLanguage } from "@/context/LanguageContext"
+import { ROUTES } from "@/lib/routes"
 import type { NotificationSettings as NotificationSettingsType } from "@/lib/types"
 import { settingService } from "@/services/settingService"
 import styles from "@/styles/App.module.css"
@@ -46,6 +48,9 @@ export default function MySettingsPage() {
             {message && <p className={styles.formSuccess}>{message}</p>}
             <NotificationSettings value={settings} onChange={setSettings} />
             <LanguageSettings />
+            <Link href={ROUTES.MYPAGE_CHATBOT_HISTORY} className={styles.secondaryButton}>
+              {t.mypage.chatbotHistoryManage}
+            </Link>
             <button type="button" className={styles.primaryButton} onClick={handleSave}>
               {t.mypage.saveSettings}
             </button>
