@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { MessageCircle, Trash2 } from "lucide-react"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
@@ -166,6 +166,59 @@ function ChatbotHistoryDeleteConfirmModal({
   onConfirm: () => void
 }) {
   const { t } = useLanguage()
+  const modalRef = useRef<HTMLElement | null>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!target) return
+    window.setTimeout(() => cancelButtonRef.current?.focus(), 0)
+  }, [target])
+
+  useEffect(() => {
+    if (!target) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!isDeleting) onClose()
+        return
+      }
+
+      if (event.key !== "Tab") return
+
+      const modal = modalRef.current
+      if (!modal) return
+
+      const focusableElements = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true")
+      const firstElement = focusableElements[0] ?? modal
+      const lastElement = focusableElements[focusableElements.length - 1] ?? modal
+      const activeElement = document.activeElement
+
+      if (!modal.contains(activeElement)) {
+        event.preventDefault()
+        firstElement.focus()
+        return
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+        return
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [isDeleting, onClose, target])
+
   if (!target) return null
 
   const title = target.type === "all" ? t.mypage.chatbotHistoryClearConfirm : t.mypage.chatbotHistoryDeleteConfirm
@@ -175,8 +228,15 @@ function ChatbotHistoryDeleteConfirmModal({
       : t.mypage.chatbotHistoryDeleteConfirmDescription.replace("{title}", target.title)
 
   return (
-    <div className={styles.modalBackdrop} role="presentation" onMouseDown={onClose}>
+    <div
+      className={styles.modalBackdrop}
+      role="presentation"
+      onMouseDown={() => {
+        if (!isDeleting) onClose()
+      }}
+    >
       <section
+        ref={modalRef}
         className={`${styles.modalCard} ${styles.stackSm}`}
         role="dialog"
         aria-modal="true"
@@ -186,7 +246,7 @@ function ChatbotHistoryDeleteConfirmModal({
         <h2 className={styles.titleMd}>{title}</h2>
         <p className={styles.bodyText}>{description}</p>
         <div className={styles.actionRow}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={isDeleting}>
+          <button ref={cancelButtonRef} type="button" className={styles.secondaryButton} onClick={onClose} disabled={isDeleting}>
             {t.common.cancel}
           </button>
           <button type="button" className={styles.dangerButton} onClick={onConfirm} disabled={isDeleting}>
