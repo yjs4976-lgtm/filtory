@@ -7,6 +7,10 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { AppShell } from "@/components/common/AppShell"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { useLanguage } from "@/context/LanguageContext"
+import {
+  notifyAllChatbotConversationsDeleted,
+  notifyChatbotConversationDeleted,
+} from "@/lib/chatbotHistoryEvents"
 import { ROUTES } from "@/lib/routes"
 import {
   deleteAllChatbotConversations,
@@ -18,11 +22,14 @@ import styles from "@/styles/App.module.css"
 
 const PAGE_SIZE = 50
 
+type DeleteTarget = { type: "one"; id: number; title: string } | { type: "all" } | null
+
 export default function ChatbotHistoryPage() {
   const { language, t } = useLanguage()
   const [items, setItems] = useState<ChatbotConversation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
@@ -52,31 +59,24 @@ export default function ChatbotHistoryPage() {
     }
   }, [t.mypage.chatbotHistoryLoadFailed])
 
-  async function handleDelete(id: number) {
-    if (isDeleting || !window.confirm(t.mypage.chatbotHistoryDeleteConfirm)) return
+  async function confirmDelete() {
+    if (isDeleting || !deleteTarget) return
     setIsDeleting(true)
     setMessage("")
     setError("")
     try {
-      await deleteChatbotConversation(id)
-      setItems((current) => current.filter((item) => item.id !== id))
-      setMessage(t.mypage.chatbotHistoryDeleted)
-    } catch {
-      setError(t.mypage.chatbotHistoryDeleteFailed)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  async function handleClearAll() {
-    if (isDeleting || items.length === 0 || !window.confirm(t.mypage.chatbotHistoryClearConfirm)) return
-    setIsDeleting(true)
-    setMessage("")
-    setError("")
-    try {
-      await deleteAllChatbotConversations()
-      setItems([])
-      setMessage(t.mypage.chatbotHistoryCleared)
+      if (deleteTarget.type === "one") {
+        await deleteChatbotConversation(deleteTarget.id)
+        setItems((current) => current.filter((item) => item.id !== deleteTarget.id))
+        notifyChatbotConversationDeleted(deleteTarget.id)
+        setMessage(t.mypage.chatbotHistoryDeleted)
+      } else {
+        await deleteAllChatbotConversations()
+        setItems([])
+        notifyAllChatbotConversationsDeleted()
+        setMessage(t.mypage.chatbotHistoryCleared)
+      }
+      setDeleteTarget(null)
     } catch {
       setError(t.mypage.chatbotHistoryDeleteFailed)
     } finally {
@@ -110,7 +110,7 @@ export default function ChatbotHistoryPage() {
           </section>
         ) : (
           <section className={styles.stackSm}>
-            <button type="button" className={styles.dangerButton} onClick={handleClearAll} disabled={isDeleting}>
+            <button type="button" className={styles.dangerButton} onClick={() => setDeleteTarget({ type: "all" })} disabled={isDeleting}>
               <Trash2 className={styles.iconSm} />
               {t.common.clearAll}
             </button>
@@ -133,7 +133,7 @@ export default function ChatbotHistoryPage() {
                     type="button"
                     className={styles.chatHistoryDeleteButton}
                     aria-label={t.mypage.deleteRecord}
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => setDeleteTarget({ type: "one", id: item.id, title: item.title })}
                     disabled={isDeleting}
                   >
                     <Trash2 className={styles.iconSm} />
@@ -143,8 +143,58 @@ export default function ChatbotHistoryPage() {
             </div>
           </section>
         )}
+        <ChatbotHistoryDeleteConfirmModal
+          target={deleteTarget}
+          isDeleting={isDeleting}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={confirmDelete}
+        />
       </AppShell>
     </ProtectedRoute>
+  )
+}
+
+function ChatbotHistoryDeleteConfirmModal({
+  target,
+  isDeleting,
+  onClose,
+  onConfirm,
+}: {
+  target: DeleteTarget
+  isDeleting: boolean
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  const { t } = useLanguage()
+  if (!target) return null
+
+  const title = target.type === "all" ? t.mypage.chatbotHistoryClearConfirm : t.mypage.chatbotHistoryDeleteConfirm
+  const description =
+    target.type === "all"
+      ? t.mypage.chatbotHistoryClearConfirmDescription
+      : t.mypage.chatbotHistoryDeleteConfirmDescription.replace("{title}", target.title)
+
+  return (
+    <div className={styles.modalBackdrop} role="presentation" onMouseDown={onClose}>
+      <section
+        className={`${styles.modalCard} ${styles.stackSm}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <h2 className={styles.titleMd}>{title}</h2>
+        <p className={styles.bodyText}>{description}</p>
+        <div className={styles.actionRow}>
+          <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={isDeleting}>
+            {t.common.cancel}
+          </button>
+          <button type="button" className={styles.dangerButton} onClick={onConfirm} disabled={isDeleting}>
+            {t.mypage.delete}
+          </button>
+        </div>
+      </section>
+    </div>
   )
 }
 
