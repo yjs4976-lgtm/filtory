@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, ChevronRight, Database, FileText, Languages, LogOut, Shield } from "lucide-react"
+import { Bell, ChevronRight, Database, FileText, Languages, LogOut, MessageCircle, Shield } from "lucide-react"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/useToast"
@@ -17,6 +17,7 @@ export function AppSettingsSection() {
 
   const settings = [
     { href: ROUTES.MYPAGE_SETTINGS, label: t.mypage.notificationTitle, description: t.mypage.notificationDesc, icon: Bell },
+    { href: ROUTES.MYPAGE_CHATBOT_HISTORY, label: t.mypage.chatbotHistoryManage, description: t.mypage.chatbotHistoryManageDesc, icon: MessageCircle },
     { href: ROUTES.MYPAGE_TERMS, label: t.mypage.terms, description: "Filtory", icon: FileText },
     { href: ROUTES.MYPAGE_PRIVACY, label: t.mypage.privacy, description: "Filtory", icon: Shield },
     { href: ROUTES.MYPAGE_VERSION, label: t.mypage.version, description: "v0.1.0", icon: FileText },

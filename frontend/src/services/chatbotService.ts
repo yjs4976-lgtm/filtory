@@ -56,3 +56,17 @@ export function getChatbotConversation(conversationId: number) {
     auth: true,
   })
 }
+
+export function deleteChatbotConversation(conversationId: number) {
+  return apiClient<{ deleted: number }>(`/api/chatbot/conversations/${conversationId}`, {
+    method: "DELETE",
+    auth: true,
+  })
+}
+
+export function deleteAllChatbotConversations() {
+  return apiClient<{ deleted: number }>("/api/chatbot/conversations", {
+    method: "DELETE",
+    auth: true,
+  })
+}
