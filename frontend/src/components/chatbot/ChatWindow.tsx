@@ -11,6 +11,7 @@ import {
   readSelectedChatbotAnalysisContextForUser,
   type ChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
+import { CHATBOT_HISTORY_CHANGE_EVENT, type ChatbotHistoryChangeDetail } from "@/lib/chatbotHistoryEvents"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { getHistoryHospitalName } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
@@ -211,6 +212,34 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
       cancelled = true
     }
   }, [isAnalysisConnected, user])
+
+  useEffect(() => {
+    const onHistoryChange = (event: Event) => {
+      if (!user || isAnalysisConnected) return
+      const detail = (event as CustomEvent<ChatbotHistoryChangeDetail>).detail
+      if (!detail) return
+
+      listChatbotConversations(MAX_SERVER_HISTORY_ITEMS)
+        .then((conversations) => setHistoryItems(conversations.data))
+        .catch(() => {
+          // 관리 화면에서 이미 삭제는 끝났으므로 목록 동기화 실패는 조용히 무시한다.
+        })
+      const shouldReset =
+        detail.type === "delete-all" ||
+        (detail.type === "delete-one" && detail.conversationId === conversationId)
+      if (!shouldReset) return
+
+      setMessages([])
+      setConversationId(null)
+      setConversationAnalysisResultId(null)
+      setRecommendedQuestions(null)
+      setAreSuggestionsOpen(false)
+      nextMessageId.current = 1
+    }
+
+    window.addEventListener(CHATBOT_HISTORY_CHANGE_EVENT, onHistoryChange)
+    return () => window.removeEventListener(CHATBOT_HISTORY_CHANGE_EVENT, onHistoryChange)
+  }, [conversationId, isAnalysisConnected, user])
 
   async function loadConversation(conversation: ChatbotConversation) {
     if (isResponding || isAnalysisConnected) return
