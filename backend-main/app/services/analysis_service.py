@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -611,20 +612,59 @@ class AnalysisService:
 
     @staticmethod
     def _normalize_reviews(payload):
-        reviews = []
-        review_text = AnalysisService._pick(payload, "reviewText", "review_text")
-        if isinstance(review_text, str) and review_text.strip():
-            reviews.append(review_text.strip())
-
         reviews_payload = payload.get("reviews") or []
         if isinstance(reviews_payload, list):
-            reviews.extend(
-                review.strip()
+            reviews = [
+                AnalysisService._strip_owner_reply_text(review)
                 for review in reviews_payload
-                if isinstance(review, str) and review.strip()
-            )
+                if isinstance(review, str) and AnalysisService._strip_owner_reply_text(review)
+            ]
+            if reviews:
+                return reviews
 
-        return reviews
+        review_text = AnalysisService._pick(payload, "reviewText", "review_text")
+        return AnalysisService._split_review_text(review_text)
+
+    @staticmethod
+    def _split_review_text(value):
+        if not isinstance(value, str):
+            return []
+        text = AnalysisService._strip_owner_reply_text(value)
+        if not text:
+            return []
+
+        paragraph_parts = [
+            part.strip()
+            for part in re.split(r"\n\s*\n+", text)
+            if part.strip()
+        ]
+        if len(paragraph_parts) > 1:
+            return paragraph_parts
+
+        return [
+            AnalysisService._strip_owner_reply_text(part)
+            for part in text.splitlines()
+            if AnalysisService._strip_owner_reply_text(part)
+        ]
+
+    @staticmethod
+    def _strip_owner_reply_text(value):
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if not text:
+            return ""
+
+        marker_pattern = re.compile(
+            r"^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$"
+            r"|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$"
+            r"|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$",
+            re.IGNORECASE,
+        )
+        kept_lines = []
+        for line in text.split("\n"):
+            if marker_pattern.search(line):
+                break
+            kept_lines.append(line)
+        return "\n".join(kept_lines).strip()
 
     @staticmethod
     def _normalize_review_dates(payload, review_count):

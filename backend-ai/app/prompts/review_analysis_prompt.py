@@ -8,6 +8,7 @@ Use only the enum values defined in the schema.
 Write summary and recommendation naturally and cautiously in the requested output language.
 Do not diagnose, guarantee treatment results, make legal judgments, or directly recommend or condemn a clinic.
 Analyze only the provided review text from a review-trust perspective.
+If pasted text includes clinic/business/owner replies, ignore those replies and analyze only patient/customer review content.
 """.strip()
 
 
@@ -18,6 +19,8 @@ Output language requested by user: {output_language}
 
 Review text:
 {review_text}
+
+If the review text contains clinic replies, owner replies, or business responses, exclude them from evidence, scores, and signals.
 
 Return a JSON object with these exact fields:
 - trustScore: 0-100. Higher means the review is more concrete and useful as reference information.
