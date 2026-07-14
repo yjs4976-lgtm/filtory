@@ -14,6 +14,15 @@ def make_payload(**kwargs):
 
 
 class ForeignerScoreTest(unittest.TestCase):
+    def test_accepts_orthopedics_category_from_backend_main(self):
+        payload = make_payload(category="orthopedics")
+
+        self.assertEqual(payload.category, "orthopedics")
+
+    def test_accepts_orthopedics_aliases(self):
+        self.assertEqual(make_payload(category="orthopedic").category, "orthopedic")
+        self.assertEqual(make_payload(category="정형외과").category, "정형외과")
+
     def test_empty_metadata_returns_unknown_checks(self):
         payload = make_payload()
 
