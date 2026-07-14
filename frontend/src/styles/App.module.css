@@ -5849,6 +5849,92 @@ button.notificationCard {
   letter-spacing: 0;
 }
 
+.resultBreakdownCard {
+  display: grid;
+  gap: 14px;
+}
+
+.resultBreakdownIntro {
+  margin: -4px 0 0;
+  color: var(--graypurple);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
+.resultBreakdownGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resultBreakdownItem {
+  min-height: 132px;
+  border: 1px solid rgba(229, 224, 239, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(58, 54, 81, 0.04);
+}
+
+.resultBreakdownHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.resultBreakdownHeader span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.resultBreakdownHeader strong {
+  flex: 0 0 auto;
+  color: var(--primary-foreground);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.resultBreakdownTrack {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgba(229, 224, 239, 0.8);
+}
+
+.resultBreakdownBar,
+.resultBreakdownRiskBar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 4px;
+  border-radius: inherit;
+}
+
+.resultBreakdownBar {
+  background: linear-gradient(90deg, var(--mint), var(--primary));
+}
+
+.resultBreakdownRiskBar {
+  background: linear-gradient(90deg, #ffd285, #ff8ea8);
+}
+
+.resultBreakdownItem p {
+  margin: 9px 0 0;
+  color: var(--graypurple);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+
 .resultVisitNote {
   border: 1px solid rgba(255, 215, 133, 0.72);
   border-radius: 22px;
@@ -5967,6 +6053,31 @@ button.notificationCard {
   padding: 12px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.resultSignalGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.resultMentionedAspectList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resultMentionedAspectList span {
+  border: 1px solid rgba(220, 207, 255, 0.85);
+  border-radius: 999px;
+  background: rgba(241, 236, 255, 0.72);
+  color: var(--primary-foreground);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.resultMentionedAspectList .resultEmptyText {
+  width: 100%;
 }
 
 .resultCheckGrid {
@@ -6151,6 +6262,14 @@ button.notificationCard {
 }
 
 @media (max-width: 520px) {
+  .resultBreakdownGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .resultBreakdownItem {
+    min-height: 118px;
+  }
+
   .resultConvenienceQuestion {
     grid-template-columns: auto minmax(0, 1fr);
   }

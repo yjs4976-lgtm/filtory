@@ -6,9 +6,12 @@ HospitalCategory = Literal[
     "derma",
     "eye",
     "dental",
+    "orthopedic",
+    "orthopedics",
     "dermatology",
     "ophthalmology",
     "dentistry",
+    "정형외과",
 ]
 
 OutputLanguage = Literal["ko", "en"]
@@ -49,7 +52,7 @@ class ReviewAnalyzeRequest(BaseModel):
     # backend-main이 리뷰 원문과 병원 메타데이터를 묶어서 보내는 분석 요청 모델이다.
     # reviewText 단일 입력과 reviews 배열 입력을 모두 허용해 프론트 UX를 유연하게 유지한다.
     # Field(...)의 ...은 필수값을 뜻하고, min_length/ge/le 같은 조건은 자동 검증된다.
-    category: HospitalCategory = Field(..., description="derma, eye, dental 또는 DB용 category")
+    category: HospitalCategory = Field(..., description="derma, eye, dental, orthopedics 또는 DB용 category")
     reviewText: str | None = Field(None, min_length=1, description="직접 입력한 리뷰 텍스트")
     reviews: list[str] = Field(default_factory=list, description="여러 리뷰를 한 번에 분석할 때 사용")
     reviewDates: list[str] = Field(default_factory=list, description="reviews와 같은 순서의 리뷰 작성일")
@@ -125,6 +128,20 @@ class ReviewEvidence(BaseModel):
     checkItems: list[str] = Field(default_factory=list)
 
 
+class ReviewSignal(BaseModel):
+    type: str = ""
+    phrase: str = ""
+    strength: Literal["low", "medium", "strong"] = "medium"
+    reason: str = ""
+
+
+class ReviewMentionedAspects(BaseModel):
+    costMentioned: bool = False
+    waitingMentioned: bool = False
+    treatmentProcessMentioned: bool = False
+    aftercareMentioned: bool = False
+
+
 class ReviewAnalyzeResponse(BaseModel):
     # 응답 모델도 Pydantic으로 검증되므로, 서비스가 잘못된 점수 범위나 누락 필드를 반환하면 즉시 드러난다.
     # 프론트 결과 화면과 backend-main 저장 로직이 함께 쓰는 표준 응답 계약이다.
@@ -165,6 +182,12 @@ class ReviewAnalyzeResponse(BaseModel):
     positiveSignals: list[str] = Field(default_factory=list)
     negativeSignals: list[str] = Field(default_factory=list)
     warningSignals: list[str] = Field(default_factory=list)
+    specificitySignals: list[ReviewSignal] = Field(default_factory=list)
+    promoSignals: list[ReviewSignal] = Field(default_factory=list)
+    repetitionSignals: list[ReviewSignal] = Field(default_factory=list)
+    exaggerationSignals: list[ReviewSignal] = Field(default_factory=list)
+    balancedExperienceSignals: list[ReviewSignal] = Field(default_factory=list)
+    mentionedAspects: ReviewMentionedAspects = Field(default_factory=ReviewMentionedAspects)
     globalAccessibilityScore: int | None = Field(None, ge=0, le=100)
     globalAccessibilityLevel: SuspicionLevelKey | None = None
     globalAccessibilityMaxScore: int | None = Field(None, ge=1, le=100)

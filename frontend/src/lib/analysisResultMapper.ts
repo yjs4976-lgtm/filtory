@@ -1,6 +1,6 @@
 import { getGlobalAccessibilityCheckLabel } from "./displayLabels"
 import { getHistoryHospitalName } from "./historyDisplay"
-import type { HospitalCategory, Language } from "./types"
+import type { HospitalCategory, Language, ReviewMentionedAspects, ReviewSignal } from "./types"
 
 export type TrustResultKey = "very_safe" | "safe" | "normal" | "caution" | "danger"
 export type AdSuspicionKey = "low" | "medium" | "high"
@@ -128,6 +128,12 @@ export type AnalysisResultViewModel = {
     negativeSignals: string[]
     warningSignals: string[]
     specificPhrases: string[]
+    specificitySignals: ReviewSignal[]
+    promoSignals: ReviewSignal[]
+    repetitionSignals: ReviewSignal[]
+    exaggerationSignals: ReviewSignal[]
+    balancedExperienceSignals: ReviewSignal[]
+    mentionedAspects: Required<ReviewMentionedAspects>
   }
   meta: {
     modelVersion?: string
@@ -203,11 +209,55 @@ function normalizeCategory(value: unknown): HospitalCategory | undefined {
   if (value === "dermatology" || value === "skin") return "derma"
   if (value === "ophthalmology") return "eye"
   if (value === "dentistry") return "dental"
+  if (value === "orthopedics" || value === "orthopedic" || value === "정형외과") return "orthopedics"
   return undefined
 }
 
 function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+function safeSignalArray(...values: unknown[]): ReviewSignal[] {
+  const byPhrase = new Map<string, ReviewSignal>()
+  for (const value of values) {
+    if (!Array.isArray(value)) continue
+    for (const item of value) {
+      let signal: ReviewSignal | null = null
+      if (isRecord(item)) {
+        const phrase = stringValue(item.phrase)
+        if (phrase) {
+          signal = {
+            type: stringValue(item.type),
+            phrase,
+            strength: stringValue(item.strength) || "medium",
+            reason: stringValue(item.reason),
+          }
+        }
+      } else {
+        const phrase = String(item || "").trim()
+        if (phrase) signal = { phrase, strength: "medium" }
+      }
+      if (signal && !byPhrase.has(signal.phrase)) byPhrase.set(signal.phrase, signal)
+    }
+  }
+  return Array.from(byPhrase.values())
+}
+
+function normalizeMentionedAspects(...values: unknown[]): Required<ReviewMentionedAspects> {
+  const merged: Required<ReviewMentionedAspects> = {
+    costMentioned: false,
+    waitingMentioned: false,
+    treatmentProcessMentioned: false,
+    aftercareMentioned: false,
+  }
+  for (const value of values) {
+    if (!isRecord(value)) continue
+    merged.costMentioned = merged.costMentioned || value.costMentioned === true
+    merged.waitingMentioned = merged.waitingMentioned || value.waitingMentioned === true
+    merged.treatmentProcessMentioned = merged.treatmentProcessMentioned || value.treatmentProcessMentioned === true
+    merged.aftercareMentioned = merged.aftercareMentioned || value.aftercareMentioned === true
+  }
+  return merged
 }
 
 export function safeStringArray(...values: unknown[]): string[] {
@@ -829,6 +879,16 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     globalAccessRatingToScore(root.globalAccessRating)
   )
   const analyzedReviewCount = countValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
+  const specificitySignals = safeSignalArray(result.specificitySignals, root.specificitySignals, evidenceJson.specificitySignals)
+  const promoSignals = safeSignalArray(result.promoSignals, root.promoSignals, evidenceJson.promoSignals)
+  const repetitionSignals = safeSignalArray(result.repetitionSignals, root.repetitionSignals, evidenceJson.repetitionSignals)
+  const exaggerationSignals = safeSignalArray(result.exaggerationSignals, root.exaggerationSignals, evidenceJson.exaggerationSignals)
+  const balancedExperienceSignals = safeSignalArray(
+    result.balancedExperienceSignals,
+    root.balancedExperienceSignals,
+    evidenceJson.balancedExperienceSignals
+  )
+  const mentionedAspects = normalizeMentionedAspects(result.mentionedAspects, root.mentionedAspects, evidenceJson.mentionedAspects)
   const warningSignals = safeStringArray(result.warningSignals, evidence.warnings, evidenceJson.warnings)
   const detectedPatternSource = safeStringArray(result.detectedPatterns, root.detectedPatterns, root.detectedReasons)
   const referenceWarnings = localizeSignalList(
@@ -975,6 +1035,12 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       negativeSignals: localizeSignalList(safeStringArray(result.negativeSignals, root.negativeSignals), language, "negative"),
       warningSignals: localizeSignalList(warningSignals, language, "reference"),
       specificPhrases: localizeSignalList(safeStringArray(evidence.specificPhrases), language, "positive"),
+      specificitySignals,
+      promoSignals,
+      repetitionSignals,
+      exaggerationSignals,
+      balancedExperienceSignals,
+      mentionedAspects,
     },
     meta: {
       modelVersion: stringValue(firstValue(result.modelVersion, root.modelVersion)),

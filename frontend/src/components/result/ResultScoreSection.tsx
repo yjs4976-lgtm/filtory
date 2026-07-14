@@ -1,4 +1,4 @@
-import { CalendarDays, Info, SearchCheck, ShieldCheck, Siren } from "lucide-react"
+import { BarChart3, CalendarDays, Info, SearchCheck, ShieldCheck, Siren } from "lucide-react"
 import type { AnalysisResultViewModel, TrustResultKey } from "@/lib/analysisResultMapper"
 import { useLanguage } from "@/context/LanguageContext"
 import { formatDisplayDate } from "@/lib/dateFormat"
@@ -27,10 +27,45 @@ function formatCheckCount(template: string, checked: number, total: number) {
   return template.replace("{checked}", String(checked)).replace("{total}", String(total))
 }
 
+function clampScore(score: number) {
+  if (!Number.isFinite(score)) return 0
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+function ScoreBreakdownItem({
+  label,
+  value,
+  description,
+  tone = "default",
+}: {
+  label: string
+  value: number
+  description: string
+  tone?: "default" | "risk"
+}) {
+  const score = clampScore(value)
+  return (
+    <div className={styles.resultBreakdownItem}>
+      <div className={styles.resultBreakdownHeader}>
+        <span>{label}</span>
+        <strong>{score}</strong>
+      </div>
+      <div className={styles.resultBreakdownTrack} aria-hidden="true">
+        <span
+          className={tone === "risk" ? styles.resultBreakdownRiskBar : styles.resultBreakdownBar}
+          style={{ width: `${score}%` }}
+        />
+      </div>
+      <p>{description}</p>
+    </div>
+  )
+}
+
 export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: ResultScoreSectionProps) {
   const { t, language } = useLanguage()
   const label = t.result.score
   const analyzedDate = analyzedAt ? formatDisplayDate(analyzedAt, language) : formatDisplayDate(new Date().toISOString(), language)
+  const breakdown = viewModel.scoreBreakdown
 
   return (
     <>
@@ -70,6 +105,37 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           value={formatCheckCount(label.checkCount, viewModel.information.checkedCount, viewModel.information.totalCount)}
           description={viewModel.information.description}
         />
+      </section>
+
+      <section className={`${styles.card} ${styles.resultBreakdownCard}`} aria-label={label.scoreDetailsTitle}>
+        <div className={styles.row}>
+          <BarChart3 className={`${styles.iconSm} ${styles.iconPrimary}`} />
+          <h2 className={styles.titleSm}>{label.scoreDetailsTitle}</h2>
+        </div>
+        <p className={styles.resultBreakdownIntro}>{label.scoreDetailsDescription}</p>
+        <div className={styles.resultBreakdownGrid}>
+          <ScoreBreakdownItem
+            label={label.evidenceScore}
+            value={breakdown.evidenceScore}
+            description={label.evidenceScoreDescription}
+          />
+          <ScoreBreakdownItem
+            label={label.specificityScore}
+            value={breakdown.specificityScore}
+            description={label.specificityScoreDescription}
+          />
+          <ScoreBreakdownItem
+            label={label.diversityScore}
+            value={breakdown.diversityScore}
+            description={label.diversityScoreDescription}
+          />
+          <ScoreBreakdownItem
+            label={label.riskScore}
+            value={breakdown.riskScore}
+            description={label.riskScoreDescription}
+            tone="risk"
+          />
+        </div>
       </section>
 
       <section className={`${styles.resultVisitNote} ${styles.stackSm}`}>
