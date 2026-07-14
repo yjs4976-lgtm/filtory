@@ -51,6 +51,25 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(OpenAIReviewAnalysisService._review_texts(payload), ["상담과 비용 안내가 자세했어요."])
 
+    def test_owner_reply_in_merged_review_text_does_not_drop_later_reviews(self):
+        payload = make_payload(
+            reviews=[],
+            reviewText=(
+                "상담 설명이 자세했어요.\n"
+                "병원 답변\n"
+                "소중한 리뷰 감사합니다.\n\n"
+                "대기 시간은 길었지만 진료 과정은 좋았어요."
+            ),
+        )
+
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(payload),
+            [
+                "상담 설명이 자세했어요.",
+                "대기 시간은 길었지만 진료 과정은 좋았어요.",
+            ],
+        )
+
     def test_patient_sentence_about_missing_reply_is_kept(self):
         payload = make_payload(
             reviews=["병원 답변이 없어서 예약 문의가 불편했어요."],

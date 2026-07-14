@@ -629,7 +629,7 @@ class AnalysisService:
     def _split_review_text(value):
         if not isinstance(value, str):
             return []
-        text = AnalysisService._strip_owner_reply_text(value)
+        text = value.replace("\r\n", "\n").strip()
         if not text:
             return []
 
@@ -639,7 +639,11 @@ class AnalysisService:
             if part.strip()
         ]
         if len(paragraph_parts) > 1:
-            return paragraph_parts
+            return [
+                cleaned
+                for part in paragraph_parts
+                if (cleaned := AnalysisService._strip_owner_reply_text(part))
+            ]
 
         return [
             AnalysisService._strip_owner_reply_text(part)

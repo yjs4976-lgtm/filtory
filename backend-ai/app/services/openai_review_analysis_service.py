@@ -477,7 +477,7 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def _split_review_text(value: str | None) -> list[str]:
-        text = OpenAIReviewAnalysisService._strip_owner_reply_text(value)
+        text = str(value or "").replace("\r\n", "\n").strip()
         if not text:
             return []
         paragraph_parts = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
