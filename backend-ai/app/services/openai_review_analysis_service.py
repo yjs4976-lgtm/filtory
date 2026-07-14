@@ -459,27 +459,57 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def merge_review_text(payload: ReviewAnalyzeRequest) -> str:
-        pieces = []
-        if payload.reviewText and payload.reviewText.strip():
-            pieces.append(payload.reviewText.strip())
-        pieces.extend(review.strip() for review in payload.reviews if review.strip())
-        return "\n\n".join(dict.fromkeys(pieces))
+        return "\n\n".join(OpenAIReviewAnalysisService._review_texts(payload))
 
     @staticmethod
     def _review_texts(payload: ReviewAnalyzeRequest) -> list[str]:
-        pieces = []
-        if payload.reviewText and payload.reviewText.strip():
-            pieces.append(payload.reviewText.strip())
-        pieces.extend(review.strip() for review in payload.reviews if review.strip())
-        return list(dict.fromkeys(pieces))
+        if any(review.strip() for review in payload.reviews):
+            return list(dict.fromkeys(
+                cleaned
+                for review in payload.reviews
+                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(review))
+            ))
+        return OpenAIReviewAnalysisService._split_review_text(payload.reviewText)
 
     @staticmethod
     def analyzed_review_count(payload: ReviewAnalyzeRequest) -> int:
-        reviews = []
-        if payload.reviewText and payload.reviewText.strip():
-            reviews.append(payload.reviewText.strip())
-        reviews.extend(review.strip() for review in payload.reviews if review.strip())
-        return len(dict.fromkeys(reviews))
+        return len(OpenAIReviewAnalysisService._review_texts(payload))
+
+    @staticmethod
+    def _split_review_text(value: str | None) -> list[str]:
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if not text:
+            return []
+        paragraph_parts = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
+        if len(paragraph_parts) > 1:
+            return list(dict.fromkeys(
+                cleaned
+                for part in paragraph_parts
+                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+            ))
+        return list(dict.fromkeys(
+            cleaned
+            for part in text.splitlines()
+            if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+        ))
+
+    @staticmethod
+    def _strip_owner_reply_text(value: str | None) -> str:
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if not text:
+            return ""
+        marker_pattern = re.compile(
+            r"^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$"
+            r"|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$"
+            r"|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$",
+            re.IGNORECASE,
+        )
+        kept_lines = []
+        for line in text.split("\n"):
+            if marker_pattern.search(line):
+                break
+            kept_lines.append(line)
+        return "\n".join(kept_lines).strip()
 
     @staticmethod
     def calculate_place_score(payload: ReviewAnalyzeRequest) -> int:
