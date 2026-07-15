@@ -17,7 +17,7 @@ class MemberService:
     # 회원 생성/수정/탈퇴/비밀번호/소셜 재가입 정책을 담당하는 서비스다.
     # API에서 넘어온 payload를 그대로 쓰지 않고 allowlist와 검증을 거쳐 DB에 반영한다.
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}
-    PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url"}
+    PROFILE_FIELDS = {"email", "nickname", "real_name", "phone", "profile_img_url", "date_of_birth", "gender"}
     PROFILE_PASSWORD_FIELDS = {
         "password",
         "password_hash",
@@ -494,6 +494,23 @@ def _normalize_member_data(data):
         data["phone"] = _normalize_phone(data["phone"])
     if "nickname" in data and data["nickname"] is not None:
         data["nickname"] = data["nickname"].strip()
+    if "date_of_birth" in data:
+        value = data["date_of_birth"]
+        if value in (None, ""):
+            data["date_of_birth"] = None
+        else:
+            try:
+                parsed = datetime.strptime(str(value), "%Y-%m-%d").date()
+            except ValueError as error:
+                raise ValueError("Invalid date_of_birth") from error
+            if parsed > datetime.now(timezone.utc).date():
+                raise ValueError("date_of_birth cannot be in the future")
+            data["date_of_birth"] = parsed
+    if "gender" in data:
+        value = str(data["gender"] or "").upper() or None
+        if value not in {None, "FEMALE", "MALE", "OTHER", "PREFER_NOT_TO_SAY"}:
+            raise ValueError("Invalid gender")
+        data["gender"] = value
 
 
 def _normalize_phone(value):

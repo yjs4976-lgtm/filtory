@@ -1,0 +1,2 @@
+import { AdminSimplePage } from "@/components/admin/AdminSimplePage"
+export default function Page(){return <AdminSimplePage title="문의·신고 관리" description="사용자 문의와 분석 결과 신고를 확인하세요." summary={[["답변 대기","6건"],["처리 중","4건"],["오늘 완료","12건"],["결과 검토 요청","4건"]]} headers={["유형","사용자","진료과","제목","접수 시각","상태"]} rows={[["문의","조정화 · U-1048","피부과","분석 결과의 판단 근거 문의","오늘 09:42","답변 대기"],["결과 신고","김민서 · U-1047","정형외과","URL 분석 결과 검토 요청","어제 18:21","처리 중"],["문의","윤수아 · U-1041","치과","Plus 사용량 문의","어제 15:03","답변 완료"]]} />}

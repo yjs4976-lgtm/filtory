@@ -69,6 +69,7 @@ import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import { ApiClientError } from "@/services/apiClient"
 import styles from "@/styles/App.module.css"
+import { useMembership } from "@/context/MembershipContext"
 
 type SelectedAnalyzeRegion = {
   provinceCode: RegionProvinceCode
@@ -1009,6 +1010,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const { t, language } = useLanguage()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
+  const { chargeCompletedAnalysis } = useMembership()
   const currentLanguage = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<AnalyzeCategoryFilter>(() => normalizeCategoryParam(searchParams.get("category")))
   const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(null)
@@ -1693,6 +1695,8 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
+      // Charge only after the API completed and the result was saved. The usage event is idempotent by analysis ID.
+      chargeCompletedAnalysis(response.analysisResultId ?? response.analysisRequestId ?? nextAnalysisResult.id)
       router.push(ROUTES.RESULT)
     } catch (error) {
       setReviewFeedback("")

@@ -444,7 +444,7 @@ def test_english_this_does_not_trigger_hi_greeting():
     assert not strength_result["answer"].startswith("Hi!")
 
     assert compare_result["source"] == "keyword"
-    assert "For comparison" in compare_result["answer"]
+    assert "does not currently provide a hospital comparison feature" in compare_result["answer"]
     assert not compare_result["answer"].startswith("Hi!")
 
     assert trust_result["source"] == "keyword"

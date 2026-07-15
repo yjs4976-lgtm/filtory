@@ -19,6 +19,8 @@ export type HospitalRegionCode =
   | "gyeongnam"
   | "jeju"
 export type UserRole = "USER" | "ADMIN"
+export type Workspace = "USER" | "ADMIN"
+export type WorkspacePreference = Workspace | "LAST_USED"
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "DORMANT"
 export type SocialProvider = "google" | "naver" | "kakao"
 
@@ -429,7 +431,12 @@ export interface User {
   reportCount?: number
   profileCompletion?: number
   createdAt?: string
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
+
+export type Gender = "FEMALE" | "MALE" | "OTHER" | "PREFER_NOT_TO_SAY"
+export type AgeGroup = "UNDER_TEN" | "TEENS" | "TWENTIES" | "THIRTIES" | "FORTIES" | "FIFTIES" | "SIXTIES_OR_MORE"
 
 export interface ApiResponse<T> {
   success: boolean
@@ -460,6 +467,8 @@ export interface SignupPayload {
   termsAgreed: boolean
   privacyAgreed: boolean
   marketingAgreed?: boolean
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
 
 export interface SignupRequest extends SignupPayload {
@@ -507,6 +516,8 @@ export interface UpdateProfilePayload {
   nickname?: string
   phone?: string
   profileImageUrl?: string | null
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
 
 export interface WithdrawPayload {

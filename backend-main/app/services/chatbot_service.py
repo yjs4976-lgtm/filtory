@@ -1,12 +1,16 @@
 import os
 import re
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import has_app_context
 
 from app.clients.ai_chatbot_client import AIChatbotClient
 from app.repositories.chatbot_history_repository import ChatbotHistoryRepository
 from app.repositories import AnalysisRepository
+from app.repositories.member_repository import MemberRepository
+from app.filtory_policy import FILTORY_POLICY, format_korean_date, next_free_usage_reset
 from app.schemas.analysis_schema import analysis_result_to_canonical_dict
 from app.services.chatbot_history_service import ChatbotHistoryService
 
@@ -23,7 +27,7 @@ class ChatbotService:
         "광고 의심도는 무슨 뜻인가요?",
         "이 병원의 장점과 주의점은 무엇인가요?",
         "외국인 방문 편의도는 어떻게 봐야 하나요?",
-        "다른 병원과 비교할 때 뭘 봐야 하나요?",
+        "병원을 선택할 때 어떤 정보를 봐야 하나요?",
     ]
     ANALYSIS_SUGGESTIONS_EN = [
         "Explain this result simply.",
@@ -31,7 +35,7 @@ class ChatbotService:
         "What does ad suspicion mean?",
         "What are the strengths and cautions?",
         "How should I read International Visit Convenience?",
-        "What should I compare with other clinics?",
+        "What should I check when choosing a clinic?",
     ]
     GENERAL_SUGGESTIONS_KO = [
         "Filtory는 어떻게 사용하나요?",
@@ -112,8 +116,12 @@ class ChatbotService:
         )
         conversation_id = cls._valid_conversation_id(member_id, conversation_id)
 
+        policy_answer = cls._answer_policy_keyword(normalized_message, language, member_id)
         guardrail_answer = cls._answer_guardrail_keyword(normalized_message, language, analysis_context)
-        if guardrail_answer:
+        if policy_answer:
+            answer = policy_answer
+            source = "keyword"
+        elif guardrail_answer:
             answer = guardrail_answer
             source = "keyword"
         elif analysis_context and cls._is_analysis_question(normalized_message):
@@ -351,6 +359,44 @@ class ChatbotService:
     @staticmethod
     def _has_any(text, keywords):
         return any(keyword in text for keyword in keywords)
+
+    @classmethod
+    def _answer_policy_keyword(cls, text, language, member_id):
+        free_limit = FILTORY_POLICY["free"]["monthlyDetailedAnalysisLimit"]
+        plus_price = FILTORY_POLICY["plus"]["displayPriceKo"]
+        reset_date = format_korean_date(next_free_usage_reset())
+        member_keywords = ["내 나이", "몇 살", "연령대", "my age", "age group", "관리자 페이지", "관리자 메뉴", "admin page", "admin menu"]
+        member = MemberRepository.get_by_id(int(member_id)) if member_id and has_app_context() and cls._has_any(text, member_keywords) else None
+
+        if cls._has_any(text, ["생년월일은 꼭", "생년월일 필수", "성별은 필수", "성별 꼭", "birth date required", "gender required"]):
+            return "Birth date and gender are optional. You can use Filtory without entering them." if language == "en" else "생년월일과 성별은 선택 항목이에요. 입력하지 않아도 Filtory의 기본 기능을 이용할 수 있습니다."
+        if cls._has_any(text, ["나이 인증", "본인인증", "실제로 맞", "age verification", "verify my age"]):
+            return "Birth date is based on information you enter and is not separately age-verified." if language == "en" else "현재 생년월일은 별도의 연령 인증 없이 사용자가 입력한 정보를 기준으로 처리됩니다."
+        if cls._has_any(text, ["내 나이", "몇 살", "연령대", "my age", "age group"]):
+            birth = getattr(member, "date_of_birth", None) if member else None
+            if not birth:
+                return "No birth date is registered, so I cannot calculate your age. You can add it in My Page > Edit profile." if language == "en" else "등록된 생년월일이 없어 나이와 연령대를 계산할 수 없어요. 마이페이지의 프로필 수정에서 생년월일을 입력할 수 있습니다."
+            today = datetime.now(ZoneInfo("Asia/Seoul")).date(); age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+            group = "10세 미만" if age < 10 else f"{age // 10 * 10}대"
+            return f"Based on your entered birth date, you are {age} years old and in the {age // 10 * 10}s age group." if language == "en" else f"입력한 생년월일을 기준으로 현재 만 {age}세이며, 연령대는 {group}로 자동 분류돼요."
+        if cls._has_any(text, ["생년월일 어디", "생년월일 바", "프로필 수정", "change birth", "edit birth"]):
+            return "You can change your birth date in My Page > Edit profile. Age and age group update automatically." if language == "en" else "마이페이지의 프로필 수정에서 생년월일을 변경할 수 있어요. 만 나이와 연령대는 생년월일을 기준으로 자동 갱신됩니다."
+        if cls._has_any(text, ["관리자 페이지", "관리자 메뉴", "admin page", "admin menu"]):
+            if not member or str(getattr(member, "role", "user")).lower() != "admin":
+                return "The admin page is available only to accounts with administrator access." if language == "en" else "관리자 페이지는 관리자 권한이 있는 계정에서만 이용할 수 있어요."
+            return "관리자 센터에서 대시보드, 회원 관리, 분석 사용량, 구독 상태와 운영 현황을 확인할 수 있어요. 변경 작업은 챗봇이 아니라 관리자 페이지에서 진행해 주세요."
+        if cls._has_any(text, ["어떤 진료과", "지원 진료과", "정형외과도", "departments", "orthopedics supported"]):
+            labels = [item["labelKo"] for item in FILTORY_POLICY["supportedDepartments"]]
+            return "Filtory supports dermatology, ophthalmology, dentistry, and orthopedics." if language == "en" else f"Filtory는 {', '.join(labels)} 리뷰 분석을 지원해요. 정형외과도 분석할 수 있습니다."
+        if cls._has_any(text, ["무료 분석은 몇", "무료 상세 분석", "언제 다시", "초기화", "free analyses", "reset"]):
+            return f"Free includes {free_limit} detailed analyses each month and resets on the 1st in Asia/Seoul. The next reset is {reset_date}. Basic results remain available after the limit." if language == "en" else f"Free는 매월 상세 분석 {free_limit}회를 제공하고 Asia/Seoul 기준 매월 1일에 초기화돼요. 다음 초기화는 {reset_date}이며, 모두 사용해도 기본 분석 결과는 계속 확인할 수 있습니다."
+        if cls._has_any(text, ["plus 가격", "플러스 가격", "무제한", "plus price", "unlimited"]):
+            return "Filtory Plus is KRW 4,900 per month. It is not unlimited and currently includes 30 detailed analyses per month." if language == "en" else f"Filtory Plus는 {plus_price}이며 월 상세 분석 30회를 제공해요. 무제한 상품은 아닙니다."
+        if cls._has_any(text, ["partnered insight", "스폰서 콘텐츠", "광고가 병원", "광고가 점수"]):
+            return "Partnered Insight is clearly labeled sponsored editorial content for Free users. It does not affect hospital scores, analysis results, or display order." if language == "en" else "Partnered Insight는 Free 사용자에게 표시되는 편집형 스폰서 콘텐츠예요. 광고주는 병원 점수, 분석 결과 또는 노출 순서에 영향을 줄 수 없습니다."
+        if cls._has_any(text, ["구독 해지", "해지 이유", "회원 탈퇴와", "cancel subscription", "cancellation reason"]):
+            return "Subscription cancellation is separate from account deletion. A cancellation reason is optional, and your account and records remain. Plus stays active until the current billing period ends." if language == "en" else "Plus 구독 해지는 회원 탈퇴와 별개예요. 해지 사유는 선택 사항이며 계정과 분석 기록은 유지됩니다. 현재 결제 기간이 끝날 때까지 Plus도 계속 이용할 수 있어요."
+        return None
 
     @classmethod
     def _suggested_questions(cls, language, has_context=False):
@@ -591,7 +637,7 @@ class ChatbotService:
         if cls._has_any(cleaned, ["이름", "이름이 뭐", "your name", "what is your name"]):
             if language == "en":
                 return "I’m Filtory’s guide chatbot. I help explain review trust, ad suspicion, place completeness, and clinic comparison points."
-            return "저는 Filtory 안내 챗봇이에요. 리뷰 신뢰도, 광고 의심도, 플레이스 완성도, 병원 비교 포인트를 설명해드려요."
+            return "저는 Filtory 안내 챗봇이에요. 리뷰 신뢰도, 광고 의심도와 플레이스 정보 완성도를 설명해드려요."
 
         if cls._has_any(cleaned, ["기분", "어때", "how are you", "how do you feel"]):
             if language == "en":
@@ -626,7 +672,7 @@ class ChatbotService:
         if cls._has_any(cleaned, ["잘가", "바이", "다음에", "bye", "goodbye", "see you"]):
             if language == "en":
                 return "Bye! When you compare clinics later, bring the score, review details, and place information together."
-            return "좋아요, 다음에 또 불러주세요. 병원 비교할 때는 점수, 리뷰의 구체성, 병원 기본 정보를 같이 보면 좋아요."
+            return "좋아요, 다음에 또 불러주세요. 리뷰를 확인할 때는 점수, 리뷰의 구체성과 병원 기본 정보를 함께 살펴보면 좋아요."
 
         if cls._has_any(cleaned, ["좋아", "오케이", "알겠", "ㅇㅋ", "ok", "okay", "got it"]):
             if language == "en":
@@ -934,13 +980,8 @@ class ChatbotService:
 
         if cls._has_any(text, ["비교", "다른 병원", "compare", "another clinic", "other hospital"]):
             if language == "en":
-                return (
-                    "For comparison, look at trust score, ad suspicion, review count, recent concrete details, "
-                    "place completeness, distance, and whether the clinic fits your needs."
-                )
-            return (
-                "병원을 비교할 때는 신뢰도 점수, 광고 의심도, 리뷰 수, 최근 리뷰의 구체성, 병원 기본 정보 완성도, 거리와 본인 상황을 같이 보세요."
-            )
+                return "Filtory does not currently provide a hospital comparison feature. You can review each analysis separately and check trust signals, ad suspicion, and concrete recent reviews."
+            return "Filtory에는 현재 병원 비교 기능이 없어요. 각 병원의 분석 결과를 개별적으로 확인하면서 신뢰도 신호, 광고 의심도와 최근의 구체적인 후기를 참고해 주세요."
 
         if cls._has_any(text, ["선택", "고르", "봐야", "확인", "choose", "check", "select"]):
             if language == "en":
