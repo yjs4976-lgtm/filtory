@@ -9,7 +9,7 @@ import { clearSelectedChatbotAnalysisContext } from "@/lib/chatbotContext";
 import { authService } from "@/services/authService";
 import { clearFavoriteHospitalCache, emitFavoriteHospitalChange, getInternalFavoriteHospitalId, isInternalFavoriteHospital, savedHospitalService } from "@/services/savedHospitalService";
 import type { HospitalItem } from "@/lib/types";
-import { withMockAdminRole } from "@/lib/adminAccess";
+import { isAdminRole, withMockAdminRole } from "@/lib/adminAccess";
 import { hasUnsavedWorkspaceChanges, readWorkspaceSettings, writeWorkspaceSettings, type WorkspaceSettings } from "@/lib/workspace";
 
 interface AuthContextValue {
@@ -53,8 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id]);
 
   const updateUser = useCallback((nextUser: User) => {
-    saveStoredUser(nextUser);
-    setUser(nextUser);
+    const normalizedUser = withMockAdminRole(nextUser);
+    saveStoredUser(normalizedUser);
+    setUser(normalizedUser);
   }, []);
 
   const login = useCallback(async (payload: LoginRequest) => {
@@ -142,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const persistWorkspace = useCallback((update: (current: WorkspaceSettings) => WorkspaceSettings) => {
-    if (!user || user.role !== "ADMIN") return
+    if (!user || !isAdminRole(user.role)) return
     setWorkspaceSettings((current) => {
       const next = update(current)
       writeWorkspaceSettings(user, next)
@@ -159,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persistWorkspace])
 
   const switchWorkspace = useCallback((workspace: Workspace) => {
-    if (!user || (workspace === "ADMIN" && user.role !== "ADMIN")) return false
+    if (!user || (workspace === "ADMIN" && !isAdminRole(user.role))) return false
     if (hasUnsavedWorkspaceChanges() && !window.confirm("저장하지 않은 변경 사항이 있어요.\n\n화면을 전환하면 작성한 내용이 사라질 수 있어요. 계속 전환할까요?")) return false
     persistWorkspace((current) => ({ ...current, currentWorkspace: workspace, lastWorkspace: workspace }))
     router.push(workspace === "ADMIN" ? ROUTES.ADMIN : ROUTES.HOME)
@@ -167,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persistWorkspace, router, user])
 
   useEffect(() => {
-    if (!user || user.role !== "ADMIN" || isLoading) return
+    if (!user || !isAdminRole(user.role) || isLoading) return
     const workspace: Workspace = pathname.startsWith(ROUTES.ADMIN) ? "ADMIN" : "USER"
     const timer = window.setTimeout(() => persistWorkspace((current) => current.currentWorkspace === workspace && current.lastWorkspace === workspace
       ? current
@@ -180,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isLogin: !!user,
       isAuthenticated: !!user,
-      isAdmin: user?.role === "ADMIN",
+      isAdmin: isAdminRole(user?.role),
       isLoading,
       login,
       signup,
