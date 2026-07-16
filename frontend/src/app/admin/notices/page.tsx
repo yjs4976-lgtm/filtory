@@ -1,0 +1,2 @@
+import { AdminSimplePage } from "@/components/admin/AdminSimplePage"
+export default function Page(){return <AdminSimplePage title="공지사항·FAQ" description="서비스 공지와 자주 묻는 질문을 관리하세요." summary={[["게시 중 공지","8건"],["FAQ","24건"],["임시 저장","3건"]]} headers={["구분","제목","수정일","상태"]} rows={[["공지","Filtory 분석 이용 안내","2026-07-15","게시 중"],["FAQ","무료 분석 횟수는 언제 초기화되나요?","2026-07-14","게시 중"],["공지","URL 분석 지원 범위 안내","2026-07-11","임시 저장"]]} />}

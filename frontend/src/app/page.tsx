@@ -9,10 +9,15 @@ import { FeatureGrid } from "@/components/home/FeatureGrid"
 import { HomeHero } from "@/components/home/HomeHero"
 import { RecentAnalysisSection } from "@/components/home/RecentAnalysisSection"
 import { TrustTipCard } from "@/components/home/TrustTipCard"
+import { PartneredInsight } from "@/components/ads/PartneredInsight"
+import { useMembership } from "@/context/MembershipContext"
+import { getActiveSponsoredInsight } from "@/data/sponsoredInsights"
+import { subscriptionPlans } from "@/data/subscriptionPlans"
 import styles from "@/styles/App.module.css"
 
 export default function HomePage() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+  const { membershipType } = useMembership()
 
   return (
     <div className={styles.page}>
@@ -22,6 +27,7 @@ export default function HomePage() {
         <HomeHero />
         <FeatureGrid />
         <RecentAnalysisSection />
+        <PartneredInsight insight={getActiveSponsoredInsight("home")} showSponsoredContent={subscriptionPlans[membershipType].showPartneredInsight} />
         <TrustTipCard />
       </main>
 

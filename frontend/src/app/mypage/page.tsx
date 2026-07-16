@@ -7,7 +7,6 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { SectionPager } from "@/components/common/SectionPager"
 import { InquiryStatusBadge, formatInquiryDate, inquiryShortDescription } from "@/components/help/InquiryShared"
 import { AccountManageMenu } from "@/components/mypage/AccountManageMenu"
-import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import { AppSettingsSection } from "@/components/mypage/AppSettingsSection"
 import { DangerZone } from "@/components/mypage/DangerZone"
 import { LoginRequiredPanel } from "@/components/mypage/LoginRequiredPanel"
@@ -16,6 +15,7 @@ import { MyAnalysisSummary } from "@/components/mypage/MyAnalysisSummary"
 import { MyPageUserCard } from "@/components/mypage/MyPageUserCard"
 import { ProfileCompletionCard } from "@/components/mypage/ProfileCompletionCard"
 import { RecentAnalysisPreview } from "@/components/mypage/RecentAnalysisPreview"
+import { AnalysisUsageCard } from "@/components/membership/AnalysisUsageCard"
 import { MyHospitals } from "@/components/mypage/MyHospitals"
 import { useLanguage } from "@/context/LanguageContext"
 import { useAuth } from "@/hooks/useAuth"
@@ -40,7 +40,6 @@ export default function MyPage() {
   const [hospitalsError, setHospitalsError] = useState(false)
   const [reports, setReports] = useState<MyReport[]>([])
   const [latestInquiry, setLatestInquiry] = useState<Inquiry | null>(null)
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
 
   const loadHospitals = useCallback(async () => {
     if (isLoading || !isAuthenticated) return
@@ -103,8 +102,7 @@ export default function MyPage() {
       id: "profile",
       content: (
         <div className={styles.stackMd}>
-          <MyPageUserCard onChatbotToggle={() => setIsChatbotOpen((current) => !current)} isChatbotOpen={isChatbotOpen} />
-          <ChatbotModal open={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
+          <MyPageUserCard />
           <MyActivityStats
             nickname={user?.nickname || user?.name || "User"}
             analysisCount={records.length}
@@ -119,6 +117,7 @@ export default function MyPage() {
       id: "activity",
       content: (
         <div className={styles.stackMd}>
+          <AnalysisUsageCard />
           <MyAnalysisSummary records={records} />
           <RecentAnalysisPreview records={records} />
         </div>

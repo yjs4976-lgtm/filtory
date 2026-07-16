@@ -28,3 +28,5 @@ export function sanitizeInternalNextPath(value: string | null | undefined): stri
     return null
   }
 }
+
+export const getSafeInternalRedirect = sanitizeInternalNextPath

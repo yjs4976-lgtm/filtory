@@ -17,6 +17,10 @@ import {
 import { ROUTES } from "@/lib/routes"
 import type { HospitalCategory, Language } from "@/lib/types"
 import styles from "@/styles/App.module.css"
+import { useMembership } from "@/context/MembershipContext"
+import { useToast } from "@/hooks/useToast"
+import { AnalysisUsageStatus } from "@/components/membership/AnalysisUsageStatus"
+import { MembershipSheet } from "@/components/membership/MembershipSheet"
 
 type AnalyzeMode = "hospital" | "url"
 
@@ -35,6 +39,10 @@ const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
 export function HomeHero() {
   const router = useRouter()
   const { t, language } = useLanguage()
+  const { membershipType, remainingAnalyses, addRewardAnalysis } = useMembership()
+  const { showToast } = useToast()
+  const [membershipSheet, setMembershipSheet] = useState<"benefits" | "limit" | null>(null)
+  const [isRewardLoading, setIsRewardLoading] = useState(false)
   const currentLanguage: Language = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<HospitalCategory>("derma")
   const [mode, setMode] = useState<AnalyzeMode>("hospital")
@@ -84,6 +92,10 @@ export function HomeHero() {
   }, [isRegionSheetOpen])
 
   function startAnalyze() {
+    if (membershipType === "FREE" && remainingAnalyses === 0) {
+      setMembershipSheet("limit")
+      return
+    }
     const params = new URLSearchParams()
     params.set("category", category)
     if (mode === "hospital") {
@@ -107,6 +119,18 @@ export function HomeHero() {
     }
     if (mode === "url" && naverUrl.trim()) params.set("naver", naverUrl.trim())
     router.push(`${ROUTES.ANALYZE}?${params.toString()}`)
+  }
+
+  function watchRewardAd() {
+    if (isRewardLoading) return
+    // TODO: Replace this timer with the rewarded-ad SDK completion callback.
+    setIsRewardLoading(true)
+    window.setTimeout(() => {
+      addRewardAnalysis()
+      setIsRewardLoading(false)
+      setMembershipSheet(null)
+      showToast({ title: "광고 시청이 완료되어 분석 1회가 추가되었습니다.", tone: "success" })
+    }, 900)
   }
 
   function openRegionSheet() {
@@ -252,11 +276,14 @@ export function HomeHero() {
           />
         )}
 
-        <button type="button" className={styles.primaryButton} onClick={startAnalyze}>
+        <button type="button" className={styles.primaryButton} onClick={startAnalyze} aria-label={t.home.startAnalysis}>
           <Search className={styles.iconSm} />
           {t.home.startAnalysis}
         </button>
+        <AnalysisUsageStatus onShowBenefits={() => setMembershipSheet("benefits")} />
       </section>
+
+      <MembershipSheet open={membershipSheet !== null} variant={membershipSheet ?? "benefits"} isRewardLoading={isRewardLoading} onClose={() => setMembershipSheet(null)} onWatchAd={watchRewardAd} />
 
       {isRegionSheetOpen ? (
         <div className={styles.regionSheetBackdrop} role="presentation" onClick={() => setIsRegionSheetOpen(false)}>

@@ -7,6 +7,9 @@ import styles from "@/styles/App.module.css"
 
 type ResultInsightSectionProps = {
   viewModel: AnalysisResultViewModel
+  hasDetailedAccess?: boolean
+  onShowPlus?: () => void
+  formattedResetDate?: string
 }
 
 const DETAIL_PAGE_SIZE = 3
@@ -150,7 +153,7 @@ function ResultAccordion({
   )
 }
 
-export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
+export function ResultInsightSection({ viewModel, hasDetailedAccess = true, onShowPlus, formattedResetDate }: ResultInsightSectionProps) {
   const { t } = useLanguage()
   const referenceSignals = Array.from(new Set([...viewModel.repetition.referenceWarnings, ...viewModel.signals.warningSignals]))
   const label = t.result.insights
@@ -256,7 +259,14 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
         icon={<AlertTriangle className={`${styles.iconSm} ${styles.pinkText}`} />}
         defaultOpen
       >
-        <DetailPagePanel pages={detailedAnalysisPages} labels={pagerLabels} />
+        {hasDetailedAccess ? <DetailPagePanel pages={detailedAnalysisPages} labels={pagerLabels} /> : <div className={styles.lockedDetailedAnalysis}>
+          <h3>상세 광고 의심 근거</h3>
+          <p>어떤 표현과 리뷰 패턴이 광고 가능성을 높였는지 확인할 수 있어요.</p>
+          <strong>이번 달 무료 상세 분석을 모두 사용했어요.</strong>
+          <small>{formattedResetDate}부터 다시 확인할 수 있습니다.</small>
+          <small>Plus에서는 지금 바로 상세 근거를 확인할 수 있어요.</small>
+          <button type="button" className={styles.primaryButton} onClick={onShowPlus}>Plus에서 확인하기</button>
+        </div>}
       </ResultAccordion>
 
       <ResultAccordion

@@ -25,6 +25,7 @@ export function ProfileCompletionCard({ user }: ProfileCompletionCardProps) {
       <div className={styles.progressTrack} aria-hidden="true">
         <span className={styles.progressFill} style={{ width: `${completion.percent}%` }} />
       </div>
+      <p className={styles.bodyText}>{t.mypage.optionalProfileDescription}</p>
       <div className={styles.profileChecklistGrid}>
         <div className={styles.stackSm}>
           <p className={styles.miniSectionTitle}>{t.mypage.completedItems}</p>

@@ -11,6 +11,7 @@ class Member(db.Model):
             "status in ('active', 'suspended', 'withdrawn', 'dormant')",
             name="members_status_check",
         ),
+        db.CheckConstraint("gender is null or gender in ('FEMALE', 'MALE', 'OTHER', 'PREFER_NOT_TO_SAY')", name="members_gender_check"),
         {"schema": "public"},
     )
 
@@ -23,6 +24,8 @@ class Member(db.Model):
     real_name = db.Column(db.String(100))
     phone = db.Column(db.String(30))
     profile_img_url = db.Column(db.Text)
+    date_of_birth = db.Column(db.Date)
+    gender = db.Column(db.String(30))
     role = db.Column(db.String(30), nullable=False, default="user", server_default="user")
     status = db.Column(db.String(30), nullable=False, default="active", server_default="active")
     active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text("true"))

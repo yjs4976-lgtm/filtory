@@ -1,64 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import type { AdminUser } from "@/lib/types"
-import { useLanguage } from "@/context/LanguageContext"
-import { adminUserService, type AdminUserFilters } from "@/services/adminUserService"
+import { useMemo, useRef, useState } from "react"
+import { RefreshCw, X } from "lucide-react"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
-import { AdminUserFilter } from "@/components/admin/users/AdminUserFilter"
-import { AdminUserTable } from "@/components/admin/users/AdminUserTable"
+import { ADMIN_USERS, type AdminMockUser } from "@/mocks/adminData"
+import { useToast } from "@/hooks/useToast"
+import { calculateInternationalAge, getAgeGroup } from "@/lib/profileDemographics"
 
+type ConfirmAction = { label: string; message: string; run: () => void } | null
 export default function AdminUsersPage() {
-  const { t } = useLanguage()
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [filters, setFilters] = useState<AdminUserFilters>({ status: "all", role: "all" })
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const paginationResetKey = `${filters.keyword ?? ""}|${filters.status ?? "all"}|${filters.role ?? "all"}`
-
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError("")
-
-      const nextUsers = await adminUserService.getUsers(filters)
-      setUsers(nextUsers)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : t.admin.loadFailed)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [filters, t.admin.loadFailed])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadData()
-    }, 0)
-
-    return () => window.clearTimeout(timer)
-  }, [loadData])
-
-  return (
-    <AdminAppShell title={t.admin.users}>
-      <AdminGuard>
-        <section className="page-title">
-          <p className="eyebrow">ADMIN USERS</p>
-          <h1>{t.admin.menuUsersTitle}</h1>
-          <p>{t.admin.usersDescription}</p>
-        </section>
-
-        {isLoading && <p>{t.admin.loading}</p>}
-        {error && <p className="form-error">{error}</p>}
-        <AdminUserFilter value={filters} onChange={setFilters} />
-        {!isLoading && (
-          <AdminUserTable
-            key={paginationResetKey}
-            users={users}
-            onRefresh={loadData}
-          />
-        )}
-      </AdminGuard>
-    </AdminAppShell>
-  )
+  const [users,setUsers]=useState(ADMIN_USERS); const [query,setQuery]=useState(""); const [plan,setPlan]=useState("전체"); const [status,setStatus]=useState("전체"); const [usage,setUsage]=useState("전체")
+  const [selected,setSelected]=useState<AdminMockUser|null>(null); const [confirm,setConfirm]=useState<ConfirmAction>(null); const triggerRef=useRef<HTMLButtonElement|null>(null); const {showToast}=useToast()
+  const [reason,setReason]=useState("")
+  const filtered=useMemo(()=>users.filter(u=>{const available=u.usedCount<u.monthlyLimit+u.rewardCount+(u.adminGrantedCount??0);const usageState=!available?"소진":u.usedCount>=u.monthlyLimit-1?"한도 임박":"사용 가능";return(!query||`${u.name} ${u.email} ${u.id}`.toLowerCase().includes(query.toLowerCase()))&&(plan==="전체"||u.plan===plan)&&(status==="전체"||u.accountStatus===status)&&(usage==="전체"||usageState===usage)}),[users,query,plan,status,usage])
+  const update=(id:string,fn:(u:AdminMockUser)=>AdminMockUser,message:string)=>{setUsers(v=>v.map(u=>u.id===id?fn(u):u));setSelected(v=>v?.id===id?fn(v):v);showToast({title:message,tone:"success"})}
+  const close=()=>{setSelected(null);requestAnimationFrame(()=>triggerRef.current?.focus())}
+  return <AdminAppShell title="사용자 관리"><AdminGuard><div className="admin-heading admin-users-heading"><h2>사용자 관리</h2><p>사용자 계정과 분석 이용 상태를 관리하세요.</p></div>
+    <div className="admin-compact-kpis admin-user-kpis">{[["전체 사용자","1,248명"],["Free 이용자","1,161명"],["Plus 이용자","87명"],["분석 소진 Free","136명"]].map(x=><article key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></article>)}</div>
+    <div className="admin-toolbar admin-users-toolbar"><label><span>사용자 검색</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="이름, 이메일, 사용자 ID" /></label><label><span>요금제</span><select value={plan} onChange={e=>setPlan(e.target.value)}>{["전체","Free","Plus"].map(x=><option key={x}>{x}</option>)}</select></label><label><span>계정 상태</span><select value={status} onChange={e=>setStatus(e.target.value)}>{["전체","정상","정지","탈퇴"].map(x=><option key={x}>{x}</option>)}</select></label><label><span>분석 상태</span><select value={usage} onChange={e=>setUsage(e.target.value)}>{["전체","사용 가능","소진","한도 임박"].map(x=><option key={x}>{x}</option>)}</select></label><button type="button" onClick={()=>setUsers([...ADMIN_USERS])} aria-label="사용자 목록 새로고침"><RefreshCw />새로고침</button></div>
+    <section className="admin-panel admin-users-panel"><div className="admin-table-wrap"><table className="admin-data-table"><thead><tr>{["사용자","이메일","요금제","이번 달 분석","광고 보상","계정 상태","최근 접속","관리"].map(x=><th key={x} scope="col">{x}</th>)}</tr></thead><tbody>{filtered.map(u=>{const available=u.monthlyLimit+u.rewardCount+(u.adminGrantedCount??0);const usageState=u.usedCount>=available?"소진":u.usedCount>=u.monthlyLimit-1?"한도 임박":"";return <tr key={u.id}><td><strong>{u.name}</strong><small>{u.id}</small></td><td>{u.email}</td><td><span className={`admin-state plan-${u.plan}`}>{u.plan}</span></td><td>{u.usedCount} / {available}회 {usageState&&<span className="admin-state state-warning">{usageState}</span>}</td><td>{u.rewardCount}회</td><td><span className={`admin-state account-${u.accountStatus}`}>{u.accountStatus}</span></td><td>{u.lastLoginAt}</td><td><button ref={el=>{if(selected?.id===u.id)triggerRef.current=el}} type="button" onClick={e=>{triggerRef.current=e.currentTarget;setSelected(u)}} aria-label={`${u.name} 사용자 관리`}>관리</button></td></tr>})}</tbody></table></div></section>
+    {selected&&<div className="admin-drawer-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><aside className="admin-user-drawer" role="dialog" aria-modal="true" aria-labelledby="admin-user-detail"><button type="button" className="admin-drawer-close" onClick={close} aria-label="사용자 상세 닫기"><X /></button><h2 id="admin-user-detail">{selected.name}</h2><p>{selected.email} · {selected.id}</p><dl>{[["가입일",selected.joinedAt],["최근 접속",selected.lastLoginAt],["계정 상태",selected.accountStatus],["현재 요금제",selected.plan],["이번 달 분석",`${selected.usedCount} / ${selected.monthlyLimit+selected.rewardCount+(selected.adminGrantedCount??0)}회`],["기본 횟수",`${selected.monthlyLimit}회`],["광고 보상",`${selected.rewardCount}회`],["관리자 지급",`${selected.adminGrantedCount??0}회`],["남은 분석",`${Math.max(selected.monthlyLimit+selected.rewardCount+(selected.adminGrantedCount??0)-selected.usedCount,0)}회`],["연령대",getAdminAgeGroup(selected.dateOfBirth)],["성별",getAdminGender(selected.gender)],["최근 분석","2026-07-16 · 완료"],["최근 결제",selected.hasPaymentHistory?"결제 완료":"결제 내역 없음"]].map(([a,b])=><div key={a}><dt>{a}</dt><dd>{b}</dd></div>)}</dl><div className="admin-drawer-actions"><button onClick={()=>setConfirm({label:"1회 지급",message:`${selected.name} 사용자에게 상세 분석 1회를 지급할까요?`,run:()=>update(selected.id,u=>({...u,adminGrantedCount:(u.adminGrantedCount??0)+1}),"관리자 지급 횟수 1회가 기록되었습니다.")})}>상세 분석 1회 지급</button><button onClick={()=>setConfirm({label:"1회 회수",message:`${selected.name} 사용자의 관리자 지급 횟수 1회를 회수할까요?`,run:()=>update(selected.id,u=>({...u,adminGrantedCount:Math.max(0,(u.adminGrantedCount??0)-1)}),"관리자 지급 횟수 1회가 회수되었습니다.")})}>관리자 지급 1회 회수</button><button onClick={()=>setConfirm({label:"초기화",message:`${selected.name} 사용자의 이번 달 분석 사용량을 초기화할까요?`,run:()=>update(selected.id,u=>({...u,usedCount:0}),"분석 사용량이 초기화되었습니다.")})}>사용량 초기화</button><button onClick={()=>setConfirm({label:selected.accountStatus==="정지"?"정지 해제":"계정 정지",message:`${selected.name} 사용자 계정을 ${selected.accountStatus==="정지"?"정지 해제":"정지"}할까요?`,run:()=>update(selected.id,u=>({...u,accountStatus:u.accountStatus==="정지"?"정상":"정지"}),selected.accountStatus==="정지"?"사용자 계정 정지가 해제되었습니다.":"사용자 계정이 정지되었습니다.")})}>{selected.accountStatus==="정지"?"계정 정지 해제":"계정 정지"}</button></div></aside></div>}
+    {confirm&&<div className="admin-confirm-backdrop"><section role="alertdialog" aria-modal="true" className="admin-confirm"><h2>작업 확인</h2><p>{confirm.message}</p><label className="admin-note"><span>작업 사유</span><textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="작업 사유를 입력하세요." /></label><div><button onClick={()=>{setConfirm(null);setReason("")}}>취소</button><button disabled={!reason.trim()} onClick={()=>{confirm.run();setConfirm(null);setReason("")}}>{confirm.label}</button></div></section></div>}
+  </AdminGuard></AdminAppShell>
 }
+
+function getAdminAgeGroup(dateOfBirth?: string | null){const group=getAgeGroup(dateOfBirth?calculateInternationalAge(dateOfBirth):null);return group?({UNDER_TEN:"10세 미만",TEENS:"10대",TWENTIES:"20대",THIRTIES:"30대",FORTIES:"40대",FIFTIES:"50대",SIXTIES_OR_MORE:"60대 이상"}[group]):"미입력"}
+function getAdminGender(gender?: string|null){return gender==="FEMALE"?"여성":gender==="MALE"?"남성":gender==="OTHER"?"기타":gender==="PREFER_NOT_TO_SAY"?"응답하지 않음":"미입력"}

@@ -7,7 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
 import { ROUTES } from "@/lib/routes";
-import type { TermsAgreementState } from "@/lib/types";
+import type { Gender, TermsAgreementState } from "@/lib/types";
+import { normalizeOptionalDate } from "@/lib/profileDemographics";
 import { memberService } from "@/services/memberService";
 import { PasswordField } from "./PasswordField";
 import { TermsAgreement } from "./TermsAgreement";
@@ -41,6 +42,8 @@ export function SignupForm() {
   const [loginIdCheck, setLoginIdCheck] = useState<"idle" | "available" | "unavailable">("idle");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState<Gender | "">("");
   const [terms, setTerms] = useState<TermsAgreementState>({
     termsAgreed: false,
     privacyAgreed: false,
@@ -67,6 +70,7 @@ export function SignupForm() {
     passwordValidation.valid &&
     passwordsMatch &&
     !isSubmitting;
+  const todayDate = formatLocalDate(new Date());
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -114,6 +118,10 @@ export function SignupForm() {
       setError(t.auth.termsRequired);
       return;
     }
+    if (dateOfBirth && !normalizeOptionalDate(dateOfBirth)) {
+      setError(t.auth.invalidDateOfBirth);
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -127,6 +135,8 @@ export function SignupForm() {
         termsAgreed: terms.termsAgreed,
         privacyAgreed: terms.privacyAgreed,
         marketingAgreed: terms.marketingAgreed,
+        dateOfBirth: dateOfBirth || null,
+        gender: gender || null,
       });
 
       showToast({
@@ -293,6 +303,23 @@ export function SignupForm() {
         )}
       </div>
 
+      <section className={styles.optionalInfoSection} aria-describedby="signup-optional-description">
+        <div><h2>{t.auth.optionalInfo}</h2><span>{t.auth.optional}</span></div>
+        <p id="signup-optional-description">{t.auth.optionalInfoDescription}</p>
+        <div className={styles.optionalInfoGrid}>
+          <label className={styles.label} htmlFor="signup-date-of-birth">
+            <span>{t.auth.dateOfBirth} <em>{t.auth.optional}</em></span>
+            <input id="signup-date-of-birth" className={styles.input} type="date" max={todayDate} value={dateOfBirth} onChange={(event)=>setDateOfBirth(event.target.value)} aria-describedby="signup-optional-description" />
+          </label>
+          <label className={styles.label} htmlFor="signup-gender">
+            <span>{t.auth.gender} <em>{t.auth.optional}</em></span>
+            <select id="signup-gender" className={styles.input} value={gender} onChange={(event)=>setGender(event.target.value as Gender | "")} aria-describedby="signup-optional-description">
+              <option value="">{t.auth.genderNotSelected}</option><option value="FEMALE">{t.auth.genderFemale}</option><option value="MALE">{t.auth.genderMale}</option><option value="OTHER">{t.auth.genderOther}</option><option value="PREFER_NOT_TO_SAY">{t.auth.genderPreferNotToSay}</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <TermsAgreement value={terms} onChange={setTerms} />
 
       <button className={styles.primaryButton} type="submit" disabled={!canSubmit}>
@@ -352,6 +379,11 @@ export function SignupForm() {
       )}
     </form>
   );
+}
+
+function formatLocalDate(date: Date) {
+  const year=date.getFullYear(); const month=String(date.getMonth()+1).padStart(2,"0"); const day=String(date.getDate()).padStart(2,"0")
+  return `${year}-${month}-${day}`
 }
 
 function validateLoginId(value: string, messages: Record<string, string>) {

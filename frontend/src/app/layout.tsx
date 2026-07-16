@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ServiceWorkerRegister } from "@/components/common/ServiceWorkerRegister";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { MembershipProvider } from "@/context/MembershipContext";
 
 export const metadata: Metadata = {
   title: "Filtory",
@@ -22,7 +23,9 @@ export default function RootLayout({
         <LanguageProvider>
           <ToastProvider>
             <AuthProvider>
-              {children}
+              <MembershipProvider>
+                {children}
+              </MembershipProvider>
             </AuthProvider>
           </ToastProvider>
         </LanguageProvider>

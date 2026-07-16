@@ -1,0 +1,2 @@
+import { AdminSimplePage } from "@/components/admin/AdminSimplePage"
+export default function Page(){return <AdminSimplePage title="관리자 활동 기록" description="관리자 계정의 주요 변경 이력을 확인하세요." summary={[["오늘 활동","18건"],["설정 변경","2건"],["사용자 조치","6건"]]} headers={["관리자","작업","대상","시각"]} rows={[["조정화","분석 횟수 1회 추가","U-1048","오늘 10:12"],["관리자","오류 처리 완료","E-106","오늘 09:48"],["조정화","사용자 계정 정지 해제","U-1042","어제 18:20"]]} />}

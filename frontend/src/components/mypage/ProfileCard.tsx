@@ -67,7 +67,7 @@ export function ProfileCard() {
           {t.mypage.editMemberInfo}
         </Link>
 
-        <button type="button" className={styles.dangerButton} onClick={logout}>
+        <button type="button" className={styles.dangerButton} onClick={() => void logout()}>
           <LogOut className={styles.iconSm} />
           {t.mypage.logout}
         </button>

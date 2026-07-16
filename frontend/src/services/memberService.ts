@@ -15,6 +15,8 @@ type BackendUpdateProfilePayload = {
   nickname?: string
   phone?: string
   profile_img_url?: string | null
+  date_of_birth?: string | null
+  gender?: UpdateProfilePayload["gender"]
 }
 
 function getMemberPath(userId: User["id"]) {
@@ -102,6 +104,8 @@ export const memberService = {
           savedHospitalCount: currentUser?.savedHospitalCount,
           reportCount: currentUser?.reportCount,
           createdAt: currentUser?.createdAt ?? new Date().toISOString(),
+          dateOfBirth: payload.dateOfBirth === undefined ? currentUser?.dateOfBirth ?? null : payload.dateOfBirth,
+          gender: payload.gender === undefined ? currentUser?.gender ?? null : payload.gender,
         } satisfies User,
       };
     }
@@ -171,5 +175,7 @@ function toBackendUpdateProfilePayload(payload: UpdateProfilePayload): BackendUp
     nickname: payload.nickname,
     phone: payload.phone,
     profile_img_url: profileImgUrl,
+    date_of_birth: payload.dateOfBirth,
+    gender: payload.gender,
   }
 }

@@ -15,11 +15,15 @@ import { NotificationBottomSheet } from "./NotificationBottomSheet"
 import { SidebarNav } from "./SidebarNav"
 import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import styles from "@/styles/App.module.css"
+import { useMembership } from "@/context/MembershipContext"
+import { MembershipBadge } from "@/components/membership/MembershipBadge"
+import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher"
 
 export function Header({ title = "", showBack = false, showBrand = false, showBell = false }) {
   const router = useRouter()
   const { t } = useLanguage()
-  const { user, isLoading } = useAuth()
+  const { user, isAdmin, isLoading } = useAuth()
+  const { membershipType } = useMembership()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
@@ -115,21 +119,12 @@ export function Header({ title = "", showBack = false, showBrand = false, showBe
 
           <div className={styles.headerActions}>
             <LanguageToggle />
-            {showBack && (
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                aria-label={t.nav.sidebarLabel}
-                className={`${styles.iconButton} ${styles.mobileMenuButton}`}
-              >
-                <Menu className={styles.iconMd} />
-              </button>
-            )}
             {!isLoading && (
               user ? (
-                <Link href={ROUTES.MYPAGE} className={styles.profileChip} aria-label={t.common.mypage} title={displayName}>
+                isAdmin ? <WorkspaceSwitcher current="USER" /> : <Link href={ROUTES.MYPAGE} className={styles.profileChip} aria-label={t.common.mypage} title={displayName}>
                   <UserRound className={styles.iconSm} />
                   <span>{displayName}</span>
+                  {membershipType === "PLUS" && <MembershipBadge />}
                 </Link>
               ) : (
                 <Link href={ROUTES.LOGIN} className={styles.headerLoginButton}>

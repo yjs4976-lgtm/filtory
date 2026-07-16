@@ -1,0 +1,19 @@
+{
+  "free": { "monthlyDetailedAnalysisLimit": 5, "usageResetCycle": "monthly", "usageResetDay": 1, "usageResetTimezone": "Asia/Seoul", "showPartneredInsight": true },
+  "plus": { "monthlyPrice": 4900, "displayPriceKo": "월 4,900원", "monthlyDetailedAnalysisLimit": 30, "showPartneredInsight": false },
+  "supportedDepartments": [
+    { "value": "dermatology", "frontendValue": "derma", "labelKo": "피부과", "labelEn": "Dermatology" },
+    { "value": "ophthalmology", "frontendValue": "eye", "labelKo": "안과", "labelEn": "Ophthalmology" },
+    { "value": "dentistry", "frontendValue": "dental", "labelKo": "치과", "labelEn": "Dentistry" },
+    { "value": "orthopedics", "frontendValue": "orthopedics", "labelKo": "정형외과", "labelEn": "Orthopedics" }
+  ],
+  "profile": { "dateOfBirthOptional": true, "genderOptional": true, "ageVerificationRequired": false, "genderValues": ["FEMALE", "MALE", "OTHER", "PREFER_NOT_TO_SAY"] },
+  "cancellationReasons": [
+    { "id": "price", "labelKo": "가격이 부담돼요" }, { "id": "frequency", "labelKo": "생각보다 자주 사용하지 않아요" },
+    { "id": "features", "labelKo": "원하는 기능이 부족해요" }, { "id": "results", "labelKo": "분석 결과가 기대와 달라요" },
+    { "id": "free-enough", "labelKo": "무료 기능만으로도 충분해요" }, { "id": "pause", "labelKo": "일시적으로 사용을 쉬고 싶어요" },
+    { "id": "usability", "labelKo": "앱 사용 중 불편함이 있었어요" }, { "id": "other", "labelKo": "기타" }
+  ],
+  "partneredInsight": { "affectsAnalysis": false, "usesPersonalProfile": false },
+  "hospitalComparisonAvailable": false
+}

@@ -1,0 +1,2 @@
+import { AdminSimplePage } from "@/components/admin/AdminSimplePage"
+export default function Page(){return <AdminSimplePage title="시스템 상태" description="Filtory 주요 서비스의 상태를 확인하세요." summary={[["API 상태","정상"],["AI 분석 서버","정상"],["평균 응답 시간","182ms"],["처리 대기","9건"]]} headers={["서비스","상태","최근 확인","비고"]} rows={[["메인 API","정상","방금 전","-"],["AI 분석 서버","정상","방금 전","평균 8.4초"],["리뷰 수집","주의","2분 전","재시도 3건"],["알림 서비스","정상","1분 전","-"]]} />}
