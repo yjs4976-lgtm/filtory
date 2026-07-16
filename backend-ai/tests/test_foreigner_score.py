@@ -14,6 +14,69 @@ def make_payload(**kwargs):
 
 
 class ForeignerScoreTest(unittest.TestCase):
+    def test_accepts_orthopedics_category_from_backend_main(self):
+        payload = make_payload(category="orthopedics")
+
+        self.assertEqual(payload.category, "orthopedics")
+
+    def test_accepts_orthopedics_aliases(self):
+        self.assertEqual(make_payload(category="orthopedic").category, "orthopedic")
+        self.assertEqual(make_payload(category="정형외과").category, "정형외과")
+
+    def test_pasted_review_text_is_split_by_blank_lines(self):
+        payload = make_payload(
+            reviews=[],
+            reviewText="상담과 비용 안내가 자세했어요.\n\n대기 시간과 진료 과정을 설명받았어요.",
+        )
+
+        self.assertEqual(OpenAIReviewAnalysisService.analyzed_review_count(payload), 2)
+
+    def test_reviews_array_is_preferred_over_merged_review_text(self):
+        payload = make_payload(
+            reviewText="상담과 비용 안내가 자세했어요.\n\n대기 시간과 진료 과정을 설명받았어요.",
+            reviews=[
+                "상담과 비용 안내가 자세했어요.",
+                "대기 시간과 진료 과정을 설명받았어요.",
+            ],
+        )
+
+        self.assertEqual(OpenAIReviewAnalysisService.analyzed_review_count(payload), 2)
+
+    def test_owner_reply_block_is_removed_from_review_text(self):
+        payload = make_payload(
+            reviews=[
+                "상담과 비용 안내가 자세했어요.\n병원 답변\n소중한 리뷰 감사합니다. 더 좋은 진료로 보답하겠습니다.",
+            ],
+        )
+
+        self.assertEqual(OpenAIReviewAnalysisService._review_texts(payload), ["상담과 비용 안내가 자세했어요."])
+
+    def test_owner_reply_in_merged_review_text_does_not_drop_later_reviews(self):
+        payload = make_payload(
+            reviews=[],
+            reviewText=(
+                "상담 설명이 자세했어요.\n"
+                "병원 답변\n"
+                "소중한 리뷰 감사합니다.\n\n"
+                "대기 시간은 길었지만 진료 과정은 좋았어요."
+            ),
+        )
+
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(payload),
+            [
+                "상담 설명이 자세했어요.",
+                "대기 시간은 길었지만 진료 과정은 좋았어요.",
+            ],
+        )
+
+    def test_patient_sentence_about_missing_reply_is_kept(self):
+        payload = make_payload(
+            reviews=["병원 답변이 없어서 예약 문의가 불편했어요."],
+        )
+
+        self.assertEqual(OpenAIReviewAnalysisService._review_texts(payload), ["병원 답변이 없어서 예약 문의가 불편했어요."])
+
     def test_empty_metadata_returns_unknown_checks(self):
         payload = make_payload()
 

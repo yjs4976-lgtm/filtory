@@ -1,4 +1,4 @@
-import type { ReviewAnalyzeRequest, ReviewAnalyzeResponse } from "@/lib/types"
+import type { ReviewAnalyzeRequest, ReviewAnalyzeResponse, ReviewMentionedAspects, ReviewSignal } from "@/lib/types"
 import { apiClient } from "./apiClient"
 
 const ANALYZE_ERROR_MESSAGE = "분석 중 오류가 발생했어요. 다시 시도해주세요."
@@ -75,6 +75,37 @@ const GLOBAL_ACCESSIBILITY_CHECK_ALIASES: Record<GlobalAccessibilityCheckKey, st
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string")
+}
+
+function toReviewSignalArray(value: unknown): ReviewSignal[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const signal = item as Record<string, unknown>
+      const phrase = typeof signal.phrase === "string" ? signal.phrase.trim() : ""
+      if (!phrase) return []
+      return [{
+        type: typeof signal.type === "string" ? signal.type : undefined,
+        phrase,
+        strength: typeof signal.strength === "string" ? signal.strength : "medium",
+        reason: typeof signal.reason === "string" ? signal.reason : undefined,
+      }]
+    }
+
+    const phrase = String(item || "").trim()
+    return phrase ? [{ phrase, strength: "medium" }] : []
+  })
+}
+
+function normalizeMentionedAspects(value: unknown): ReviewMentionedAspects | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const source = value as Record<string, unknown>
+  return {
+    costMentioned: source.costMentioned === true,
+    waitingMentioned: source.waitingMentioned === true,
+    treatmentProcessMentioned: source.treatmentProcessMentioned === true,
+    aftercareMentioned: source.aftercareMentioned === true,
+  }
 }
 
 function normalizeEvidence(value: unknown): ReviewAnalyzeResponse["evidence"] {
@@ -280,7 +311,17 @@ function normalizeGlobalAccessibilityChecks(apiChecks: unknown, fallbackChecks: 
 }
 
 function buildAnalysisPayload(payload: ReviewAnalyzeRequest): ReviewAnalyzeRequest {
-  if (payload.reviews?.length || !payload.reviewText?.trim()) return payload
+  const reviews = (payload.reviews ?? []).map((review) => review.trim()).filter(Boolean)
+  if (reviews.length > 0) {
+    // reviews 배열이 있으면 합쳐진 reviewText를 보내지 않아 backend-main/backend-ai에서 중복 1건으로 세지 않게 한다.
+    return {
+      ...payload,
+      reviewText: undefined,
+      reviews,
+    }
+  }
+
+  if (!payload.reviewText?.trim()) return payload
 
   return {
     ...payload,
@@ -361,6 +402,12 @@ function normalizeAnalysisResponse(data: BackendAnalysisData, payload: ReviewAna
     positiveSignals: toStringArray(result.positiveSignals ?? evidence.positiveSignals),
     negativeSignals: toStringArray(result.negativeSignals),
     warningSignals: toStringArray(result.warningSignals ?? evidence.warnings),
+    specificitySignals: toReviewSignalArray(result.specificitySignals),
+    promoSignals: toReviewSignalArray(result.promoSignals),
+    repetitionSignals: toReviewSignalArray(result.repetitionSignals),
+    exaggerationSignals: toReviewSignalArray(result.exaggerationSignals),
+    balancedExperienceSignals: toReviewSignalArray(result.balancedExperienceSignals),
+    mentionedAspects: normalizeMentionedAspects(result.mentionedAspects),
     globalAccessibilityScore,
     globalAccessibilityLevel: typeof result.globalAccessibilityLevel === "string" ? result.globalAccessibilityLevel : "",
     globalAccessibilityMaxScore,

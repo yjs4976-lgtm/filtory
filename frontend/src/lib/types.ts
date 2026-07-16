@@ -262,6 +262,20 @@ export type ReviewEvidence = {
   checkItems: string[]
 }
 
+export type ReviewSignal = {
+  type?: string
+  phrase: string
+  strength?: "low" | "medium" | "strong" | string
+  reason?: string
+}
+
+export type ReviewMentionedAspects = {
+  costMentioned?: boolean
+  waitingMentioned?: boolean
+  treatmentProcessMentioned?: boolean
+  aftercareMentioned?: boolean
+}
+
 export type ReviewAnalyzeResponse = {
   analysisRequestId?: number
   analysisResultId?: number
@@ -313,6 +327,12 @@ export type ReviewAnalyzeResponse = {
   positiveSignals?: string[]
   negativeSignals?: string[]
   warningSignals?: string[]
+  specificitySignals?: ReviewSignal[]
+  promoSignals?: ReviewSignal[]
+  repetitionSignals?: ReviewSignal[]
+  exaggerationSignals?: ReviewSignal[]
+  balancedExperienceSignals?: ReviewSignal[]
+  mentionedAspects?: ReviewMentionedAspects
   globalAccessibilityScore?: number
   globalAccessibilityLevel?: "낮음" | "보통" | "높음" | "low" | "medium" | "high" | string
   globalAccessibilityMaxScore?: number

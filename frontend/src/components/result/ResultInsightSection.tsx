@@ -32,6 +32,27 @@ function InsightList({ items, emptyText, tone }: { items: string[]; emptyText: s
   )
 }
 
+function signalLabel(signal: { phrase: string; reason?: string }) {
+  return signal.reason ? `${signal.phrase} · ${signal.reason}` : signal.phrase
+}
+
+function SignalSummaryList({
+  title,
+  items,
+  emptyText,
+}: {
+  title: string
+  items: { phrase: string; reason?: string }[]
+  emptyText: string
+}) {
+  return (
+    <div className={styles.resultSignalGroup}>
+      <h3 className={styles.titleXs}>{title}</h3>
+      <InsightList items={items.map(signalLabel)} emptyText={emptyText} tone={styles.bgMint} />
+    </div>
+  )
+}
+
 function PaginatedInsightList({
   id,
   items,
@@ -140,6 +161,17 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
   }
   const unresolvedConvenienceChecks = viewModel.globalAccessibility.checks.filter((check) => check.status !== "confirmed")
   const unresolvedConvenienceTitle = label.unconfirmedInformationCount.replace("{count}", String(unresolvedConvenienceChecks.length))
+  const cautionSignals = [
+    ...viewModel.signals.promoSignals,
+    ...viewModel.signals.repetitionSignals,
+    ...viewModel.signals.exaggerationSignals,
+  ]
+  const mentionedAspectItems = [
+    viewModel.signals.mentionedAspects.costMentioned ? label.costMentioned : "",
+    viewModel.signals.mentionedAspects.waitingMentioned ? label.waitingMentioned : "",
+    viewModel.signals.mentionedAspects.treatmentProcessMentioned ? label.treatmentProcessMentioned : "",
+    viewModel.signals.mentionedAspects.aftercareMentioned ? label.aftercareMentioned : "",
+  ].filter(Boolean)
   const detailedAnalysisPages = [
     {
       title: label.coreInsight,
@@ -153,6 +185,30 @@ export function ResultInsightSection({ viewModel }: ResultInsightSectionProps) {
           </div>
           <p className={styles.resultEmptyText}>{viewModel.reviewBurst.description}</p>
         </>
+      ),
+    },
+    {
+      title: label.structuredSignals,
+      content: (
+        <div className={styles.stackSm}>
+          <SignalSummaryList
+            title={label.specificitySignals}
+            items={viewModel.signals.specificitySignals}
+            emptyText={label.noSpecificitySignals}
+          />
+          <SignalSummaryList
+            title={label.cautionSignals}
+            items={cautionSignals}
+            emptyText={label.noCautionSignals}
+          />
+          <div className={styles.resultMentionedAspectList}>
+            {mentionedAspectItems.length > 0 ? (
+              mentionedAspectItems.map((item) => <span key={item}>{item}</span>)
+            ) : (
+              <p className={styles.resultEmptyText}>{label.noMentionedAspects}</p>
+            )}
+          </div>
+        </div>
       ),
     },
     {

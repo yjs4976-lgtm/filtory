@@ -356,6 +356,24 @@ function normalizeReviewContent(content: string) {
     .toLowerCase()
 }
 
+function stripOwnerReplyText(content: string) {
+  const markerPattern = /^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$/i
+  const lines = content.replace(/\r\n/g, "\n").split("\n")
+  const keptLines: string[] = []
+
+  for (const line of lines) {
+    const match = markerPattern.exec(line)
+    if (match) {
+      const beforeReply = line.slice(0, match.index).trim()
+      if (beforeReply) keptLines.push(beforeReply)
+      break
+    }
+    keptLines.push(line)
+  }
+
+  return keptLines.join("\n").trim()
+}
+
 function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
   if (content.trim().length < MIN_REVIEW_TEXT_LENGTH) return "short"
   if (duplicateCount > 1) return "duplicate"
@@ -386,14 +404,14 @@ function splitReviewText(value: string) {
 
   const paragraphParts = trimmed
     .split(/\n\s*\n+/)
-    .map((part) => part.trim())
+    .map((part) => stripOwnerReplyText(part))
     .filter(Boolean)
 
   if (paragraphParts.length > 1) return paragraphParts
 
   return trimmed
     .split(/\n+/)
-    .map((part) => part.trim())
+    .map((part) => stripOwnerReplyText(part))
     .filter(Boolean)
 }
 
@@ -402,7 +420,7 @@ function uniqueReviewTexts(values: string[]) {
   const results: string[] = []
 
   values.forEach((value) => {
-    const content = value.trim()
+    const content = stripOwnerReplyText(value)
     const key = normalizeReviewContent(content)
     if (!content || !key || seen.has(key)) return
     seen.add(key)

@@ -152,6 +152,12 @@ def analysis_result_to_canonical_dict(analysis_result):
         "positiveSignals": _string_list(raw.get("positiveSignals")),
         "negativeSignals": _string_list(raw.get("negativeSignals")),
         "warningSignals": _string_list(raw.get("warningSignals") or evidence.get("warnings")),
+        "specificitySignals": _signal_list(raw.get("specificitySignals")),
+        "promoSignals": _signal_list(raw.get("promoSignals")),
+        "repetitionSignals": _signal_list(raw.get("repetitionSignals")),
+        "exaggerationSignals": _signal_list(raw.get("exaggerationSignals")),
+        "balancedExperienceSignals": _signal_list(raw.get("balancedExperienceSignals")),
+        "mentionedAspects": raw.get("mentionedAspects") if isinstance(raw.get("mentionedAspects"), dict) else {},
         "specificPhrases": _string_list(evidence.get("specificPhrases")),
         "checkItems": _string_list(evidence.get("checkItems")),
         "analyzedReviewCount": _first_present(raw.get("analyzedReviewCount"), evidence_json.get("analyzedReviewCount")),
@@ -201,6 +207,12 @@ def analysis_ai_response_to_result_data(ai_response, member_id, hospital_id, req
         "repetitivePhrases": ai_response.get("repetitivePhrases") or [],
         "positiveSignals": ai_response.get("positiveSignals") or [],
         "negativeSignals": ai_response.get("negativeSignals") or [],
+        "specificitySignals": ai_response.get("specificitySignals") or [],
+        "promoSignals": ai_response.get("promoSignals") or [],
+        "repetitionSignals": ai_response.get("repetitionSignals") or [],
+        "exaggerationSignals": ai_response.get("exaggerationSignals") or [],
+        "balancedExperienceSignals": ai_response.get("balancedExperienceSignals") or [],
+        "mentionedAspects": ai_response.get("mentionedAspects") or {},
         "analyzedReviewCount": ai_response.get("analyzedReviewCount"),
         "rawResponse": ai_response,
     }
@@ -262,3 +274,25 @@ def _string_list(value):
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
+
+
+def _signal_list(value):
+    if not isinstance(value, list):
+        return []
+    signals = []
+    for item in value:
+        if isinstance(item, dict):
+            phrase = str(item.get("phrase") or "").strip()
+            if not phrase:
+                continue
+            signals.append(
+                {
+                    "type": str(item.get("type") or "").strip(),
+                    "phrase": phrase,
+                    "strength": str(item.get("strength") or "medium").strip(),
+                    "reason": str(item.get("reason") or "").strip(),
+                }
+            )
+        elif str(item or "").strip():
+            signals.append({"type": "", "phrase": str(item).strip(), "strength": "medium", "reason": ""})
+    return signals

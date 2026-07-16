@@ -66,6 +66,12 @@ class MockReviewAnalysisService:
             review_length=len(review_text),
             language=payload.outputLanguage,
         )
+        mentioned_aspects = {
+            "costMentioned": any(keyword in review_text for keyword in ["비용", "가격", "금액", "cost", "price"]),
+            "waitingMentioned": any(keyword in review_text for keyword in ["대기", "기다", "waiting", "waited"]),
+            "treatmentProcessMentioned": any(keyword in review_text for keyword in ["치료", "시술", "진료", "검사", "처방", "treatment", "procedure"]),
+            "aftercareMentioned": any(keyword in review_text for keyword in ["사후관리", "경과", "주의사항", "aftercare", "follow-up"]),
+        }
 
         data = {
             "trustScore": trust_score,
@@ -92,6 +98,25 @@ class MockReviewAnalysisService:
                 ),
             },
             "negativeSignals": cls._warnings(bool(promotional_phrases), bool(repetitive_phrases), payload.outputLanguage),
+            "specificitySignals": [
+                {"type": "concrete_detail", "phrase": phrase, "strength": "medium", "reason": "구체적인 방문 정보로 분류된 표현입니다."}
+                for phrase in specific_phrases[:5]
+            ],
+            "promoSignals": [
+                {"type": "promotional_wording", "phrase": phrase, "strength": "medium", "reason": "홍보성으로 보일 수 있는 표현입니다."}
+                for phrase in promotional_phrases[:5]
+            ],
+            "repetitionSignals": [
+                {"type": "repeated_wording", "phrase": phrase, "strength": "medium", "reason": "반복적으로 등장한 표현입니다."}
+                for phrase in repetitive_phrases[:5]
+            ],
+            "exaggerationSignals": [
+                {"type": "exaggeration", "phrase": phrase, "strength": "medium", "reason": "강한 과장 표현으로 볼 수 있습니다."}
+                for phrase in promotional_phrases[:3]
+                if phrase in {"최고", "대박", "완전", "무조건"}
+            ],
+            "balancedExperienceSignals": [],
+            "mentionedAspects": mentioned_aspects,
         }
         normalized = OpenAIReviewAnalysisService.normalize_response_data(
             data=data,

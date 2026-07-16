@@ -27,6 +27,7 @@ export const ROUTES = {
   MYPAGE_REPORTS: "/mypage/reports",
   MYPAGE_NOTIFICATIONS: "/mypage/notifications",
   MYPAGE_SETTINGS: "/mypage/settings",
+  MYPAGE_CHATBOT_HISTORY: "/mypage/chatbot-history",
   MYPAGE_SECURITY: "/mypage/security",
   MYPAGE_RECENT: "/mypage/recent",
   MYPAGE_INSIGHTS: "/mypage/insights",

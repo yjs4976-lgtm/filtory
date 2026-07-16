@@ -39,11 +39,29 @@ def list_chatbot_conversations():
     return success_response(items, meta=build_pagination_meta(pagination["page"], pagination["per_page"], total))
 
 
+@chatbot_bp.route("/conversations", methods=["DELETE"])
+@require_auth
+def delete_all_chatbot_conversations():
+    return success_response(ChatbotHistoryService.delete_all_conversations(g.current_member.id), "Chatbot conversations deleted")
+
+
 @chatbot_bp.route("/conversations/<int:conversation_id>", methods=["GET"])
 @require_auth
 def get_chatbot_conversation(conversation_id):
     try:
         return success_response(ChatbotHistoryService.get_conversation(g.current_member.id, conversation_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
+@chatbot_bp.route("/conversations/<int:conversation_id>", methods=["DELETE"])
+@require_auth
+def delete_chatbot_conversation(conversation_id):
+    try:
+        return success_response(
+            ChatbotHistoryService.delete_conversation(g.current_member.id, conversation_id),
+            "Chatbot conversation deleted",
+        )
     except ValueError as e:
         return error_response(str(e), 404)
 

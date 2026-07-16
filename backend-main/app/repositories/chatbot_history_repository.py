@@ -56,6 +56,21 @@ class ChatbotHistoryRepository:
         return message
 
     @staticmethod
+    def delete_conversation(member_id, conversation_id):
+        conversation = ChatbotHistoryRepository.get_conversation(member_id, conversation_id)
+        if not conversation:
+            return False
+        db.session.delete(conversation)
+        return True
+
+    @staticmethod
+    def delete_all_conversations(member_id):
+        return (
+            ChatbotConversation.query.filter(ChatbotConversation.member_id == member_id)
+            .delete(synchronize_session=False)
+        )
+
+    @staticmethod
     def commit():
         db.session.commit()
 

@@ -11,6 +11,7 @@ import {
   readSelectedChatbotAnalysisContextForUser,
   type ChatbotAnalysisContext,
 } from "@/lib/chatbotContext"
+import { CHATBOT_HISTORY_CHANGE_EVENT, type ChatbotHistoryChangeDetail } from "@/lib/chatbotHistoryEvents"
 import { readCurrentReviewAnalysis } from "@/lib/analysisStorage"
 import { getHistoryHospitalName } from "@/lib/historyDisplay"
 import { ROUTES } from "@/lib/routes"
@@ -83,6 +84,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
   const [historyItems, setHistoryItems] = useState<ChatbotConversation[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const [isResponding, setIsResponding] = useState(false)
+  const [areSuggestionsOpen, setAreSuggestionsOpen] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const nextMessageId = useRef(1)
@@ -95,9 +97,10 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     ? getHistoryHospitalName(selectedAnalysisResult, language)
     : undefined
   const isAnalysisConnected = Boolean(connectedAnalysisResultId || selectedAnalysisResult)
-  const visibleRecommendedQuestions = isAnalysisConnected
+  const currentRecommendedQuestions = isAnalysisConnected
     ? t.chatbot.linkedExamples
-    : recommendedQuestions?.questions ?? []
+    : recommendedQuestions?.questions ?? (messages.length === 0 ? t.chatbot.examples : [])
+  const suggestionsExpanded = areSuggestionsOpen
   const inputPlaceholder = isAnalysisConnected ? t.chatbot.linkedPlaceholder : t.chatbot.placeholder
   const contextTitle = connectedHospitalName
     ? t.chatbot.linkedResultTitle.replace("{hospitalName}", connectedHospitalName)
@@ -113,6 +116,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setMessages(nextMessages)
     nextMessageId.current = nextMessages.length + 1
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
   }
 
   useEffect(() => {
@@ -209,6 +213,34 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     }
   }, [isAnalysisConnected, user])
 
+  useEffect(() => {
+    const onHistoryChange = (event: Event) => {
+      if (!user || isAnalysisConnected) return
+      const detail = (event as CustomEvent<ChatbotHistoryChangeDetail>).detail
+      if (!detail) return
+
+      listChatbotConversations(MAX_SERVER_HISTORY_ITEMS)
+        .then((conversations) => setHistoryItems(conversations.data))
+        .catch(() => {
+          // 관리 화면에서 이미 삭제는 끝났으므로 목록 동기화 실패는 조용히 무시한다.
+        })
+      const shouldReset =
+        detail.type === "delete-all" ||
+        (detail.type === "delete-one" && detail.conversationId === conversationId)
+      if (!shouldReset) return
+
+      setMessages([])
+      setConversationId(null)
+      setConversationAnalysisResultId(null)
+      setRecommendedQuestions(null)
+      setAreSuggestionsOpen(false)
+      nextMessageId.current = 1
+    }
+
+    window.addEventListener(CHATBOT_HISTORY_CHANGE_EVENT, onHistoryChange)
+    return () => window.removeEventListener(CHATBOT_HISTORY_CHANGE_EVENT, onHistoryChange)
+  }, [conversationId, isAnalysisConnected, user])
+
   async function loadConversation(conversation: ChatbotConversation) {
     if (isResponding || isAnalysisConnected) return
     try {
@@ -226,6 +258,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setConversationId(null)
     setConversationAnalysisResultId(null)
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
     nextMessageId.current = 1
   }
 
@@ -249,6 +282,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setMessages((prev) => [...prev, userMsg])
     setInput("")
     setIsResponding(true)
+    setAreSuggestionsOpen(false)
 
     try {
       const messageLanguage = detectMessageLanguage(trimmed, language)
@@ -298,6 +332,7 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
     setConnectedAnalysisResultId(null)
     setSelectedAnalysisResult(null)
     setRecommendedQuestions(null)
+    setAreSuggestionsOpen(false)
     clearSelectedChatbotAnalysisContext()
     setConversationId(null)
     setConversationAnalysisResultId(null)
@@ -365,7 +400,12 @@ export function ChatWindow({ dockInput = false }: { dockInput?: boolean }) {
         <div ref={endRef} />
       </div>
 
-      <RecommendedQuestions questions={visibleRecommendedQuestions} onSelect={send} />
+      <RecommendedQuestions
+        questions={currentRecommendedQuestions}
+        onSelect={send}
+        expanded={suggestionsExpanded}
+        onToggle={() => setAreSuggestionsOpen((current) => !current)}
+      />
 
       <div className={styles.chatbotSpacer} />
 

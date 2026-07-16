@@ -11,7 +11,7 @@ from app.prompts.review_analysis_prompt import (
     REVIEW_ANALYSIS_SYSTEM_PROMPT,
     REVIEW_ANALYSIS_USER_PROMPT_TEMPLATE,
 )
-from app.schemas.review_analysis_schema import ReviewAnalyzeRequest, ReviewAnalyzeResponse, ReviewEvidence
+from app.schemas.review_analysis_schema import ReviewAnalyzeRequest, ReviewAnalyzeResponse, ReviewEvidence, ReviewMentionedAspects
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +308,13 @@ class OpenAIReviewAnalysisService:
         review_information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
         place_score = cls.calculate_place_score(payload)
         foreigner_score = cls.calculate_foreigner_score(payload)
+        review_texts = cls._review_texts(payload)
+        specificity_signals = cls._normalize_signal_list(data.get("specificitySignals"))
+        promo_signals = cls._normalize_signal_list(data.get("promoSignals"))
+        repetition_signals = cls._normalize_signal_list(data.get("repetitionSignals"))
+        exaggeration_signals = cls._normalize_signal_list(data.get("exaggerationSignals"))
+        balanced_experience_signals = cls._normalize_signal_list(data.get("balancedExperienceSignals"))
+        mentioned_aspects = cls._normalize_mentioned_aspects(data.get("mentionedAspects"), review_texts)
         score_breakdown = cls.calculate_review_score_breakdown(
             payload=payload,
             data=data,
@@ -315,6 +322,12 @@ class OpenAIReviewAnalysisService:
             base_trust_score=base_trust_score,
             ad_score=ad_score,
             review_information_score=review_information_score,
+            specificity_signals=specificity_signals,
+            promo_signals=promo_signals,
+            repetition_signals=repetition_signals,
+            exaggeration_signals=exaggeration_signals,
+            balanced_experience_signals=balanced_experience_signals,
+            mentioned_aspects=mentioned_aspects,
         )
         review_trust_score = score_breakdown["reviewTrustScore"]
         total_score = cls.calculate_total_score(
@@ -382,6 +395,12 @@ class OpenAIReviewAnalysisService:
             "positiveSignals": positive_signals,
             "negativeSignals": negative_signals,
             "warningSignals": warning_signals,
+            "specificitySignals": specificity_signals,
+            "promoSignals": promo_signals,
+            "repetitionSignals": repetition_signals,
+            "exaggerationSignals": exaggeration_signals,
+            "balancedExperienceSignals": balanced_experience_signals,
+            "mentionedAspects": mentioned_aspects.model_dump(),
             "globalAccessibilityScore": foreigner_score,
             "globalAccessibilityLevel": global_accessibility_level,
             "globalAccessibilityMaxScore": 100,
@@ -440,27 +459,57 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def merge_review_text(payload: ReviewAnalyzeRequest) -> str:
-        pieces = []
-        if payload.reviewText and payload.reviewText.strip():
-            pieces.append(payload.reviewText.strip())
-        pieces.extend(review.strip() for review in payload.reviews if review.strip())
-        return "\n\n".join(dict.fromkeys(pieces))
+        return "\n\n".join(OpenAIReviewAnalysisService._review_texts(payload))
 
     @staticmethod
     def _review_texts(payload: ReviewAnalyzeRequest) -> list[str]:
-        pieces = []
-        if payload.reviewText and payload.reviewText.strip():
-            pieces.append(payload.reviewText.strip())
-        pieces.extend(review.strip() for review in payload.reviews if review.strip())
-        return list(dict.fromkeys(pieces))
+        if any(review.strip() for review in payload.reviews):
+            return list(dict.fromkeys(
+                cleaned
+                for review in payload.reviews
+                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(review))
+            ))
+        return OpenAIReviewAnalysisService._split_review_text(payload.reviewText)
 
     @staticmethod
     def analyzed_review_count(payload: ReviewAnalyzeRequest) -> int:
-        reviews = []
-        if payload.reviewText and payload.reviewText.strip():
-            reviews.append(payload.reviewText.strip())
-        reviews.extend(review.strip() for review in payload.reviews if review.strip())
-        return len(dict.fromkeys(reviews))
+        return len(OpenAIReviewAnalysisService._review_texts(payload))
+
+    @staticmethod
+    def _split_review_text(value: str | None) -> list[str]:
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if not text:
+            return []
+        paragraph_parts = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
+        if len(paragraph_parts) > 1:
+            return list(dict.fromkeys(
+                cleaned
+                for part in paragraph_parts
+                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+            ))
+        return list(dict.fromkeys(
+            cleaned
+            for part in text.splitlines()
+            if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+        ))
+
+    @staticmethod
+    def _strip_owner_reply_text(value: str | None) -> str:
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if not text:
+            return ""
+        marker_pattern = re.compile(
+            r"^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$"
+            r"|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$"
+            r"|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$",
+            re.IGNORECASE,
+        )
+        kept_lines = []
+        for line in text.split("\n"):
+            if marker_pattern.search(line):
+                break
+            kept_lines.append(line)
+        return "\n".join(kept_lines).strip()
 
     @staticmethod
     def calculate_place_score(payload: ReviewAnalyzeRequest) -> int:
@@ -514,13 +563,34 @@ class OpenAIReviewAnalysisService:
         base_trust_score: int,
         ad_score: int,
         review_information_score: int,
+        specificity_signals: list[dict[str, str]] | None = None,
+        promo_signals: list[dict[str, str]] | None = None,
+        repetition_signals: list[dict[str, str]] | None = None,
+        exaggeration_signals: list[dict[str, str]] | None = None,
+        balanced_experience_signals: list[dict[str, str]] | None = None,
+        mentioned_aspects: ReviewMentionedAspects | None = None,
     ) -> dict[str, Any]:
         review_texts = cls._review_texts(payload)
         review_count = max(len(review_texts), 1)
         merged_text = "\n".join(review_texts)
-        promo_signal_score = cls.calculate_promo_signal_score(review_texts)
-        repetition_score = cls.calculate_repetition_score(data.get("repetitionLevel"), evidence.repetitivePhrases, review_count)
-        exaggeration_score = cls.calculate_context_score(review_texts, ["최고", "대박", "완벽", "무조건", "best", "perfect", "amazing"])
+        specificity_signals = specificity_signals or []
+        promo_signals = promo_signals or []
+        repetition_signals = repetition_signals or []
+        exaggeration_signals = exaggeration_signals or []
+        balanced_experience_signals = balanced_experience_signals or []
+        mentioned_aspects = mentioned_aspects or ReviewMentionedAspects()
+        promo_signal_score = max(
+            cls.calculate_promo_signal_score(review_texts),
+            cls.calculate_structured_signal_score(promo_signals, review_count),
+        )
+        repetition_score = max(
+            cls.calculate_repetition_score(data.get("repetitionLevel"), evidence.repetitivePhrases, review_count),
+            cls.calculate_structured_signal_score(repetition_signals, review_count),
+        )
+        exaggeration_score = max(
+            cls.calculate_context_score(review_texts, ["최고", "대박", "완벽", "무조건", "best", "perfect", "amazing"]),
+            cls.calculate_structured_signal_score(exaggeration_signals, review_count),
+        )
         event_discount_score = cls.calculate_context_score(review_texts, ["할인", "이벤트", "혜택", "무료", "discount", "event", "promotion", "free"])
         review_burst_score = cls.calculate_review_burst_score(payload.reviewDates)
         # 광고성 위험은 광고 문구, 반복 표현, 과장 표현, 이벤트/할인 표현을 나눠 계산한다.
@@ -534,8 +604,11 @@ class OpenAIReviewAnalysisService:
         if review_burst_score is not None:
             risk_parts.append((review_burst_score, 0.10))
         risk_score = cls._weighted_average(risk_parts)
-        specificity_score = cls.calculate_specificity_score(merged_text, evidence.specificPhrases, review_count)
-        balance_score = cls.calculate_balance_score(data, evidence)
+        specificity_score = max(
+            cls.calculate_specificity_score(merged_text, evidence.specificPhrases, review_count),
+            cls.calculate_structured_specificity_score(specificity_signals, mentioned_aspects, review_count),
+        )
+        balance_score = cls.calculate_balance_score(data, evidence, balanced_experience_signals)
         diversity_score = cls.calculate_diversity_score(review_texts, repetition_score)
         informative_score = cls._clamp_score(review_information_score)
         naturalness_score = cls._clamp_score(100 - max(promo_signal_score, int(exaggeration_score * 0.75)))
@@ -582,7 +655,43 @@ class OpenAIReviewAnalysisService:
             "reviewBurstScore": review_burst_score,
             "reviewBurstStatus": "available" if review_burst_score is not None else "unavailable",
             "analysisConfidence": analysis_confidence,
+            "specificitySignalCount": len(specificity_signals),
+            "promoSignalCount": len(promo_signals),
+            "repetitionSignalCount": len(repetition_signals),
+            "exaggerationSignalCount": len(exaggeration_signals),
+            "balancedExperienceSignalCount": len(balanced_experience_signals),
+            "costMentioned": mentioned_aspects.costMentioned,
+            "waitingMentioned": mentioned_aspects.waitingMentioned,
+            "treatmentProcessMentioned": mentioned_aspects.treatmentProcessMentioned,
+            "aftercareMentioned": mentioned_aspects.aftercareMentioned,
         }
+
+    @classmethod
+    def calculate_structured_signal_score(cls, signals: list[dict[str, str]], review_count: int) -> int:
+        if not signals:
+            return 0
+        strength_weights = {"low": 12, "medium": 24, "strong": 38}
+        score = sum(strength_weights.get(str(signal.get("strength") or "").strip().lower(), 24) for signal in signals)
+        return cls._clamp_score(score / max(review_count, 1))
+
+    @classmethod
+    def calculate_structured_specificity_score(
+        cls,
+        signals: list[dict[str, str]],
+        mentioned_aspects: ReviewMentionedAspects,
+        review_count: int,
+    ) -> int:
+        aspect_count = sum(
+            [
+                mentioned_aspects.costMentioned,
+                mentioned_aspects.waitingMentioned,
+                mentioned_aspects.treatmentProcessMentioned,
+                mentioned_aspects.aftercareMentioned,
+            ]
+        )
+        signal_score = cls.calculate_structured_signal_score(signals, review_count)
+        aspect_score = cls._clamp_score((aspect_count / 4) * 72)
+        return cls._clamp_score(max(signal_score, aspect_score))
 
     @classmethod
     def calculate_promo_signal_score(cls, review_texts: list[str]) -> int:
@@ -694,10 +803,10 @@ class OpenAIReviewAnalysisService:
         return cls._clamp_score(max(level_score, phrase_score))
 
     @classmethod
-    def calculate_balance_score(cls, data: dict[str, Any], evidence: ReviewEvidence) -> int:
+    def calculate_balance_score(cls, data: dict[str, Any], evidence: ReviewEvidence, balanced_experience_signals: list[dict[str, str]] | None = None) -> int:
         positive_count = len(evidence.positiveSignals)
         caution_count = len(evidence.warnings) + len(cls._normalize_string_list(data.get("negativeSignals")))
-        if positive_count and caution_count:
+        if balanced_experience_signals or (positive_count and caution_count):
             return 82
         if positive_count or caution_count:
             return 58
@@ -1099,6 +1208,57 @@ class OpenAIReviewAnalysisService:
                 else ["Recent reviews", "Cost guidance", "Treatment items", "Booking method"]
             )
         return evidence
+
+    @staticmethod
+    def _normalize_signal_list(value: Any) -> list[dict[str, str]]:
+        if not isinstance(value, list):
+            return []
+        signals = []
+        for item in value[:12]:
+            if isinstance(item, dict):
+                phrase = str(item.get("phrase") or "").strip()
+                signal_type = str(item.get("type") or "").strip()
+                reason = str(item.get("reason") or "").strip()
+                strength = str(item.get("strength") or "medium").strip().lower()
+            else:
+                phrase = str(item or "").strip()
+                signal_type = ""
+                reason = ""
+                strength = "medium"
+            if not phrase:
+                continue
+            if strength not in {"low", "medium", "strong"}:
+                strength = "medium"
+            signals.append(
+                {
+                    "type": signal_type[:60],
+                    "phrase": phrase[:160],
+                    "strength": strength,
+                    "reason": reason[:180],
+                }
+            )
+        return signals
+
+    @classmethod
+    def _normalize_mentioned_aspects(cls, value: Any, review_texts: list[str]) -> ReviewMentionedAspects:
+        source = value if isinstance(value, dict) else {}
+        merged_text = "\n".join(review_texts).lower()
+        return ReviewMentionedAspects(
+            costMentioned=bool(source.get("costMentioned")) or cls._contains_any(merged_text, ["비용", "가격", "금액", "cost", "price"]),
+            waitingMentioned=bool(source.get("waitingMentioned")) or cls._contains_any(merged_text, ["대기", "기다", "waiting", "waited"]),
+            treatmentProcessMentioned=bool(source.get("treatmentProcessMentioned")) or cls._contains_any(
+                merged_text,
+                ["치료 과정", "시술 과정", "진료 과정", "검사", "처방", "treatment", "procedure", "exam"],
+            ),
+            aftercareMentioned=bool(source.get("aftercareMentioned")) or cls._contains_any(
+                merged_text,
+                ["사후관리", "경과", "주의사항", "aftercare", "follow-up", "follow up"],
+            ),
+        )
+
+    @staticmethod
+    def _contains_any(text: str, keywords: list[str]) -> bool:
+        return any(keyword.lower() in text for keyword in keywords)
 
     @staticmethod
     def _detected_patterns(
