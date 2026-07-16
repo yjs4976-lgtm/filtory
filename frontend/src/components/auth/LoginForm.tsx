@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
+import { isAdminRole } from "@/lib/adminAccess";
 import { sanitizeInternalNextPath } from "@/lib/navigation";
 import { ROUTES } from "@/lib/routes";
 import { ApiClientError } from "@/services/apiClient";
@@ -69,11 +70,11 @@ export function LoginForm() {
       });
       const redirect = sanitizeInternalNextPath(searchParams.get("redirect") ?? searchParams.get("next"));
       if (redirect?.startsWith(ROUTES.ADMIN)) {
-        router.push(loggedInUser.role === "ADMIN" ? redirect : ROUTES.UNAUTHORIZED);
+        router.push(isAdminRole(loggedInUser.role) ? redirect : ROUTES.UNAUTHORIZED);
         return;
       }
       if (redirect) { router.push(redirect); return }
-      if (loggedInUser.role === "ADMIN") {
+      if (isAdminRole(loggedInUser.role)) {
         const settings = readWorkspaceSettings(loggedInUser)
         if (!settings.hasSeenAdminWorkspaceIntro) { setShowAdminIntro(true); return }
         router.push(getWorkspaceStartPath(settings));

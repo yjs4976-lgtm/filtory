@@ -1,3 +1,4 @@
+import { isAdminRole } from "@/lib/adminAccess"
 import type { User, Workspace, WorkspacePreference } from "@/lib/types"
 
 export interface WorkspaceSettings {
@@ -19,7 +20,7 @@ const isWorkspace = (value: unknown): value is Workspace => value === "USER" || 
 const isPreference = (value: unknown): value is WorkspacePreference => isWorkspace(value) || value === "LAST_USED"
 
 export function readWorkspaceSettings(user: User): WorkspaceSettings {
-  if (typeof window === "undefined" || user.role !== "ADMIN") return DEFAULT_SETTINGS
+  if (typeof window === "undefined" || !isAdminRole(user.role)) return DEFAULT_SETTINGS
   try {
     const raw = JSON.parse(localStorage.getItem(keyFor(user.id)) ?? "{}") as Partial<WorkspaceSettings>
     return {
@@ -34,7 +35,7 @@ export function readWorkspaceSettings(user: User): WorkspaceSettings {
 }
 
 export function writeWorkspaceSettings(user: User, settings: WorkspaceSettings) {
-  if (typeof window === "undefined" || user.role !== "ADMIN") return
+  if (typeof window === "undefined" || !isAdminRole(user.role)) return
   // TODO: Replace local workspace preference with user settings API.
   // TODO: Persist workspace intro status in user preference API.
   localStorage.setItem(keyFor(user.id), JSON.stringify(settings))
