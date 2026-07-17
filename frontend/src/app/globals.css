@@ -593,6 +593,19 @@ a {
 .admin-note{display:flex;flex-direction:column;gap:7px;margin-top:14px}.admin-note span{color:var(--graypurple);font-size:11px;font-weight:800}.admin-note textarea{min-height:90px;resize:vertical;border:1px solid var(--border);border-radius:16px;background:#fff;padding:12px;color:var(--foreground)}.admin-note textarea:focus{outline:3px solid rgba(220,207,255,.45);border-color:var(--lavender)}.admin-technical-toggle{min-height:44px;margin-top:14px;border:1px solid var(--border);border-radius:14px;background:var(--lavender-soft);color:var(--primary-foreground);padding:0 13px}.admin-technical-info{overflow:auto;border-radius:14px;background:#f6f2ed;color:var(--foreground);padding:12px;font-size:10px;line-height:1.6}
 .admin-settings-form select{min-height:48px;border:1px solid var(--border);border-radius:16px;background:#fff;padding:0 10px;color:var(--foreground)}.admin-department-settings{display:grid;grid-template-columns:1fr 1fr;gap:9px}.admin-department-settings label{display:flex;grid-template-columns:none;align-items:center;gap:8px;border:1px solid var(--border);border-radius:16px;background:var(--background);padding:12px}.admin-department-settings input{width:18px;height:18px;min-height:0;accent-color:var(--primary-foreground)}
 .admin-confirm button:disabled{opacity:.45;cursor:not-allowed}
+
+/* The integrated admin keeps the pre-cd386cd mobile-first visual language. */
+.admin-app-shell{width:100%;max-width:480px;min-height:100dvh;margin:0 auto;background:var(--background);position:relative}
+.admin-app-shell .admin-page{display:flex;flex-direction:column;gap:18px;padding:24px 20px calc(128px + env(safe-area-inset-bottom))}
+.admin-app-shell .admin-heading{margin:0}.admin-app-shell .admin-heading h2{margin:0 0 8px;font-size:24px}.admin-app-shell .admin-heading p{margin:0;color:var(--graypurple);line-height:1.5}
+.admin-app-shell .admin-panel,.admin-app-shell .admin-compact-kpis article{border:1px solid var(--border);border-radius:20px;background:#fff;padding:20px;box-shadow:0 8px 22px rgba(168,165,183,.08)}
+.admin-app-shell .admin-compact-kpis{display:grid;grid-template-columns:1fr;gap:12px;margin:0}.admin-app-shell .admin-compact-kpis article{gap:8px}.admin-app-shell .admin-compact-kpis strong{font-size:20px}
+.admin-app-shell .admin-data-table{min-width:860px;font-size:13px}.admin-app-shell .admin-data-table th,.admin-app-shell .admin-data-table td{padding:12px;border-bottom:1px solid var(--border)}
+.admin-all-menu-title{margin-top:8px}.admin-all-menu-title h2{margin:0 0 8px;font-size:22px}.admin-sample-notice{margin:0;color:var(--graypurple);font-size:13px;line-height:1.55}
+.admin-user-detail-list{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0}.admin-user-detail-list div{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);padding:10px 0}.admin-user-detail-list dt{color:var(--graypurple);font-weight:800}.admin-user-detail-list dd{margin:0;text-align:right;font-weight:800;overflow-wrap:anywhere}.admin-user-withdraw-button{margin-top:14px}
+.admin-readonly-settings{display:grid;gap:12px}.admin-readonly-settings label{display:flex;align-items:center;justify-content:space-between;gap:12px}.admin-readonly-settings input[type="number"]{width:100px;min-height:42px;border:1px solid var(--border);border-radius:14px;padding:0 12px}.admin-readonly-settings input:disabled{opacity:.7}
+.admin-logout-button{width:100%}
+@media(min-width:700px){.admin-app-shell .admin-summary-grid,.admin-app-shell .admin-menu-grid,.admin-app-shell .admin-compact-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){.admin-record-list>button{grid-template-columns:1fr}.admin-record-list aside{align-items:flex-start;flex-direction:row}.admin-department-settings{grid-template-columns:1fr}}
 
 .admin-page {

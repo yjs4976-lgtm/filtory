@@ -5,10 +5,12 @@ import Link from "next/link"
 import { useLanguage } from "@/context/LanguageContext"
 import type { AdminUser, UserRole, UserStatus } from "@/lib/types"
 import { adminUserService } from "@/services/adminUserService"
+import { adminService } from "@/services/adminService"
 
 interface AdminUserTableProps {
   users: AdminUser[]
   onRefresh?: () => void
+  onError?: (message: string) => void
 }
 
 const ACTIVE_STATUS: UserStatus = "ACTIVE"
@@ -37,7 +39,7 @@ function visibleStatus(status: UserStatus) {
   return INACTIVE_STATUS
 }
 
-export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
+export function AdminUserTable({ users, onRefresh, onError }: AdminUserTableProps) {
   const { t } = useLanguage()
   const labels = t.admin.userManagement
   const [currentPage, setCurrentPage] = useState(1)
@@ -66,8 +68,31 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
   }
 
   const handleStatusChange = async (userId: number, status: UserStatus) => {
-    await adminUserService.updateUserStatus(userId, status)
-    onRefresh?.()
+    try {
+      await adminUserService.updateUserStatus(userId, status)
+      onRefresh?.()
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : t.admin.loadFailed)
+    }
+  }
+
+  const handleRoleChange = async (userId: number, role: UserRole) => {
+    try {
+      await adminService.updateUserRole(userId, role)
+      onRefresh?.()
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : t.admin.loadFailed)
+    }
+  }
+
+  const handleWithdraw = async (user: AdminUser) => {
+    if (!window.confirm(t.admin.userDeleteConfirm)) return
+    try {
+      await adminService.deleteUser(user.id)
+      onRefresh?.()
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : t.admin.loadFailed)
+    }
   }
 
   const handlePageSizeChange = (value: string) => {
@@ -132,6 +157,15 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
                 {labels.viewDetail}
               </Link>
               {renderStatusControl(user)}
+            </div>
+            <div className="admin-user-card-actions">
+              <select className="admin-status-select" value={user.role} aria-label={`${labels.role}: ${user.email}`} onChange={(event) => handleRoleChange(user.id, event.target.value as UserRole)}>
+                <option value="USER">{labels.roleUser}</option>
+                <option value="ADMIN">{labels.roleAdmin}</option>
+              </select>
+              <button type="button" className="small-danger-button" disabled={user.status === WITHDRAWN_STATUS} onClick={() => handleWithdraw(user)}>
+                {t.mypage.delete}
+              </button>
             </div>
           </article>
         ))}
