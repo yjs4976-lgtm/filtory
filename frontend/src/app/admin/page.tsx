@@ -1,46 +1,80 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Activity, AlertCircle, ChevronRight, CircleHelp, Clock3, FileSearch, Gift, LayoutDashboard, MessageCircleQuestion, RefreshCw, ShieldCheck, Sparkles, UserCheck, Users, Zap } from "lucide-react"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
-import { ADMIN_KPIS, DASHBOARD_ACTIVITY, DEPARTMENT_USAGE, WEEKLY_USAGE } from "@/mocks/adminData"
+import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards"
+import { useLanguage } from "@/context/LanguageContext"
+import { useAuth } from "@/hooks/useAuth"
 import { ROUTES } from "@/lib/routes"
+import type { AdminSummary } from "@/lib/types"
+import { adminService } from "@/services/adminService"
 
-const icons = [Users,UserCheck,Users,Sparkles,Zap,Activity]
-const dayNames: Record<string,string> = { 월:"월요일",화:"화요일",수:"수요일",목:"목요일",금:"금요일",토:"토요일",일:"일요일" }
+const operationMenus = [
+  [ROUTES.ADMIN_ANALYSES, "분석 관리", "분석 결과와 검토 대상 정보를 확인합니다."],
+  [ROUTES.ADMIN_ERRORS, "오류 관리", "분석 오류와 재처리 대상을 확인합니다."],
+  [ROUTES.ADMIN_USAGE, "사용량 관리", "분석 이용 현황을 확인합니다."],
+  [ROUTES.ADMIN_MEMBERSHIPS, "멤버십 관리", "구독 및 이용 정책 정보를 확인합니다."],
+  [ROUTES.ADMIN_AD_REWARDS, "광고 보상 관리", "광고 보상 지급 내역을 확인합니다."],
+  [ROUTES.ADMIN_SUPPORT, "고객 지원", "문의와 신고 운영 현황을 확인합니다."],
+  [ROUTES.ADMIN_NOTICES, "공지사항", "공지사항과 FAQ 콘텐츠를 확인합니다."],
+  [ROUTES.ADMIN_SETTINGS, "설정", "서비스 운영 설정을 확인합니다."],
+  [ROUTES.ADMIN_SYSTEM, "시스템 관리", "서비스 시스템 상태를 확인합니다."],
+  [ROUTES.ADMIN_AUDIT_LOGS, "감사 로그", "관리자 작업 기록을 확인합니다."],
+] as const
+
 export default function AdminPage() {
-  const [selectedDay,setSelectedDay]=useState("금")
-  const selectedUsage=WEEKLY_USAGE.find((item)=>item.day===selectedDay) ?? WEEKLY_USAGE[4]
-  return <AdminAppShell title="관리자 대시보드"><AdminGuard>
-    <section className="admin-dashboard-hero">
-      <div className="admin-dashboard-hero-title"><span><LayoutDashboard /></span><div><h2>관리자 대시보드</h2><p>Filtory 사용자와 분석 이용 현황을 확인하세요.</p></div></div>
-      <section className="admin-kpi-grid" aria-label="핵심 지표">{ADMIN_KPIS.map(([label,value,change],i) => { const Icon=icons[i]; return <article key={label} className="admin-kpi"><span><Icon /></span><div><p>{label}</p><strong>{value}</strong><small className="up">{change}</small></div></article> })}</section>
-    </section>
+  const { isAdmin, logout } = useAuth()
+  const { t } = useLanguage()
+  const [summary, setSummary] = useState<AdminSummary | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
 
-    <h2 className="admin-section-title">운영 현황</h2>
-    <section className="admin-panel admin-weekly-panel"><div className="admin-panel-heading"><div><h3>최근 7일 분석 건수</h3><small>지난주보다 12.6% 증가</small></div><span>총 803건</span></div><div className="admin-bars" aria-label="최근 7일 분석 건수 막대 그래프">{WEEKLY_USAGE.map(({day,value}) => <button type="button" key={day} className={selectedDay===day?"selected":""} onClick={()=>setSelectedDay(day)} aria-label={`${dayNames[day]} 전체 ${value}건`}><span style={{height:`${value/145*100}%`}}><b>{value}</b></span><small>{day}</small></button>)}</div><div className="admin-chart-detail" aria-live="polite"><strong>{dayNames[selectedUsage.day]}</strong><span>전체 {selectedUsage.value}건</span><span>완료 {selectedUsage.value-6}건</span><span>실패 6건</span></div></section>
+  useEffect(() => {
+    if (!isAdmin) return
+    let alive = true
+    adminService.getSummary()
+      .then((result) => { if (alive) setSummary(result.data) })
+      .catch((error) => { if (alive) setError(error instanceof Error ? error.message : t.admin.loadFailed) })
+      .finally(() => { if (alive) setIsLoading(false) })
+    return () => { alive = false }
+  }, [isAdmin, t.admin.loadFailed])
 
-    <section className="admin-mini-section"><h2>운영 현황</h2><div className="admin-operation-grid">{[
-      [ROUTES.ADMIN_AD_REWARDS,"광고 보상 이용","153건",Gift,"lavender"],
-      [`${ROUTES.ADMIN_USERS}?usage=exhausted`,"분석 소진 사용자","136명",Users,"mint"],
-      [`${ROUTES.ADMIN_ERRORS}?status=pending`,"처리 대기 오류","9건",AlertCircle,"coral"],
-      [`${ROUTES.ADMIN_SUPPORT}?status=pending`,"답변 대기 문의","6건",MessageCircleQuestion,"peach"],
-    ].map(([href,label,value,Icon,tone])=><Link key={label as string} href={href as string} className={`admin-operation-card tone-${tone}`}><span><Icon /></span><small>{label as string}</small><strong>{value as string}</strong></Link>)}</div></section>
+  return (
+    <AdminAppShell title={t.nav.admin}>
+      <AdminGuard>
+        <section className="page-title">
+          <p className="eyebrow">ADMIN</p>
+          <h1>{t.admin.dashboard}</h1>
+          <p>{t.admin.dashboardDescription}</p>
+        </section>
 
-    <section className="admin-panel admin-checklist"><h2>오늘 확인할 항목</h2>{[
-      [ROUTES.ADMIN_ERRORS,"분석 실패","9건",AlertCircle], [`${ROUTES.ADMIN_ANALYSES}?status=review`,"결과 검토 요청","4건",FileSearch],
-      [`${ROUTES.ADMIN_SUPPORT}?status=pending`,"답변 대기 문의","6건",CircleHelp], [`${ROUTES.ADMIN_AD_REWARDS}?status=review`,"광고 보상 확인","2건",Gift],
-    ].map(([href,label,count,Icon])=><Link key={label as string} href={href as string}><span><Icon /></span><strong>{label as string}</strong><em>{count as string}</em><ChevronRight /></Link>)}</section>
+        {isLoading && <p>{t.admin.loading}</p>}
+        {error && <p className="form-error">{error}</p>}
+        {summary && <AdminSummaryCards summary={summary} />}
 
-    <section className="admin-mini-section"><h2>분석 품질 현황</h2><div className="admin-quality-grid">{[
-      ["평균 신뢰도 점수","78점","지난주보다 2.1점 증가",ShieldCheck,"good"], ["분석 성공률","96.8%","지난주보다 0.8% 증가",Sparkles,"good"],
-      ["평균 분석 시간","8.4초","지난주보다 0.6초 감소",Clock3,"good"], ["재분석 요청","14건","지난주보다 2건 증가",RefreshCw,"attention"],
-    ].map(([label,value,change,Icon,tone])=><article key={label as string}><span className={tone as string}><Icon /></span><small>{label as string}</small><strong>{value as string}</strong><em>{change as string}</em></article>)}</div></section>
+        <section className="admin-menu-grid" aria-label="핵심 관리자 메뉴">
+          <AdminMenu href={ROUTES.ADMIN_USERS} title={t.admin.menuUsersTitle} description={t.admin.menuUsersDescription} />
+          <AdminMenu href={ROUTES.ADMIN_REVIEWS} title={t.admin.menuReviewsTitle} description={t.admin.menuReviewsDescription} />
+          <AdminMenu href={ROUTES.ADMIN_HOSPITALS} title={t.admin.menuHospitalsTitle} description={t.admin.menuHospitalsDescription} />
+          <AdminMenu href={ROUTES.ADMIN_INQUIRIES} title={t.admin.menuInquiriesTitle} description={t.admin.menuInquiriesDescription} />
+        </section>
 
-    <section className="admin-panel admin-departments"><h2>진료과별 분석 현황</h2><div>{DEPARTMENT_USAGE.map((item)=><Link key={item.name} href={`${ROUTES.ADMIN_ANALYSES}?department=${encodeURIComponent(item.name)}`} className={`department-${item.name}`}><span><Activity /></span><strong>{item.name}</strong><b>{item.count}건</b><small>오류 {item.errors}건</small></Link>)}</div></section>
+        <section className="page-title admin-all-menu-title">
+          <p className="eyebrow">ADMIN MENU</p>
+          <h2>전체 관리자 메뉴</h2>
+          <p>추가 운영 화면은 예전 관리자 화면 구조 안에서 접근할 수 있습니다.</p>
+        </section>
+        <section className="admin-menu-grid" aria-label="전체 관리자 메뉴">
+          {operationMenus.map(([href, title, description]) => <AdminMenu key={href} href={href} title={title} description={description} />)}
+        </section>
+        <button type="button" className="small-button admin-logout-button" onClick={() => void logout(ROUTES.LOGIN)}>로그아웃</button>
+      </AdminGuard>
+    </AdminAppShell>
+  )
+}
 
-    <section className="admin-panel admin-activity-list"><h2>최근 분석 활동</h2>{DASHBOARD_ACTIVITY.map((item)=><Link key={item.id} href={`${ROUTES.ADMIN_ANALYSES}?id=${item.id}`}><span className={`department-dot department-${item.department}`} /><div><strong>{item.department} · {item.method}</strong><small>{item.email}</small><p>{item.detail}</p></div><aside><time>{item.time}</time><em className={`admin-state activity-${item.status.replace(" ","-")}`}>{item.status}</em></aside></Link>)}</section>
-  </AdminGuard></AdminAppShell>
+function AdminMenu({ href, title, description }: { href: string; title: string; description: string }) {
+  return <Link href={href} className="soft-card admin-menu-card"><strong>{title}</strong><p>{description}</p></Link>
 }
