@@ -5064,7 +5064,17 @@ button.notificationCard {
 
 .visitInfoQuickActions button,
 .visitInfoQuickActions a {
+  display: inline-flex;
+  flex: 1 1 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: min(100%, 180px);
   min-height: 34px;
+  white-space: normal;
+  line-height: 1.35;
+  text-align: center;
+  word-break: keep-all;
 }
 
 .visitInfoFieldGrid {
@@ -5345,24 +5355,6 @@ button.notificationCard {
 
 .reviewStartPanel {
   background: #ffffff;
-}
-
-.reviewReadyPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px solid var(--lavender);
-  border-radius: 18px;
-  background: var(--lavender-soft);
-  padding: 12px;
-}
-
-.reviewReadyText {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.45;
 }
 
 .reviewMinimumGuide {

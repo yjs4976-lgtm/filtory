@@ -64,6 +64,7 @@ import type {
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { translations } from "@/lib/translations"
+import { splitReviewText, stripOwnerReplyText } from "@/lib/reviewTextParser"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
@@ -357,24 +358,6 @@ function normalizeReviewContent(content: string) {
     .toLowerCase()
 }
 
-function stripOwnerReplyText(content: string) {
-  const markerPattern = /^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$/i
-  const lines = content.replace(/\r\n/g, "\n").split("\n")
-  const keptLines: string[] = []
-
-  for (const line of lines) {
-    const match = markerPattern.exec(line)
-    if (match) {
-      const beforeReply = line.slice(0, match.index).trim()
-      if (beforeReply) keptLines.push(beforeReply)
-      break
-    }
-    keptLines.push(line)
-  }
-
-  return keptLines.join("\n").trim()
-}
-
 function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
   if (content.trim().length < MIN_REVIEW_TEXT_LENGTH) return "short"
   if (duplicateCount > 1) return "duplicate"
@@ -396,24 +379,6 @@ function normalizeReviewDrafts(drafts: ReviewDraft[]) {
       status: getReviewDraftStatus(draft.content, key ? counts[key] ?? 1 : 1),
     }
   })
-}
-
-function splitReviewText(value: string) {
-  // 여러 리뷰를 한 번에 붙여넣으면 빈 줄 기준으로 먼저 나누고, 없으면 줄 단위로 나눈다.
-  const trimmed = value.trim()
-  if (!trimmed) return []
-
-  const paragraphParts = trimmed
-    .split(/\n\s*\n+/)
-    .map((part) => stripOwnerReplyText(part))
-    .filter(Boolean)
-
-  if (paragraphParts.length > 1) return paragraphParts
-
-  return trimmed
-    .split(/\n+/)
-    .map((part) => stripOwnerReplyText(part))
-    .filter(Boolean)
 }
 
 function uniqueReviewTexts(values: string[]) {
@@ -2473,10 +2438,6 @@ function ReviewInputWorkspace({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const detectedCount = splitReviewText(value).length
   const hasReviewText = value.trim().length > 0
-  const readinessText = t.analyze.reviewReadyStatus
-    .replace("{hospitalName}", selectedHospital?.name || "-")
-    .replace("{pendingCount}", String(detectedCount))
-    .replace("{importedCount}", String(reviews.length))
   const reviewExamples = t.analyze.reviewExamples
   const activeSentences = reviewExamples.sentences[activeExampleCategory]
 
@@ -2571,19 +2532,7 @@ function ReviewInputWorkspace({
         onChange={(event) => onChange(event.target.value)}
       />
 
-      <section className={styles.reviewReadyPanel} aria-live="polite">
-        <p className={styles.reviewReadyText}>{readinessText}</p>
-        {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
-        <button
-          type="button"
-          className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
-          disabled={isAnalyzeDisabled}
-          onClick={onStartAnalysis}
-        >
-          {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
-          {isAnalyzing ? t.analyze.submitting : t.analyze.analyzePastedReviewsButton}
-        </button>
-      </section>
+      {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
 
       <div className={styles.reviewExampleToggleRow}>
         <button
@@ -2637,7 +2586,7 @@ function ReviewInputWorkspace({
       )}
 
       <div className={styles.reviewInputFooter}>
-        <span className={styles.reviewDetectedText}>
+        <span className={styles.reviewDetectedText} aria-live="polite">
           {t.analyze.detectedReviewCount.replace("{count}", String(detectedCount))}
         </span>
         <button
@@ -2658,6 +2607,9 @@ function ReviewInputWorkspace({
         onToggleIncluded={onToggleIncluded}
         onDelete={onDelete}
         onClear={onClear}
+        isAnalyzing={isAnalyzing}
+        isAnalyzeDisabled={isAnalyzeDisabled}
+        onStartAnalysis={onStartAnalysis}
       />
     </section>
   )
@@ -2821,6 +2773,9 @@ function ReviewStatusPanel({
   onToggleIncluded,
   onDelete,
   onClear,
+  isAnalyzing,
+  isAnalyzeDisabled,
+  onStartAnalysis,
 }: {
   reviews: ReviewDraft[]
   summary: { totalCount: number; shortCount: number; duplicateCount: number; readyCount: number }
@@ -2829,6 +2784,9 @@ function ReviewStatusPanel({
   onToggleIncluded: (reviewId: string) => void
   onDelete: (reviewId: string) => void
   onClear: () => void
+  isAnalyzing: boolean
+  isAnalyzeDisabled: boolean
+  onStartAnalysis: () => void
 }) {
   const { t } = useLanguage()
   const [showAllReviews, setShowAllReviews] = useState(false)
@@ -2887,6 +2845,22 @@ function ReviewStatusPanel({
           </div>
           {!showAllReviews && <p className={styles.mutedText}>{t.analyze.reviewInbox.partialPreviewNotice}</p>}
         </section>
+      )}
+      {reviews.length > 0 && (
+        <div className={styles.reviewStartPanel}>
+          {summary.readyCount === 0 && (
+            <p className={styles.reviewFeedback}>{t.analyze.reviewInboxRequired}</p>
+          )}
+          <button
+            type="button"
+            className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
+            disabled={isAnalyzeDisabled || summary.readyCount === 0}
+            onClick={onStartAnalysis}
+          >
+            {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
+            {isAnalyzing ? t.analyze.submitting : t.analyze.analyzeSelectedReviews}
+          </button>
+        </div>
       )}
     </section>
   )

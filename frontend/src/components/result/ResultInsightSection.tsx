@@ -217,36 +217,30 @@ export function ResultInsightSection({ viewModel, hasDetailedAccess = true, onSh
     {
       title: label.repetitive,
       content: (
-        <PaginatedInsightList
-          id={label.repetitive}
+        <InsightList
           items={viewModel.repetition.repetitivePhrases}
           emptyText={label.noRepetition}
           tone={styles.bgPeach}
-          labels={pagerLabels}
         />
       ),
     },
     {
       title: label.suspicious,
       content: (
-        <PaginatedInsightList
-          id={label.suspicious}
+        <InsightList
           items={viewModel.repetition.suspiciousPhrases}
           emptyText={label.noSuspicious}
           tone={styles.bgPink}
-          labels={pagerLabels}
         />
       ),
     },
     {
       title: label.reference,
       content: (
-        <PaginatedInsightList
-          id={label.reference}
+        <InsightList
           items={referenceSignals}
           emptyText={label.noReference}
           tone={styles.bgMint}
-          labels={pagerLabels}
         />
       ),
     },
