@@ -115,7 +115,8 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
   const chargeCompletedAnalysis = useCallback(async (analysisId: string | number) => {
     const id = String(analysisId)
     if (!id) return false
-    if (user && serverReadyRef.current) {
+    if (user) {
+      if (!serverReadyRef.current) return false
       try {
         const usage = await analysisUsageService.charge(id)
         persist(serverUsageToAllowance(usage))
