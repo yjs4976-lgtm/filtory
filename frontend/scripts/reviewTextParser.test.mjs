@@ -46,3 +46,29 @@ assert.ok(parsed.every((review) => !/리뷰\s*\d|사진\s*\d|방문일|영수증
 assert.ok(parsed.some((review) => review.includes("대기 시간도 짧아서")))
 assert.ok(parsed.some((review) => review.includes("편하게 진료받았어요")))
 assert.ok(parsed.some((review) => review.includes("치료 과정이 전반적으로")))
+
+const ownerReplyMixedSample = [
+  "시설도 깔끔하고 직원분들도 친절해서 기분 좋게 다녀왔어요.",
+  "",
+  "안녕하세요, 강남스마일안과의원입니다. 방문해 주셔서 감사합니다. 앞으로도 만족스러운 진료를 위해 노력하겠습니다.",
+  "",
+  "검사 전에 설명을 자세히 해주셔서 편하게 진료받았어요.",
+  "",
+  "소중한 리뷰 감사드립니다. 저희 병원을 이용해 주셔서 감사합니다.",
+  "",
+  "시술 효과가 만족스러웠고 회복 과정도 괜찮았습니다.",
+  "",
+  "안녕하세요, 강남스마일안과입니다. 환자분의 방문에 감사드리며 앞으로도 최선을 다하겠습니다.",
+].join("\n")
+
+const ownerReplyFiltered = splitReviewText(ownerReplyMixedSample)
+
+assert.equal(ownerReplyFiltered.length, 3)
+assert.deepEqual(ownerReplyFiltered, [
+  "시설도 깔끔하고 직원분들도 친절해서 기분 좋게 다녀왔어요.",
+  "검사 전에 설명을 자세히 해주셔서 편하게 진료받았어요.",
+  "시술 효과가 만족스러웠고 회복 과정도 괜찮았습니다.",
+])
+
+const reviewWithThanks = splitReviewText("검사 결과를 자세히 설명해 주셔서 안심됐습니다. 감사합니다.")
+assert.equal(reviewWithThanks.length, 1)

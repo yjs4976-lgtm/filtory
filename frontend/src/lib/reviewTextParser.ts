@@ -25,6 +25,17 @@ const REVIEW_COUNT_METADATA = /리뷰\s*\d+(?:,\d{3})*(?:\s*사진\s*\d+(?:,\d{3
 const OWNER_REPLY_MARKER = /^\s*(?:(?:병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*)?(?:답변|답글|댓글)\s*[:：]?|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?/i
 const REVIEW_EXPERIENCE_PATTERN = /(방문|진료|검사|상담|수술|시술|치료|예약|대기|설명|친절|불편|통증|회복|의사|선생님|직원|간호사|비용|가격|시설|추천|만족)/i
 const SENTENCE_ENDING_PATTERN = /(다|요|습니다|했어요|좋아요|좋았어요|아파요|친절해요|추천해요|만족해요)(?:[.!?~…\s]|$)/i
+const OWNER_REPLY_SIGNALS = [
+  /안녕하세요/i,
+  /(?:병원|의원|클리닉|센터)(?:입니다|입니다[.!])/i,
+  /방문해\s*주셔서\s*감사(?:합니다|드립니다)/i,
+  /소중한\s*(?:리뷰|후기)\s*감사(?:합니다|드립니다)/i,
+  /앞으로도\s*최선을\s*다하겠습니다/i,
+  /만족스러운\s*진료를\s*위해\s*노력하겠습니다/i,
+  /저희\s*(?:병원|의원|클리닉|센터)/i,
+  /(?:내원|이용)해\s*주셔서/i,
+  /(?:고객님|환자분)/i,
+]
 
 export function stripOwnerReplyText(content: string) {
   const lines = content.replace(/\r\n?/g, "\n").split("\n")
@@ -63,8 +74,24 @@ function isReviewBodyCandidate(content: string, lineCount: number) {
   )
 }
 
+function isLikelyOwnerReplyBlock(content: string) {
+  const normalized = content.replace(/\s+/g, " ").trim()
+  if (!normalized) return false
+
+  const signalCount = OWNER_REPLY_SIGNALS.reduce(
+    (count, pattern) => count + (pattern.test(normalized) ? 1 : 0),
+    0
+  )
+  const greetingWithBusinessIdentity =
+    /^안녕하세요[,.!\s]/i.test(normalized) &&
+    /(병원|의원|클리닉|센터|입니다|감사)/i.test(normalized)
+
+  return greetingWithBusinessIdentity || signalCount >= 2
+}
+
 function cleanReviewBlock(lines: string[]) {
   const content = stripOwnerReplyText(lines.join("\n")).trim()
+  if (isLikelyOwnerReplyBlock(content)) return ""
   return isReviewBodyCandidate(content, lines.length) ? content : ""
 }
 
@@ -87,7 +114,7 @@ export function splitReviewText(value: string) {
     }
 
     for (const line of lines) {
-      if (OWNER_REPLY_MARKER.test(line)) {
+      if (OWNER_REPLY_MARKER.test(line) || isLikelyOwnerReplyBlock(line)) {
         flush()
         skippingOwnerReply = true
         continue
