@@ -45,9 +45,4 @@ export const adminUserService = {
     })
     return result.data
   },
-
-  async saveMemo(id: number, memo: string) {
-    // TODO: 실제 관리자 메모 API 연결 시 PATCH /api/admin/users/:id/memo 호출로 교체합니다.
-    return { success: true, id, memo }
-  },
 }
