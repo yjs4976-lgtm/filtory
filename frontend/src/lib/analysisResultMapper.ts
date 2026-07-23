@@ -854,6 +854,14 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const { root, result } = normalizeInput(input)
   const evidence = pickRecord(result, "evidence")
   const evidenceJson = pickRecord(root, "evidence_json")
+  const resultScoreBreakdown = {
+    ...pickRecord(result, "score_breakdown"),
+    ...pickRecord(result, "scoreBreakdown"),
+  }
+  const rootScoreBreakdown = {
+    ...pickRecord(root, "score_breakdown"),
+    ...pickRecord(root, "scoreBreakdown"),
+  }
   const totalScore = scoreValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
   // reviewTrustScore를 화면의 신뢰도 기준으로 사용해 병원 정보 완성도와 섞이지 않게 한다.
   const reviewTrustScore = scoreValue(
@@ -935,7 +943,16 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)
   const globalAccessibilityQuestions = buildConvenienceQuestions(globalAccessibilityChecks, language)
   const globalAccessibilityReadiness = deriveConvenienceReadiness(globalAccessibilityQuestions, language)
-  const reviewBurstScore = optionalNumber(firstValue(result.reviewBurstScore, root.reviewBurstScore))
+  const reviewBurstScore = optionalNumber(firstValue(
+    result.reviewBurstScore,
+    result.review_burst_score,
+    resultScoreBreakdown.reviewBurstScore,
+    resultScoreBreakdown.review_burst_score,
+    root.reviewBurstScore,
+    root.review_burst_score,
+    rootScoreBreakdown.reviewBurstScore,
+    rootScoreBreakdown.review_burst_score
+  ))
   const reviewBurstStatus =
     stringValue(firstValue(result.reviewBurstStatus, root.reviewBurstStatus)) === "available" || reviewBurstScore !== undefined
       ? "available"
@@ -1012,17 +1029,17 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       description: reviewBurstDescription(reviewBurstStatus, reviewBurstScore, language),
     },
     scoreBreakdown: {
-      evidenceScore: scoreValue(result.evidenceScore, root.evidenceScore),
-      riskScore: scoreValue(result.riskScore, root.riskScore, adSuspicionScore),
-      specificityScore: scoreValue(result.specificityScore, root.specificityScore),
-      balanceScore: scoreValue(result.balanceScore, root.balanceScore),
-      diversityScore: scoreValue(result.diversityScore, root.diversityScore),
-      informativeScore: scoreValue(result.informativeScore, root.informativeScore, informationScore),
-      naturalnessScore: scoreValue(result.naturalnessScore, root.naturalnessScore),
-      promoSignalScore: scoreValue(result.promoSignalScore, root.promoSignalScore),
-      repetitionScore: scoreValue(result.repetitionScore, root.repetitionScore),
-      exaggerationScore: scoreValue(result.exaggerationScore, root.exaggerationScore),
-      eventDiscountScore: scoreValue(result.eventDiscountScore, root.eventDiscountScore),
+      evidenceScore: scoreValue(result.evidenceScore, result.evidence_score, resultScoreBreakdown.evidenceScore, resultScoreBreakdown.evidence_score, root.evidenceScore, root.evidence_score, rootScoreBreakdown.evidenceScore, rootScoreBreakdown.evidence_score),
+      riskScore: scoreValue(result.riskScore, result.risk_score, resultScoreBreakdown.riskScore, resultScoreBreakdown.risk_score, root.riskScore, root.risk_score, rootScoreBreakdown.riskScore, rootScoreBreakdown.risk_score, adSuspicionScore),
+      specificityScore: scoreValue(result.specificityScore, result.specificity_score, resultScoreBreakdown.specificityScore, resultScoreBreakdown.specificity_score, root.specificityScore, root.specificity_score, rootScoreBreakdown.specificityScore, rootScoreBreakdown.specificity_score),
+      balanceScore: scoreValue(result.balanceScore, result.balance_score, resultScoreBreakdown.balanceScore, resultScoreBreakdown.balance_score, root.balanceScore, root.balance_score, rootScoreBreakdown.balanceScore, rootScoreBreakdown.balance_score),
+      diversityScore: scoreValue(result.diversityScore, result.diversity_score, resultScoreBreakdown.diversityScore, resultScoreBreakdown.diversity_score, root.diversityScore, root.diversity_score, rootScoreBreakdown.diversityScore, rootScoreBreakdown.diversity_score),
+      informativeScore: scoreValue(result.informativeScore, result.informative_score, resultScoreBreakdown.informativeScore, resultScoreBreakdown.informative_score, root.informativeScore, root.informative_score, rootScoreBreakdown.informativeScore, rootScoreBreakdown.informative_score, informationScore),
+      naturalnessScore: scoreValue(result.naturalnessScore, result.naturalness_score, resultScoreBreakdown.naturalnessScore, resultScoreBreakdown.naturalness_score, root.naturalnessScore, root.naturalness_score, rootScoreBreakdown.naturalnessScore, rootScoreBreakdown.naturalness_score),
+      promoSignalScore: scoreValue(result.promoSignalScore, result.promo_signal_score, resultScoreBreakdown.promoSignalScore, resultScoreBreakdown.promo_signal_score, root.promoSignalScore, root.promo_signal_score, rootScoreBreakdown.promoSignalScore, rootScoreBreakdown.promo_signal_score),
+      repetitionScore: scoreValue(result.repetitionScore, result.repetition_score, resultScoreBreakdown.repetitionScore, resultScoreBreakdown.repetition_score, root.repetitionScore, root.repetition_score, rootScoreBreakdown.repetitionScore, rootScoreBreakdown.repetition_score),
+      exaggerationScore: scoreValue(result.exaggerationScore, result.exaggeration_score, resultScoreBreakdown.exaggerationScore, resultScoreBreakdown.exaggeration_score, root.exaggerationScore, root.exaggeration_score, rootScoreBreakdown.exaggerationScore, rootScoreBreakdown.exaggeration_score),
+      eventDiscountScore: scoreValue(result.eventDiscountScore, result.event_discount_score, resultScoreBreakdown.eventDiscountScore, resultScoreBreakdown.event_discount_score, root.eventDiscountScore, root.event_discount_score, rootScoreBreakdown.eventDiscountScore, rootScoreBreakdown.event_discount_score),
       reviewBurstScore,
     },
     content: {
