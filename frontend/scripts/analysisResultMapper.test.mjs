@@ -52,6 +52,9 @@ const nestedCamelCase = normalizeAnalysisResult({
   result: {
     totalScore: 71,
     reviewTrustScore: 71,
+    analyzedReviewCount: 3,
+    analysisConfidence: "low",
+    analysisConfidenceDescription: "리뷰 수가 적어 해석에 주의가 필요해요.",
     scoreBreakdown: {
       evidenceScore: 68,
       riskScore: 24,
@@ -62,6 +65,9 @@ const nestedCamelCase = normalizeAnalysisResult({
 })
 
 assert.equal(nestedCamelCase.scores.reviewTrustScore, 71)
+assert.equal(nestedCamelCase.scores.analyzedReviewCount, 3)
+assert.equal(nestedCamelCase.analysisConfidence.key, "low")
+assert.equal(nestedCamelCase.analysisConfidence.description, "리뷰 수가 적어 해석에 주의가 필요해요.")
 assert.equal(nestedCamelCase.scoreBreakdown.evidenceScore, 68)
 assert.equal(nestedCamelCase.scoreBreakdown.riskScore, 24)
 assert.equal(nestedCamelCase.scoreBreakdown.specificityScore, 73)
@@ -71,6 +77,8 @@ const historySnakeCase = normalizeAnalysisResult({
   hospitalName: "샘플의원",
   score: 66,
   review_trust_score: 66,
+  totalReviewCount: 6,
+  analysisConfidence: "medium",
   score_breakdown: {
     evidence_score: 61,
     risk_score: 35,
@@ -80,6 +88,8 @@ const historySnakeCase = normalizeAnalysisResult({
 })
 
 assert.equal(historySnakeCase.scores.reviewTrustScore, 66)
+assert.equal(historySnakeCase.scores.analyzedReviewCount, 6)
+assert.equal(historySnakeCase.analysisConfidence.key, "medium")
 assert.equal(historySnakeCase.scoreBreakdown.evidenceScore, 61)
 assert.equal(historySnakeCase.scoreBreakdown.riskScore, 35)
 assert.equal(historySnakeCase.scoreBreakdown.specificityScore, 57)

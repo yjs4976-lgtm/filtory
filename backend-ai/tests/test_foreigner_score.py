@@ -1,6 +1,7 @@
 import unittest
 
 from app.schemas.review_analysis_schema import ReviewAnalyzeRequest
+from app.services.mock_review_analysis_service import MockReviewAnalysisService
 from app.services.openai_review_analysis_service import OpenAIReviewAnalysisService
 
 
@@ -398,6 +399,29 @@ class ForeignerScoreTest(unittest.TestCase):
         )
 
         self.assertLessEqual(result["reviewTrustScore"], 60)
+
+    def test_short_low_information_reviews_use_stricter_guardrail(self):
+        result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=["좋아요", "친절해요", "괜찮아요"])
+        ).model_dump()
+
+        self.assertLess(result["specificityScore"], 20)
+        self.assertLessEqual(result["evidenceScore"], 50)
+        self.assertEqual(result["reviewTrustScore"], 50)
+
+    def test_few_concrete_reviews_keep_existing_review_count_cap(self):
+        result = MockReviewAnalysisService.analyze(
+            make_payload(
+                reviews=[
+                    "대기 시간과 검사 결과, 치료 과정과 비용을 자세히 설명받았습니다.",
+                    "상담 후 처방과 회복 중 주의사항, 사후관리 일정을 안내받았습니다.",
+                    "예약부터 진료까지 대기 시간과 검사 순서가 구체적이었습니다.",
+                ]
+            )
+        ).model_dump()
+
+        self.assertGreaterEqual(result["specificityScore"], 20)
+        self.assertEqual(result["reviewTrustScore"], 60)
 
     @staticmethod
     def _base_ai_data():

@@ -6008,6 +6008,36 @@ button.notificationCard {
   line-height: 1.55;
 }
 
+.resultConfidenceCaution {
+  border-color: rgba(255, 210, 133, 0.9);
+  background: rgba(255, 247, 228, 0.88);
+}
+
+.resultConfidenceCaution strong {
+  color: #9a6718;
+}
+
+.resultScoreCapNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: rgba(248, 244, 255, 0.78);
+  color: var(--graypurple);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+  text-align: left;
+  word-break: keep-all;
+}
+
+.resultScoreCapNotice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
 .resultScoreGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -854,6 +854,10 @@ class OpenAIReviewAnalysisService:
             caps.append(68)
         if evidence_score < 45:
             caps.append(65)
+        # 소수의 짧은 리뷰가 자연스러움/표현 다양성만으로 리뷰 수 상한까지
+        # 올라가지 않도록, 구체성과 근거가 모두 부족한 경우에만 보수적으로 제한한다.
+        if review_count < 5 and specificity_score < 20 and evidence_score <= 50:
+            caps.append(50)
         return min(review_trust_score, *caps)
 
     @staticmethod
