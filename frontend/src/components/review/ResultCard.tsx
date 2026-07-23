@@ -30,9 +30,10 @@ export function ResultCard() {
   const router = useRouter()
   const { t, language } = useLanguage()
   const { isAuthenticated } = useAuth()
-  const { membershipType, hasDetailedAccessForAnalysis, formattedResetDate } = useMembership()
+  const { membershipType, checkDetailedAccessForAnalysis, formattedResetDate } = useMembership()
   const [plusOpen, setPlusOpen] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<CurrentReviewAnalysis | null>(null)
+  const [authorizedAnalysisId, setAuthorizedAnalysisId] = useState<string | null>(null)
   const viewModel = useMemo(
     () => (analysisResult ? normalizeAnalysisResult(analysisResult, { language }) : null),
     [analysisResult, language]
@@ -50,6 +51,16 @@ export function ResultCard() {
     if (!isAuthenticated || !analysisResult?.hospitalId) return
     void recentHospitalService.recordRecentHospital(analysisResult.hospitalId, analysisResult.analysisResultId).catch(() => undefined)
   }, [analysisResult?.analysisResultId, analysisResult?.hospitalId, isAuthenticated])
+
+  useEffect(() => {
+    const analysisId = analysisResult?.analysisResultId
+    if (!analysisId) return
+    let active = true
+    void checkDetailedAccessForAnalysis(analysisId).then((allowed) => {
+      if (active) setAuthorizedAnalysisId(allowed ? String(analysisId) : null)
+    })
+    return () => { active = false }
+  }, [analysisResult?.analysisResultId, checkDetailedAccessForAnalysis])
 
   if (!viewModel) {
     return (
@@ -97,7 +108,7 @@ export function ResultCard() {
         categoryLabel={categoryLabel}
         analyzedAt={analysisResult?.analyzedAt}
       />
-      <ResultInsightSection viewModel={viewModel} hasDetailedAccess={hasDetailedAccessForAnalysis(viewModel.ids.analysisResultId ?? viewModel.ids.analysisRequestId)} formattedResetDate={formattedResetDate} onShowPlus={() => setPlusOpen(true)} />
+      <ResultInsightSection viewModel={viewModel} hasDetailedAccess={authorizedAnalysisId === String(viewModel.ids.analysisResultId ?? "")} formattedResetDate={formattedResetDate} onShowPlus={() => setPlusOpen(true)} />
       <Link href={helpInquiryHref} className={styles.analysisHelpCard}>
         <span className={styles.analysisHelpIcon}>
           <MessageCircle className={styles.iconMd} />

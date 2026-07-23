@@ -1,5 +1,6 @@
 from app.services.admin_service import AdminService
 from app.services.analysis_service import AnalysisService
+from app.services.analysis_usage_service import AnalysisUsageService
 from app.services.auth_service import AuthService
 from app.services.chatbot_service import ChatbotService
 from app.services.chatbot_history_service import ChatbotHistoryService
@@ -20,6 +21,7 @@ from app.services.token_service import TokenService
 __all__ = [
     "AdminService",
     "AnalysisService",
+    "AnalysisUsageService",
     "AuthService",
     "ChatbotService",
     "ChatbotHistoryService",
