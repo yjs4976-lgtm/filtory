@@ -1,5 +1,5 @@
 const MIN_STANDALONE_REVIEW_LENGTH = 20
-const MAX_PARSED_REVIEWS = 100
+const MAX_PARSED_REVIEWS = 30
 
 const EXACT_UI_LINES = new Set([
   "프로필", "팔로우", "반응 남기기", "영수증", "방문일", "펼쳐서 더보기", "더보기",
@@ -8,7 +8,11 @@ const EXACT_UI_LINES = new Set([
 ])
 
 const UI_LINE_PATTERNS = [
-  /^(?:사진|리뷰)\s*\d+(?:,\d{3})*$/i,
+  /^(?:사진|리뷰)\s*\d+(?:,\d{3})*(?:\s*(?:사진|리뷰)\s*\d+(?:,\d{3})*)*$/i,
+  /^(?=.{1,80}$).*\s리뷰\s*\d+(?:,\d{3})*\s*사진\s*\d+(?:,\d{3})*$/i,
+  /^방문일.*(?:\d{4}\s*년|번째\s*방문|방문\s*인증|인증\s*수단|영수증)/i,
+  /^방문\s*인증\s*수단\s*영수증$/i,
+  /^(?:\d+\s*번째\s*)?방문(?:\s*인증\s*수단\s*영수증)?$/i,
   /^(?:별점\s*)?[★☆⭐]\s*(?:[★☆⭐]\s*)*(?:\d(?:\.\d)?)?$/,
   /^\d(?:\.\d)?\s*점$/,
   /^(?:방문\s*)?\d+\s*회$/,
@@ -17,7 +21,10 @@ const UI_LINE_PATTERNS = [
   /^(?:오늘|어제|\d+\s*(?:분|시간|일|주|개월|년)\s*전)$/,
 ]
 
-const OWNER_REPLY_MARKER = /^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$/i
+const REVIEW_COUNT_METADATA = /리뷰\s*\d+(?:,\d{3})*(?:\s*사진\s*\d+(?:,\d{3})*)?/i
+const OWNER_REPLY_MARKER = /^\s*(?:(?:병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*)?(?:답변|답글|댓글)\s*[:：]?|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?/i
+const REVIEW_EXPERIENCE_PATTERN = /(방문|진료|검사|상담|수술|시술|치료|예약|대기|설명|친절|불편|통증|회복|의사|선생님|직원|간호사|비용|가격|시설|추천|만족)/i
+const SENTENCE_ENDING_PATTERN = /(다|요|습니다|했어요|좋아요|좋았어요|아파요|친절해요|추천해요|만족해요)(?:[.!?~…\s]|$)/i
 
 export function stripOwnerReplyText(content: string) {
   const lines = content.replace(/\r\n?/g, "\n").split("\n")
@@ -38,9 +45,27 @@ function isUiOrMetadataLine(line: string) {
   return UI_LINE_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
+function isLikelyProfileLine(line: string) {
+  const normalized = line.replace(/\s+/g, " ").trim()
+  if (normalized.length > 30 || REVIEW_EXPERIENCE_PATTERN.test(normalized) || SENTENCE_ENDING_PATTERN.test(normalized)) {
+    return false
+  }
+  if (/^[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,4}$/.test(normalized)) return true
+  return /^[가-힣A-Za-z][가-힣A-Za-z0-9_.-]{1,19}$/.test(normalized)
+}
+
+function isReviewBodyCandidate(content: string, lineCount: number) {
+  if (content.length < MIN_STANDALONE_REVIEW_LENGTH) return false
+  return (
+    SENTENCE_ENDING_PATTERN.test(content) ||
+    REVIEW_EXPERIENCE_PATTERN.test(content) ||
+    (lineCount >= 2 && content.length >= 40)
+  )
+}
+
 function cleanReviewBlock(lines: string[]) {
   const content = stripOwnerReplyText(lines.join("\n")).trim()
-  return content.length >= MIN_STANDALONE_REVIEW_LENGTH ? content : ""
+  return isReviewBodyCandidate(content, lines.length) ? content : ""
 }
 
 export function splitReviewText(value: string) {
@@ -53,6 +78,7 @@ export function splitReviewText(value: string) {
   for (const paragraph of paragraphs) {
     const lines = paragraph.split("\n").map((line) => line.trim())
     let currentLines: string[] = []
+    let skippingOwnerReply = false
 
     const flush = () => {
       const block = cleanReviewBlock(currentLines)
@@ -61,7 +87,16 @@ export function splitReviewText(value: string) {
     }
 
     for (const line of lines) {
-      if (isUiOrMetadataLine(line) || line.length < 10) {
+      if (OWNER_REPLY_MARKER.test(line)) {
+        flush()
+        skippingOwnerReply = true
+        continue
+      }
+      if (skippingOwnerReply) {
+        if (REVIEW_COUNT_METADATA.test(line)) skippingOwnerReply = false
+        continue
+      }
+      if (isUiOrMetadataLine(line) || isLikelyProfileLine(line) || line.length < 10) {
         flush()
         continue
       }
