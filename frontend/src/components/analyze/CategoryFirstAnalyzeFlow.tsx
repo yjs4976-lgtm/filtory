@@ -1696,7 +1696,10 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
       // Charge only after the API completed and the result was saved. The usage event is idempotent by analysis ID.
-      chargeCompletedAnalysis(response.analysisResultId ?? response.analysisRequestId ?? nextAnalysisResult.id)
+      const charged = response.analysisResultId
+        ? await chargeCompletedAnalysis(response.analysisResultId)
+        : false
+      if (!charged) throw new Error(language === "en" ? "Detailed analysis usage could not be charged." : "상세 분석 사용량을 확인하거나 차감하지 못했습니다.")
       router.push(ROUTES.RESULT)
     } catch (error) {
       setReviewFeedback("")

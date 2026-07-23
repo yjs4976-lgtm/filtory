@@ -13,6 +13,7 @@ export interface MembershipEntitlement {
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
   lastVerifiedAt: string | null
+  baseLimit?: number
 }
 
 export interface CancellationFeedback { reasonId?: string; additionalFeedback?: string; submittedAt?: string }
