@@ -99,6 +99,10 @@ def analysis_result_to_canonical_dict(analysis_result):
     evidence_json = analysis_result.evidence_json if isinstance(analysis_result.evidence_json, dict) else {}
     raw_response = evidence_json.get("rawResponse")
     raw = raw_response if isinstance(raw_response, dict) else {}
+    score_breakdown = raw.get("scoreBreakdown")
+    if not isinstance(score_breakdown, dict):
+        score_breakdown = raw.get("score_breakdown")
+    score_breakdown = score_breakdown if isinstance(score_breakdown, dict) else {}
     evidence = raw.get("evidence") if isinstance(raw.get("evidence"), dict) else evidence_json.get("evidence")
     evidence = evidence if isinstance(evidence, dict) else {}
     global_accessibility_checks = raw.get("globalAccessibilityChecks")
@@ -108,22 +112,22 @@ def analysis_result_to_canonical_dict(analysis_result):
         "totalScore": _first_present(raw.get("totalScore"), analysis_result.total_score),
         "trustScore": _first_present(raw.get("trustScore"), analysis_result.trust_score),
         "reviewTrustScore": _first_present(raw.get("reviewTrustScore"), raw.get("trustScore"), analysis_result.trust_score),
-        "evidenceScore": raw.get("evidenceScore"),
-        "riskScore": raw.get("riskScore"),
-        "specificityScore": raw.get("specificityScore"),
-        "balanceScore": raw.get("balanceScore"),
-        "diversityScore": raw.get("diversityScore"),
-        "informativeScore": raw.get("informativeScore"),
-        "naturalnessScore": raw.get("naturalnessScore"),
-        "promoSignalScore": raw.get("promoSignalScore"),
-        "repetitionScore": raw.get("repetitionScore"),
-        "exaggerationScore": raw.get("exaggerationScore"),
-        "eventDiscountScore": raw.get("eventDiscountScore"),
-        "reviewBurstScore": raw.get("reviewBurstScore"),
+        "evidenceScore": _score_breakdown_value(raw, score_breakdown, "evidenceScore", "evidence_score"),
+        "riskScore": _score_breakdown_value(raw, score_breakdown, "riskScore", "risk_score"),
+        "specificityScore": _score_breakdown_value(raw, score_breakdown, "specificityScore", "specificity_score"),
+        "balanceScore": _score_breakdown_value(raw, score_breakdown, "balanceScore", "balance_score"),
+        "diversityScore": _score_breakdown_value(raw, score_breakdown, "diversityScore", "diversity_score"),
+        "informativeScore": _score_breakdown_value(raw, score_breakdown, "informativeScore", "informative_score"),
+        "naturalnessScore": _score_breakdown_value(raw, score_breakdown, "naturalnessScore", "naturalness_score"),
+        "promoSignalScore": _score_breakdown_value(raw, score_breakdown, "promoSignalScore", "promo_signal_score"),
+        "repetitionScore": _score_breakdown_value(raw, score_breakdown, "repetitionScore", "repetition_score"),
+        "exaggerationScore": _score_breakdown_value(raw, score_breakdown, "exaggerationScore", "exaggeration_score"),
+        "eventDiscountScore": _score_breakdown_value(raw, score_breakdown, "eventDiscountScore", "event_discount_score"),
+        "reviewBurstScore": _score_breakdown_value(raw, score_breakdown, "reviewBurstScore", "review_burst_score"),
         "reviewBurstStatus": raw.get("reviewBurstStatus"),
         "analysisConfidence": raw.get("analysisConfidence"),
         "analysisConfidenceDescription": raw.get("analysisConfidenceDescription"),
-        "scoreBreakdown": raw.get("scoreBreakdown") if isinstance(raw.get("scoreBreakdown"), dict) else {},
+        "scoreBreakdown": score_breakdown,
         "trustGrade": raw.get("trustGrade") or raw.get("grade") or "",
         "trustLevelKey": _first_present(raw.get("trustLevelKey"), analysis_result.trust_level),
         "adSuspicionScore": _first_present(raw.get("adSuspicionScore"), raw.get("adScore"), analysis_result.ad_score),
@@ -268,6 +272,15 @@ def _first_present(*values):
         if value is not None:
             return value
     return None
+
+
+def _score_breakdown_value(raw, score_breakdown, camel_key, snake_key):
+    return _first_present(
+        raw.get(camel_key),
+        raw.get(snake_key),
+        score_breakdown.get(camel_key),
+        score_breakdown.get(snake_key),
+    )
 
 
 def _string_list(value):
