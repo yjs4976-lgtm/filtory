@@ -467,7 +467,7 @@ class OpenAIReviewAnalysisService:
             return list(dict.fromkeys(
                 cleaned
                 for review in payload.reviews
-                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(review))
+                if (cleaned := OpenAIReviewAnalysisService._clean_review_text(review))
             ))
         return OpenAIReviewAnalysisService._split_review_text(payload.reviewText)
 
@@ -480,18 +480,122 @@ class OpenAIReviewAnalysisService:
         text = str(value or "").replace("\r\n", "\n").strip()
         if not text:
             return []
+        lines = [line.strip() for line in text.splitlines()]
+        profile_indexes = [index for index, line in enumerate(lines) if line == "프로필"]
+        if profile_indexes:
+            reviews = []
+            for index, profile_index in enumerate(profile_indexes):
+                block = lines[profile_index + 1:profile_indexes[index + 1] if index + 1 < len(profile_indexes) else len(lines)]
+                if block:
+                    block = block[1:]
+                cleaned = OpenAIReviewAnalysisService._clean_review_text("\n".join(block))
+                if cleaned:
+                    reviews.append(cleaned)
+            return list(dict.fromkeys(reviews))
         paragraph_parts = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
         if len(paragraph_parts) > 1:
             return list(dict.fromkeys(
                 cleaned
                 for part in paragraph_parts
-                if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+                if (cleaned := OpenAIReviewAnalysisService._clean_review_text(part))
             ))
         return list(dict.fromkeys(
             cleaned
             for part in text.splitlines()
-            if (cleaned := OpenAIReviewAnalysisService._strip_owner_reply_text(part))
+            if (cleaned := OpenAIReviewAnalysisService._clean_review_text(part))
         ))
+
+    @staticmethod
+    def _is_review_metadata_line(value: str) -> bool:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text:
+            return True
+        exact_labels = {
+            "프로필", "팔로우", "펠로우", "영수증", "별점", "방문자 리뷰", "방문자리뷰사진",
+            "블로그 리뷰", "블로그리뷰",
+            "저장", "공유", "예약", "전화", "사진", "리뷰", "반응 남기기", "더보기", "접기",
+        }
+        if text.lower() in {label.lower() for label in exact_labels}:
+            return True
+        patterns = [
+            r"^[A-Za-z0-9._-]{2,}\*{2,}$",
+            r"^(?:사진|리뷰)\s*\d+(?:,\d{3})*(?:\s*(?:사진|리뷰)\s*\d+(?:,\d{3})*)*$",
+            r"^예약\s*(?:후|없이)\s*이용대기\s*시간.*$",
+            r"^\[.*(?:재방문|첫방문|상담|초진).*예약.*\]$",
+            r"^방문일.*(?:번째\s*방문|방문\s*인증|인증\s*수단|영수증)",
+            r"^(?:별점\s*)?[★☆⭐]\s*(?:[★☆⭐]\s*)*(?:\d(?:\.\d)?)?$",
+            r"^\d(?:\.\d)?\s*점$",
+            r"^\d{1,2}\.\d{1,2}\.[월화수목금토일]$",
+            r"^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$",
+        ]
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+
+    @staticmethod
+    def _is_likely_owner_reply(value: str) -> bool:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text:
+            return False
+        signals = [
+            r"^안녕하세요",
+            r"소중한\s*(?:리뷰|후기)",
+            r"(?:방문|내원|이용)해?\s*주셔서\s*감사",
+            r"(?:더\s*좋은|만족스러운)\s*진료",
+            r"(?:노력|최선을\s*다)하겠습니다",
+            r"저희\s*(?:병원|의원|클리닉|센터)",
+            r"(?:고객님|환자분)",
+            r"님[,\s]*안녕하세요",
+            r"찾아\s*주셔서.*감사",
+            r"소중한\s*(?:리뷰|후기).*감사",
+            r"(?:앞으로도|의료진\s*모두|정성을\s*다하겠습니다)",
+            r"고객님께서",
+            r"만족해\s*주셨다니",
+            r"다음\s*방문에도",
+            r"^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다",
+        ]
+        signal_count = sum(bool(re.search(pattern, text, re.IGNORECASE)) for pattern in signals)
+        return (
+            signal_count >= 2
+            or bool(re.match(r"^(?:\S+님[,\s]*)?안녕하세요", text) and re.search(r"리뷰|진료|노력|감사|좋은\s*하루|입니다", text))
+            or bool(re.search(r"님[,\s]*안녕하세요", text) and re.search(r"입니다", text))
+            or bool(re.search(r"^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다", text))
+        )
+
+    @staticmethod
+    def _is_post_review_marker(value: str) -> bool:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text:
+            return False
+        patterns = [
+            r"^(?:더보기|접기|반응 남기기|영수증)$",
+            r"^반응 남기기",
+            r"^방문일",
+            r"(?:방문\s*인증|인증\s*수단|번째\s*방문).*(?:영수증|예약)?",
+            r"^\d{1,2}\.\d{1,2}\.[월화수목금토일]$",
+            r"^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$",
+        ]
+        return (
+            any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+            or OpenAIReviewAnalysisService._is_likely_owner_reply(text)
+        )
+
+    @staticmethod
+    def _clean_review_text(value: str | None) -> str:
+        text = OpenAIReviewAnalysisService._strip_owner_reply_text(value)
+        if not text:
+            return ""
+        kept_lines = []
+        collecting_body = False
+        for line in text.splitlines():
+            if collecting_body and OpenAIReviewAnalysisService._is_post_review_marker(line):
+                break
+            if OpenAIReviewAnalysisService._is_likely_owner_reply(line):
+                break
+            if OpenAIReviewAnalysisService._is_review_metadata_line(line):
+                continue
+            collecting_body = True
+            kept_lines.append(line.strip())
+        cleaned = "\n".join(line for line in kept_lines if line).strip()
+        return "" if OpenAIReviewAnalysisService._is_likely_owner_reply(cleaned) else cleaned
 
     @staticmethod
     def _strip_owner_reply_text(value: str | None) -> str:
@@ -629,6 +733,18 @@ class OpenAIReviewAnalysisService:
             repetition_score=repetition_score,
             specificity_score=specificity_score,
             evidence_score=evidence_score,
+            low_information_reviews=(
+                sum(len(review.strip()) for review in review_texts) / max(review_count, 1) < 30
+                and sum(
+                    [
+                        mentioned_aspects.costMentioned,
+                        mentioned_aspects.waitingMentioned,
+                        mentioned_aspects.treatmentProcessMentioned,
+                        mentioned_aspects.aftercareMentioned,
+                    ]
+                ) == 0
+                and (specificity_score < 25 or evidence_score <= 55)
+            ),
         )
         analysis_confidence = cls.analysis_confidence(
             review_count=review_count,
@@ -832,6 +948,7 @@ class OpenAIReviewAnalysisService:
         repetition_score: int,
         specificity_score: int,
         evidence_score: int,
+        low_information_reviews: bool = False,
     ) -> int:
         # 리뷰 수가 너무 적거나 광고/반복/구체성 위험이 크면 최종 신뢰도 상한선을 둔다.
         # 적은 리뷰 몇 개만으로 지나치게 높은 점수가 나오지 않게 하는 안전장치다.
@@ -854,6 +971,15 @@ class OpenAIReviewAnalysisService:
             caps.append(68)
         if evidence_score < 45:
             caps.append(65)
+        # 소수의 짧은 리뷰가 자연스러움/표현 다양성만으로 리뷰 수 상한까지
+        # 올라가지 않도록, 구체성과 근거가 모두 부족한 경우에만 보수적으로 제한한다.
+        if low_information_reviews:
+            if review_count < 5:
+                caps.append(50)
+            elif review_count < 10:
+                caps.append(55)
+            elif review_count < 20:
+                caps.append(65)
         return min(review_trust_score, *caps)
 
     @staticmethod

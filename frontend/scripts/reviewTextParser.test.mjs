@@ -19,12 +19,12 @@ const output = ts.transpileModule(source, {
 const cjsModule = { exports: {} }
 new Function("require", "module", "exports", output)(baseRequire, cjsModule, cjsModule.exports)
 
-const { splitReviewText } = cjsModule.exports
+const { isShortReviewText, splitReviewText } = cjsModule.exports
 const sample = [
   "Sample User A",
   "리뷰 16사진 14",
   "의사 선생님이 설명을 자세히 해주시고 대기 시간도 짧아서 만족했습니다.",
-  "방문일7.20.월2026년 7월 20일 월요일1번째 방문인증 수단영수증",
+  "방문일4.5.일2099년 4월 5일 일요일1번째 방문인증 수단영수증",
   "반응 남기기",
   "",
   "SampleUserB 리뷰 24 사진 5",
@@ -73,55 +73,112 @@ assert.deepEqual(ownerReplyFiltered, [
 const reviewWithThanks = splitReviewText("검사 결과를 자세히 설명해 주셔서 안심됐습니다. 감사합니다.")
 assert.equal(reviewWithThanks.length, 1)
 
-const anonymizedNaverSample = `예약 후 이용대기 시간 바로 입장
-예약 후 대기 없이 바로 진료 받았어요.
-의사선생님도, 간호사분들도
-친절히 안내해주셔서
-마음 편히 진료 받았어요.
-접기
+const maskedNaverMetadataSample = `sample****
+리뷰 16사진 15
+펠로우
+예약 후 이용대기 시간 10분 이내
+SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다
+방문자 리뷰
+사진 15
+영수증`
+
+const maskedNaverMetadataParsed = splitReviewText(maskedNaverMetadataSample)
+
+assert.deepEqual(maskedNaverMetadataParsed, [
+  "SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다",
+])
+
+const anonymizedProfileBlocksSample = `프로필
+SampleUserA
+리뷰 2사진 2
+팔로우
+방문자리뷰사진
+예약 후 이용대기 시간 10분 이내
+업무 중 불편함이 생겨 가까운 곳에 방문했어요.
+SampleDoctorA에게 상태 설명을 듣고 기본 처치를 받았어요.
+대기 시간과 이후 관리 방법도 안내받았습니다.
+더보기
 반응 남기기
-방문일7.10.금2026년 7월 10일 금요일2번째 방문인증 수단영수증
-샘플정형외과의원
-7.15.수
-안녕하세요. userA님 리뷰에 힘이 납니다. 더 좋은 진료할 수 있도록 노력하겠습니다. 감사합니다.
+방문일1.2.금2099년 1월 2일 금요일1번째 방문인증 수단영수증
+SampleClinic
+1.3.토
+SampleUserA님, 안녕하세요. SampleClinic입니다.
+저희 병원을 찾아 주셔서 감사드립니다.
+소중한 후기 작성에 감사드리며 앞으로도 정성을 다하겠습니다.
+더보기
 프로필
 SampleUserB
-리뷰 56사진 75
+리뷰 5사진 1
 팔로우
-김샘플 대표원장 [신환 예약]
-예약 후 이용대기 시간 바로 입장
-정형외과 올일 있으면 오는 곳입니다. 원장 선생님 너무 친절하시고 궁금한거 잘 설명해주셔요. 물리치료도 잘 받았습니다! 병원도 쾌적하니 좋아요~~
+예약 없이 이용대기 시간 20분 이내
+검사 순서와 예상 비용을 미리 설명받아 준비하기 편했어요.
+SampleDoctorB가 질문에 차분히 답해 주었습니다.
 반응 남기기
-방문일7.10.금2026년 7월 10일 금요일1번째 방문인증 수단예약
-샘플정형외과의원
-7.15.수
-안녕하세요. SampleUserB님 소중한 리뷰 감사합니다. 항상 좋은 진료할 수 있도록 노력하겠습니다.
+방문일2.3.화2099년 2월 3일 화요일2번째 방문인증 수단영수증
+SampleClinic
+2.4.수
+SampleUserB님, 안녕하세요. SampleClinic입니다.
+의료진 모두 더 나은 안내를 위해 정성을 다하겠습니다.
 프로필
 SampleUserC
-리뷰 13사진 2
+리뷰 1
 팔로우
-예약 없이 이용대기 시간 10분 이내
-처음 방문했는데 의사샘이 친절하고 물리치료가 좋아요~
-물리치료가 마음에 들어요
-다음에 방문할게요.
-표정을 눌러 반응을 남겨 보세요!
-반응 남기기멋져요
-1
-명
-방문일7.9.목2026년 7월 9일 목요일1번째 방문인증 수단영수증
-샘플정형외과의원
-7.15.수
-안녕하세요. SampleUserC님 소중한 리뷰 덕분에 힘이 나네요. 더 좋은 진료할 수 있도록 노력하겠습니다. 좋은 하루 되세요`
+치료 뒤 주의사항과 다음 방문 시점을 구체적으로 안내받았습니다.
+시설 이용 과정도 무리 없이 진행됐어요.
+영수증
+방문일3.4.수2099년 3월 4일 수요일1번째 방문인증 수단영수증
+SampleClinic
+3.5.목
+안녕하세요. SampleClinic입니다.
+소중한 후기 남겨 주셔서 감사합니다.
+프로필
+SampleUserD
+리뷰 8사진 3
+팔로우
+[재방문 상담 예약]
+필러 시술 과정을 설명받고 빠르게 할 수 있어서 일정 조정이 편했어요.
+접기
+반응 남기기
+방문일4.5.목2099년 4월 5일 목요일2번째 방문인증 수단예약
+SampleClinic
+4.6.금
+아름다운 일상, [ SampleClinic ] 입니다.
+고객님께서 만족해 주셨다니 감사드리며 다음 방문에도 정성을 다하겠습니다.
+프로필
+SampleUserE
+리뷰 3사진 1
+팔로우
+[첫방문 초진 예약]
+염증주사 및 아쿠아필 안내를 받고 무리 없이 이용했습니다.
+더보기
+반응 남기기
+방문일5.6.금2099년 5월 6일 금요일1번째 방문인증 수단영수증
+SampleClinic
+5.7.토
+안녕하세요. SampleClinic입니다.
+앞으로도 세심한 안내를 위해 노력하겠습니다.`
 
-const anonymizedNaverParsed = splitReviewText(anonymizedNaverSample)
-const excludedNaverPhrases = [
-  "안녕하세요", "소중한 리뷰", "노력하겠습니다", "좋은 하루", "접기", "반응 남기기",
-  "표정을 눌러", "방문일", "영수증", "대표원장", "예약 후 이용대기 시간 바로 입장",
-  "예약 없이 이용대기 시간 10분 이내", "샘플정형외과의원",
-]
+const anonymizedProfileBlocksParsed = splitReviewText(anonymizedProfileBlocksSample)
 
-assert.equal(anonymizedNaverParsed.length, 3)
-assert.ok(anonymizedNaverParsed.every((review) => excludedNaverPhrases.every((phrase) => !review.includes(phrase))))
-assert.ok(anonymizedNaverParsed.some((review) => review.includes("예약 후 대기 없이 바로 진료 받았어요")))
-assert.ok(anonymizedNaverParsed.some((review) => review.includes("정형외과 올일 있으면 오는 곳입니다")))
-assert.ok(anonymizedNaverParsed.some((review) => review.includes("처음 방문했는데 의사샘이 친절하고")))
+assert.equal(anonymizedProfileBlocksParsed.length, 5)
+assert.ok(anonymizedProfileBlocksParsed[0].includes("업무 중 불편함이 생겨"))
+assert.ok(anonymizedProfileBlocksParsed[1].includes("검사 순서와 예상 비용"))
+assert.ok(anonymizedProfileBlocksParsed[2].includes("치료 뒤 주의사항"))
+assert.ok(anonymizedProfileBlocksParsed[3].includes("필러 시술"))
+assert.ok(anonymizedProfileBlocksParsed[3].includes("빠르게 할 수 있어서"))
+assert.ok(anonymizedProfileBlocksParsed[4].includes("염증주사 및 아쿠아필"))
+assert.ok(anonymizedProfileBlocksParsed.every((review) => !/SampleUser|SampleClinic|소중한 후기|정성을 다하겠습니다|방문일|영수증/.test(review)))
+
+assert.deepEqual(splitReviewText("좋아요\n친절해요\n만족합니다\n괜찮아요"), [
+  "좋아요",
+  "친절해요",
+  "만족합니다",
+  "괜찮아요",
+])
+
+for (const review of ["좋아요", "친절해요", "만족합니다", "빠르고 꼼꼼하고 좋아요", "친절하시고 빠르게 할 수 있어서 항상 만족해요"]) {
+  assert.equal(isShortReviewText(review), true)
+  assert.ok(splitReviewText(review).includes(review))
+}
+assert.equal(isShortReviewText("가".repeat(40)), true)
+assert.equal(isShortReviewText("가".repeat(41)), false)

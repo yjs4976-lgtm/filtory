@@ -66,6 +66,13 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
   const label = t.result.score
   const analyzedDate = analyzedAt ? formatDisplayDate(analyzedAt, language) : formatDisplayDate(new Date().toISOString(), language)
   const breakdown = viewModel.scoreBreakdown
+  const reviewCount = viewModel.scores.analyzedReviewCount
+  const capNotice = reviewCount > 0 && reviewCount < 5
+    ? label.lowReviewCountNotice
+    : reviewCount >= 5 && reviewCount < 10
+      ? label.limitedReviewCountNotice
+      : ""
+  const isLowConfidence = viewModel.analysisConfidence.key === "low"
 
   return (
     <>
@@ -83,10 +90,16 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           <strong className={styles.resultTotalScore}>{viewModel.scores.reviewTrustScore}</strong>
           <small>{label.pointSuffix}</small>
         </div>
-        <div className={styles.resultConfidenceBox}>
+        <div className={`${styles.resultConfidenceBox} ${isLowConfidence ? styles.resultConfidenceCaution : ""}`}>
           <strong>{label.analysisConfidence}: {viewModel.analysisConfidence.label}</strong>
           <p>{viewModel.analysisConfidence.description}</p>
         </div>
+        {capNotice && (
+          <div className={styles.resultScoreCapNotice}>
+            <Info className={styles.iconXs} />
+            <span>{capNotice}</span>
+          </div>
+        )}
       </section>
 
       <section className={styles.resultScoreGrid} aria-label={label.coreSummary}>

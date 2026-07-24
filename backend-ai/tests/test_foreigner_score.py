@@ -1,6 +1,7 @@
 import unittest
 
 from app.schemas.review_analysis_schema import ReviewAnalyzeRequest
+from app.services.mock_review_analysis_service import MockReviewAnalysisService
 from app.services.openai_review_analysis_service import OpenAIReviewAnalysisService
 
 
@@ -398,6 +399,188 @@ class ForeignerScoreTest(unittest.TestCase):
         )
 
         self.assertLessEqual(result["reviewTrustScore"], 60)
+
+    def test_short_low_information_reviews_use_stricter_guardrail(self):
+        result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=["좋아요", "친절해요", "괜찮아요"])
+        ).model_dump()
+
+        self.assertLess(result["specificityScore"], 20)
+        self.assertLessEqual(result["evidenceScore"], 50)
+        self.assertEqual(result["reviewTrustScore"], 50)
+
+    def test_few_concrete_reviews_keep_existing_review_count_cap(self):
+        result = MockReviewAnalysisService.analyze(
+            make_payload(
+                reviews=[
+                    "대기 시간과 검사 결과, 치료 과정과 비용을 자세히 설명받았습니다.",
+                    "상담 후 처방과 회복 중 주의사항, 사후관리 일정을 안내받았습니다.",
+                    "예약부터 진료까지 대기 시간과 검사 순서가 구체적이었습니다.",
+                ]
+            )
+        ).model_dump()
+
+        self.assertGreaterEqual(result["specificityScore"], 20)
+        self.assertEqual(result["reviewTrustScore"], 60)
+
+    def test_naver_metadata_does_not_inflate_analyzed_review_count(self):
+        payload = make_payload(
+            reviewText="\n".join(
+                [
+                    "sample****",
+                    "리뷰 16사진 15",
+                    "펠로우",
+                    "예약 후 이용대기 시간 10분 이내",
+                    "SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다",
+                    "방문자 리뷰",
+                    "사진 15",
+                    "영수증",
+                    "안녕하세요. 소중한 리뷰 감사합니다. 더 좋은 진료를 위해 노력하겠습니다.",
+                ]
+            ),
+            reviews=[],
+        )
+
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(payload),
+            ["SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다"],
+        )
+        self.assertEqual(OpenAIReviewAnalysisService.analyzed_review_count(payload), 1)
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(
+                make_payload(
+                    reviews=[
+                        "친절하고 설명을 자세히 해주셔서 만족합니다.",
+                        "안녕하세요. 소중한 리뷰 감사합니다. 더 좋은 진료를 위해 노력하겠습니다.",
+                    ]
+                )
+            ),
+            ["친절하고 설명을 자세히 해주셔서 만족합니다."],
+        )
+
+    def test_anonymized_profile_blocks_keep_only_three_user_reviews(self):
+        payload = make_payload(
+            reviewText="""프로필
+SampleUserA
+리뷰 2사진 2
+팔로우
+방문자리뷰사진
+예약 후 이용대기 시간 10분 이내
+대기 순서와 검사 절차를 안내받아 이용 과정을 이해하기 쉬웠습니다.
+SampleDoctorA에게 이후 관리 방법도 설명받았습니다.
+방문일1.2.금2099년 1월 2일 금요일1번째 방문인증 수단영수증
+SampleClinic
+1.3.토
+SampleUserA님, 안녕하세요. SampleClinic입니다.
+저희 병원을 찾아 주셔서 감사드리며 앞으로도 정성을 다하겠습니다.
+프로필
+SampleUserB
+리뷰 4사진 1
+팔로우
+상담 전에 예상 비용과 치료 순서를 확인할 수 있어 준비하기 편했습니다.
+SampleDoctorB가 질문에 차분히 답해 주었습니다.
+방문일2.3.화2099년 2월 3일 화요일1번째 방문인증 수단영수증
+SampleClinic
+2.4.수
+SampleUserB님, 안녕하세요. SampleClinic입니다.
+소중한 후기 작성에 감사드립니다.
+프로필
+SampleUserC
+리뷰 1
+팔로우
+치료 뒤 주의사항과 다음 방문 시점을 구체적으로 안내받았습니다.
+시설 이용 과정도 무리 없이 진행됐어요.
+방문일3.4.수2099년 3월 4일 수요일1번째 방문인증 수단영수증
+SampleClinic
+3.5.목
+안녕하세요. SampleClinic입니다.
+의료진 모두 더 나은 안내를 위해 노력하겠습니다.
+프로필
+SampleUserD
+리뷰 8사진 3
+팔로우
+[재방문 상담 예약]
+필러 시술 과정을 설명받고 빠르게 진행되어 일정 조정이 편했습니다.
+접기
+반응 남기기
+방문일4.5.목2099년 4월 5일 목요일2번째 방문인증 수단예약
+SampleClinic
+4.6.금
+아름다운 일상, [ SampleClinic ] 입니다.
+고객님께서 만족해 주셨다니 감사드리며 다음 방문에도 정성을 다하겠습니다.
+프로필
+SampleUserE
+리뷰 3사진 1
+팔로우
+[첫방문 초진 예약]
+염증주사 및 아쿠아필 안내를 받고 무리 없이 이용했습니다.
+더보기
+반응 남기기
+방문일5.6.금2099년 5월 6일 금요일1번째 방문인증 수단영수증
+SampleClinic
+5.7.토
+안녕하세요. SampleClinic입니다.
+앞으로도 세심한 안내를 위해 노력하겠습니다.""",
+            reviews=[],
+        )
+
+        reviews = OpenAIReviewAnalysisService._review_texts(payload)
+        result = MockReviewAnalysisService.analyze(payload).model_dump()
+
+        self.assertEqual(len(reviews), 5)
+        self.assertEqual(result["analyzedReviewCount"], 5)
+        self.assertTrue(all("SampleUser" not in review for review in reviews))
+        self.assertTrue(all("SampleClinic" not in review for review in reviews))
+        self.assertTrue(all("소중한 후기" not in review and "정성을 다하겠습니다" not in review for review in reviews))
+        self.assertNotIn("소중한 후기", str(result["evidence"]))
+        self.assertIn("필러 시술", reviews[3])
+        self.assertIn("염증주사 및 아쿠아필", reviews[4])
+        self.assertEqual(
+            OpenAIReviewAnalysisService._clean_review_text(
+                "시술 순서와 이후 관리 방법을 설명받았습니다.\n"
+                "아름다운 일상, [ SampleClinic ] 입니다.\n"
+                "다음 방문에도 정성을 다하겠습니다."
+            ),
+            "시술 순서와 이후 관리 방법을 설명받았습니다.",
+        )
+
+    def test_low_information_review_groups_do_not_reach_review_count_caps(self):
+        short_reviews = [
+            "좋아요",
+            "친절해요",
+            "만족합니다",
+            "깨끗해요",
+            "괜찮아요",
+            "추천해요",
+            "다음에 또 갈게요",
+        ]
+        seven_review_result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=short_reviews)
+        ).model_dump()
+        fifteen_review_result = MockReviewAnalysisService.analyze(
+            make_payload(
+                reviews=[
+                    *short_reviews,
+                    "편안해요",
+                    "무난해요",
+                    "잘 다녀왔어요",
+                    "설명이 좋아요",
+                    "직원분이 친절해요",
+                    "시설이 깔끔해요",
+                    "또 방문할게요",
+                    "전반적으로 만족해요",
+                ]
+            )
+        ).model_dump()
+
+        self.assertEqual(seven_review_result["reviewTrustScore"], 55)
+        self.assertEqual(fifteen_review_result["reviewTrustScore"], 65)
+        self.assertLess(seven_review_result["specificityScore"], 25)
+        self.assertLess(fifteen_review_result["specificityScore"], 25)
+        self.assertEqual(
+            OpenAIReviewAnalysisService._split_review_text("좋아요\n친절해요\n만족합니다\n괜찮아요"),
+            ["좋아요", "친절해요", "만족합니다", "괜찮아요"],
+        )
 
     @staticmethod
     def _base_ai_data():

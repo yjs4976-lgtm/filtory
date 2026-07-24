@@ -1,19 +1,29 @@
 const MIN_STANDALONE_REVIEW_LENGTH = 20
 const MAX_PARSED_REVIEWS = 30
+export const SHORT_REVIEW_MAX_LENGTH = 40
+
+export function isShortReviewText(content: string) {
+  return content.trim().length <= SHORT_REVIEW_MAX_LENGTH
+}
 
 const EXACT_UI_LINES = new Set([
   "프로필", "팔로우", "반응 남기기", "영수증", "방문일", "펼쳐서 더보기", "더보기",
   "예약 없이 이용", "예약 후 이용", "이용약관", "고객센터", "리뷰운영정책", "신고센터",
-  "접기", "표정을 눌러 반응을 남겨 보세요!", "반응 남기기멋져요", "멋져요", "좋아요",
+  "접기", "표정을 눌러 반응을 남겨 보세요!", "반응 남기기멋져요", "멋져요",
   "도움돼요", "유익해요", "1", "명", "naver", "홈", "리뷰", "사진", "정보",
+  "펠로우", "방문자 리뷰", "방문자리뷰사진", "블로그 리뷰", "블로그리뷰",
+  "저장", "공유", "예약", "전화", "별점",
 ])
 
 const UI_LINE_PATTERNS = [
+  /^[A-Za-z0-9._-]{2,}\*{2,}$/,
   /^(?:사진|리뷰)\s*\d+(?:,\d{3})*(?:\s*(?:사진|리뷰)\s*\d+(?:,\d{3})*)*$/i,
   /^(?=.{1,80}$).*\s리뷰\s*\d+(?:,\d{3})*\s*사진\s*\d+(?:,\d{3})*$/i,
   /^예약\s*(?:후|없이)\s*이용대기\s*시간.*$/i,
+  /^\[.*(?:재방문|첫방문|상담|초진).*예약.*\]$/i,
   /^.*(?:대표원장.*예약|원장.*\[.*예약.*\]).*$/i,
   /^(?=.{2,30}$)[가-힣A-Za-z0-9\s·&().-]*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터)$/i,
+  /^(?=.{2,40}$)[A-Za-z0-9\s·&().-]*(?:clinic|hospital|center)$/i,
   /^방문일.*(?:\d{4}\s*년|번째\s*방문|방문\s*인증|인증\s*수단|영수증)/i,
   /^방문\s*인증\s*수단\s*영수증$/i,
   /^(?:\d+\s*번째\s*)?방문(?:\s*인증\s*수단\s*영수증)?$/i,
@@ -22,6 +32,7 @@ const UI_LINE_PATTERNS = [
   /^(?:방문\s*)?\d+\s*회$/,
   /^(?:방문일\s*)?\d{2,4}[./-]\d{1,2}[./-]\d{1,2}\.?$/,
   /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\.?$/,
+  /^\d{1,2}\.\d{1,2}\.[월화수목금토일]$/,
   /^(?:오늘|어제|\d+\s*(?:분|시간|일|주|개월|년)\s*전)$/,
 ]
 
@@ -39,6 +50,14 @@ const OWNER_REPLY_SIGNALS = [
   /저희\s*(?:병원|의원|클리닉|센터)/i,
   /(?:내원|이용)해\s*주셔서/i,
   /(?:고객님|환자분)/i,
+  /님[,\s]*안녕하세요/i,
+  /찾아\s*주셔서.*감사/i,
+  /소중한\s*(?:리뷰|후기).*감사/i,
+  /(?:앞으로도|의료진\s*모두|정성을\s*다하겠습니다)/i,
+  /고객님께서/i,
+  /만족해\s*주셨다니/i,
+  /다음\s*방문에도/i,
+  /^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다/i,
 ]
 
 export function stripOwnerReplyText(content: string) {
@@ -70,11 +89,22 @@ function isLikelyProfileLine(line: string) {
 }
 
 function isReviewBodyCandidate(content: string, lineCount: number) {
-  if (content.length < MIN_STANDALONE_REVIEW_LENGTH) return false
+  if (content.length < MIN_STANDALONE_REVIEW_LENGTH) {
+    return lineCount === 1 && isLikelyShortReview(content)
+  }
   return (
     SENTENCE_ENDING_PATTERN.test(content) ||
     REVIEW_EXPERIENCE_PATTERN.test(content) ||
     (lineCount >= 2 && content.length >= 40)
+  )
+}
+
+function isLikelyShortReview(content: string) {
+  const normalized = content.replace(/\s+/g, " ").trim()
+  return (
+    normalized.length >= 2 &&
+    normalized.length < MIN_STANDALONE_REVIEW_LENGTH &&
+    (SENTENCE_ENDING_PATTERN.test(normalized) || REVIEW_EXPERIENCE_PATTERN.test(normalized))
   )
 }
 
@@ -87,10 +117,27 @@ function isLikelyOwnerReplyBlock(content: string) {
     0
   )
   const greetingWithBusinessIdentity =
-    /^안녕하세요[,.!\s]/i.test(normalized) &&
+    /^(?:\S+님[,\s]*)?안녕하세요[,.!\s]/i.test(normalized) &&
     /(병원|의원|클리닉|센터|입니다|리뷰|진료|노력|감사|좋은\s*하루)/i.test(normalized)
+  const addressedBusinessGreeting =
+    /님[,\s]*안녕하세요/i.test(normalized) &&
+    /입니다/i.test(normalized)
+  const bracketedBusinessIdentity =
+    /^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다/i.test(normalized)
 
-  return greetingWithBusinessIdentity || signalCount >= 2
+  return greetingWithBusinessIdentity || addressedBusinessGreeting || bracketedBusinessIdentity || signalCount >= 2
+}
+
+function isPostReviewMarker(line: string) {
+  const normalized = line.replace(/\s+/g, " ").trim()
+  if (!normalized) return false
+  if (/^(?:더보기|접기|반응 남기기|영수증)$/.test(normalized)) return true
+  if (/^반응 남기기/.test(normalized)) return true
+  if (/^방문일/.test(normalized)) return true
+  if (/(?:방문\s*인증|인증\s*수단|번째\s*방문).*(?:영수증|예약)?/.test(normalized)) return true
+  if (/^\d{1,2}\.\d{1,2}\.[월화수목금토일]$/.test(normalized)) return true
+  if (/^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$/i.test(normalized)) return true
+  return OWNER_REPLY_MARKER.test(normalized) || isLikelyOwnerReplyBlock(normalized)
 }
 
 function cleanReviewBlock(lines: string[]) {
@@ -102,6 +149,39 @@ function cleanReviewBlock(lines: string[]) {
 export function splitReviewText(value: string) {
   const normalized = value.replace(/\r\n?/g, "\n").trim()
   if (!normalized) return []
+
+  const rawLines = normalized.split("\n").map((line) => line.trim())
+  const profileIndexes = rawLines
+    .map((line, index) => (line === "프로필" ? index : -1))
+    .filter((index) => index >= 0)
+
+  if (profileIndexes.length > 0) {
+    const profileResults: string[] = []
+    for (let index = 0; index < profileIndexes.length; index += 1) {
+      const start = profileIndexes[index] + 1
+      const end = profileIndexes[index + 1] ?? rawLines.length
+      const blockLines = rawLines.slice(start, end)
+      const firstContentIndex = blockLines.findIndex(Boolean)
+      if (firstContentIndex >= 0) blockLines.splice(firstContentIndex, 1)
+      const reviewLines: string[] = []
+      let mode: "beforeBody" | "collectingBody" = "beforeBody"
+      for (const line of blockLines) {
+        if (mode === "collectingBody" && isPostReviewMarker(line)) break
+        if (OWNER_REPLY_MARKER.test(line) || isLikelyOwnerReplyBlock(line)) break
+        if (isUiOrMetadataLine(line) || isLikelyProfileLine(line)) continue
+        mode = "collectingBody"
+        reviewLines.push(line)
+      }
+      const block = cleanReviewBlock(reviewLines)
+      if (block) profileResults.push(block)
+    }
+    return Array.from(new Set(profileResults)).slice(0, MAX_PARSED_REVIEWS)
+  }
+
+  const nonEmptyLines = rawLines.filter(Boolean)
+  if (nonEmptyLines.length > 0 && nonEmptyLines.every(isLikelyShortReview)) {
+    return Array.from(new Set(nonEmptyLines)).slice(0, MAX_PARSED_REVIEWS)
+  }
 
   const results: string[] = []
   const paragraphs = normalized.split(/\n\s*\n+/)
