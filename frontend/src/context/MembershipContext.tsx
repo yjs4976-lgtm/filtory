@@ -33,7 +33,7 @@ function readStoredAllowance(userId: string, plan: SubscriptionPlan): StoredAllo
 type MembershipContextValue = {
   membershipType: SubscriptionPlan; entitlement: MembershipEntitlement; entitlementLoading: boolean
   totalCount: number; baseLimit: number; usedCount: number; rewardCount: number; adminGrantedCount: number; availableCount: number; remainingAnalyses: number; progress: number
-  nextBillingDate?: string; hasPaymentHistory: boolean; canUseDetailedAnalysis: boolean; canWatchRewardAd: boolean
+  nextBillingDate?: string; hasPaymentHistory: boolean; isUnlimited: boolean; canUseDetailedAnalysis: boolean; canWatchRewardAd: boolean
   monthlyFreeUsage: MonthlyFreeUsage; nextResetAt: string; formattedResetDate: string
   addRewardAnalysis: () => boolean; chargeCompletedAnalysis: (analysisId: string | number) => Promise<boolean>
   hasDetailedAccessForAnalysis: (analysisId: string | number | undefined) => boolean
@@ -87,7 +87,7 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
       serverReadyRef.current = false
       const stored = readStoredAllowance(userId, "FREE")
       eventsRef.current = stored.usageEvents
-      persist({ ...stored.allowance, baseLimit: 0, rewardCount: 0, adminGrantedCount: 0, usedCount: 0 })
+      persist({ ...stored.allowance, baseLimit: 0, rewardCount: 0, adminGrantedCount: 0, usedCount: 0, isUnlimited: false })
     } finally { setEntitlementLoading(false) }
   }, [persist, user, userId])
 
@@ -100,6 +100,7 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
   }, [authLoading, refreshEntitlement])
 
   const plan = entitlement.plan
+  const isUnlimited = Boolean(allowance.isUnlimited)
   const availableCount = allowance.baseLimit + allowance.rewardCount + allowance.adminGrantedCount
   const remainingAnalyses = Math.max(availableCount - allowance.usedCount, 0)
 
@@ -140,7 +141,7 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
   const hasDetailedAccessForAnalysis = useCallback((analysisId: string | number | undefined) => {
     if (user && !serverReadyRef.current) return false
     if (analysisId !== undefined && eventsRef.current.some((event) => event.analysisId === String(analysisId))) return true
-    return allowanceRef.current.usedCount < allowanceRef.current.baseLimit + allowanceRef.current.rewardCount + allowanceRef.current.adminGrantedCount
+    return Boolean(allowanceRef.current.isUnlimited) || allowanceRef.current.usedCount < allowanceRef.current.baseLimit + allowanceRef.current.rewardCount + allowanceRef.current.adminGrantedCount
   }, [user])
 
   const checkDetailedAccessForAnalysis = useCallback(async (analysisId: string | number | undefined) => {
@@ -178,12 +179,12 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
   const value = useMemo<MembershipContextValue>(() => ({
     membershipType: plan, entitlement, entitlementLoading, totalCount: allowance.baseLimit, baseLimit: allowance.baseLimit, usedCount: allowance.usedCount, rewardCount: allowance.rewardCount, adminGrantedCount: allowance.adminGrantedCount,
     availableCount, remainingAnalyses, progress: availableCount ? Math.min(allowance.usedCount / availableCount * 100, 100) : 0,
-    nextBillingDate: entitlement.currentPeriodEnd?.slice(0, 10), hasPaymentHistory: entitlement.provider !== null, canUseDetailedAnalysis: remainingAnalyses > 0,
-    canWatchRewardAd: plan === "FREE" && remainingAnalyses === 0 && !allowance.rewardedToday,
+    nextBillingDate: entitlement.currentPeriodEnd?.slice(0, 10), hasPaymentHistory: entitlement.provider !== null, isUnlimited, canUseDetailedAnalysis: isUnlimited || remainingAnalyses > 0,
+    canWatchRewardAd: !isUnlimited && plan === "FREE" && remainingAnalyses === 0 && !allowance.rewardedToday,
     monthlyFreeUsage: { detailedAnalysisLimit: allowance.baseLimit, detailedAnalysisUsed: allowance.usedCount, usagePeriodStart: getMonthlyUsagePeriod().usagePeriodStart, usagePeriodEnd: getMonthlyUsagePeriod().usagePeriodEnd, nextResetAt: getMonthlyUsagePeriod().nextResetAt },
     nextResetAt: getMonthlyUsagePeriod().nextResetAt, formattedResetDate: formatKoreanResetDate(getMonthlyUsagePeriod().nextResetAt),
     addRewardAnalysis, chargeCompletedAnalysis, hasDetailedAccessForAnalysis, checkDetailedAccessForAnalysis, startPlusPurchase, restorePurchases, scheduleCancellation, refreshEntitlement,
-  }), [addRewardAnalysis, allowance, availableCount, chargeCompletedAnalysis, checkDetailedAccessForAnalysis, entitlement, entitlementLoading, hasDetailedAccessForAnalysis, plan, refreshEntitlement, remainingAnalyses, restorePurchases, scheduleCancellation, startPlusPurchase])
+  }), [addRewardAnalysis, allowance, availableCount, chargeCompletedAnalysis, checkDetailedAccessForAnalysis, entitlement, entitlementLoading, hasDetailedAccessForAnalysis, isUnlimited, plan, refreshEntitlement, remainingAnalyses, restorePurchases, scheduleCancellation, startPlusPurchase])
 
   return <MembershipContext.Provider value={value}>{children}</MembershipContext.Provider>
 }

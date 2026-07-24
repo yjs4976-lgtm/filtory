@@ -5,6 +5,10 @@ from app.repositories.subscription_repository import SubscriptionRepository
 
 class AnalysisUsageRepository:
     @staticmethod
+    def get_member(member_id):
+        return db.session.get(Member, member_id)
+
+    @staticmethod
     def lock_member(member_id):
         # 같은 회원의 서로 다른 분석 결과가 동시에 차감되어 월 한도를 넘지 않도록 직렬화한다.
         return Member.query.filter(Member.id == member_id).with_for_update().first()

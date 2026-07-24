@@ -5,7 +5,7 @@ import type { MembershipEntitlement } from "@/types/subscription"
 export type ServerMembership = Pick<
   MembershipEntitlement,
   "plan" | "status" | "provider" | "currentPeriodStart" | "currentPeriodEnd"
-> & { baseLimit: number }
+> & { baseLimit: number; isUnlimited?: boolean }
 
 export type ServerAnalysisUsage = ServerMembership & {
   periodKey: string
@@ -49,5 +49,6 @@ export function serverUsageToAllowance(usage: ServerAnalysisUsage): AnalysisAllo
     adminGrantedCount: usage.adminGrantedCount,
     usedCount: usage.usedCount,
     rewardedToday: false,
+    isUnlimited: Boolean(usage.isUnlimited),
   }
 }

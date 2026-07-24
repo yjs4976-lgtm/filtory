@@ -39,7 +39,7 @@ const REGION_SEARCH_RESULTS = KOREA_REGION_OPTIONS.flatMap((province) =>
 export function HomeHero() {
   const router = useRouter()
   const { t, language } = useLanguage()
-  const { membershipType, remainingAnalyses, addRewardAnalysis } = useMembership()
+  const { membershipType, remainingAnalyses, isUnlimited, addRewardAnalysis } = useMembership()
   const { showToast } = useToast()
   const [membershipSheet, setMembershipSheet] = useState<"benefits" | "limit" | null>(null)
   const [isRewardLoading, setIsRewardLoading] = useState(false)
@@ -92,7 +92,7 @@ export function HomeHero() {
   }, [isRegionSheetOpen])
 
   function startAnalyze() {
-    if (membershipType === "FREE" && remainingAnalyses === 0) {
+    if (!isUnlimited && membershipType === "FREE" && remainingAnalyses === 0) {
       setMembershipSheet("limit")
       return
     }

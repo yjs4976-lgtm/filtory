@@ -18,8 +18,14 @@ def usage_state(monkeypatch):
             101: SimpleNamespace(id=101, member_id=1),
             102: SimpleNamespace(id=102, member_id=1),
             201: SimpleNamespace(id=201, member_id=2),
+            301: SimpleNamespace(id=301, member_id=3),
         },
         "subscriptions": {},
+        "members": {
+            1: SimpleNamespace(id=1, role="user"),
+            2: SimpleNamespace(id=2, role="user"),
+            3: SimpleNamespace(id=3, role="admin"),
+        },
     }
 
     monkeypatch.setattr(
@@ -63,6 +69,11 @@ def usage_state(monkeypatch):
         "get_current_subscription",
         staticmethod(lambda member_id: state["subscriptions"].get(member_id)),
     )
+    monkeypatch.setattr(
+        AnalysisUsageRepository,
+        "get_member",
+        staticmethod(lambda member_id: state["members"].get(member_id)),
+    )
     monkeypatch.setattr(AnalysisUsageRepository, "commit", staticmethod(lambda: None))
     monkeypatch.setattr(AnalysisUsageRepository, "rollback", staticmethod(lambda: None))
     return state
@@ -79,6 +90,7 @@ def app(monkeypatch, usage_state):
     members = {
         1: SimpleNamespace(id=1, role="user", active=True, deleted_at=None),
         2: SimpleNamespace(id=2, role="user", active=True, deleted_at=None),
+        3: SimpleNamespace(id=3, role="admin", active=True, deleted_at=None),
     }
     monkeypatch.setattr(MemberRepository, "get_by_id", staticmethod(lambda member_id: members.get(member_id)))
     return flask_app
@@ -175,3 +187,54 @@ def test_charge_does_not_increase_over_limit(app, client, usage_state):
     assert usage["charged"] is False
     assert usage["usedCount"] == 5
     assert len(usage_state["logs"]) == 5
+
+
+def test_admin_usage_is_unlimited(app, client, usage_state):
+    period_key = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m")
+    usage_state["logs"] = [
+        SimpleNamespace(member_id=3, analysis_result_id=index, period_key=period_key)
+        for index in range(1, 8)
+    ]
+
+    response = client.get("/api/analysis/usage/me", headers=auth_header(app, 3))
+    usage = response.get_json()["data"]
+
+    assert response.status_code == 200
+    assert usage["isUnlimited"] is True
+    assert usage["canUseDetailedAnalysis"] is True
+
+
+def test_admin_charge_skips_usage_log_even_over_limit(app, client, usage_state):
+    period_key = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m")
+    usage_state["logs"] = [
+        SimpleNamespace(member_id=3, analysis_result_id=index, period_key=period_key)
+        for index in range(1, 8)
+    ]
+
+    response = client.post(
+        "/api/analysis/usage/charge",
+        json={"analysis_result_id": 301},
+        headers=auth_header(app, 3),
+    )
+    usage = response.get_json()["data"]
+
+    assert response.status_code == 200
+    assert usage["isUnlimited"] is True
+    assert usage["charged"] is True
+    assert usage["usedCount"] == 7
+    assert len(usage_state["logs"]) == 7
+
+
+def test_admin_can_access_owned_analysis_without_remaining_usage(app, client, usage_state):
+    period_key = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m")
+    usage_state["logs"] = [
+        SimpleNamespace(member_id=3, analysis_result_id=index, period_key=period_key)
+        for index in range(1, 8)
+    ]
+
+    response = client.get("/api/analysis/301/access", headers=auth_header(app, 3))
+    access = response.get_json()["data"]
+
+    assert response.status_code == 200
+    assert access["isUnlimited"] is True
+    assert access["canAccess"] is True
