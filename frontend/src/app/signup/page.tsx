@@ -3,6 +3,7 @@
 import { AuthCard } from "@/components/auth/AuthCard";
 import { SignupForm } from "@/components/auth/SignupForm";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
+import { AuthEntryGuard } from "@/components/auth/AuthEntryGuard";
 import { useLanguage } from "@/context/LanguageContext";
 import styles from "@/styles/App.module.css";
 
@@ -10,6 +11,7 @@ export default function SignupPage() {
   const { t } = useLanguage();
 
   return (
+    <AuthEntryGuard>
     <AuthCard
       title={t.auth.signupTitle}
       description={t.auth.signupDescription}
@@ -22,5 +24,6 @@ export default function SignupPage() {
 
       <SocialLoginButtons />
     </AuthCard>
+    </AuthEntryGuard>
   );
 }

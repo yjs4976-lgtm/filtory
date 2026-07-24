@@ -26,7 +26,7 @@ function loadTypeScriptModule(filePath) {
   return cjsModule.exports
 }
 
-const { sanitizeInternalNextPath } = loadTypeScriptModule(
+const { sanitizeAuthRedirectPath, sanitizeInternalNextPath } = loadTypeScriptModule(
   path.join(projectRoot, "src/lib/navigation.ts")
 )
 
@@ -36,3 +36,10 @@ assert.equal(sanitizeInternalNextPath("https://evil.example"), null)
 assert.equal(sanitizeInternalNextPath("//evil.example"), null)
 assert.equal(sanitizeInternalNextPath("/\\evil.example"), null)
 assert.equal(sanitizeInternalNextPath("/%5C%5Cevil.example"), null)
+assert.equal(sanitizeAuthRedirectPath("/analyze?step=review"), "/analyze?step=review")
+assert.equal(sanitizeAuthRedirectPath("/mypage/history"), "/mypage/history")
+assert.equal(sanitizeAuthRedirectPath("/login?next=/analyze"), null)
+assert.equal(sanitizeAuthRedirectPath("/signup"), null)
+assert.equal(sanitizeAuthRedirectPath("/auth/callback?next=/history"), null)
+assert.equal(sanitizeAuthRedirectPath("/%6Cogin?next=/analyze"), null)
+assert.equal(sanitizeAuthRedirectPath("https://evil.example"), null)

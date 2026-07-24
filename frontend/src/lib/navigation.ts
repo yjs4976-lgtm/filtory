@@ -30,3 +30,18 @@ export function sanitizeInternalNextPath(value: string | null | undefined): stri
 }
 
 export const getSafeInternalRedirect = sanitizeInternalNextPath
+
+const AUTH_FLOW_PATHS = new Set(["/login", "/signup", "/auth/callback"])
+
+export function sanitizeAuthRedirectPath(value: string | null | undefined): string | null {
+  const safePath = sanitizeInternalNextPath(value)
+  if (!safePath) return null
+  let pathname = safePath.split(/[?#]/, 1)[0]
+  try {
+    pathname = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
+  pathname = pathname.replace(/\/+$/, "") || "/"
+  return AUTH_FLOW_PATHS.has(pathname) ? null : safePath
+}

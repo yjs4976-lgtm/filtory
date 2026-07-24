@@ -18,7 +18,11 @@ export function ResultActionCard() {
         <h2 className={styles.titleSm}>{t.result.completedTitle}</h2>
         <p className={styles.mutedText}>{t.result.loginSaveDescription}</p>
         <div className={styles.actionRow}>
-          <button type="button" className={styles.primaryButton} onClick={() => router.push(ROUTES.LOGIN)}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={() => router.push(`${ROUTES.LOGIN}?next=${encodeURIComponent(ROUTES.RESULT)}`)}
+          >
             <LogIn className={styles.iconSm} />
             {t.result.loginAndSave}
           </button>
