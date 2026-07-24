@@ -2017,8 +2017,51 @@
   gap: 14px;
 }
 
+.adminInquiryListPanel,
+.adminInquiryDetailPanel {
+  min-width: 0;
+}
+
+.adminInquiryDetailPanel {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+.adminInquiryDetailPanel .titleLg,
+.adminInquiryDetailPanel .bodyText {
+  word-break: keep-all;
+}
+
+.adminInquiryDetailPanel .bodyText {
+  white-space: pre-wrap;
+}
+
+.adminInquiryDetailPanel .inquiryDetailMeta span,
+.adminInquiryDetailPanel .inquiryRelatedPanel p {
+  overflow-wrap: anywhere;
+}
+
+.adminInquiryDetailPanel .textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+@media (max-width: 420px) {
+  .adminInquiryFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .adminInquiryFilters input {
+    grid-column: auto;
+  }
+
+  .adminInquiryDetailPanel > .primaryButton {
+    width: 100%;
+  }
+}
+
 .adminInquiryItem {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -3922,16 +3965,14 @@
   justify-content: center;
   background: rgba(31, 42, 68, 0.32);
   backdrop-filter: blur(5px);
-  padding: 0;
+  overflow-y: auto;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 .notificationSheet {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: min(430px, calc(100% - 32px));
-  max-height: 78dvh;
+  max-height: min(720px, calc(100vh - 32px));
+  max-height: min(720px, calc(100dvh - 32px));
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -4171,9 +4212,10 @@
 }
 
 .notificationSheetBody {
-  min-height: 196px;
+  min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
@@ -4396,11 +4438,12 @@ button.notificationCard {
 
 @media (max-height: 720px) {
   .notificationSheet {
-    max-height: 82dvh;
+    max-height: calc(100vh - 24px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
   }
 
   .notificationEmptyState {
-    min-height: 168px;
+    min-height: 140px;
   }
 }
 
@@ -7361,11 +7404,16 @@ button.notificationCard {
   align-items: flex-end;
   justify-content: center;
   background: rgba(31, 42, 68, 0.24);
-  padding: 18px;
+  overflow-y: auto;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
 }
 
 .modalCard {
   width: min(430px, 100%);
+  max-height: min(720px, calc(100vh - 36px - env(safe-area-inset-bottom)));
+  max-height: min(720px, calc(100dvh - 36px - env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--card);
@@ -8085,7 +8133,7 @@ button.notificationCard {
   }
 
   .adminInquiryLayout {
-    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.35fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   }
 
   .sectionPagerBody {
@@ -8108,8 +8156,8 @@ button.notificationCard {
 .workspaceMenuAction span { flex: 1; text-align: left; }
 .workspaceMenuFooter { display: flex; gap: 8px; margin-top: 10px; }
 .workspaceMenuFooter a, .workspaceMenuFooter button { flex: 1; min-height: 34px !important; border: 0 !important; border-radius: 12px !important; background: transparent !important; color: var(--graypurple) !important; font-size: 11px !important; font-weight: 750 !important; text-align: center; text-decoration: none; display: inline-flex !important; align-items: center; justify-content: center; }
-.workspaceModalBackdrop { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; background: rgba(31,42,68,.28); padding: 18px; }
-.workspaceIntroModal { position: relative; width: min(100%, 410px); border: 1px solid rgba(220,204,255,.86); border-radius: 30px; background: linear-gradient(145deg, #fffdf9 42%, rgba(220,204,255,.2)); box-shadow: 0 25px 70px rgba(78,64,112,.2); padding: 34px 26px 26px; text-align: center; }
+.workspaceModalBackdrop { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; overflow-y: auto; background: rgba(31,42,68,.28); padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+.workspaceIntroModal { position: relative; width: min(100%, 410px); max-height: min(720px, calc(100vh - 36px - env(safe-area-inset-bottom))); max-height: min(720px, calc(100dvh - 36px - env(safe-area-inset-bottom))); overflow-y: auto; overscroll-behavior: contain; border: 1px solid rgba(220,204,255,.86); border-radius: 30px; background: linear-gradient(145deg, #fffdf9 42%, rgba(220,204,255,.2)); box-shadow: 0 25px 70px rgba(78,64,112,.2); padding: 34px 26px 26px; text-align: center; }
 .workspaceModalClose { position: absolute; top: 13px; right: 13px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--graypurple); }
 .workspaceModalClose svg { width: 18px; }
 .workspaceIntroIcon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 14px; border-radius: 20px; background: linear-gradient(135deg, var(--lavender-soft), rgba(255,182,201,.3)); color: #56458a; }
