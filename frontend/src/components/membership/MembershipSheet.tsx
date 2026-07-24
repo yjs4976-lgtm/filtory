@@ -14,8 +14,8 @@ type Props = {
 
 const benefits = [
   ["01", "FREE", "월 상세 분석 5회", "무료 기능으로 계속 이용할 수 있어요"],
-  ["02", "PLUS", "월 상세 분석 30회", "현재 서버 테스트 기준이에요"],
-  ["03", "SAME QUALITY", "점수와 AI 분석 기준은", "Free와 Plus 모두 동일해요"],
+  ["02", "PLUS", "월 상세 분석 30회", "현재 테스트 기준으로 제공돼요"],
+  ["03", "SAME AI STANDARD", "점수와 AI 분석 기준은", "Free와 Plus 모두 동일해요"],
 ] as const
 
 export function MembershipSheet({ open, variant, isRewardLoading = false, onClose, onWatchAd }: Props) {
@@ -55,7 +55,7 @@ export function MembershipSheet({ open, variant, isRewardLoading = false, onClos
         <div className={styles.plusStep}>
           <header className={styles.plusHero}>
             <p className={styles.membershipEyebrow}>FILTORY PLUS · TEST GUIDE</p>
-            <h2 id={titleId}>{isLimit ? "이번 달 Free 상세 분석을 모두 사용했어요" : "Plus는 현재 준비 중이에요"}</h2>
+            <h2 id={titleId}>{isLimit ? "이번 달 Free 상세 분석을 모두 사용했어요" : <><span className={styles.plusTitleAccent}>Plus</span>는 현재 준비 중이에요</>}</h2>
             <p id={descriptionId}>{isLimit ? "Free는 월 5회 상세 분석을 제공하며, 기본 점수와 요약은 계속 확인할 수 있어요." : "Plus는 분석 품질을 바꾸는 기능이 아니라, 상세 분석을 더 자주 이용하기 위한 준비 중인 기능이에요."}</p>
           </header>
 
