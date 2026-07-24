@@ -11,6 +11,11 @@ class AnalysisUsageService:
     PLUS_LIMIT = 30
 
     @staticmethod
+    def _is_admin(member_id):
+        member = AnalysisUsageRepository.get_member(member_id)
+        return str(getattr(member, "role", "") or "").lower() == "admin"
+
+    @staticmethod
     def utc_month_period(now=None):
         """Return the billing month using UTC, matching timestamptz storage."""
         current = now or datetime.now(timezone.utc)
@@ -26,6 +31,7 @@ class AnalysisUsageService:
     @staticmethod
     def get_entitlement(member_id):
         period = AnalysisUsageService.utc_month_period()
+        is_unlimited = AnalysisUsageService._is_admin(member_id)
         subscription = AnalysisUsageRepository.get_current_subscription(member_id)
         plan_code = str(getattr(getattr(subscription, "plan", None), "plan_code", "") or "").lower()
         provider = str(getattr(subscription, "payment_provider", "") or "").upper()
@@ -42,6 +48,7 @@ class AnalysisUsageService:
                 getattr(subscription, "current_period_end", None) or period["end"]
             ).isoformat(),
             "baseLimit": AnalysisUsageService.PLUS_LIMIT if is_mock_plus else AnalysisUsageService.FREE_LIMIT,
+            "isUnlimited": is_unlimited,
         }
 
     @staticmethod
@@ -51,6 +58,7 @@ class AnalysisUsageService:
         used_count = AnalysisUsageRepository.count_period_usage(member_id, period["period_key"])
         available_count = entitlement["baseLimit"]
         remaining_count = max(available_count - used_count, 0)
+        is_unlimited = entitlement["isUnlimited"]
         return {
             **entitlement,
             "periodKey": period["period_key"],
@@ -59,7 +67,7 @@ class AnalysisUsageService:
             "adminGrantedCount": 0,
             "availableCount": available_count,
             "remainingCount": remaining_count,
-            "canUseDetailedAnalysis": remaining_count > 0,
+            "canUseDetailedAnalysis": is_unlimited or remaining_count > 0,
         }
 
     @staticmethod
@@ -76,6 +84,9 @@ class AnalysisUsageService:
             return {**AnalysisUsageService.get_usage(member_id), "charged": False, "alreadyCharged": True}
 
         usage = AnalysisUsageService.get_usage(member_id)
+        if usage["isUnlimited"]:
+            # 운영자 분석은 결과 소유권만 확인하고 월 사용량 로그를 차감하지 않는다.
+            return {**usage, "charged": True, "alreadyCharged": False}
         if not usage["canUseDetailedAnalysis"]:
             return {**usage, "charged": False, "alreadyCharged": False}
 

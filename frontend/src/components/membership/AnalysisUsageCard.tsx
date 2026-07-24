@@ -11,7 +11,7 @@ import styles from "@/styles/App.module.css"
 import { ROUTES } from "@/lib/routes"
 
 export function AnalysisUsageCard() {
-  const { membershipType, totalCount, availableCount, usedCount, remainingAnalyses, nextBillingDate, addRewardAnalysis, canWatchRewardAd, formattedResetDate } = useMembership()
+  const { membershipType, totalCount, availableCount, usedCount, remainingAnalyses, nextBillingDate, isUnlimited, addRewardAnalysis, canWatchRewardAd, formattedResetDate } = useMembership()
   const router = useRouter()
   const { showToast } = useToast()
   const [usageOpen, setUsageOpen] = useState(false)
@@ -20,7 +20,7 @@ export function AnalysisUsageCard() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const sheetRef = useRef<HTMLElement>(null)
   const isPlus = membershipType === "PLUS"
-  const exhausted = !isPlus && remainingAnalyses === 0
+  const exhausted = !isUnlimited && !isPlus && remainingAnalyses === 0
   const progress = Math.min(100, availableCount ? usedCount / availableCount * 100 : 0)
 
   const closeUsage = () => {
@@ -62,14 +62,14 @@ export function AnalysisUsageCard() {
     <h2 className={styles.titleSm}>내 분석</h2>
     <button ref={triggerRef} type="button" className={styles.analysisUsageCard} onClick={() => setUsageOpen(true)} aria-label="분석 이용 현황 열기">
       <span className={styles.analysisUsageCardTop}>
-        <span className={styles.analysisUsageCardTitle}>{isPlus ? "Filtory Plus" : exhausted ? "이번 달 무료 상세 분석 5회를 모두 사용했어요." : remainingAnalyses === 1 ? "이번 달 무료 상세 분석이 1회 남아 있어요" : "이번 달 무료 상세 분석"}</span>
-        <span className={styles.analysisUsageCardRemaining}>{isPlus ? <MembershipBadge /> : !exhausted ? `${remainingAnalyses}회 남음` : null}</span>
+        <span className={styles.analysisUsageCardTitle}>{isUnlimited ? "운영자 분석 제한 없음" : isPlus ? "Filtory Plus" : exhausted ? "이번 달 무료 상세 분석 5회를 모두 사용했어요." : remainingAnalyses === 1 ? "이번 달 무료 상세 분석이 1회 남아 있어요" : "이번 달 무료 상세 분석"}</span>
+        <span className={styles.analysisUsageCardRemaining}>{isUnlimited ? "관리자 무제한" : isPlus ? <MembershipBadge /> : !exhausted ? `${remainingAnalyses}회 남음` : null}</span>
       </span>
       {isPlus && <span className={styles.analysisUsagePlusLine}><span>이번 달 분석</span><strong>{usedCount} / {totalCount}회</strong></span>}
-      <span className={styles.membershipProgress} aria-label={`${usedCount} / ${availableCount}회 사용`}><span style={{ width: `${progress}%` }} /></span>
+      {!isUnlimited && <span className={styles.membershipProgress} aria-label={`${usedCount} / ${availableCount}회 사용`}><span style={{ width: `${progress}%` }} /></span>}
       <span className={styles.analysisUsageMeta}>
-        <span>{usedCount} / {availableCount}회 사용</span>
-        <span>{isPlus ? `테스트 이용 기간 ${nextBillingDate?.replaceAll("-", ". ")}까지` : `다음 초기화 ${formattedResetDate}`}</span>
+        <span>{isUnlimited ? `이번 달 ${usedCount}회 분석` : `${usedCount} / ${availableCount}회 사용`}</span>
+        <span>{isUnlimited ? "상세 분석 제한 없음" : isPlus ? `테스트 이용 기간 ${nextBillingDate?.replaceAll("-", ". ")}까지` : `다음 초기화 ${formattedResetDate}`}</span>
       </span>
       <span className={styles.analysisUsageManage}>이용 관리 <ChevronRight aria-hidden="true" /></span>
     </button>
@@ -79,7 +79,13 @@ export function AnalysisUsageCard() {
         <span className={styles.sheetHandle} aria-hidden="true" />
         <button type="button" className={styles.membershipClose} onClick={closeUsage} aria-label="분석 이용 현황 닫기"><X /></button>
         <h2 id="analysis-usage-title" className={styles.titleLg}>{exhausted ? "이번 달 무료 상세 분석 5회를 모두 사용했어요" : "분석 이용 현황"}</h2>
-        {isPlus ? <div className={styles.analysisUsageSheetBody}>
+        {isUnlimited ? <div className={styles.analysisUsageSheetBody}>
+          <p className={styles.membershipEyebrow}>관리자 무제한</p>
+          <div className={styles.analysisUsageSheetValue}>운영자 분석 제한 없음</div>
+          <div className={styles.analysisUsageSheetRow}><span>이번 달 분석 사용량</span><strong>{usedCount}회</strong></div>
+          <p className={styles.bodyText}>운영자 계정은 월 상세 분석 한도의 적용을 받지 않아요.</p>
+          <button type="button" className={styles.membershipLaterButton} onClick={closeUsage} aria-label="닫기">닫기</button>
+        </div> : isPlus ? <div className={styles.analysisUsageSheetBody}>
           <p className={styles.membershipEyebrow}>현재 플랜</p><div className={styles.analysisUsageSheetValue}>Filtory Plus <MembershipBadge /></div>
           <div className={styles.analysisUsageSheetRow}><span>이번 달 분석 사용량</span><strong>{usedCount} / {availableCount}회</strong></div>
           <span className={styles.membershipProgress}><span style={{ width: `${progress}%` }} /></span>
