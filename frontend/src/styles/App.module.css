@@ -824,23 +824,46 @@
 @keyframes membershipFadeIn { from { opacity: 0; } }
 @keyframes membershipSlideIn { from { opacity: 0; transform: translateY(16px); } }
 
-.plusMembershipSheet { --plus-accent: #5f4fb3; --plus-accent-hover: #53449f; --plus-text: #35405b; --plus-muted: #716f80; --plus-divider: #eeeaf3; overflow-x: hidden; }
+.plusMembershipSheet {
+  --plus-accent: var(--primary);
+  --plus-accent-hover: var(--lavender-soft);
+  --plus-text: var(--foreground);
+  --plus-muted: var(--graypurple);
+  --plus-divider: var(--border);
+  max-height: min(90vh, calc(100vh - 24px));
+  max-height: min(90dvh, calc(100dvh - 24px));
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(220, 207, 255, .22), transparent 36%),
+    var(--background);
+}
 .plusStep { animation: plusStepIn 180ms ease-out; }
 .plusHero { padding-right: 42px; }
-.plusHero h2, .plusCheckoutTitle, .plusStatus h2, .plusComplete h2 { margin: 7px 0 10px; color: var(--foreground); font-size: clamp(26px, 7vw, 30px); font-weight: 750; line-height: 1.25; letter-spacing: -.035em; }
-.plusHero>p:not(.membershipEyebrow), .plusStatus>p:last-child, .plusComplete>p:not(.membershipEyebrow) { margin: 0; color: var(--plus-text); font-size: 14px; line-height: 1.65; }
+.plusHero .membershipEyebrow { margin-bottom: 8px; color: var(--graypurple); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.plusHero h2, .plusCheckoutTitle, .plusStatus h2, .plusComplete h2 { margin: 10px 0 14px; color: var(--foreground); font-size: clamp(25px, 7vw, 29px); font-weight: 850; line-height: 1.35; letter-spacing: -.025em; }
+.plusHero>p:not(.membershipEyebrow), .plusStatus>p:last-child, .plusComplete>p:not(.membershipEyebrow) { margin: 0; color: var(--plus-text); font-size: 14px; line-height: 1.75; }
+.plusTestNotice { margin-top: 22px; border: 1px solid rgba(255, 182, 201, .42); border-radius: 17px; background: rgba(255, 182, 201, .08); padding: 15px 16px; }
+.plusTestNotice strong { display: block; color: var(--foreground); font-size: 13px; }
+.plusTestNotice p { margin: 7px 0 0; color: var(--plus-text); font-size: 12px; line-height: 1.65; }
 .plusPrice { display: flex; flex-direction: column; gap: 3px; margin-top: 22px; }
 .plusPrice strong { color: var(--foreground); font-size: 38px; font-weight: 750; line-height: 1; letter-spacing: -.04em; }
 .plusPrice span { color: var(--plus-muted); font-size: 12px; }
-.plusBenefitList { margin: 25px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--plus-divider); }
-.plusBenefitList li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 17px 0; border-bottom: 1px solid var(--plus-divider); }
-.plusBenefitList li>span { color: #9383c7; font-size: 12px; font-weight: 750; letter-spacing: .06em; }
-.plusBenefitList div small { color: #6958a2; font-size: 11px; font-weight: 800; letter-spacing: .1em; }
-.plusBenefitList p { margin: 5px 0 0; color: var(--plus-text); font-size: 14px; font-weight: 550; line-height: 1.5; }
-.plusIncluded { margin: 15px 0 0; color: var(--plus-muted); font-size: 12px; line-height: 1.55; }
-.plusPrimaryButton { width: 100%; min-height: 56px; border: 0; border-radius: 15px; background: var(--plus-accent); color: #fff; padding: 0 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.plusBenefitList { display: grid; gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
+.plusBenefitList li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; border: 1px solid rgba(220, 207, 255, .48); border-radius: 16px; background: linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(220, 207, 255, .15)); padding: 16px; }
+.plusBenefitList li:nth-child(2) { border-color: rgba(189, 238, 207, .72); background: linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(189, 238, 207, .18)); box-shadow: 0 8px 20px rgba(168, 165, 183, .08); }
+.plusBenefitList li:nth-child(3) { border-color: rgba(255, 215, 181, .72); background: linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(255, 215, 181, .2)); }
+.plusBenefitList li>span { width: 28px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; align-self: start; border-radius: 999px; background: var(--lavender-soft); color: var(--graypurple); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.plusBenefitList div small { display: inline-flex; border-radius: 999px; background: var(--lavender-soft); color: var(--primary-foreground); padding: 3px 7px; font-size: 10px; font-weight: 850; letter-spacing: .05em; }
+.plusBenefitList li:nth-child(2)>span,
+.plusBenefitList li:nth-child(2) div small { background: var(--mint-soft); color: var(--mint-text); }
+.plusBenefitList li:nth-child(3)>span,
+.plusBenefitList li:nth-child(3) div small { background: rgba(255, 215, 181, .38); color: var(--peach-text); }
+.plusBenefitList p { margin: 8px 0 0; color: var(--plus-text); font-size: 13px; font-weight: 600; line-height: 1.65; }
+.plusIncluded { margin: 18px 0 0; color: var(--plus-muted); font-size: 12px; line-height: 1.65; }
+.plusPrimaryButton { width: 100%; min-height: 56px; border: 1px solid var(--lavender); border-radius: 15px; background: var(--plus-accent); color: var(--primary-foreground); padding: 0 18px; font-size: 14px; font-weight: 800; cursor: pointer; }
 .plusPrimaryButton:hover { background: var(--plus-accent-hover); }
-.plusPrimaryButton:focus-visible, .plusBackButton:focus-visible, .plusLegalLinks a:focus-visible { outline: 3px solid rgba(120,100,200,.3); outline-offset: 2px; }
+.plusPrimaryButton:focus-visible, .plusBackButton:focus-visible, .plusLegalLinks a:focus-visible { outline: 3px solid rgba(220, 207, 255, .72); outline-offset: 2px; }
+.plusMembershipSheet .membershipCancelAnytime { min-height: 0; margin-top: -2px; line-height: 1.5; }
 .plusBackButton { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; margin: -5px 40px 15px -8px; border: 0; border-radius: 12px; background: transparent; color: var(--foreground); padding: 0 8px; font-size: 13px; font-weight: 750; cursor: pointer; }
 .plusBackButton:hover { background: var(--lavender-soft); }
 .plusBackButton svg { width: 18px; }
@@ -874,6 +897,16 @@
 @keyframes plusStepIn { from { opacity: 0; transform: translateX(8px); } }
 @keyframes plusSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .membershipBackdrop, .membershipSheet, .plusStep, .plusSpinner { animation-duration: .01ms; animation-iteration-count: 1; } }
+
+@media (max-height: 720px) {
+  .plusMembershipSheet { padding-top: 16px; }
+  .plusMembershipSheet .sheetHandle { margin-bottom: 10px; }
+  .plusTestNotice { margin-top: 14px; padding-block: 11px; }
+  .plusBenefitList { gap: 7px; margin-top: 14px; }
+  .plusBenefitList li { padding-block: 11px; }
+  .plusIncluded { margin-top: 11px; }
+  .plusMembershipSheet .membershipActions { margin-top: 14px; }
+}
 
 @media (min-width: 768px) {
   .membershipBackdrop { align-items: center; padding: 24px; }

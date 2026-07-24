@@ -11,7 +11,7 @@ import styles from "@/styles/App.module.css"
 import { ROUTES } from "@/lib/routes"
 
 export function AnalysisUsageCard() {
-  const { membershipType, totalCount, availableCount, usedCount, remainingAnalyses, nextBillingDate, hasPaymentHistory, addRewardAnalysis, canWatchRewardAd, entitlement, formattedResetDate } = useMembership()
+  const { membershipType, totalCount, availableCount, usedCount, remainingAnalyses, nextBillingDate, addRewardAnalysis, canWatchRewardAd, formattedResetDate } = useMembership()
   const router = useRouter()
   const { showToast } = useToast()
   const [usageOpen, setUsageOpen] = useState(false)
@@ -69,7 +69,7 @@ export function AnalysisUsageCard() {
       <span className={styles.membershipProgress} aria-label={`${usedCount} / ${availableCount}회 사용`}><span style={{ width: `${progress}%` }} /></span>
       <span className={styles.analysisUsageMeta}>
         <span>{usedCount} / {availableCount}회 사용</span>
-        <span>{isPlus ? `다음 결제일 ${nextBillingDate?.replaceAll("-", ". ")}` : `다음 초기화 ${formattedResetDate}`}</span>
+        <span>{isPlus ? `테스트 이용 기간 ${nextBillingDate?.replaceAll("-", ". ")}까지` : `다음 초기화 ${formattedResetDate}`}</span>
       </span>
       <span className={styles.analysisUsageManage}>이용 관리 <ChevronRight aria-hidden="true" /></span>
     </button>
@@ -83,9 +83,8 @@ export function AnalysisUsageCard() {
           <p className={styles.membershipEyebrow}>현재 플랜</p><div className={styles.analysisUsageSheetValue}>Filtory Plus <MembershipBadge /></div>
           <div className={styles.analysisUsageSheetRow}><span>이번 달 분석 사용량</span><strong>{usedCount} / {availableCount}회</strong></div>
           <span className={styles.membershipProgress}><span style={{ width: `${progress}%` }} /></span>
-          <div className={styles.analysisUsageSheetRow}><span>{entitlement.cancelAtPeriodEnd ? "이용 가능 기간" : "다음 결제일"}</span><strong>{nextBillingDate}</strong></div>
-          <button type="button" className={styles.primaryButton} onClick={manageSubscription} aria-label="구독 관리">구독 관리</button>
-          {hasPaymentHistory && <button type="button" className={styles.secondaryButton} onClick={manageSubscription} aria-label="결제 및 구독 관리">결제 및 구독 관리</button>}
+          <div className={styles.analysisUsageSheetRow}><span>테스트 이용 가능 기간</span><strong>{nextBillingDate}</strong></div>
+          <button type="button" className={styles.primaryButton} onClick={manageSubscription} aria-label="Plus 이용 관리">Plus 이용 관리</button>
         </div> : exhausted ? <div className={styles.analysisUsageSheetBody}>
           <p className={styles.bodyText}>기본 신뢰도 점수와 간단한 요약은 계속 확인할 수 있어요.<br /><strong>{formattedResetDate}부터</strong><br />무료 상세 분석 5회를 다시 이용할 수 있어요.</p>
           <span className={styles.membershipProgress}><span style={{ width: "100%" }} /></span>
