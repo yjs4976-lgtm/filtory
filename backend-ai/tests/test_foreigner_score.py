@@ -423,6 +423,75 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertGreaterEqual(result["specificityScore"], 20)
         self.assertEqual(result["reviewTrustScore"], 60)
 
+    def test_naver_metadata_does_not_inflate_analyzed_review_count(self):
+        payload = make_payload(
+            reviewText="\n".join(
+                [
+                    "yjm****",
+                    "리뷰 16사진 15",
+                    "펠로우",
+                    "예약 후 이용대기 시간 10분 이내",
+                    "김 원장님이 너무친절하시고 섬세하셔서 만족합니다",
+                    "방문자 리뷰",
+                    "사진 15",
+                    "영수증",
+                    "안녕하세요. 소중한 리뷰 감사합니다. 더 좋은 진료를 위해 노력하겠습니다.",
+                ]
+            ),
+            reviews=[],
+        )
+
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(payload),
+            ["김 원장님이 너무친절하시고 섬세하셔서 만족합니다"],
+        )
+        self.assertEqual(OpenAIReviewAnalysisService.analyzed_review_count(payload), 1)
+        self.assertEqual(
+            OpenAIReviewAnalysisService._review_texts(
+                make_payload(
+                    reviews=[
+                        "친절하고 설명을 자세히 해주셔서 만족합니다.",
+                        "안녕하세요. 소중한 리뷰 감사합니다. 더 좋은 진료를 위해 노력하겠습니다.",
+                    ]
+                )
+            ),
+            ["친절하고 설명을 자세히 해주셔서 만족합니다."],
+        )
+
+    def test_low_information_review_groups_do_not_reach_review_count_caps(self):
+        short_reviews = [
+            "좋아요",
+            "친절해요",
+            "만족합니다",
+            "깨끗해요",
+            "괜찮아요",
+            "추천해요",
+            "다음에 또 갈게요",
+        ]
+        seven_review_result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=short_reviews)
+        ).model_dump()
+        fifteen_review_result = MockReviewAnalysisService.analyze(
+            make_payload(
+                reviews=[
+                    *short_reviews,
+                    "편안해요",
+                    "무난해요",
+                    "잘 다녀왔어요",
+                    "설명이 좋아요",
+                    "직원분이 친절해요",
+                    "시설이 깔끔해요",
+                    "또 방문할게요",
+                    "전반적으로 만족해요",
+                ]
+            )
+        ).model_dump()
+
+        self.assertEqual(seven_review_result["reviewTrustScore"], 55)
+        self.assertEqual(fifteen_review_result["reviewTrustScore"], 65)
+        self.assertLess(seven_review_result["specificityScore"], 25)
+        self.assertLess(fifteen_review_result["specificityScore"], 25)
+
     @staticmethod
     def _base_ai_data():
         return {

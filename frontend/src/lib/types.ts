@@ -386,7 +386,14 @@ export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   provider?: string
   externalPlaceId?: string
   mapUrl?: string
+  googleMapUrl?: string
+  naverPlaceUrl?: string
+  kakaoPlaceUrl?: string
+  homepageUrl?: string
   phone?: string
+  treatmentItems?: string | string[]
+  hasPhotos?: boolean
+  hasGooglePhotos?: boolean
   isFavorite?: boolean
   favoriteHospitalId?: number
   reviewText?: string

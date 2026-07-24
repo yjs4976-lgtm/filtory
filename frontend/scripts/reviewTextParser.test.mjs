@@ -125,3 +125,18 @@ assert.ok(anonymizedNaverParsed.every((review) => excludedNaverPhrases.every((ph
 assert.ok(anonymizedNaverParsed.some((review) => review.includes("예약 후 대기 없이 바로 진료 받았어요")))
 assert.ok(anonymizedNaverParsed.some((review) => review.includes("정형외과 올일 있으면 오는 곳입니다")))
 assert.ok(anonymizedNaverParsed.some((review) => review.includes("처음 방문했는데 의사샘이 친절하고")))
+
+const maskedNaverMetadataSample = `yjm****
+리뷰 16사진 15
+펠로우
+예약 후 이용대기 시간 10분 이내
+김 원장님이 너무친절하시고 섬세하셔서 만족합니다
+방문자 리뷰
+사진 15
+영수증`
+
+const maskedNaverMetadataParsed = splitReviewText(maskedNaverMetadataSample)
+
+assert.deepEqual(maskedNaverMetadataParsed, [
+  "김 원장님이 너무친절하시고 섬세하셔서 만족합니다",
+])

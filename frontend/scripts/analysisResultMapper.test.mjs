@@ -75,6 +75,9 @@ assert.equal(nestedCamelCase.scoreBreakdown.diversityScore, 81)
 
 const historySnakeCase = normalizeAnalysisResult({
   hospitalName: "샘플의원",
+  category: "derma",
+  naverPlaceUrl: "https://map.naver.com/p/example",
+  homepageUrl: "https://example.test",
   score: 66,
   review_trust_score: 66,
   totalReviewCount: 6,
@@ -90,6 +93,7 @@ const historySnakeCase = normalizeAnalysisResult({
 assert.equal(historySnakeCase.scores.reviewTrustScore, 66)
 assert.equal(historySnakeCase.scores.analyzedReviewCount, 6)
 assert.equal(historySnakeCase.analysisConfidence.key, "medium")
+assert.equal(historySnakeCase.information.checkedCount, 4)
 assert.equal(historySnakeCase.scoreBreakdown.evidenceScore, 61)
 assert.equal(historySnakeCase.scoreBreakdown.riskScore, 35)
 assert.equal(historySnakeCase.scoreBreakdown.specificityScore, 57)
