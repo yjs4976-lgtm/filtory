@@ -125,7 +125,7 @@ export default function AdminInquiriesPage() {
         </section>
 
         <section className="soft-card admin-table-card">
-          <div className="admin-filter-grid">
+          <div className={`admin-filter-grid ${styles.adminInquiryFilters}`}>
             <input
               value={filters.keyword ?? ""}
               placeholder={t.help.admin.searchPlaceholder}
@@ -161,7 +161,7 @@ export default function AdminInquiriesPage() {
 
         {!isLoading && (
           <section className={styles.adminInquiryLayout}>
-            <div className={`${styles.card} ${styles.stackSm}`}>
+            <div className={`${styles.card} ${styles.stackSm} ${styles.adminInquiryListPanel}`}>
               <div className={styles.rowBetween}>
                 <h2 className={styles.titleMd}>{t.help.admin.listTitle}</h2>
                 <span className={styles.mutedText}>{total}</span>
@@ -209,7 +209,7 @@ export default function AdminInquiriesPage() {
               )}
             </div>
 
-            <div className={`${styles.card} ${styles.stackMd}`}>
+            <div className={`${styles.card} ${styles.stackMd} ${styles.adminInquiryDetailPanel}`}>
               {!selectedInquiry ? (
                 <p className={styles.mutedText}>{t.help.admin.selectFirst}</p>
               ) : (
