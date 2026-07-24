@@ -427,11 +427,11 @@ class ForeignerScoreTest(unittest.TestCase):
         payload = make_payload(
             reviewText="\n".join(
                 [
-                    "yjm****",
+                    "sample****",
                     "리뷰 16사진 15",
                     "펠로우",
                     "예약 후 이용대기 시간 10분 이내",
-                    "김 원장님이 너무친절하시고 섬세하셔서 만족합니다",
+                    "SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다",
                     "방문자 리뷰",
                     "사진 15",
                     "영수증",
@@ -443,7 +443,7 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertEqual(
             OpenAIReviewAnalysisService._review_texts(payload),
-            ["김 원장님이 너무친절하시고 섬세하셔서 만족합니다"],
+            ["SampleDoctorA가 절차를 차분하게 안내해 주어 이해하기 쉬웠습니다"],
         )
         self.assertEqual(OpenAIReviewAnalysisService.analyzed_review_count(payload), 1)
         self.assertEqual(
@@ -457,6 +457,56 @@ class ForeignerScoreTest(unittest.TestCase):
             ),
             ["친절하고 설명을 자세히 해주셔서 만족합니다."],
         )
+
+    def test_anonymized_profile_blocks_keep_only_three_user_reviews(self):
+        payload = make_payload(
+            reviewText="""프로필
+SampleUserA
+리뷰 2사진 2
+팔로우
+방문자리뷰사진
+예약 후 이용대기 시간 10분 이내
+대기 순서와 검사 절차를 안내받아 이용 과정을 이해하기 쉬웠습니다.
+SampleDoctorA에게 이후 관리 방법도 설명받았습니다.
+방문일1.2.금2099년 1월 2일 금요일1번째 방문인증 수단영수증
+SampleClinic
+1.3.토
+SampleUserA님, 안녕하세요. SampleClinic입니다.
+저희 병원을 찾아 주셔서 감사드리며 앞으로도 정성을 다하겠습니다.
+프로필
+SampleUserB
+리뷰 4사진 1
+팔로우
+상담 전에 예상 비용과 치료 순서를 확인할 수 있어 준비하기 편했습니다.
+SampleDoctorB가 질문에 차분히 답해 주었습니다.
+방문일2.3.화2099년 2월 3일 화요일1번째 방문인증 수단영수증
+SampleClinic
+2.4.수
+SampleUserB님, 안녕하세요. SampleClinic입니다.
+소중한 후기 작성에 감사드립니다.
+프로필
+SampleUserC
+리뷰 1
+팔로우
+치료 뒤 주의사항과 다음 방문 시점을 구체적으로 안내받았습니다.
+시설 이용 과정도 무리 없이 진행됐어요.
+방문일3.4.수2099년 3월 4일 수요일1번째 방문인증 수단영수증
+SampleClinic
+3.5.목
+안녕하세요. SampleClinic입니다.
+의료진 모두 더 나은 안내를 위해 노력하겠습니다.""",
+            reviews=[],
+        )
+
+        reviews = OpenAIReviewAnalysisService._review_texts(payload)
+        result = MockReviewAnalysisService.analyze(payload).model_dump()
+
+        self.assertEqual(len(reviews), 3)
+        self.assertEqual(result["analyzedReviewCount"], 3)
+        self.assertTrue(all("SampleUser" not in review for review in reviews))
+        self.assertTrue(all("SampleClinic" not in review for review in reviews))
+        self.assertTrue(all("소중한 후기" not in review and "정성을 다하겠습니다" not in review for review in reviews))
+        self.assertNotIn("소중한 후기", str(result["evidence"]))
 
     def test_low_information_review_groups_do_not_reach_review_count_caps(self):
         short_reviews = [
@@ -491,6 +541,10 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertEqual(fifteen_review_result["reviewTrustScore"], 65)
         self.assertLess(seven_review_result["specificityScore"], 25)
         self.assertLess(fifteen_review_result["specificityScore"], 25)
+        self.assertEqual(
+            OpenAIReviewAnalysisService._split_review_text("좋아요\n친절해요\n만족합니다\n괜찮아요"),
+            ["좋아요", "친절해요", "만족합니다", "괜찮아요"],
+        )
 
     @staticmethod
     def _base_ai_data():

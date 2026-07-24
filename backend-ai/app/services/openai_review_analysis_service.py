@@ -480,6 +480,18 @@ class OpenAIReviewAnalysisService:
         text = str(value or "").replace("\r\n", "\n").strip()
         if not text:
             return []
+        lines = [line.strip() for line in text.splitlines()]
+        profile_indexes = [index for index, line in enumerate(lines) if line == "프로필"]
+        if profile_indexes:
+            reviews = []
+            for index, profile_index in enumerate(profile_indexes):
+                block = lines[profile_index + 1:profile_indexes[index + 1] if index + 1 < len(profile_indexes) else len(lines)]
+                if block:
+                    block = block[1:]
+                cleaned = OpenAIReviewAnalysisService._clean_review_text("\n".join(block))
+                if cleaned:
+                    reviews.append(cleaned)
+            return list(dict.fromkeys(reviews))
         paragraph_parts = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
         if len(paragraph_parts) > 1:
             return list(dict.fromkeys(
@@ -499,7 +511,8 @@ class OpenAIReviewAnalysisService:
         if not text:
             return True
         exact_labels = {
-            "프로필", "팔로우", "펠로우", "영수증", "별점", "방문자 리뷰", "블로그 리뷰",
+            "프로필", "팔로우", "펠로우", "영수증", "별점", "방문자 리뷰", "방문자리뷰사진",
+            "블로그 리뷰", "블로그리뷰",
             "저장", "공유", "예약", "전화", "사진", "리뷰", "반응 남기기", "더보기", "접기",
         }
         if text.lower() in {label.lower() for label in exact_labels}:
@@ -511,6 +524,8 @@ class OpenAIReviewAnalysisService:
             r"^방문일.*(?:번째\s*방문|방문\s*인증|인증\s*수단|영수증)",
             r"^(?:별점\s*)?[★☆⭐]\s*(?:[★☆⭐]\s*)*(?:\d(?:\.\d)?)?$",
             r"^\d(?:\.\d)?\s*점$",
+            r"^\d{1,2}\.\d{1,2}\.[월화수목금토일]$",
+            r"^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$",
         ]
         return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
 
@@ -527,11 +542,16 @@ class OpenAIReviewAnalysisService:
             r"(?:노력|최선을\s*다)하겠습니다",
             r"저희\s*(?:병원|의원|클리닉|센터)",
             r"(?:고객님|환자분)",
+            r"님[,\s]*안녕하세요",
+            r"찾아\s*주셔서.*감사",
+            r"소중한\s*(?:리뷰|후기).*감사",
+            r"(?:앞으로도|의료진\s*모두|정성을\s*다하겠습니다)",
         ]
         signal_count = sum(bool(re.search(pattern, text, re.IGNORECASE)) for pattern in signals)
         return (
             signal_count >= 2
-            or bool(re.match(r"^안녕하세요", text) and re.search(r"리뷰|진료|노력|감사|좋은\s*하루", text))
+            or bool(re.match(r"^(?:\S+님[,\s]*)?안녕하세요", text) and re.search(r"리뷰|진료|노력|감사|좋은\s*하루|입니다", text))
+            or bool(re.search(r"님[,\s]*안녕하세요", text) and re.search(r"입니다", text))
         )
 
     @staticmethod
