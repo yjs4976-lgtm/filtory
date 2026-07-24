@@ -64,7 +64,7 @@ import type {
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { translations } from "@/lib/translations"
-import { splitReviewText, stripOwnerReplyText } from "@/lib/reviewTextParser"
+import { isShortReviewText, splitReviewText, stripOwnerReplyText } from "@/lib/reviewTextParser"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
@@ -155,7 +155,6 @@ const categoryKeywordMatchers: Record<HospitalCategory, string[]> = {
 
 const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
 const PAGE_SIZE = 3
-const MIN_REVIEW_TEXT_LENGTH = 20
 const MAX_REVIEW_IMPORT_FILE_SIZE = 5 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
 const SUPPORTED_REVIEW_FILE_TYPES = new Set(["text/plain", "text/csv", "application/vnd.ms-excel"])
@@ -359,8 +358,8 @@ function normalizeReviewContent(content: string) {
 }
 
 function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
-  if (content.trim().length < MIN_REVIEW_TEXT_LENGTH) return "short"
   if (duplicateCount > 1) return "duplicate"
+  if (isShortReviewText(content)) return "short"
   return "ready"
 }
 
@@ -1024,7 +1023,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const reviewInboxSummary = useMemo(() => {
     const shortCount = reviewDrafts.filter((review) => review.status === "short").length
     const duplicateCount = reviewDrafts.filter((review) => review.status === "duplicate").length
-    const readyCount = reviewDrafts.filter((review) => review.included && review.status === "ready").length
+    const readyCount = reviewDrafts.filter((review) => review.included && review.status !== "duplicate").length
 
     return {
       totalCount: reviewDrafts.length,
@@ -1034,7 +1033,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }
   }, [reviewDrafts])
   const analysisReadyReviewDrafts = useMemo(
-    () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
+    () => reviewDrafts.filter((review) => review.included && review.status !== "duplicate" && review.content.trim()),
     [reviewDrafts]
   )
   const includedReviewDraftTexts = useMemo(
@@ -1052,7 +1051,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }))
 
     return normalizeReviewDrafts(pendingDrafts)
-      .filter((review) => review.included && review.status === "ready")
+      .filter((review) => review.included && review.status !== "duplicate")
       .map((review) => review.content.trim())
       .filter(Boolean)
   }, [directReviewText])

@@ -494,19 +494,55 @@ SampleUserC
 SampleClinic
 3.5.목
 안녕하세요. SampleClinic입니다.
-의료진 모두 더 나은 안내를 위해 노력하겠습니다.""",
+의료진 모두 더 나은 안내를 위해 노력하겠습니다.
+프로필
+SampleUserD
+리뷰 8사진 3
+팔로우
+[재방문 상담 예약]
+필러 시술 과정을 설명받고 빠르게 진행되어 일정 조정이 편했습니다.
+접기
+반응 남기기
+방문일4.5.목2099년 4월 5일 목요일2번째 방문인증 수단예약
+SampleClinic
+4.6.금
+아름다운 일상, [ SampleClinic ] 입니다.
+고객님께서 만족해 주셨다니 감사드리며 다음 방문에도 정성을 다하겠습니다.
+프로필
+SampleUserE
+리뷰 3사진 1
+팔로우
+[첫방문 초진 예약]
+염증주사 및 아쿠아필 안내를 받고 무리 없이 이용했습니다.
+더보기
+반응 남기기
+방문일5.6.금2099년 5월 6일 금요일1번째 방문인증 수단영수증
+SampleClinic
+5.7.토
+안녕하세요. SampleClinic입니다.
+앞으로도 세심한 안내를 위해 노력하겠습니다.""",
             reviews=[],
         )
 
         reviews = OpenAIReviewAnalysisService._review_texts(payload)
         result = MockReviewAnalysisService.analyze(payload).model_dump()
 
-        self.assertEqual(len(reviews), 3)
-        self.assertEqual(result["analyzedReviewCount"], 3)
+        self.assertEqual(len(reviews), 5)
+        self.assertEqual(result["analyzedReviewCount"], 5)
         self.assertTrue(all("SampleUser" not in review for review in reviews))
         self.assertTrue(all("SampleClinic" not in review for review in reviews))
         self.assertTrue(all("소중한 후기" not in review and "정성을 다하겠습니다" not in review for review in reviews))
         self.assertNotIn("소중한 후기", str(result["evidence"]))
+        self.assertIn("필러 시술", reviews[3])
+        self.assertIn("염증주사 및 아쿠아필", reviews[4])
+        self.assertEqual(
+            OpenAIReviewAnalysisService._clean_review_text(
+                "시술 순서와 이후 관리 방법을 설명받았습니다.\n"
+                "아름다운 일상, [ SampleClinic ] 입니다.\n"
+                "다음 방문에도 정성을 다하겠습니다."
+            ),
+            "시술 순서와 이후 관리 방법을 설명받았습니다.",
+        )
 
     def test_low_information_review_groups_do_not_reach_review_count_caps(self):
         short_reviews = [

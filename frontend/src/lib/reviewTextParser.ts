@@ -1,5 +1,10 @@
 const MIN_STANDALONE_REVIEW_LENGTH = 20
 const MAX_PARSED_REVIEWS = 30
+export const SHORT_REVIEW_MAX_LENGTH = 40
+
+export function isShortReviewText(content: string) {
+  return content.trim().length <= SHORT_REVIEW_MAX_LENGTH
+}
 
 const EXACT_UI_LINES = new Set([
   "프로필", "팔로우", "반응 남기기", "영수증", "방문일", "펼쳐서 더보기", "더보기",
@@ -15,6 +20,7 @@ const UI_LINE_PATTERNS = [
   /^(?:사진|리뷰)\s*\d+(?:,\d{3})*(?:\s*(?:사진|리뷰)\s*\d+(?:,\d{3})*)*$/i,
   /^(?=.{1,80}$).*\s리뷰\s*\d+(?:,\d{3})*\s*사진\s*\d+(?:,\d{3})*$/i,
   /^예약\s*(?:후|없이)\s*이용대기\s*시간.*$/i,
+  /^\[.*(?:재방문|첫방문|상담|초진).*예약.*\]$/i,
   /^.*(?:대표원장.*예약|원장.*\[.*예약.*\]).*$/i,
   /^(?=.{2,30}$)[가-힣A-Za-z0-9\s·&().-]*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터)$/i,
   /^(?=.{2,40}$)[A-Za-z0-9\s·&().-]*(?:clinic|hospital|center)$/i,
@@ -48,6 +54,10 @@ const OWNER_REPLY_SIGNALS = [
   /찾아\s*주셔서.*감사/i,
   /소중한\s*(?:리뷰|후기).*감사/i,
   /(?:앞으로도|의료진\s*모두|정성을\s*다하겠습니다)/i,
+  /고객님께서/i,
+  /만족해\s*주셨다니/i,
+  /다음\s*방문에도/i,
+  /^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다/i,
 ]
 
 export function stripOwnerReplyText(content: string) {
@@ -112,8 +122,22 @@ function isLikelyOwnerReplyBlock(content: string) {
   const addressedBusinessGreeting =
     /님[,\s]*안녕하세요/i.test(normalized) &&
     /입니다/i.test(normalized)
+  const bracketedBusinessIdentity =
+    /^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다/i.test(normalized)
 
-  return greetingWithBusinessIdentity || addressedBusinessGreeting || signalCount >= 2
+  return greetingWithBusinessIdentity || addressedBusinessGreeting || bracketedBusinessIdentity || signalCount >= 2
+}
+
+function isPostReviewMarker(line: string) {
+  const normalized = line.replace(/\s+/g, " ").trim()
+  if (!normalized) return false
+  if (/^(?:더보기|접기|반응 남기기|영수증)$/.test(normalized)) return true
+  if (/^반응 남기기/.test(normalized)) return true
+  if (/^방문일/.test(normalized)) return true
+  if (/(?:방문\s*인증|인증\s*수단|번째\s*방문).*(?:영수증|예약)?/.test(normalized)) return true
+  if (/^\d{1,2}\.\d{1,2}\.[월화수목금토일]$/.test(normalized)) return true
+  if (/^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$/i.test(normalized)) return true
+  return OWNER_REPLY_MARKER.test(normalized) || isLikelyOwnerReplyBlock(normalized)
 }
 
 function cleanReviewBlock(lines: string[]) {
@@ -140,9 +164,12 @@ export function splitReviewText(value: string) {
       const firstContentIndex = blockLines.findIndex(Boolean)
       if (firstContentIndex >= 0) blockLines.splice(firstContentIndex, 1)
       const reviewLines: string[] = []
+      let mode: "beforeBody" | "collectingBody" = "beforeBody"
       for (const line of blockLines) {
+        if (mode === "collectingBody" && isPostReviewMarker(line)) break
         if (OWNER_REPLY_MARKER.test(line) || isLikelyOwnerReplyBlock(line)) break
         if (isUiOrMetadataLine(line) || isLikelyProfileLine(line)) continue
+        mode = "collectingBody"
         reviewLines.push(line)
       }
       const block = cleanReviewBlock(reviewLines)

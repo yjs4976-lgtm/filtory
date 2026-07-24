@@ -686,7 +686,7 @@ export const translations = {
       analysisStartDescription: "가져온 리뷰가 준비되면 분석을 시작할 수 있어요.",
       reviewInbox: {
         totalCount: "가져온 리뷰",
-        shortCount: "짧은 리뷰",
+        shortCount: "짧은 리뷰 (본문 40자 이하)",
         duplicateCount: "중복 의심 리뷰",
         readyCount: "분석 가능 리뷰",
         emptyTitle: "아직 가져온 리뷰가 없어요.",
@@ -2428,7 +2428,7 @@ export const translations = {
       analysisStartDescription: "You can start the analysis once imported reviews are ready.",
       reviewInbox: {
         totalCount: "Imported reviews",
-        shortCount: "Short reviews",
+        shortCount: "Short reviews (40 characters or fewer)",
         duplicateCount: "Possible duplicates",
         readyCount: "Analyzable reviews",
         emptyTitle: "No reviews imported yet.",

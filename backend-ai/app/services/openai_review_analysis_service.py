@@ -521,6 +521,7 @@ class OpenAIReviewAnalysisService:
             r"^[A-Za-z0-9._-]{2,}\*{2,}$",
             r"^(?:사진|리뷰)\s*\d+(?:,\d{3})*(?:\s*(?:사진|리뷰)\s*\d+(?:,\d{3})*)*$",
             r"^예약\s*(?:후|없이)\s*이용대기\s*시간.*$",
+            r"^\[.*(?:재방문|첫방문|상담|초진).*예약.*\]$",
             r"^방문일.*(?:번째\s*방문|방문\s*인증|인증\s*수단|영수증)",
             r"^(?:별점\s*)?[★☆⭐]\s*(?:[★☆⭐]\s*)*(?:\d(?:\.\d)?)?$",
             r"^\d(?:\.\d)?\s*점$",
@@ -546,12 +547,35 @@ class OpenAIReviewAnalysisService:
             r"찾아\s*주셔서.*감사",
             r"소중한\s*(?:리뷰|후기).*감사",
             r"(?:앞으로도|의료진\s*모두|정성을\s*다하겠습니다)",
+            r"고객님께서",
+            r"만족해\s*주셨다니",
+            r"다음\s*방문에도",
+            r"^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다",
         ]
         signal_count = sum(bool(re.search(pattern, text, re.IGNORECASE)) for pattern in signals)
         return (
             signal_count >= 2
             or bool(re.match(r"^(?:\S+님[,\s]*)?안녕하세요", text) and re.search(r"리뷰|진료|노력|감사|좋은\s*하루|입니다", text))
             or bool(re.search(r"님[,\s]*안녕하세요", text) and re.search(r"입니다", text))
+            or bool(re.search(r"^.{0,30}\[\s*[^\]]{2,40}\s*\]\s*입니다", text))
+        )
+
+    @staticmethod
+    def _is_post_review_marker(value: str) -> bool:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text:
+            return False
+        patterns = [
+            r"^(?:더보기|접기|반응 남기기|영수증)$",
+            r"^반응 남기기",
+            r"^방문일",
+            r"(?:방문\s*인증|인증\s*수단|번째\s*방문).*(?:영수증|예약)?",
+            r"^\d{1,2}\.\d{1,2}\.[월화수목금토일]$",
+            r"^(?=.{2,40}$).*(?:병원|의원|치과|안과|정형외과|피부과|클리닉|센터|clinic|hospital|center)$",
+        ]
+        return (
+            any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+            or OpenAIReviewAnalysisService._is_likely_owner_reply(text)
         )
 
     @staticmethod
@@ -560,11 +584,15 @@ class OpenAIReviewAnalysisService:
         if not text:
             return ""
         kept_lines = []
+        collecting_body = False
         for line in text.splitlines():
+            if collecting_body and OpenAIReviewAnalysisService._is_post_review_marker(line):
+                break
             if OpenAIReviewAnalysisService._is_likely_owner_reply(line):
                 break
             if OpenAIReviewAnalysisService._is_review_metadata_line(line):
                 continue
+            collecting_body = True
             kept_lines.append(line.strip())
         cleaned = "\n".join(line for line in kept_lines if line).strip()
         return "" if OpenAIReviewAnalysisService._is_likely_owner_reply(cleaned) else cleaned
