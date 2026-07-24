@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
@@ -14,6 +14,7 @@ import { PasswordField } from "./PasswordField";
 import { TermsAgreement } from "./TermsAgreement";
 import styles from "@/styles/App.module.css";
 import { evaluatePassword } from "@/lib/passwordPolicy";
+import { sanitizeAuthRedirectPath } from "@/lib/navigation";
 
 const EMAIL_DOMAINS = [
   "gmail.com",
@@ -28,6 +29,7 @@ const CUSTOM_EMAIL_DOMAIN = "custom";
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signup } = useAuth();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -52,6 +54,12 @@ export function SignupForm() {
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const loginNextPath = sanitizeAuthRedirectPath(
+    searchParams.get("redirect") ?? searchParams.get("next")
+  );
+  const loginHref = loginNextPath
+    ? `${ROUTES.LOGIN}?next=${encodeURIComponent(loginNextPath)}`
+    : ROUTES.LOGIN;
   const loginIdValidation = validateLoginId(loginId, t.auth);
   const passwordValidation = validatePassword(password, t.auth);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
@@ -144,7 +152,11 @@ export function SignupForm() {
         description: t.auth.signupToastDescription,
         tone: "success",
       });
-      router.push(ROUTES.LOGIN);
+      const nextPath = sanitizeAuthRedirectPath(searchParams.get("redirect") ?? searchParams.get("next"));
+      router.replace(nextPath
+        ? `${ROUTES.LOGIN}?next=${encodeURIComponent(nextPath)}`
+        : ROUTES.LOGIN
+      );
     } catch (error) {
       setError(error instanceof Error ? error.message : t.auth.signupFailed);
     } finally {
@@ -327,7 +339,7 @@ export function SignupForm() {
       </button>
 
       <p className={styles.authBottomText}>
-        {t.auth.loginPrompt} <Link href={ROUTES.LOGIN}>{t.auth.loginLink}</Link>
+        {t.auth.loginPrompt} <Link href={loginHref}>{t.auth.loginLink}</Link>
       </p>
 
       {isEmailDomainModalOpen && (

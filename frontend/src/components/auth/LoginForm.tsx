@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
 import { isAdminRole } from "@/lib/adminAccess";
-import { sanitizeInternalNextPath } from "@/lib/navigation";
+import { sanitizeAuthRedirectPath } from "@/lib/navigation";
 import { ROUTES } from "@/lib/routes";
 import { ApiClientError } from "@/services/apiClient";
 import { PasswordField } from "./PasswordField";
@@ -49,6 +49,12 @@ export function LoginForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdminIntro, setShowAdminIntro] = useState(false);
+  const signupNextPath = sanitizeAuthRedirectPath(
+    searchParams.get("redirect") ?? searchParams.get("next")
+  );
+  const signupHref = signupNextPath
+    ? `${ROUTES.SIGNUP}?next=${encodeURIComponent(signupNextPath)}`
+    : ROUTES.SIGNUP;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,19 +74,19 @@ export function LoginForm() {
         description: t.auth.loginToastDescription,
         tone: "success",
       });
-      const redirect = sanitizeInternalNextPath(searchParams.get("redirect") ?? searchParams.get("next"));
+      const redirect = sanitizeAuthRedirectPath(searchParams.get("redirect") ?? searchParams.get("next"));
       if (redirect?.startsWith(ROUTES.ADMIN)) {
-        router.push(isAdminRole(loggedInUser.role) ? redirect : ROUTES.UNAUTHORIZED);
+        router.replace(isAdminRole(loggedInUser.role) ? redirect : ROUTES.UNAUTHORIZED);
         return;
       }
-      if (redirect) { router.push(redirect); return }
+      if (redirect) { router.replace(redirect); return }
       if (isAdminRole(loggedInUser.role)) {
         const settings = readWorkspaceSettings(loggedInUser)
         if (!settings.hasSeenAdminWorkspaceIntro) { setShowAdminIntro(true); return }
-        router.push(getWorkspaceStartPath(settings));
+        router.replace(getWorkspaceStartPath(settings));
         return
       }
-      router.push(ROUTES.HOME);
+      router.replace(ROUTES.HOME);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 429) {
         const minutes = retryAfterMinutesFromError(error);
@@ -100,7 +106,7 @@ export function LoginForm() {
   const selectWorkspace = (workspace: Workspace, remember: boolean) => {
     markAdminIntroSeen(workspace, remember)
     setShowAdminIntro(false)
-    router.push(workspace === "ADMIN" ? ROUTES.ADMIN : ROUTES.HOME)
+    router.replace(workspace === "ADMIN" ? ROUTES.ADMIN : ROUTES.HOME)
   }
 
   return (
@@ -143,7 +149,7 @@ export function LoginForm() {
       </div>
 
       <p className={styles.authBottomText}>
-        {t.auth.signupPrompt} <Link href={ROUTES.SIGNUP}>{t.auth.signupButton}</Link>
+        {t.auth.signupPrompt} <Link href={signupHref}>{t.auth.signupButton}</Link>
       </p>
     </form>
     {showAdminIntro && <AdminWorkspaceIntro onSelect={selectWorkspace} />}

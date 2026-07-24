@@ -8,7 +8,7 @@ import { NaverLoginButton } from "./social/NaverLoginButton";
 
 export function SocialLoginButtons() {
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next");
+  const nextPath = searchParams.get("redirect") ?? searchParams.get("next");
 
   return (
     <div className={styles.socialIconGroup}>
