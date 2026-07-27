@@ -685,6 +685,94 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertLess(high_result["reviewTrustScore"], medium_result["reviewTrustScore"])
         self.assertFalse(high_result["scoreBreakdown"]["hardCapApplied"])
 
+    def test_sample_size_confidence_distinguishes_ten_and_thirty_reviews(self):
+        templates = [
+            "비용 상담과 검사 순서를 설명받았습니다.",
+            "예약 후 대기 시간과 치료 과정을 확인했습니다.",
+            "통증과 회복 기간, 사후관리 일정을 안내받았습니다.",
+            "검사 수치와 처방 후 주의사항을 비교해 들었습니다.",
+            "시술 과정과 부작용 발생 시 연락 방법을 확인했습니다.",
+        ]
+        ten_reviews = [
+            f"{text} {index + 1}번째 후기"
+            for index, text in enumerate(templates * 2)
+        ]
+        thirty_reviews = [
+            f"{text} {index + 1}번째 후기"
+            for index, text in enumerate(templates * 6)
+        ]
+
+        ten_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=ten_reviews),
+            "test",
+        )
+        thirty_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=thirty_reviews),
+            "test",
+        )
+
+        self.assertGreater(
+            thirty_result["scoreBreakdown"]["sampleSizeConfidenceScore"],
+            ten_result["scoreBreakdown"]["sampleSizeConfidenceScore"],
+        )
+        self.assertGreater(
+            thirty_result["scoreBreakdown"]["sampleSizeBonus"],
+            ten_result["scoreBreakdown"]["sampleSizeBonus"],
+        )
+
+    def test_model_ad_score_is_combined_with_low_deterministic_risk(self):
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            {**self._base_ai_data(), "adScore": 80},
+            make_payload(reviews=["상담과 검사 순서를 차분하게 설명받았습니다." for _ in range(10)]),
+            "test",
+        )
+
+        breakdown = result["scoreBreakdown"]
+        self.assertEqual(breakdown["modelAdRiskScore"], 80)
+        self.assertLess(breakdown["deterministicPromoRiskScore"], breakdown["combinedAdRiskScore"])
+        self.assertGreaterEqual(result["riskScore"], 44)
+
+    def test_repeated_soft_promo_uses_risk_floor_and_match_counts(self):
+        reviews = [
+            f"인스타 보고 방문했고 이벤트 혜택이 저렴해서 다음에도 재방문하고 추천드립니다. {index + 1}"
+            for index in range(10)
+        ]
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            {**self._base_ai_data(), "adScore": 0},
+            make_payload(reviews=reviews),
+            "test",
+        )
+
+        breakdown = result["scoreBreakdown"]
+        self.assertGreaterEqual(breakdown["promoRiskFloor"], 22)
+        self.assertGreaterEqual(result["riskScore"], breakdown["promoRiskFloor"])
+        self.assertGreater(breakdown["softPromoMatchedReviewCount"], 0)
+        self.assertGreater(breakdown["eventBenefitMatchedReviewCount"], 0)
+        self.assertGreater(breakdown["promoRepeatedTermCount"], 0)
+
+    def test_review_processing_counts_do_not_expose_removed_text(self):
+        payload = make_payload(
+            reviews=[
+                "비용과 대기 시간을 설명받았습니다.",
+                "비용과 대기 시간을 설명받았습니다.",
+                "",
+                "병원 답변\n소중한 후기 감사합니다.",
+            ]
+        )
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            payload,
+            "test",
+        )
+
+        breakdown = result["scoreBreakdown"]
+        self.assertEqual(breakdown["rawInputReviewCount"], 3)
+        self.assertEqual(breakdown["cleanedReviewCount"], 1)
+        self.assertEqual(breakdown["analyzedReviewCount"], 1)
+        self.assertEqual(breakdown["deduplicatedReviewCount"], 1)
+
     def test_naver_metadata_does_not_inflate_analyzed_review_count(self):
         payload = make_payload(
             reviewText="\n".join(

@@ -168,6 +168,11 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
             description={`${label.riskScoreDescription} · ${scoreBandLabel(breakdown.riskScore, language, true)}`}
             tone="risk"
           />
+          <ScoreBreakdownItem
+            label={label.sampleSizeConfidenceScore}
+            value={breakdown.sampleSizeConfidenceScore ?? 0}
+            description={label.sampleSizeConfidenceDescription}
+          />
         </div>
       </section>
 

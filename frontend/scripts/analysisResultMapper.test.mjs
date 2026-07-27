@@ -68,6 +68,11 @@ const nestedCamelCase = normalizeAnalysisResult({
       adjustedReviewTrustScore: 71,
       trustAdjustmentPenalty: 6,
       hardCapApplied: false,
+      sampleSizeConfidenceScore: 60,
+      deterministicPromoRiskScore: 18,
+      modelAdRiskScore: 30,
+      combinedAdRiskScore: 22,
+      cleanedReviewCount: 3,
     },
   },
 })
@@ -88,6 +93,11 @@ assert.equal(nestedCamelCase.scoreBreakdown.rawReviewTrustScore, 77)
 assert.equal(nestedCamelCase.scoreBreakdown.adjustedReviewTrustScore, 71)
 assert.equal(nestedCamelCase.scoreBreakdown.trustAdjustmentPenalty, 6)
 assert.equal(nestedCamelCase.scoreBreakdown.hardCapApplied, false)
+assert.equal(nestedCamelCase.scoreBreakdown.sampleSizeConfidenceScore, 60)
+assert.equal(nestedCamelCase.scoreBreakdown.deterministicPromoRiskScore, 18)
+assert.equal(nestedCamelCase.scoreBreakdown.modelAdRiskScore, 30)
+assert.equal(nestedCamelCase.scoreBreakdown.combinedAdRiskScore, 22)
+assert.equal(nestedCamelCase.scoreBreakdown.cleanedReviewCount, 3)
 
 const historySnakeCase = normalizeAnalysisResult({
   hospitalName: "샘플의원",

@@ -143,6 +143,22 @@ export type AnalysisResultViewModel = {
     lowInformationPenalty?: number
     hardCapApplied?: boolean
     hardCapReason?: string
+    sampleSizeConfidenceScore?: number
+    sampleSizeBonus?: number
+    deterministicPromoRiskScore?: number
+    modelAdRiskScore?: number
+    combinedAdRiskScore?: number
+    promoRiskFloor?: number
+    promoRiskFloorReason?: string
+    rawInputReviewCount?: number
+    cleanedReviewCount?: number
+    analyzedReviewCount?: number
+    deduplicatedReviewCount?: number
+    promoMatchedReviewCount?: number
+    softPromoMatchedReviewCount?: number
+    eventBenefitMatchedReviewCount?: number
+    callToActionMatchedReviewCount?: number
+    explicitPromoMatchedReviewCount?: number
   }
   content: {
     summary: string
@@ -1105,6 +1121,22 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       lowInformationPenalty: optionalNumber(firstValue(resultScoreBreakdown.lowInformationPenalty, resultScoreBreakdown.low_information_penalty)),
       hardCapApplied: booleanValue(firstValue(resultScoreBreakdown.hardCapApplied, resultScoreBreakdown.hard_cap_applied)),
       hardCapReason: stringValue(firstValue(resultScoreBreakdown.hardCapReason, resultScoreBreakdown.hard_cap_reason)) || undefined,
+      sampleSizeConfidenceScore: optionalNumber(firstValue(resultScoreBreakdown.sampleSizeConfidenceScore, resultScoreBreakdown.sample_size_confidence_score)),
+      sampleSizeBonus: optionalNumber(firstValue(resultScoreBreakdown.sampleSizeBonus, resultScoreBreakdown.sample_size_bonus)),
+      deterministicPromoRiskScore: optionalNumber(firstValue(resultScoreBreakdown.deterministicPromoRiskScore, resultScoreBreakdown.deterministic_promo_risk_score)),
+      modelAdRiskScore: optionalNumber(firstValue(resultScoreBreakdown.modelAdRiskScore, resultScoreBreakdown.model_ad_risk_score)),
+      combinedAdRiskScore: optionalNumber(firstValue(resultScoreBreakdown.combinedAdRiskScore, resultScoreBreakdown.combined_ad_risk_score)),
+      promoRiskFloor: optionalNumber(firstValue(resultScoreBreakdown.promoRiskFloor, resultScoreBreakdown.promo_risk_floor)),
+      promoRiskFloorReason: stringValue(firstValue(resultScoreBreakdown.promoRiskFloorReason, resultScoreBreakdown.promo_risk_floor_reason)) || undefined,
+      rawInputReviewCount: optionalNumber(firstValue(resultScoreBreakdown.rawInputReviewCount, resultScoreBreakdown.raw_input_review_count)),
+      cleanedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.cleanedReviewCount, resultScoreBreakdown.cleaned_review_count)),
+      analyzedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.analyzedReviewCount, resultScoreBreakdown.analyzed_review_count)),
+      deduplicatedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.deduplicatedReviewCount, resultScoreBreakdown.deduplicated_review_count)),
+      promoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.promoMatchedReviewCount, resultScoreBreakdown.promo_matched_review_count)),
+      softPromoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.softPromoMatchedReviewCount, resultScoreBreakdown.soft_promo_matched_review_count)),
+      eventBenefitMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.eventBenefitMatchedReviewCount, resultScoreBreakdown.event_benefit_matched_review_count)),
+      callToActionMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.callToActionMatchedReviewCount, resultScoreBreakdown.call_to_action_matched_review_count)),
+      explicitPromoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.explicitPromoMatchedReviewCount, resultScoreBreakdown.explicit_promo_matched_review_count)),
     },
     content: {
       summary: languageSafeText(summary, language, fallbackSummary),
