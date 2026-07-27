@@ -17,6 +17,7 @@ class KakaoOAuthClient:
                 "redirect_uri": redirect_uri,
                 "response_type": "code",
                 "state": state,
+                "lang": "ko",
             }
         )
         return f"{KakaoOAuthClient.AUTHORIZE_URL}?{query}"
