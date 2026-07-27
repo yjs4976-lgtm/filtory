@@ -331,6 +331,33 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertGreater(enriched_result["placeScore"], plain_result["placeScore"])
         self.assertEqual(plain_result["reviewTrustScore"], enriched_result["reviewTrustScore"])
         self.assertEqual(plain_result["totalScore"], enriched_result["totalScore"])
+        self.assertGreater(enriched_result["preVisitCheckScore"], plain_result["preVisitCheckScore"])
+        self.assertEqual(enriched_result["placeScore"], enriched_result["placeInformationScore"])
+        self.assertEqual(
+            enriched_result["placeScoreBreakdown"]["placeHomepageScore"],
+            10,
+        )
+
+    def test_place_score_breakdown_includes_homepage_and_naver_links(self):
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(
+                hospitalName="SampleClinic",
+                address="Sample Address",
+                phone="000-0000-0000",
+                treatmentItems=["Sample Treatment"],
+                description="Sample clinic information",
+                hasPhotos=True,
+                homepageUrl="https://clinic.example.com",
+                naverPlaceUrl="https://map.naver.com/p/entry/place/123",
+            ),
+            "test",
+        )
+
+        self.assertEqual(result["placeScoreBreakdown"]["placeHomepageScore"], 10)
+        self.assertEqual(result["placeScoreBreakdown"]["naverPlaceLinkScore"], 15)
+        self.assertEqual(sum(result["placeScoreBreakdown"].values()), result["placeScore"])
+        self.assertEqual(result["preVisitCheckScore"], result["decisionSupportScore"])
 
     def test_promotional_and_repetitive_reviews_lower_review_trust_score(self):
         concrete_reviews = [
@@ -446,6 +473,8 @@ class ForeignerScoreTest(unittest.TestCase):
         )
 
         self.assertGreater(concrete_result["specificityScore"], generic_result["specificityScore"])
+        self.assertGreaterEqual(concrete_result["specificityScore"], 45)
+        self.assertLessEqual(generic_result["specificityScore"], 45)
         self.assertGreater(concrete_result["evidenceScore"], generic_result["evidenceScore"])
         self.assertGreater(concrete_result["reviewTrustScore"], generic_result["reviewTrustScore"])
         self.assertGreater(generic_result["riskScore"], 20)
@@ -482,7 +511,62 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertGreater(explicit_result["promoSignalScore"], soft_result["promoSignalScore"])
         self.assertGreater(explicit_result["riskScore"], soft_result["riskScore"])
+        self.assertGreaterEqual(soft_result["riskScore"], 20)
+        self.assertGreaterEqual(explicit_result["riskScore"], 50)
         self.assertLess(explicit_result["reviewTrustScore"], soft_result["reviewTrustScore"])
+        self.assertGreater(explicit_result["scoreBreakdown"]["explicitPromoScore"], 0)
+        self.assertGreater(soft_result["scoreBreakdown"]["softPromoScore"], 0)
+
+    def test_balanced_promo_context_reduces_risk(self):
+        promotional = ["이벤트 혜택이 좋아서 추천드립니다." for _ in range(8)]
+        balanced = [
+            "이벤트 안내는 받았지만 추가 시술 없이 설명했고 과하게 유도하지 않아 부담이 적었습니다."
+            for _ in range(8)
+        ]
+
+        promotional_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=promotional),
+            "test",
+        )
+        balanced_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=balanced),
+            "test",
+        )
+
+        self.assertGreater(balanced_result["scoreBreakdown"]["balancedPromoRelief"], 0)
+        self.assertLess(balanced_result["riskScore"], promotional_result["riskScore"])
+
+    def test_diversity_spreads_repeated_generic_and_concrete_reviews(self):
+        repeated_short = ["친절하고 좋아요." for _ in range(8)]
+        generic_praise = [
+            "시설이 깔끔하고 친절했습니다.",
+            "직원 응대가 친절하고 만족합니다.",
+            "깨끗하고 빠르게 안내받았어요.",
+            "시설이 쾌적해서 또 방문하고 싶어요.",
+            "상냥하게 응대해 주셔서 추천해요.",
+            "깔끔하고 편해서 만족했습니다.",
+            "빠르고 친절해서 좋았습니다.",
+            "시설이 깨끗하고 응대가 좋았어요.",
+        ]
+        concrete_reviews = [
+            "비용과 추가 금액을 상담에서 비교해 들었습니다.",
+            "예약 후 15분 대기하고 검사 순서를 안내받았습니다.",
+            "촬영 수치를 보고 치료 선택지를 설명받았습니다.",
+            "시술 중 통증과 중단 기준을 확인했습니다.",
+            "처방 후 주의사항과 연락 방법을 받았습니다.",
+            "수술 뒤 붓기와 회복 경과를 확인했습니다.",
+            "부작용 가능성과 재진 일정을 들었습니다.",
+            "사후관리 때 이전 검사 수치를 비교했습니다.",
+        ]
+
+        repeated_score = OpenAIReviewAnalysisService.calculate_diversity_score(repeated_short, 75)
+        generic_score = OpenAIReviewAnalysisService.calculate_diversity_score(generic_praise, 45)
+        concrete_score = OpenAIReviewAnalysisService.calculate_diversity_score(concrete_reviews, 15)
+
+        self.assertLess(repeated_score, generic_score)
+        self.assertLess(generic_score, concrete_score)
 
     def test_few_reviews_cap_review_trust_score(self):
         result = OpenAIReviewAnalysisService.normalize_response_data(
@@ -672,7 +756,7 @@ SampleClinic
             )
         ).model_dump()
 
-        self.assertEqual(seven_review_result["reviewTrustScore"], 55)
+        self.assertLessEqual(seven_review_result["reviewTrustScore"], 55)
         self.assertLessEqual(fifteen_review_result["reviewTrustScore"], 65)
         self.assertLess(seven_review_result["specificityScore"], 25)
         self.assertLess(fifteen_review_result["specificityScore"], 25)

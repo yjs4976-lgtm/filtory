@@ -168,7 +168,11 @@ class ReviewAnalyzeResponse(BaseModel):
     adScore: int = Field(..., ge=0, le=100)
     adSuspicionScore: int | None = Field(None, ge=0, le=100)
     placeScore: int = Field(..., ge=0, le=100)
+    placeInformationScore: int | None = Field(None, ge=0, le=100)
     foreignerScore: int = Field(..., ge=0, le=100)
+    preVisitCheckScore: int | None = Field(None, ge=0, le=100)
+    decisionSupportScore: int | None = Field(None, ge=0, le=100)
+    placeScoreBreakdown: dict[str, int] = Field(default_factory=dict)
     informationScore: int | None = Field(None, ge=0, le=100)
     reviewInformationScore: int | None = Field(None, ge=0, le=100)
     reviewInformationLevel: InformationLevel | None = None

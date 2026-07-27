@@ -76,6 +76,36 @@ class OpenAIReviewAnalysisService:
         "강요하지 않았",
         "부담이 적었",
     ]
+    EXPLICIT_PROMO_TERMS = [
+        "광고",
+        "협찬",
+        "체험단",
+        "무료 제공",
+        "이벤트 참여",
+        "sponsored",
+    ]
+    EVENT_BENEFIT_TERMS = [
+        "이벤트",
+        "할인",
+        "혜택",
+        "무료",
+        "저렴",
+        "싸고",
+        "discount",
+        "event",
+        "promotion",
+        "free",
+    ]
+    CALL_TO_ACTION_TERMS = [
+        "꼭 가세요",
+        "무조건 추천",
+        "추천드립니다",
+        "받아보세요",
+        "예약하세요",
+        "꼭 예약",
+        "must go",
+        "highly recommend",
+    ]
     GENERIC_PRAISE_CLUSTERS = {
         "kindness": ("친절", "상냥", "응대"),
         "cleanliness": ("깔끔", "깨끗", "쾌적", "시설", "인테리어"),
@@ -85,13 +115,14 @@ class OpenAIReviewAnalysisService:
         "promotion": ("이벤트", "혜택", "인스타", "무료", "할인"),
     }
     CONCRETE_EXPERIENCE_CLUSTERS = {
-        "cost": ("비용", "가격", "금액"),
-        "waiting": ("대기", "기다", "바로 입장"),
-        "consultation": ("상담", "설명"),
-        "exam": ("검사", "mri", "촬영"),
-        "procedure": ("시술", "수술", "치료", "진료", "처방", "주사", "보톡스", "제모"),
-        "recovery": ("회복", "경과", "통증", "부작용"),
-        "aftercare": ("사후관리", "주의사항", "재진"),
+        "cost": ("비용", "가격", "금액", "결제", "추가 비용"),
+        "waiting": ("대기", "예약", "기다", "바로 입장", "분 걸", "시간"),
+        "consultation": ("상담", "설명", "안내", "비교", "선택지"),
+        "exam": ("검사", "mri", "촬영", "진단", "수치"),
+        "procedure": ("시술", "수술", "치료", "진료", "처방", "주사", "보톡스", "제모", "점 제거"),
+        "painRecovery": ("회복", "경과", "통증", "붓기", "부작용"),
+        "aftercare": ("사후관리", "주의사항", "재진", "연락"),
+        "noPressure": ("과잉 권유 없", "추가 시술 없이", "강요 없", "부담이 적"),
     }
     ACTION_TERMS = [
         "추천",
@@ -345,7 +376,8 @@ class OpenAIReviewAnalysisService:
         base_trust_score = cls._clamp_score(data.get("trustScore"))
         ad_score = cls._clamp_score(data.get("adScore", data.get("adSuspicionScore")))
         review_information_score = cls._information_score(data.get("informationScore"), data.get("informationLevel"))
-        place_score = cls.calculate_place_score(payload)
+        place_score_breakdown = cls.calculate_place_score_breakdown(payload)
+        place_score = sum(place_score_breakdown.values())
         foreigner_score = cls.calculate_foreigner_score(payload)
         review_texts = cls._review_texts(payload)
         specificity_signals = cls._normalize_signal_list(data.get("specificitySignals"))
@@ -374,6 +406,19 @@ class OpenAIReviewAnalysisService:
             ad_score=ad_score,
             place_score=place_score,
             foreigner_score=foreigner_score,
+        )
+        pre_visit_check_score = cls.calculate_pre_visit_check_score(
+            review_trust_score=review_trust_score,
+            place_score=place_score,
+            foreigner_score=foreigner_score,
+        )
+        score_breakdown.update(
+            {
+                "preVisitCheckScore": pre_visit_check_score,
+                "placeInformationScore": place_score,
+                "globalAccessibilityScore": foreigner_score,
+                **place_score_breakdown,
+            }
         )
         evidence = score_breakdown.pop("_evidence")
         repetition_level = cls._repetition_level(data.get("repetitionLevel"), evidence.repetitivePhrases)
@@ -420,7 +465,10 @@ class OpenAIReviewAnalysisService:
             "adScore": ad_score,
             "adSuspicionScore": ad_score,
             "placeScore": place_score,
+            "placeInformationScore": place_score,
             "foreignerScore": foreigner_score,
+            "preVisitCheckScore": pre_visit_check_score,
+            "decisionSupportScore": pre_visit_check_score,
             "informationScore": place_score,
             "reviewInformationScore": review_information_score,
             "reviewInformationLevel": review_information_level,
@@ -444,6 +492,7 @@ class OpenAIReviewAnalysisService:
             "globalAccessibilityLevel": global_accessibility_level,
             "globalAccessibilityMaxScore": 100,
             "globalAccessibilityChecks": cls.global_accessibility_checks(payload),
+            "placeScoreBreakdown": place_score_breakdown,
             "detectedPatterns": detected_patterns,
             "suspiciousPhrases": evidence.suspiciousPhrases,
             "repetitivePhrases": evidence.repetitivePhrases,
@@ -657,17 +706,24 @@ class OpenAIReviewAnalysisService:
     @staticmethod
     def calculate_place_score(payload: ReviewAnalyzeRequest) -> int:
         # 병원 정보 완성도 점수다. 리뷰 신뢰도에는 섞지 않고 결과 화면의 정보 확인 항목에 사용한다.
-        checks = [
-            (payload.hospitalName, 15),
-            (payload.address, 15),
-            (payload.phone, 10),
-            (payload.treatmentItems, 15),
-            (payload.description, 10),
-            (payload.hasPhotos, 10),
-            (payload.homepageUrl, 10),
-            (payload.naverPlaceUrl or payload.naverPlaceId, 15),
-        ]
-        return OpenAIReviewAnalysisService._weighted_metadata_score(checks)
+        return sum(OpenAIReviewAnalysisService.calculate_place_score_breakdown(payload).values())
+
+    @staticmethod
+    def calculate_place_score_breakdown(payload: ReviewAnalyzeRequest) -> dict[str, int]:
+        checks = {
+            "placeNameScore": (payload.hospitalName, 15),
+            "placeAddressScore": (payload.address, 15),
+            "placePhoneScore": (payload.phone, 10),
+            "placeTreatmentScore": (payload.treatmentItems, 15),
+            "placeDescriptionScore": (payload.description, 10),
+            "placePhotoScore": (payload.hasPhotos, 10),
+            "placeHomepageScore": (payload.homepageUrl, 10),
+            "naverPlaceLinkScore": (payload.naverPlaceUrl or payload.naverPlaceId, 15),
+        }
+        return {
+            key: OpenAIReviewAnalysisService._weighted_metadata_score([check])
+            for key, check in checks.items()
+        }
 
     @staticmethod
     def calculate_foreigner_score(payload: ReviewAnalyzeRequest) -> int:
@@ -696,6 +752,20 @@ class OpenAIReviewAnalysisService:
         # place_score, foreigner_score는 결과 화면의 참고 정보로만 보여준다.
         return OpenAIReviewAnalysisService._clamp_score(trust_score)
 
+    @staticmethod
+    def calculate_pre_visit_check_score(
+        *,
+        review_trust_score: int,
+        place_score: int,
+        foreigner_score: int,
+    ) -> int:
+        # 리뷰 신뢰 지수와 별개로 공개 정보·방문 준비 정보를 함께 보는 보조 참고 지표다.
+        return OpenAIReviewAnalysisService._clamp_score(
+            review_trust_score * 0.60
+            + place_score * 0.25
+            + foreigner_score * 0.15
+        )
+
     @classmethod
     def calculate_review_score_breakdown(
         cls,
@@ -722,8 +792,9 @@ class OpenAIReviewAnalysisService:
         exaggeration_signals = exaggeration_signals or []
         balanced_experience_signals = balanced_experience_signals or []
         mentioned_aspects = mentioned_aspects or ReviewMentionedAspects()
+        promo_breakdown = cls.calculate_promo_breakdown(review_texts)
         promo_signal_score = max(
-            cls.calculate_promo_signal_score(review_texts),
+            promo_breakdown["combinedPromoScore"],
             cls.calculate_structured_signal_score(promo_signals, review_count),
         )
         repetition_score = max(
@@ -734,24 +805,26 @@ class OpenAIReviewAnalysisService:
             cls.calculate_context_score(review_texts, ["최고", "대박", "완벽", "무조건", "best", "perfect", "amazing"]),
             cls.calculate_structured_signal_score(exaggeration_signals, review_count),
         )
-        event_discount_score = cls.calculate_context_score(
-            review_texts,
-            ["할인", "이벤트", "혜택", "무료", "저렴", "싸고", "discount", "event", "promotion", "free"],
-        )
+        event_discount_score = promo_breakdown["eventBenefitScore"]
         review_burst_score = cls.calculate_review_burst_score(payload.reviewDates)
-        # 광고성 위험은 광고 문구, 반복 표현, 과장 표현, 이벤트/할인 표현을 나눠 계산한다.
-        # 같은 문맥을 한 덩어리로 합치지 않아 리뷰별 긍정/부정 맥락이 서로 덮어쓰지 않게 한다.
         risk_parts = [
-            (promo_signal_score, 0.40),
-            (repetition_score, 0.25),
-            (exaggeration_score, 0.15),
-            (event_discount_score, 0.15),
+            (promo_breakdown["explicitPromoScore"], 0.30),
+            (promo_breakdown["softPromoScore"], 0.18),
+            (promo_breakdown["eventBenefitScore"], 0.15),
+            (promo_breakdown["callToActionScore"], 0.17),
+            (promo_breakdown["promoRepetitionScore"], 0.10),
+            (repetition_score, 0.05),
+            (exaggeration_score, 0.05),
         ]
         if review_burst_score is not None:
             risk_parts.append((review_burst_score, 0.10))
-        risk_score = cls._weighted_average(risk_parts)
+        risk_score = cls._clamp_score(
+            cls._weighted_average(risk_parts)
+            - promo_breakdown["balancedPromoRelief"] * 0.20
+        )
+        specificity_breakdown = cls.calculate_specificity_breakdown(review_texts)
         specificity_score = max(
-            cls.calculate_specificity_score(merged_text, evidence.specificPhrases, review_count),
+            specificity_breakdown["specificityScore"],
             cls.calculate_structured_specificity_score(specificity_signals, mentioned_aspects, review_count),
         )
         low_information_ratio = cls.calculate_low_information_ratio(review_texts)
@@ -762,7 +835,8 @@ class OpenAIReviewAnalysisService:
                 else 0
             )
         balance_score = cls.calculate_balance_score(data, evidence, balanced_experience_signals)
-        diversity_score = cls.calculate_diversity_score(review_texts, repetition_score)
+        diversity_breakdown = cls.calculate_diversity_breakdown(review_texts)
+        diversity_score = diversity_breakdown["diversityScore"]
         informative_score = cls._clamp_score(review_information_score)
         naturalness_score = cls._clamp_score(100 - max(promo_signal_score, int(exaggeration_score * 0.75)))
         # 리뷰 신뢰도는 리뷰 자체의 근거성/다양성/자연스러움만 본다.
@@ -817,6 +891,21 @@ class OpenAIReviewAnalysisService:
             "repetitionScore": repetition_score,
             "exaggerationScore": exaggeration_score,
             "eventDiscountScore": event_discount_score,
+            "explicitPromoScore": promo_breakdown["explicitPromoScore"],
+            "softPromoScore": promo_breakdown["softPromoScore"],
+            "eventBenefitScore": promo_breakdown["eventBenefitScore"],
+            "callToActionScore": promo_breakdown["callToActionScore"],
+            "promoRepetitionScore": promo_breakdown["promoRepetitionScore"],
+            "balancedPromoRelief": promo_breakdown["balancedPromoRelief"],
+            "concreteAspectCoverageScore": specificity_breakdown["concreteAspectCoverageScore"],
+            "concreteAspectCount": specificity_breakdown["concreteAspectCount"],
+            "concreteDepthBonus": specificity_breakdown["concreteDepthBonus"],
+            "perReviewConcreteCoverageScore": specificity_breakdown["perReviewConcreteCoverageScore"],
+            "lexicalUniqueScore": diversity_breakdown["lexicalUniqueScore"],
+            "semanticClusterVarietyScore": diversity_breakdown["semanticClusterVarietyScore"],
+            "genericPraiseRepetitionScore": diversity_breakdown["genericPraiseRepetitionScore"],
+            "concreteAspectVarietyScore": diversity_breakdown["concreteAspectVarietyScore"],
+            "lowInformationRatio": round(low_information_ratio * 100),
             "reviewBurstScore": review_burst_score,
             "reviewBurstStatus": "available" if review_burst_score is not None else "unavailable",
             "analysisConfidence": analysis_confidence,
@@ -860,47 +949,66 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def calculate_promo_signal_score(cls, review_texts: list[str]) -> int:
-        # 광고성 점수는 "광고"라는 단어만 보지 않고 추천 행동 유도 표현과 반복 정도를 함께 본다.
-        # 부정 문맥("광고 같지는 않았다")은 먼저 제외한다.
-        if not review_texts:
-            return 0
+        return cls.calculate_promo_breakdown(review_texts)["combinedPromoScore"]
 
-        weighted_hits = 0.0
-        soft_signal_reviews = 0
+    @classmethod
+    def calculate_promo_breakdown(cls, review_texts: list[str]) -> dict[str, int]:
+        empty = {
+            "explicitPromoScore": 0,
+            "softPromoScore": 0,
+            "eventBenefitScore": 0,
+            "callToActionScore": 0,
+            "promoRepetitionScore": 0,
+            "balancedPromoRelief": 0,
+            "combinedPromoScore": 0,
+        }
+        if not review_texts:
+            return empty
+
+        signal_terms = {
+            "explicitPromoScore": cls.EXPLICIT_PROMO_TERMS,
+            "softPromoScore": cls.SOFT_PROMO_TERMS,
+            "eventBenefitScore": cls.EVENT_BENEFIT_TERMS,
+            "callToActionScore": cls.CALL_TO_ACTION_TERMS,
+        }
+        review_hits = {key: 0 for key in signal_terms}
+        total_hits = {key: 0 for key in signal_terms}
         repeated_terms: Counter[str] = Counter()
+        balanced_reviews = 0
         for text in review_texts:
-            review_has_soft_signal = False
+            review_matched = {key: False for key in signal_terms}
             for sentence in cls._sentences(text):
                 lowered = sentence.lower()
                 if cls._has_negation_context(lowered):
                     continue
+                for key, terms in signal_terms.items():
+                    matches = [term.lower() for term in terms if term.lower() in lowered]
+                    if matches:
+                        review_matched[key] = True
+                        total_hits[key] += len(matches)
+                        repeated_terms.update(matches)
+            balanced_reviews += int(any(term in text.lower() for term in cls.BALANCED_PROMO_CONTEXTS))
+            for key, matched in review_matched.items():
+                review_hits[key] += int(matched)
 
-                matched_terms = [term for term in cls.PROMO_TERMS if term.lower() in lowered]
-                soft_terms = [term for term in cls.SOFT_PROMO_TERMS if term.lower() in lowered]
-                balanced_context = any(term in lowered for term in cls.BALANCED_PROMO_CONTEXTS)
-                if not matched_terms and not soft_terms:
-                    continue
-                review_has_soft_signal = review_has_soft_signal or bool(soft_terms)
-
-                has_action = any(term.lower() in lowered for term in cls.ACTION_TERMS)
-                weight = len(matched_terms) + len(soft_terms) * 1.0
-                weight += 0.65 if has_action and matched_terms else 0
-                if len(matched_terms) >= 2:
-                    weight += 0.35
-                if balanced_context:
-                    weight *= 0.25
-                weighted_hits += weight
-                repeated_terms.update(term.lower() for term in [*matched_terms, *soft_terms])
-            soft_signal_reviews += int(review_has_soft_signal)
-
-        repeated_boost = sum(8 for count in repeated_terms.values() if count >= 2)
-        soft_coverage_boost = (
-            soft_signal_reviews / max(len(review_texts), 1) * 20
-            if soft_signal_reviews >= 3
-            else 0
+        review_count = max(len(review_texts), 1)
+        scores = {
+            key: cls._clamp_score(
+                review_hits[key] / review_count * 70
+                + total_hits[key] / review_count * 18
+            )
+            for key in signal_terms
+        }
+        repeated_excess = sum(max(0, count - 1) for count in repeated_terms.values())
+        scores["promoRepetitionScore"] = cls._clamp_score(repeated_excess / review_count * 45)
+        scores["balancedPromoRelief"] = cls._clamp_score(balanced_reviews / review_count * 80)
+        scores["combinedPromoScore"] = cls._clamp_score(
+            scores["explicitPromoScore"] * 0.45
+            + scores["softPromoScore"] * 0.30
+            + scores["callToActionScore"] * 0.15
+            + scores["promoRepetitionScore"] * 0.10
         )
-        score = (weighted_hits / max(len(review_texts), 1)) * 38 + repeated_boost + soft_coverage_boost
-        return cls._clamp_score(score)
+        return scores
 
     @classmethod
     def calculate_context_score(cls, review_texts: list[str], terms: list[str]) -> int:
@@ -975,6 +1083,52 @@ class OpenAIReviewAnalysisService:
         return cls._clamp_score((signal_count / max(review_count, 1)) * 28)
 
     @classmethod
+    def calculate_specificity_breakdown(cls, review_texts: list[str]) -> dict[str, int]:
+        if not review_texts:
+            return {
+                "specificityScore": 0,
+                "concreteAspectCoverageScore": 0,
+                "concreteAspectCount": 0,
+                "concreteDepthBonus": 0,
+                "perReviewConcreteCoverageScore": 0,
+            }
+
+        normalized_reviews = [review.lower() for review in review_texts]
+        per_review_aspects = [
+            {
+                key
+                for key, terms in cls.CONCRETE_EXPERIENCE_CLUSTERS.items()
+                if any(term in review for term in terms)
+            }
+            for review in normalized_reviews
+        ]
+        covered_aspects = set().union(*per_review_aspects)
+        aspect_total = len(cls.CONCRETE_EXPERIENCE_CLUSTERS)
+        coverage_score = cls._clamp_score(len(covered_aspects) / aspect_total * 80)
+        per_review_score = cls._clamp_score(
+            sum(min(len(aspects) / 3, 1) for aspects in per_review_aspects)
+            / len(per_review_aspects)
+            * 75
+        )
+        depth_hits = sum(
+            bool(re.search(r"\d+(?:,\d{3})*(?:\s*)(?:원|분|시간|일|주|개월|회|번|%)?", review))
+            for review in normalized_reviews
+        )
+        depth_bonus = cls._clamp_score(min(20, depth_hits / len(normalized_reviews) * 20))
+        specificity_score = cls._clamp_score(
+            coverage_score * 0.55
+            + per_review_score * 0.35
+            + depth_bonus
+        )
+        return {
+            "specificityScore": specificity_score,
+            "concreteAspectCoverageScore": coverage_score,
+            "concreteAspectCount": len(covered_aspects),
+            "concreteDepthBonus": depth_bonus,
+            "perReviewConcreteCoverageScore": per_review_score,
+        }
+
+    @classmethod
     def calculate_repetition_score(cls, level: Any, repetitive_phrases: list[str], review_count: int) -> int:
         normalized = str(level or "").strip().lower()
         level_score = {"high": 75, "medium": 45, "low": 15}.get(normalized, 15)
@@ -993,27 +1147,61 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def calculate_diversity_score(cls, review_texts: list[str], repetition_score: int) -> int:
+        return cls.calculate_diversity_breakdown(review_texts)["diversityScore"]
+
+    @classmethod
+    def calculate_diversity_breakdown(cls, review_texts: list[str]) -> dict[str, int]:
         if not review_texts:
-            return 0
+            return {
+                "diversityScore": 0,
+                "lexicalUniqueScore": 0,
+                "semanticClusterVarietyScore": 0,
+                "genericPraiseRepetitionScore": 0,
+                "concreteAspectVarietyScore": 0,
+            }
         normalized_reviews = [re.sub(r"\s+", " ", review.strip().lower()) for review in review_texts if review.strip()]
         unique_ratio = len(set(normalized_reviews)) / max(len(normalized_reviews), 1)
         token_sets = [set(re.findall(r"[가-힣A-Za-z0-9]{2,}", review)) for review in normalized_reviews]
         token_variety = len(set().union(*token_sets)) / max(sum(len(tokens) for tokens in token_sets), 1)
-        score = unique_ratio * 68 + min(token_variety * 100, 32)
         review_count = max(len(normalized_reviews), 1)
-        repeated_cluster_pressure = 0.0
-        for terms in cls.GENERIC_PRAISE_CLUSTERS.values():
-            matched_reviews = sum(any(term in review for term in terms) for review in normalized_reviews)
-            if matched_reviews >= 2:
-                repeated_cluster_pressure += (matched_reviews - 1) / review_count
-
-        concrete_cluster_count = sum(
-            any(term in review for review in normalized_reviews for term in terms)
+        lexical_score = cls._clamp_score(unique_ratio * 65 + min(token_variety * 100, 35))
+        generic_counts = [
+            sum(any(term in review for term in terms) for review in normalized_reviews)
+            for terms in cls.GENERIC_PRAISE_CLUSTERS.values()
+        ]
+        concrete_counts = [
+            sum(any(term in review for term in terms) for review in normalized_reviews)
             for terms in cls.CONCRETE_EXPERIENCE_CLUSTERS.values()
+        ]
+        active_cluster_count = sum(count > 0 for count in [*generic_counts, *concrete_counts])
+        semantic_variety_score = cls._clamp_score(
+            active_cluster_count
+            / (len(generic_counts) + len(concrete_counts))
+            * 100
         )
-        concrete_relief = min(6, concrete_cluster_count)
-        semantic_penalty = min(42, repeated_cluster_pressure * 28)
-        return cls._clamp_score(score - max(0, semantic_penalty - concrete_relief))
+        generic_repetition_score = cls._clamp_score(
+            sum(max(0, count - 1) for count in generic_counts)
+            / review_count
+            * 45
+        )
+        concrete_variety_score = cls._clamp_score(
+            sum(count > 0 for count in concrete_counts)
+            / len(cls.CONCRETE_EXPERIENCE_CLUSTERS)
+            * 100
+        )
+        diversity_score = cls._clamp_score(
+            lexical_score * 0.35
+            + semantic_variety_score * 0.20
+            + concrete_variety_score * 0.30
+            + (100 - generic_repetition_score) * 0.15
+        )
+        return {
+            "diversityScore": diversity_score,
+            "lexicalUniqueScore": lexical_score,
+            "semanticClusterVarietyScore": semantic_variety_score,
+            "genericPraiseRepetitionScore": generic_repetition_score,
+            "concreteAspectVarietyScore": concrete_variety_score,
+        }
 
     @classmethod
     def calculate_low_information_ratio(cls, review_texts: list[str]) -> float:

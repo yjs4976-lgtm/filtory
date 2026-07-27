@@ -25,6 +25,7 @@ export type AnalysisResultViewModel = {
     adSuspicionScore: number
     informationScore: number
     globalAccessibilityScore: number
+    preVisitCheckScore: number
     analyzedReviewCount: number
   }
   analysisConfidence: {
@@ -117,6 +118,21 @@ export type AnalysisResultViewModel = {
     exaggerationScore: number
     eventDiscountScore: number
     reviewBurstScore?: number
+    explicitPromoScore?: number
+    softPromoScore?: number
+    eventBenefitScore?: number
+    callToActionScore?: number
+    promoRepetitionScore?: number
+    balancedPromoRelief?: number
+    concreteAspectCoverageScore?: number
+    concreteAspectCount?: number
+    concreteDepthBonus?: number
+    perReviewConcreteCoverageScore?: number
+    lexicalUniqueScore?: number
+    semanticClusterVarietyScore?: number
+    genericPraiseRepetitionScore?: number
+    concreteAspectVarietyScore?: number
+    lowInformationRatio?: number
   }
   content: {
     summary: string
@@ -886,6 +902,14 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     root.foreignerFriendlyScore,
     globalAccessRatingToScore(root.globalAccessRating)
   )
+  const preVisitCheckScore = scoreValue(
+    result.preVisitCheckScore,
+    result.pre_visit_check_score,
+    result.decisionSupportScore,
+    root.preVisitCheckScore,
+    root.pre_visit_check_score,
+    reviewTrustScore * 0.60 + informationScore * 0.25 + globalAccessibilityScore * 0.15
+  )
   const analyzedReviewCount = countValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
   const specificitySignals = safeSignalArray(result.specificitySignals, root.specificitySignals, evidenceJson.specificitySignals)
   const promoSignals = safeSignalArray(result.promoSignals, root.promoSignals, evidenceJson.promoSignals)
@@ -978,6 +1002,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       adSuspicionScore,
       informationScore,
       globalAccessibilityScore,
+      preVisitCheckScore,
       analyzedReviewCount,
     },
     analysisConfidence: {
@@ -1041,6 +1066,21 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       exaggerationScore: scoreValue(result.exaggerationScore, result.exaggeration_score, resultScoreBreakdown.exaggerationScore, resultScoreBreakdown.exaggeration_score, root.exaggerationScore, root.exaggeration_score, rootScoreBreakdown.exaggerationScore, rootScoreBreakdown.exaggeration_score),
       eventDiscountScore: scoreValue(result.eventDiscountScore, result.event_discount_score, resultScoreBreakdown.eventDiscountScore, resultScoreBreakdown.event_discount_score, root.eventDiscountScore, root.event_discount_score, rootScoreBreakdown.eventDiscountScore, rootScoreBreakdown.event_discount_score),
       reviewBurstScore,
+      explicitPromoScore: optionalNumber(firstValue(resultScoreBreakdown.explicitPromoScore, resultScoreBreakdown.explicit_promo_score)),
+      softPromoScore: optionalNumber(firstValue(resultScoreBreakdown.softPromoScore, resultScoreBreakdown.soft_promo_score)),
+      eventBenefitScore: optionalNumber(firstValue(resultScoreBreakdown.eventBenefitScore, resultScoreBreakdown.event_benefit_score)),
+      callToActionScore: optionalNumber(firstValue(resultScoreBreakdown.callToActionScore, resultScoreBreakdown.call_to_action_score)),
+      promoRepetitionScore: optionalNumber(firstValue(resultScoreBreakdown.promoRepetitionScore, resultScoreBreakdown.promo_repetition_score)),
+      balancedPromoRelief: optionalNumber(firstValue(resultScoreBreakdown.balancedPromoRelief, resultScoreBreakdown.balanced_promo_relief)),
+      concreteAspectCoverageScore: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectCoverageScore, resultScoreBreakdown.concrete_aspect_coverage_score)),
+      concreteAspectCount: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectCount, resultScoreBreakdown.concrete_aspect_count)),
+      concreteDepthBonus: optionalNumber(firstValue(resultScoreBreakdown.concreteDepthBonus, resultScoreBreakdown.concrete_depth_bonus)),
+      perReviewConcreteCoverageScore: optionalNumber(firstValue(resultScoreBreakdown.perReviewConcreteCoverageScore, resultScoreBreakdown.per_review_concrete_coverage_score)),
+      lexicalUniqueScore: optionalNumber(firstValue(resultScoreBreakdown.lexicalUniqueScore, resultScoreBreakdown.lexical_unique_score)),
+      semanticClusterVarietyScore: optionalNumber(firstValue(resultScoreBreakdown.semanticClusterVarietyScore, resultScoreBreakdown.semantic_cluster_variety_score)),
+      genericPraiseRepetitionScore: optionalNumber(firstValue(resultScoreBreakdown.genericPraiseRepetitionScore, resultScoreBreakdown.generic_praise_repetition_score)),
+      concreteAspectVarietyScore: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectVarietyScore, resultScoreBreakdown.concrete_aspect_variety_score)),
+      lowInformationRatio: optionalNumber(firstValue(resultScoreBreakdown.lowInformationRatio, resultScoreBreakdown.low_information_ratio)),
     },
     content: {
       summary: languageSafeText(summary, language, fallbackSummary),
