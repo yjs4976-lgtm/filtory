@@ -590,7 +590,12 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertLess(result["specificityScore"], 20)
         self.assertLessEqual(result["evidenceScore"], 50)
-        self.assertEqual(result["reviewTrustScore"], 50)
+        self.assertLess(result["reviewTrustScore"], 50)
+        self.assertGreater(result["scoreBreakdown"]["lowInformationPenalty"], 0)
+        self.assertEqual(
+            result["scoreBreakdown"]["adjustedReviewTrustScore"],
+            result["reviewTrustScore"],
+        )
 
     def test_few_concrete_reviews_keep_existing_review_count_cap(self):
         result = MockReviewAnalysisService.analyze(
@@ -605,6 +610,80 @@ class ForeignerScoreTest(unittest.TestCase):
 
         self.assertGreaterEqual(result["specificityScore"], 20)
         self.assertEqual(result["reviewTrustScore"], 60)
+
+    def test_soft_adjustments_spread_thirty_review_samples(self):
+        low_information_reviews = [
+            text
+            for _ in range(5)
+            for text in ["좋아요", "친절해요", "만족합니다", "깨끗해요", "추천해요", "또 갈게요"]
+        ]
+        generic_templates = [
+            "시설이 깔끔하고 직원이 친절했습니다.",
+            "상담이 친절하고 이벤트 혜택도 확인했습니다.",
+            "인스타를 보고 왔는데 빠르게 안내받았습니다.",
+            "가격이 저렴하고 시설이 쾌적했습니다.",
+            "예약 후 바로 입장해서 다음에도 방문하고 싶어요.",
+            "직원 응대가 좋고 친구에게 추천하고 싶습니다.",
+        ]
+        generic_reviews = [
+            f"{text} {index + 1}번째 후기"
+            for index, text in enumerate(generic_templates * 5)
+        ]
+        concrete_reviews = [
+            (
+                f"{index + 1}번째 방문에서 예약 후 {10 + index % 5}분 대기하고 비용 상담, "
+                "검사 수치, 치료 과정, 통증과 회복 기간, 사후관리 일정을 설명받았습니다."
+            )
+            for index in range(30)
+        ]
+
+        low_result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=low_information_reviews)
+        ).model_dump()
+        generic_result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=generic_reviews)
+        ).model_dump()
+        concrete_result = MockReviewAnalysisService.analyze(
+            make_payload(reviews=concrete_reviews)
+        ).model_dump()
+
+        self.assertLess(low_result["reviewTrustScore"], generic_result["reviewTrustScore"])
+        self.assertLess(generic_result["reviewTrustScore"], concrete_result["reviewTrustScore"])
+        self.assertEqual(
+            len(
+                {
+                    low_result["reviewTrustScore"],
+                    generic_result["reviewTrustScore"],
+                    concrete_result["reviewTrustScore"],
+                }
+            ),
+            3,
+        )
+        self.assertFalse(low_result["scoreBreakdown"]["hardCapApplied"])
+        self.assertFalse(generic_result["scoreBreakdown"]["hardCapApplied"])
+
+    def test_higher_repetition_uses_larger_soft_penalty_without_plateau(self):
+        reviews = [
+            f"상담과 비용 안내를 받고 검사 순서를 확인한 {index + 1}번째 방문 후기입니다."
+            for index in range(12)
+        ]
+        medium_result = OpenAIReviewAnalysisService.normalize_response_data(
+            {**self._base_ai_data(), "repetitionLevel": "medium"},
+            make_payload(reviews=reviews),
+            "test",
+        )
+        high_result = OpenAIReviewAnalysisService.normalize_response_data(
+            {**self._base_ai_data(), "repetitionLevel": "high"},
+            make_payload(reviews=reviews),
+            "test",
+        )
+
+        self.assertGreater(
+            high_result["scoreBreakdown"]["repetitionPenalty"],
+            medium_result["scoreBreakdown"]["repetitionPenalty"],
+        )
+        self.assertLess(high_result["reviewTrustScore"], medium_result["reviewTrustScore"])
+        self.assertFalse(high_result["scoreBreakdown"]["hardCapApplied"])
 
     def test_naver_metadata_does_not_inflate_analyzed_review_count(self):
         payload = make_payload(

@@ -848,27 +848,18 @@ class OpenAIReviewAnalysisService:
             + informative_score * 0.15
             + naturalness_score * 0.10
         )
-        review_trust_score = cls._clamp_score(evidence_score * 0.70 + (100 - risk_score) * 0.30)
-        review_trust_score = cls.apply_review_trust_caps(
-            review_trust_score=review_trust_score,
+        raw_review_trust_score = cls._clamp_score(evidence_score * 0.70 + (100 - risk_score) * 0.30)
+        trust_adjustments = cls.calculate_review_trust_adjustments(
+            raw_review_trust_score=raw_review_trust_score,
             review_count=review_count,
             risk_score=risk_score,
             repetition_score=repetition_score,
             specificity_score=specificity_score,
             evidence_score=evidence_score,
-            low_information_reviews=(
-                low_information_ratio >= 0.6
-                and sum(
-                    [
-                        mentioned_aspects.costMentioned,
-                        mentioned_aspects.waitingMentioned,
-                        mentioned_aspects.treatmentProcessMentioned,
-                        mentioned_aspects.aftercareMentioned,
-                    ]
-                ) == 0
-                and (specificity_score < 25 or evidence_score <= 55)
-            ),
+            low_information_ratio=low_information_ratio,
+            explicit_promo_score=promo_breakdown["explicitPromoScore"],
         )
+        review_trust_score = trust_adjustments["adjustedReviewTrustScore"]
         analysis_confidence = cls.analysis_confidence(
             review_count=review_count,
             diversity_score=diversity_score,
@@ -880,6 +871,7 @@ class OpenAIReviewAnalysisService:
             "_evidence": evidence,
             "baseTrustScore": base_trust_score,
             "reviewTrustScore": review_trust_score,
+            **trust_adjustments,
             "evidenceScore": evidence_score,
             "riskScore": risk_score,
             "specificityScore": specificity_score,
@@ -1224,8 +1216,70 @@ class OpenAIReviewAnalysisService:
                 low_information_count += 1
         return low_information_count / max(len(review_texts), 1)
 
-    @staticmethod
+    @classmethod
+    def calculate_review_trust_adjustments(
+        cls,
+        *,
+        raw_review_trust_score: int,
+        review_count: int,
+        risk_score: int,
+        repetition_score: int,
+        specificity_score: int,
+        evidence_score: int,
+        low_information_ratio: float,
+        explicit_promo_score: int,
+    ) -> dict[str, int | str | bool | None]:
+        # 일반적인 구체성 부족·반복·저정보 신호는 연속 감점해 특정 상한값에 점수가 몰리지 않게 한다.
+        specificity_penalty = max(0, 40 - specificity_score) * 0.35
+        evidence_penalty = max(0, 45 - evidence_score) * 0.25
+        repetition_penalty = max(0, repetition_score - 60) * 0.20
+        risk_penalty = max(0, risk_score - 55) * 0.25
+        low_information_penalty = max(0, min(1, low_information_ratio)) * 12
+        soft_penalty = (
+            specificity_penalty
+            + evidence_penalty
+            + repetition_penalty
+            + risk_penalty
+            + low_information_penalty
+        )
+        adjusted_score = cls._clamp_score(raw_review_trust_score - soft_penalty)
+
+        hard_cap = None
+        hard_cap_reason = None
+        if review_count < 5:
+            hard_cap = 60
+            hard_cap_reason = "few_reviews"
+        elif review_count < 10:
+            hard_cap = 75
+            hard_cap_reason = "limited_reviews"
+
+        # 명시적 협찬·체험단·무료 제공 신호와 높은 위험이 함께 나타날 때만 극단적 과대평가를 막는다.
+        if explicit_promo_score >= 70 and risk_score >= 60:
+            promo_cap = 70
+            if hard_cap is None or promo_cap < hard_cap:
+                hard_cap = promo_cap
+                hard_cap_reason = "strong_explicit_promo"
+
+        hard_cap_applied = hard_cap is not None and adjusted_score > hard_cap
+        if hard_cap_applied:
+            adjusted_score = hard_cap
+
+        return {
+            "rawReviewTrustScore": raw_review_trust_score,
+            "adjustedReviewTrustScore": adjusted_score,
+            "trustAdjustmentPenalty": max(0, raw_review_trust_score - adjusted_score),
+            "specificityPenalty": cls._clamp_score(specificity_penalty),
+            "evidencePenalty": cls._clamp_score(evidence_penalty),
+            "repetitionPenalty": cls._clamp_score(repetition_penalty),
+            "riskPenalty": cls._clamp_score(risk_penalty),
+            "lowInformationPenalty": cls._clamp_score(low_information_penalty),
+            "hardCapApplied": hard_cap_applied,
+            "hardCapReason": hard_cap_reason if hard_cap_applied else None,
+        }
+
+    @classmethod
     def apply_review_trust_caps(
+        cls,
         *,
         review_trust_score: int,
         review_count: int,
@@ -1235,37 +1289,18 @@ class OpenAIReviewAnalysisService:
         evidence_score: int,
         low_information_reviews: bool = False,
     ) -> int:
-        # 리뷰 수가 너무 적거나 광고/반복/구체성 위험이 크면 최종 신뢰도 상한선을 둔다.
-        # 적은 리뷰 몇 개만으로 지나치게 높은 점수가 나오지 않게 하는 안전장치다.
-        caps = []
-        if review_count < 5:
-            caps.append(60)
-        elif review_count < 10:
-            caps.append(75)
-        elif review_count < 20:
-            caps.append(85)
-        else:
-            caps.append(92)
-        if risk_score >= 80:
-            caps.append(70)
-        elif risk_score >= 65:
-            caps.append(78)
-        if repetition_score >= 70:
-            caps.append(75)
-        if specificity_score < 40:
-            caps.append(68)
-        if evidence_score < 45:
-            caps.append(65)
-        # 소수의 짧은 리뷰가 자연스러움/표현 다양성만으로 리뷰 수 상한까지
-        # 올라가지 않도록, 구체성과 근거가 모두 부족한 경우에만 보수적으로 제한한다.
-        if low_information_reviews:
-            if review_count < 5:
-                caps.append(50)
-            elif review_count < 10:
-                caps.append(55)
-            elif review_count < 20:
-                caps.append(65)
-        return min(review_trust_score, *caps)
+        # 기존 내부 호출 호환용 wrapper. 신규 계산은 연속 감점 결과를 사용한다.
+        adjustments = cls.calculate_review_trust_adjustments(
+            raw_review_trust_score=review_trust_score,
+            review_count=review_count,
+            risk_score=risk_score,
+            repetition_score=repetition_score,
+            specificity_score=specificity_score,
+            evidence_score=evidence_score,
+            low_information_ratio=1.0 if low_information_reviews else 0.0,
+            explicit_promo_score=100 if risk_score >= 80 else 0,
+        )
+        return int(adjustments["adjustedReviewTrustScore"])
 
     @staticmethod
     def analysis_confidence(

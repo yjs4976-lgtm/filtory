@@ -133,6 +133,16 @@ export type AnalysisResultViewModel = {
     genericPraiseRepetitionScore?: number
     concreteAspectVarietyScore?: number
     lowInformationRatio?: number
+    rawReviewTrustScore?: number
+    adjustedReviewTrustScore?: number
+    trustAdjustmentPenalty?: number
+    specificityPenalty?: number
+    evidencePenalty?: number
+    repetitionPenalty?: number
+    riskPenalty?: number
+    lowInformationPenalty?: number
+    hardCapApplied?: boolean
+    hardCapReason?: string
   }
   content: {
     summary: string
@@ -218,6 +228,10 @@ function optionalNumber(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
+}
+
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === 1
 }
 
 function normalizeCategory(value: unknown): HospitalCategory | undefined {
@@ -1081,6 +1095,16 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       genericPraiseRepetitionScore: optionalNumber(firstValue(resultScoreBreakdown.genericPraiseRepetitionScore, resultScoreBreakdown.generic_praise_repetition_score)),
       concreteAspectVarietyScore: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectVarietyScore, resultScoreBreakdown.concrete_aspect_variety_score)),
       lowInformationRatio: optionalNumber(firstValue(resultScoreBreakdown.lowInformationRatio, resultScoreBreakdown.low_information_ratio)),
+      rawReviewTrustScore: optionalNumber(firstValue(resultScoreBreakdown.rawReviewTrustScore, resultScoreBreakdown.raw_review_trust_score)),
+      adjustedReviewTrustScore: optionalNumber(firstValue(resultScoreBreakdown.adjustedReviewTrustScore, resultScoreBreakdown.adjusted_review_trust_score)),
+      trustAdjustmentPenalty: optionalNumber(firstValue(resultScoreBreakdown.trustAdjustmentPenalty, resultScoreBreakdown.trust_adjustment_penalty)),
+      specificityPenalty: optionalNumber(firstValue(resultScoreBreakdown.specificityPenalty, resultScoreBreakdown.specificity_penalty)),
+      evidencePenalty: optionalNumber(firstValue(resultScoreBreakdown.evidencePenalty, resultScoreBreakdown.evidence_penalty)),
+      repetitionPenalty: optionalNumber(firstValue(resultScoreBreakdown.repetitionPenalty, resultScoreBreakdown.repetition_penalty)),
+      riskPenalty: optionalNumber(firstValue(resultScoreBreakdown.riskPenalty, resultScoreBreakdown.risk_penalty)),
+      lowInformationPenalty: optionalNumber(firstValue(resultScoreBreakdown.lowInformationPenalty, resultScoreBreakdown.low_information_penalty)),
+      hardCapApplied: booleanValue(firstValue(resultScoreBreakdown.hardCapApplied, resultScoreBreakdown.hard_cap_applied)),
+      hardCapReason: stringValue(firstValue(resultScoreBreakdown.hardCapReason, resultScoreBreakdown.hard_cap_reason)) || undefined,
     },
     content: {
       summary: languageSafeText(summary, language, fallbackSummary),
