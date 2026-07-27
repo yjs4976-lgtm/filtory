@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Filtory",
     short_name: "Filtory",
-    description: "병원 리뷰를 한 번 더 살펴보고 선택을 도와주는 리뷰 검토 서비스",
+    description: "병원 선택 전 공개 리뷰의 신뢰도를 점검하는 참고 분석 서비스",
     start_url: "/",
     scope: "/",
     lang: "ko",
