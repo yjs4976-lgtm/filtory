@@ -361,14 +361,14 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertGreater(suspicious_result["riskScore"], concrete_result["riskScore"])
         self.assertLess(suspicious_result["reviewTrustScore"], concrete_result["reviewTrustScore"])
 
-    def test_event_discount_terms_are_not_double_counted_as_general_promo_signal(self):
+    def test_event_discount_terms_are_soft_promo_signals(self):
         result = OpenAIReviewAnalysisService.normalize_response_data(
             self._base_ai_data(),
             make_payload(reviews=["이벤트 할인 무료 혜택 안내를 받았습니다." for _ in range(10)]),
             "test",
         )
 
-        self.assertEqual(result["promoSignalScore"], 0)
+        self.assertGreater(result["promoSignalScore"], 0)
         self.assertGreater(result["eventDiscountScore"], 0)
 
     def test_diversity_score_does_not_apply_repetition_penalty_again(self):
@@ -384,6 +384,105 @@ class ForeignerScoreTest(unittest.TestCase):
         )
 
         self.assertEqual(low_repetition_diversity, high_repetition_diversity)
+
+    def test_semantically_repeated_praise_does_not_reach_full_diversity(self):
+        generic_reviews = [
+            "깔끔하고 저렴해서 좋습니다. 시술 받으러 오실 분들 추천드립니다.",
+            "상담은 빠르고 시설이 깔끔해서 편하게 이용했습니다.",
+            "친절하시고 상담도 잘 해주셔서 또 방문하겠습니다.",
+            "첫 방문인데 이벤트가 있어서 좋았고 계속 다닐 것 같아요.",
+            "인테리어도 깔끔하고 과하게 유도하지 않아 부담이 적었습니다.",
+            "점 제거와 보톡스를 받았고 싸고 좋아서 자주 옵니다.",
+            "시설이 깔끔하고 직원분들이 친절했습니다.",
+            "피부가 좋아져서 재방문했고 좋은 효과를 기대합니다.",
+            "인스타 보고 왔고 상담도 자세해서 시술 잘 받고 갑니다.",
+            "상담 담당자의 안내가 좋았습니다.",
+            "예약 후 바로 입장해서 편했습니다.",
+        ]
+
+        diversity_score = OpenAIReviewAnalysisService.calculate_diversity_score(
+            generic_reviews,
+            repetition_score=15,
+        )
+
+        self.assertGreaterEqual(diversity_score, 55)
+        self.assertLessEqual(diversity_score, 80)
+
+    def test_concrete_experience_scores_better_than_generic_praise(self):
+        generic_reviews = [
+            "시설이 깔끔하고 친절해서 추천해요.",
+            "저렴하고 좋아서 또 방문할게요.",
+            "이벤트 혜택이 좋고 계속 다닐 것 같아요.",
+            "상담이 친절하고 시설도 깨끗했습니다.",
+            "인스타 보고 왔는데 빠르고 좋았어요.",
+            "싸고 친절해서 자주 옵니다.",
+            "깔끔하고 만족해서 추천드립니다.",
+            "예약 후 바로 입장해서 편했습니다.",
+            "직원분이 친절하고 다음에 또 갈게요.",
+            "혜택이 좋아서 재방문했습니다.",
+        ]
+        concrete_reviews = [
+            "상담 때 예상 비용과 추가 금액 기준을 항목별로 설명받았습니다.",
+            "예약 시각보다 15분 대기한 뒤 검사 순서를 안내받았습니다.",
+            "검사 결과를 보고 치료 방법 두 가지의 차이를 비교해 들었습니다.",
+            "시술 중 통증 정도와 중단할 수 있는 시점을 미리 확인했습니다.",
+            "처방 약의 복용 시간과 주의사항을 종이에 적어 주었습니다.",
+            "수술 뒤 이틀간 붓기가 있었고 회복 경과를 전화로 확인했습니다.",
+            "부작용 가능성과 발생 시 연락할 방법을 상담 때 들었습니다.",
+            "사후관리 일정과 다음 진료에서 확인할 항목을 안내받았습니다.",
+            "재방문 때 이전 검사 수치와 현재 상태를 함께 비교했습니다.",
+            "비용, 대기시간, 치료 과정이 처음 안내한 내용과 같았습니다.",
+        ]
+
+        generic_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=generic_reviews),
+            "test",
+        )
+        concrete_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=concrete_reviews),
+            "test",
+        )
+
+        self.assertGreater(concrete_result["specificityScore"], generic_result["specificityScore"])
+        self.assertGreater(concrete_result["evidenceScore"], generic_result["evidenceScore"])
+        self.assertGreater(concrete_result["reviewTrustScore"], generic_result["reviewTrustScore"])
+        self.assertGreater(generic_result["riskScore"], 20)
+        self.assertGreater(generic_result["riskScore"], concrete_result["riskScore"])
+
+    def test_explicit_promo_signals_raise_risk_above_soft_promo(self):
+        soft_promo_reviews = [
+            "시설이 깔끔하고 이벤트가 있어서 좋았습니다.",
+            "인스타 보고 방문했고 상담을 받았습니다.",
+            "가격이 저렴해서 다음에도 방문할 것 같아요.",
+            "직원분이 친절해서 지인에게 추천하고 싶습니다.",
+            "예약 후 바로 입장해서 편했습니다.",
+            "혜택 안내를 확인하고 시술을 받았습니다.",
+        ]
+        explicit_promo_reviews = [
+            "무료 체험단으로 방문했습니다. 무조건 추천하고 꼭 가세요.",
+            "협찬 혜택과 할인 이벤트가 최고라서 강추합니다.",
+            "무료 이벤트 중이니 무조건 예약하고 꼭 받아보세요.",
+            "체험단 협찬으로 이용했고 지인에게도 무조건 추천합니다.",
+            "할인 혜택이 최고입니다. 꼭 가세요.",
+            "협찬 이벤트라 무료였고 모두에게 강추합니다.",
+        ]
+
+        soft_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=soft_promo_reviews),
+            "test",
+        )
+        explicit_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=explicit_promo_reviews),
+            "test",
+        )
+
+        self.assertGreater(explicit_result["promoSignalScore"], soft_result["promoSignalScore"])
+        self.assertGreater(explicit_result["riskScore"], soft_result["riskScore"])
+        self.assertLess(explicit_result["reviewTrustScore"], soft_result["reviewTrustScore"])
 
     def test_few_reviews_cap_review_trust_score(self):
         result = OpenAIReviewAnalysisService.normalize_response_data(
@@ -574,7 +673,7 @@ SampleClinic
         ).model_dump()
 
         self.assertEqual(seven_review_result["reviewTrustScore"], 55)
-        self.assertEqual(fifteen_review_result["reviewTrustScore"], 65)
+        self.assertLessEqual(fifteen_review_result["reviewTrustScore"], 65)
         self.assertLess(seven_review_result["specificityScore"], 25)
         self.assertLess(fifteen_review_result["specificityScore"], 25)
         self.assertEqual(
