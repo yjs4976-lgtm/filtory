@@ -88,6 +88,15 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
       ? label.limitedReviewCountNotice
       : ""
   const isLowConfidence = viewModel.analysisConfidence.key === "low"
+  const highEvidenceRatio = breakdown.highEvidenceReviewRatio ?? 0
+  const lowEvidenceRatio = breakdown.lowEvidenceReviewRatio ?? 0
+  const qualityMixDescription = lowEvidenceRatio >= 55
+    ? label.qualityMostlyGeneralPraise
+    : highEvidenceRatio >= 55
+      ? label.qualityMostlyConcrete
+      : highEvidenceRatio > 0 && lowEvidenceRatio > 0
+        ? label.qualityMixedReviews
+        : ""
 
   return (
     <>
@@ -146,6 +155,9 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           <h2 className={styles.titleSm}>{label.scoreDetailsTitle}</h2>
         </div>
         <p className={styles.resultBreakdownIntro}>{label.scoreDetailsDescription}</p>
+        {qualityMixDescription && (
+          <p className={styles.resultBreakdownIntro}>{qualityMixDescription}</p>
+        )}
         <div className={styles.resultBreakdownGrid}>
           <ScoreBreakdownItem
             label={label.evidenceScore}

@@ -73,6 +73,12 @@ const nestedCamelCase = normalizeAnalysisResult({
       modelAdRiskScore: 30,
       combinedAdRiskScore: 22,
       cleanedReviewCount: 3,
+      highEvidenceReviewCount: 2,
+      lowEvidenceReviewCount: 1,
+      highEvidenceReviewRatio: 67,
+      lowEvidenceReviewRatio: 33,
+      reviewQualityDistributionScore: 61,
+      hasGenericPraisePattern: true,
     },
   },
 })
@@ -98,6 +104,12 @@ assert.equal(nestedCamelCase.scoreBreakdown.deterministicPromoRiskScore, 18)
 assert.equal(nestedCamelCase.scoreBreakdown.modelAdRiskScore, 30)
 assert.equal(nestedCamelCase.scoreBreakdown.combinedAdRiskScore, 22)
 assert.equal(nestedCamelCase.scoreBreakdown.cleanedReviewCount, 3)
+assert.equal(nestedCamelCase.scoreBreakdown.highEvidenceReviewCount, 2)
+assert.equal(nestedCamelCase.scoreBreakdown.lowEvidenceReviewCount, 1)
+assert.equal(nestedCamelCase.scoreBreakdown.highEvidenceReviewRatio, 67)
+assert.equal(nestedCamelCase.scoreBreakdown.lowEvidenceReviewRatio, 33)
+assert.equal(nestedCamelCase.scoreBreakdown.reviewQualityDistributionScore, 61)
+assert.equal(nestedCamelCase.scoreBreakdown.hasGenericPraisePattern, true)
 
 const historySnakeCase = normalizeAnalysisResult({
   hospitalName: "샘플의원",

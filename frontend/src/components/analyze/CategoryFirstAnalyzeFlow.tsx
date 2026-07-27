@@ -2445,6 +2445,15 @@ function ReviewInputWorkspace({
   const [activeExampleCategory, setActiveExampleCategory] = useState<ReviewExampleCategory>("kindness")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const detectedCount = splitReviewText(value).length
+  const currentGuideCount = Math.max(detectedCount, summary.readyCount)
+  const reviewCountGuide =
+    currentGuideCount === 0
+      ? t.analyze.reviewInbox.reviewCountGuideEmpty
+      : currentGuideCount < 5
+        ? t.analyze.reviewInbox.reviewCountGuideFew
+        : currentGuideCount < 10
+          ? t.analyze.reviewInbox.reviewCountGuideLimited
+          : t.analyze.reviewInbox.reviewCountGuideEnough
   const hasReviewText = value.trim().length > 0
   const reviewExamples = t.analyze.reviewExamples
   const activeSentences = reviewExamples.sentences[activeExampleCategory]
@@ -2606,6 +2615,12 @@ function ReviewInputWorkspace({
           {t.analyze.addToReviewQueue}
         </button>
       </div>
+
+      <article className={`${styles.reviewMinimumGuide} ${styles.reviewCountGuide}`}>
+        <strong>{t.analyze.reviewInbox.reviewCountGuideTitle}</strong>
+        <p>{reviewCountGuide.replace("{count}", String(currentGuideCount))}</p>
+        <small>{t.analyze.reviewInbox.reviewCountGuideHelper}</small>
+      </article>
 
       <ReviewStatusPanel
         reviews={reviews}

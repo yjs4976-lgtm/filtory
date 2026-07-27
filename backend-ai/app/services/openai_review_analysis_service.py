@@ -119,7 +119,10 @@ class OpenAIReviewAnalysisService:
         "waiting": ("대기", "예약", "기다", "바로 입장", "분 걸", "시간"),
         "consultation": ("상담", "설명", "안내", "비교", "선택지"),
         "exam": ("검사", "mri", "촬영", "진단", "수치"),
-        "procedure": ("시술", "수술", "치료", "진료", "처방", "주사", "보톡스", "제모", "점 제거"),
+        "procedure": (
+            "시술", "수술", "치료", "진료", "처방", "주사", "보톡스", "제모", "점 제거",
+            "교정", "임플란트", "스케일링", "신경치료", "충치", "보철",
+        ),
         "painRecovery": ("회복", "경과", "통증", "붓기", "부작용"),
         "aftercare": ("사후관리", "주의사항", "재진", "연락"),
         "noPressure": ("과잉 권유 없", "추가 시술 없이", "강요 없", "부담이 적"),
@@ -876,6 +879,7 @@ class OpenAIReviewAnalysisService:
         balance_score = cls.calculate_balance_score(data, evidence, balanced_experience_signals)
         diversity_breakdown = cls.calculate_diversity_breakdown(review_texts)
         diversity_score = diversity_breakdown["diversityScore"]
+        quality_distribution = cls.calculate_review_quality_distribution(review_texts)
         informative_score = cls._clamp_score(review_information_score)
         naturalness_score = cls._clamp_score(100 - max(promo_signal_score, int(exaggeration_score * 0.75)))
         # 리뷰 신뢰도는 리뷰 자체의 근거성/다양성/자연스러움만 본다.
@@ -907,8 +911,18 @@ class OpenAIReviewAnalysisService:
             low_information_ratio=low_information_ratio,
             promo_signal_score=promo_signal_score,
         )
+        quality_adjustment = cls.calculate_quality_distribution_adjustment(
+            review_count=actual_review_count,
+            quality_distribution=quality_distribution,
+            risk_score=risk_score,
+            low_information_ratio=low_information_ratio,
+            generic_praise_repetition_score=diversity_breakdown["genericPraiseRepetitionScore"],
+            concrete_aspect_count=specificity_breakdown["concreteAspectCount"],
+        )
         review_trust_score = cls._clamp_score(
-            trust_adjustments["adjustedReviewTrustScore"] + sample_size_bonus
+            trust_adjustments["adjustedReviewTrustScore"]
+            + sample_size_bonus
+            + quality_adjustment["reviewQualityNetAdjustment"]
         )
         trust_adjustments["adjustedReviewTrustScore"] = review_trust_score
         trust_adjustments["trustAdjustmentPenalty"] = max(
@@ -969,6 +983,8 @@ class OpenAIReviewAnalysisService:
             "lowInformationRatio": round(low_information_ratio * 100),
             "sampleSizeConfidenceScore": sample_size_confidence_score,
             "sampleSizeBonus": sample_size_bonus,
+            **quality_distribution,
+            **quality_adjustment,
             **processing_counts,
             "reviewBurstScore": review_burst_score,
             "reviewBurstStatus": "available" if review_burst_score is not None else "unavailable",
@@ -1228,6 +1244,99 @@ class OpenAIReviewAnalysisService:
         }
 
     @classmethod
+    def calculate_review_quality_distribution(cls, review_texts: list[str]) -> dict[str, int | bool]:
+        empty = {
+            "highEvidenceReviewCount": 0,
+            "mediumEvidenceReviewCount": 0,
+            "lowEvidenceReviewCount": 0,
+            "promoRiskReviewCount": 0,
+            "highEvidenceReviewRatio": 0,
+            "mediumEvidenceReviewRatio": 0,
+            "lowEvidenceReviewRatio": 0,
+            "promoRiskReviewRatio": 0,
+            "reviewQualityDistributionScore": 0,
+            "hasSoftPromoPattern": False,
+            "hasGenericPraisePattern": False,
+            "hasPromoRepetitionPattern": False,
+        }
+        if not review_texts:
+            return empty
+
+        tier_counts = Counter()
+        promo_risk_count = 0
+        for review in review_texts:
+            normalized = review.lower()
+            aspects = {
+                key
+                for key, terms in cls.CONCRETE_EXPERIENCE_CLUSTERS.items()
+                if any(term in normalized for term in terms)
+            }
+            has_numeric_depth = bool(
+                re.search(r"\d+(?:,\d{3})*\s*(?:원|분|시간|일|주|개월|회|번|%)?", normalized)
+            )
+            has_experience_depth = any(
+                term in normalized
+                for term in ("통증", "붓기", "회복", "경과", "부작용", "사후관리", "주의사항", "추가 비용")
+            )
+            per_review_concrete_score = cls._clamp_score(min(len(aspects) / 3, 1) * 75)
+            generic_cluster_count = sum(
+                any(term in normalized for term in terms)
+                for terms in cls.GENERIC_PRAISE_CLUSTERS.values()
+            )
+            per_review_generic_praise_score = cls._clamp_score(min(100, generic_cluster_count * 25))
+            per_review_depth_score = cls._clamp_score(
+                int(has_numeric_depth) * 40
+                + int(has_experience_depth) * 30
+                + min(len(normalized) / 80, 1) * 30
+            )
+            promo = cls.calculate_promo_breakdown([review])
+            per_review_promo_score = max(
+                promo["explicitPromoScore"],
+                promo["combinedPromoScore"],
+                promo["eventBenefitScore"] * 0.65,
+            )
+            if per_review_promo_score >= 30:
+                promo_risk_count += 1
+
+            if per_review_concrete_score >= 75 or (
+                len(aspects) >= 2 and per_review_depth_score >= 45
+            ):
+                tier_counts["high"] += 1
+            elif len(aspects) >= 1 or (
+                per_review_generic_praise_score < 50 and per_review_depth_score >= 35
+            ):
+                tier_counts["medium"] += 1
+            else:
+                tier_counts["low"] += 1
+
+        review_count = len(review_texts)
+        high_ratio = cls._clamp_score(tier_counts["high"] / review_count * 100)
+        medium_ratio = cls._clamp_score(tier_counts["medium"] / review_count * 100)
+        low_ratio = cls._clamp_score(tier_counts["low"] / review_count * 100)
+        promo_ratio = cls._clamp_score(promo_risk_count / review_count * 100)
+        distribution_score = cls._clamp_score(
+            high_ratio * 0.75
+            + medium_ratio * 0.45
+            + low_ratio * 0.15
+            - promo_ratio * 0.25
+        )
+        aggregate_promo = cls.calculate_promo_breakdown(review_texts)
+        return {
+            "highEvidenceReviewCount": tier_counts["high"],
+            "mediumEvidenceReviewCount": tier_counts["medium"],
+            "lowEvidenceReviewCount": tier_counts["low"],
+            "promoRiskReviewCount": promo_risk_count,
+            "highEvidenceReviewRatio": high_ratio,
+            "mediumEvidenceReviewRatio": medium_ratio,
+            "lowEvidenceReviewRatio": low_ratio,
+            "promoRiskReviewRatio": promo_ratio,
+            "reviewQualityDistributionScore": distribution_score,
+            "hasSoftPromoPattern": aggregate_promo["softPromoScore"] >= 20,
+            "hasGenericPraisePattern": low_ratio >= 40,
+            "hasPromoRepetitionPattern": aggregate_promo["promoRepetitionScore"] >= 20,
+        }
+
+    @classmethod
     def calculate_repetition_score(cls, level: Any, repetitive_phrases: list[str], review_count: int) -> int:
         normalized = str(level or "").strip().lower()
         level_score = {"high": 75, "medium": 45, "low": 15}.get(normalized, 15)
@@ -1359,6 +1468,52 @@ class OpenAIReviewAnalysisService:
         if review_count >= 30 and specificity_score >= 55 and diversity_score >= 65:
             bonus += 3
         return bonus
+
+    @classmethod
+    def calculate_quality_distribution_adjustment(
+        cls,
+        *,
+        review_count: int,
+        quality_distribution: dict[str, int | bool],
+        risk_score: int,
+        low_information_ratio: float,
+        generic_praise_repetition_score: int,
+        concrete_aspect_count: int,
+    ) -> dict[str, int]:
+        high_ratio = int(quality_distribution["highEvidenceReviewRatio"])
+        medium_ratio = int(quality_distribution["mediumEvidenceReviewRatio"])
+        low_ratio = int(quality_distribution["lowEvidenceReviewRatio"])
+        promo_ratio = int(quality_distribution["promoRiskReviewRatio"])
+        evidence_ratio = high_ratio + medium_ratio
+
+        quality_bonus = 0
+        if (
+            review_count >= 10
+            and evidence_ratio >= 70
+            and risk_score < 35
+            and low_information_ratio < 0.35
+            and generic_praise_repetition_score < 65
+        ):
+            quality_bonus = 2
+            if high_ratio >= 40:
+                quality_bonus += 1
+            if high_ratio >= 55 and concrete_aspect_count >= 5:
+                quality_bonus += 1
+
+        low_evidence_penalty = 0
+        if low_ratio >= 55:
+            low_evidence_penalty = cls._clamp_score(min(8, 2 + (low_ratio - 55) * 0.08))
+
+        promo_quality_penalty = 0
+        if promo_ratio >= 35:
+            promo_quality_penalty = cls._clamp_score(min(10, 3 + (promo_ratio - 35) * 0.12))
+
+        return {
+            "reviewQualityBonus": quality_bonus,
+            "lowEvidenceReviewPenalty": low_evidence_penalty,
+            "promoRiskReviewPenalty": promo_quality_penalty,
+            "reviewQualityNetAdjustment": quality_bonus - low_evidence_penalty - promo_quality_penalty,
+        }
 
     @classmethod
     def calculate_review_trust_adjustments(

@@ -159,6 +159,22 @@ export type AnalysisResultViewModel = {
     eventBenefitMatchedReviewCount?: number
     callToActionMatchedReviewCount?: number
     explicitPromoMatchedReviewCount?: number
+    highEvidenceReviewCount?: number
+    mediumEvidenceReviewCount?: number
+    lowEvidenceReviewCount?: number
+    promoRiskReviewCount?: number
+    highEvidenceReviewRatio?: number
+    mediumEvidenceReviewRatio?: number
+    lowEvidenceReviewRatio?: number
+    promoRiskReviewRatio?: number
+    reviewQualityDistributionScore?: number
+    reviewQualityBonus?: number
+    lowEvidenceReviewPenalty?: number
+    promoRiskReviewPenalty?: number
+    reviewQualityNetAdjustment?: number
+    hasSoftPromoPattern?: boolean
+    hasGenericPraisePattern?: boolean
+    hasPromoRepetitionPattern?: boolean
   }
   content: {
     summary: string
@@ -1137,6 +1153,22 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       eventBenefitMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.eventBenefitMatchedReviewCount, resultScoreBreakdown.event_benefit_matched_review_count)),
       callToActionMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.callToActionMatchedReviewCount, resultScoreBreakdown.call_to_action_matched_review_count)),
       explicitPromoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.explicitPromoMatchedReviewCount, resultScoreBreakdown.explicit_promo_matched_review_count)),
+      highEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.highEvidenceReviewCount, resultScoreBreakdown.high_evidence_review_count)),
+      mediumEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.mediumEvidenceReviewCount, resultScoreBreakdown.medium_evidence_review_count)),
+      lowEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewCount, resultScoreBreakdown.low_evidence_review_count)),
+      promoRiskReviewCount: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewCount, resultScoreBreakdown.promo_risk_review_count)),
+      highEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.highEvidenceReviewRatio, resultScoreBreakdown.high_evidence_review_ratio)),
+      mediumEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.mediumEvidenceReviewRatio, resultScoreBreakdown.medium_evidence_review_ratio)),
+      lowEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewRatio, resultScoreBreakdown.low_evidence_review_ratio)),
+      promoRiskReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewRatio, resultScoreBreakdown.promo_risk_review_ratio)),
+      reviewQualityDistributionScore: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityDistributionScore, resultScoreBreakdown.review_quality_distribution_score)),
+      reviewQualityBonus: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityBonus, resultScoreBreakdown.review_quality_bonus)),
+      lowEvidenceReviewPenalty: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewPenalty, resultScoreBreakdown.low_evidence_review_penalty)),
+      promoRiskReviewPenalty: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewPenalty, resultScoreBreakdown.promo_risk_review_penalty)),
+      reviewQualityNetAdjustment: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityNetAdjustment, resultScoreBreakdown.review_quality_net_adjustment)),
+      hasSoftPromoPattern: booleanValue(firstValue(resultScoreBreakdown.hasSoftPromoPattern, resultScoreBreakdown.has_soft_promo_pattern)),
+      hasGenericPraisePattern: booleanValue(firstValue(resultScoreBreakdown.hasGenericPraisePattern, resultScoreBreakdown.has_generic_praise_pattern)),
+      hasPromoRepetitionPattern: booleanValue(firstValue(resultScoreBreakdown.hasPromoRepetitionPattern, resultScoreBreakdown.has_promo_repetition_pattern)),
     },
     content: {
       summary: languageSafeText(summary, language, fallbackSummary),

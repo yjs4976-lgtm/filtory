@@ -773,6 +773,109 @@ class ForeignerScoreTest(unittest.TestCase):
         self.assertEqual(breakdown["analyzedReviewCount"], 1)
         self.assertEqual(breakdown["deduplicatedReviewCount"], 1)
 
+    def test_per_review_quality_distribution_prioritizes_high_quality_ten_over_generic_thirty(self):
+        high_quality_ten = [
+            (
+                f"{index + 1}번째 방문에서 예약 후 {10 + index}분 대기했고 비용과 검사 수치를 "
+                "비교한 뒤 치료 과정, 통증, 회복 기간과 사후관리 일정을 설명받았습니다."
+            )
+            for index in range(10)
+        ]
+        generic_templates = [
+            "시설이 깔끔하고 친절해요.",
+            "직원이 꼼꼼하고 좋아요.",
+            "깨끗하고 만족해서 추천해요.",
+            "응대가 친절하고 또 방문할게요.",
+            "시설이 쾌적하고 마음에 들어요.",
+            "빠르고 친절해서 좋았습니다.",
+        ]
+        generic_thirty = [
+            f"{text} {index + 1}번째 후기"
+            for index, text in enumerate(generic_templates * 5)
+        ]
+
+        high_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=high_quality_ten),
+            "test",
+        )
+        generic_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=generic_thirty),
+            "test",
+        )
+
+        high_breakdown = high_result["scoreBreakdown"]
+        generic_breakdown = generic_result["scoreBreakdown"]
+        self.assertGreaterEqual(high_result["reviewTrustScore"], 80)
+        self.assertGreater(high_result["reviewTrustScore"], generic_result["reviewTrustScore"])
+        self.assertGreaterEqual(high_breakdown["highEvidenceReviewRatio"], 70)
+        self.assertGreaterEqual(generic_breakdown["lowEvidenceReviewRatio"], 55)
+        self.assertGreater(
+            generic_breakdown["sampleSizeConfidenceScore"],
+            high_breakdown["sampleSizeConfidenceScore"],
+        )
+
+    def test_high_quality_thirty_and_mixed_reviews_have_distinct_quality_distribution(self):
+        high_quality_thirty = [
+            (
+                f"{index + 1}번째 방문에서 예약 후 {10 + index % 8}분 대기했고 비용 상담과 검사 수치, "
+                "치료 과정, 통증, 회복 기간, 사후관리 일정을 확인했습니다."
+            )
+            for index in range(30)
+        ]
+        mixed_twelve = [
+            *high_quality_thirty[:6],
+            *[f"친절하고 깔끔해서 만족했어요. {index + 1}" for index in range(6)],
+        ]
+        mixed_thirty = [
+            *high_quality_thirty[:10],
+            *[f"직원이 친절하고 시설이 깔끔했어요. {index + 1}" for index in range(18)],
+            "대기 시간이 길어 불편했지만 검사 설명은 들었습니다.",
+            "비용 안내가 달라 다시 확인했습니다.",
+        ]
+
+        high_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=high_quality_thirty),
+            "test",
+        )
+        mixed_twelve_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=mixed_twelve),
+            "test",
+        )
+        mixed_thirty_result = OpenAIReviewAnalysisService.normalize_response_data(
+            self._base_ai_data(),
+            make_payload(reviews=mixed_thirty),
+            "test",
+        )
+
+        self.assertGreaterEqual(high_result["reviewTrustScore"], 80)
+        self.assertGreater(high_result["reviewTrustScore"], mixed_thirty_result["reviewTrustScore"])
+        self.assertGreaterEqual(mixed_twelve_result["reviewTrustScore"], 70)
+        self.assertLess(mixed_twelve_result["reviewTrustScore"], 80)
+        self.assertGreater(mixed_thirty_result["scoreBreakdown"]["lowEvidenceReviewRatio"], 50)
+        self.assertEqual(mixed_thirty_result["scoreBreakdown"]["cleanedReviewCount"], 30)
+
+    def test_explicit_promo_reviews_are_counted_separately_from_evidence_tier(self):
+        reviews = [
+            f"무료 체험단 협찬으로 방문했습니다. 무조건 추천하니 꼭 가세요. {index + 1}"
+            for index in range(10)
+        ]
+        result = OpenAIReviewAnalysisService.normalize_response_data(
+            {**self._base_ai_data(), "adScore": 80},
+            make_payload(reviews=reviews),
+            "test",
+        )
+
+        breakdown = result["scoreBreakdown"]
+        self.assertGreaterEqual(breakdown["promoRiskReviewRatio"], 70)
+        self.assertTrue(breakdown["hasSoftPromoPattern"])
+        self.assertTrue(breakdown["hasPromoRepetitionPattern"])
+        self.assertGreaterEqual(result["riskScore"], 50)
+        self.assertLess(result["reviewTrustScore"], 60)
+
     def test_naver_metadata_does_not_inflate_analyzed_review_count(self):
         payload = make_payload(
             reviewText="\n".join(

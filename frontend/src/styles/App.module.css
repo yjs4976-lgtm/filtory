@@ -5487,6 +5487,31 @@ button.notificationCard {
   margin: 0;
 }
 
+.reviewCountGuide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid rgba(220, 207, 255, 0.7);
+  background: var(--lavender-soft);
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.reviewCountGuide strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.reviewCountGuide p,
+.reviewCountGuide small {
+  color: var(--graypurple);
+  font-size: 12px;
+}
+
+.reviewCountGuide small {
+  line-height: 1.45;
+}
+
 .reviewAnalyzeButton:disabled {
   background: var(--lavender-soft);
   color: var(--graypurple);
