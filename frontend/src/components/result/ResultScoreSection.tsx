@@ -32,6 +32,21 @@ function clampScore(score: number) {
   return Math.max(0, Math.min(100, Math.round(score)))
 }
 
+function scoreBandLabel(score: number, language: "ko" | "en", risk = false) {
+  const value = clampScore(score)
+  if (risk) {
+    if (value <= 24) return language === "ko" ? "뚜렷한 위험 신호가 적어요" : "Few clear risk signals"
+    if (value <= 49) return language === "ko" ? "일부 신호가 있어요" : "Some signals found"
+    if (value <= 74) return language === "ko" ? "추가 확인이 필요해요" : "Additional review advised"
+    return language === "ko" ? "주의 깊은 확인이 필요해요" : "Careful review advised"
+  }
+  if (value <= 24) return language === "ko" ? "확인된 신호가 적어요" : "Very few signals"
+  if (value <= 49) return language === "ko" ? "일부 신호가 있어요" : "Some signals found"
+  if (value <= 74) return language === "ko" ? "보통 수준이에요" : "Moderate"
+  if (value <= 89) return language === "ko" ? "비교적 충분해요" : "Relatively sufficient"
+  return language === "ko" ? "매우 충분해요" : "Very sufficient"
+}
+
 function ScoreBreakdownItem({
   label,
   value,
@@ -73,6 +88,15 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
       ? label.limitedReviewCountNotice
       : ""
   const isLowConfidence = viewModel.analysisConfidence.key === "low"
+  const highEvidenceRatio = breakdown.highEvidenceReviewRatio ?? 0
+  const lowEvidenceRatio = breakdown.lowEvidenceReviewRatio ?? 0
+  const qualityMixDescription = lowEvidenceRatio >= 55
+    ? label.qualityMostlyGeneralPraise
+    : highEvidenceRatio >= 55
+      ? label.qualityMostlyConcrete
+      : highEvidenceRatio > 0 && lowEvidenceRatio > 0
+        ? label.qualityMixedReviews
+        : ""
 
   return (
     <>
@@ -118,6 +142,11 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           value={formatCheckCount(label.checkCount, viewModel.information.checkedCount, viewModel.information.totalCount)}
           description={viewModel.information.description}
         />
+        <ScoreTile
+          label={label.preVisitCheckScore}
+          value={`${viewModel.scores.preVisitCheckScore}${label.pointSuffix}`}
+          description={label.preVisitCheckScoreDescription}
+        />
       </section>
 
       <section className={`${styles.card} ${styles.resultBreakdownCard}`} aria-label={label.scoreDetailsTitle}>
@@ -126,27 +155,35 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           <h2 className={styles.titleSm}>{label.scoreDetailsTitle}</h2>
         </div>
         <p className={styles.resultBreakdownIntro}>{label.scoreDetailsDescription}</p>
+        {qualityMixDescription && (
+          <p className={styles.resultBreakdownIntro}>{qualityMixDescription}</p>
+        )}
         <div className={styles.resultBreakdownGrid}>
           <ScoreBreakdownItem
             label={label.evidenceScore}
             value={breakdown.evidenceScore}
-            description={label.evidenceScoreDescription}
+            description={`${label.evidenceScoreDescription} · ${scoreBandLabel(breakdown.evidenceScore, language)}`}
           />
           <ScoreBreakdownItem
             label={label.specificityScore}
             value={breakdown.specificityScore}
-            description={label.specificityScoreDescription}
+            description={`${label.specificityScoreDescription} · ${scoreBandLabel(breakdown.specificityScore, language)}`}
           />
           <ScoreBreakdownItem
             label={label.diversityScore}
             value={breakdown.diversityScore}
-            description={label.diversityScoreDescription}
+            description={`${label.diversityScoreDescription} · ${scoreBandLabel(breakdown.diversityScore, language)}`}
           />
           <ScoreBreakdownItem
             label={label.riskScore}
             value={breakdown.riskScore}
-            description={label.riskScoreDescription}
+            description={`${label.riskScoreDescription} · ${scoreBandLabel(breakdown.riskScore, language, true)}`}
             tone="risk"
+          />
+          <ScoreBreakdownItem
+            label={label.sampleSizeConfidenceScore}
+            value={breakdown.sampleSizeConfidenceScore ?? 0}
+            description={label.sampleSizeConfidenceDescription}
           />
         </div>
       </section>
@@ -157,6 +194,7 @@ export function ResultScoreSection({ viewModel, categoryLabel, analyzedAt }: Res
           <h2 className={styles.titleSm}>{label.preVisitTitle}</h2>
         </div>
         <p>{label.preVisitDescription}</p>
+        <p>{label.scoreSeparationDescription}</p>
       </section>
 
       <section className={`${styles.card} ${styles.stackSm}`}>
