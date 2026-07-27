@@ -1627,7 +1627,7 @@ class OpenAIReviewAnalysisService:
             return "분석 가능한 리뷰가 충분하고 표현도 비교적 다양해요."
         if level == "medium":
             return "리뷰 수는 충분하지만, 일부 항목에서 반복/집중 신호가 있을 수 있어요."
-        return "리뷰 수가 적거나 특정 표현이 과도하게 반복되어 신뢰도 해석에 주의가 필요해요."
+        return "리뷰 수가 적거나 특정 표현이 반복되어 샘플 해석에 주의가 필요해요."
 
     @classmethod
     def _sentences(cls, text: str) -> list[str]:
@@ -1664,13 +1664,13 @@ class OpenAIReviewAnalysisService:
 
     @staticmethod
     def trust_level_key(score: int) -> str:
-        if score >= 90:
+        if score >= 85:
             return "very_safe"
-        if score >= 75:
+        if score >= 70:
             return "safe"
-        if score >= 60:
+        if score >= 50:
             return "normal"
-        if score >= 45:
+        if score >= 30:
             return "caution"
         return "danger"
 
@@ -1713,18 +1713,33 @@ class OpenAIReviewAnalysisService:
     @staticmethod
     def trust_grade(level_key: str, language: str) -> str:
         labels = {
-            "very_safe": "매우 안전",
-            "safe": "안전",
-            "normal": "보통",
-            "caution": "주의",
-            "danger": "위험",
-            "very_high": "매우 안전",
-            "high": "안전",
-            "medium": "보통",
-            "low": "주의",
-            "very_low": "위험",
+            "ko": {
+                "very_safe": "신뢰 단서 풍부",
+                "safe": "참고 가능",
+                "normal": "추가 확인",
+                "caution": "주의 확인",
+                "danger": "판단 제한",
+                "very_high": "신뢰 단서 풍부",
+                "high": "참고 가능",
+                "medium": "추가 확인",
+                "low": "주의 확인",
+                "very_low": "판단 제한",
+            },
+            "en": {
+                "very_safe": "Rich trust signals",
+                "safe": "Useful reference",
+                "normal": "Needs checking",
+                "caution": "Check carefully",
+                "danger": "Limited basis",
+                "very_high": "Rich trust signals",
+                "high": "Useful reference",
+                "medium": "Needs checking",
+                "low": "Check carefully",
+                "very_low": "Limited basis",
+            },
         }
-        return labels.get(level_key, labels["normal"])
+        language_labels = labels["en"] if language == "en" else labels["ko"]
+        return language_labels.get(level_key, language_labels["normal"])
 
     @staticmethod
     def ad_suspicion(level_key: str, language: str) -> str:

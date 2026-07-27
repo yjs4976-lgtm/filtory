@@ -43,9 +43,33 @@ function loadTypeScriptModule(filePath) {
   return cjsModule.exports
 }
 
-const { normalizeAnalysisResult } = loadTypeScriptModule(
+const { deriveTrustLevel, normalizeAnalysisResult } = loadTypeScriptModule(
   path.join(projectRoot, "src/lib/analysisResultMapper.ts")
 )
+const { getTrustLevelKey } = loadTypeScriptModule(path.join(projectRoot, "src/lib/score.ts"))
+
+const trustBoundaryCases = new Map([
+  [85, "very_safe"],
+  [84, "safe"],
+  [70, "safe"],
+  [69, "normal"],
+  [50, "normal"],
+  [49, "caution"],
+  [30, "caution"],
+  [29, "danger"],
+])
+
+for (const [score, expected] of trustBoundaryCases) {
+  assert.equal(getTrustLevelKey(score), expected)
+}
+
+const safeSeventies = deriveTrustLevel(72, "normal", "보통")
+assert.equal(safeSeventies.key, "safe")
+assert.equal(safeSeventies.label, "참고 가능한 리뷰 흐름이에요")
+
+const normalSixties = deriveTrustLevel(65, "safe", "안전")
+assert.equal(normalSixties.key, "normal")
+assert.equal(normalSixties.label, "추가 확인이 필요한 리뷰 흐름이에요")
 
 const nestedCamelCase = normalizeAnalysisResult({
   hospitalName: "샘플의원",
@@ -87,6 +111,7 @@ assert.equal(nestedCamelCase.scores.reviewTrustScore, 71)
 assert.equal(nestedCamelCase.scores.preVisitCheckScore, 59)
 assert.equal(nestedCamelCase.scores.analyzedReviewCount, 3)
 assert.equal(nestedCamelCase.analysisConfidence.key, "low")
+assert.equal(nestedCamelCase.analysisConfidence.label, "제한적")
 assert.equal(nestedCamelCase.analysisConfidence.description, "리뷰 수가 적어 해석에 주의가 필요해요.")
 assert.equal(nestedCamelCase.scoreBreakdown.evidenceScore, 68)
 assert.equal(nestedCamelCase.scoreBreakdown.riskScore, 24)

@@ -389,20 +389,21 @@ export function deriveTrustLevel(
 ): AnalysisResultViewModel["trust"] {
   const normalizedLevel = stringValue(level).toLowerCase()
   const normalizedGrade = stringValue(grade)
-  let key: TrustResultKey | undefined
+  // 점수가 있으면 저장 시점의 단계 문자열보다 현재 공통 경계 기준을 우선한다.
+  let key: TrustResultKey | undefined = Number.isFinite(score) ? scoreToTrustKey(score) : undefined
 
-  if (["very_safe", "very_high"].includes(normalizedLevel) || normalizedGrade.includes("매우 안전")) key = "very_safe"
-  if (["safe", "high"].includes(normalizedLevel) || normalizedGrade === "안전") key = key ?? "safe"
-  if (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("보통")) key = key ?? "normal"
-  if (["caution", "low", "risky"].includes(normalizedLevel) || normalizedGrade.includes("주의")) key = key ?? "caution"
-  if (["danger", "very_low"].includes(normalizedLevel)) key = "danger"
+  if (!key && (["very_safe", "very_high"].includes(normalizedLevel) || normalizedGrade.includes("매우 안전"))) key = "very_safe"
+  if (!key && (["safe", "high"].includes(normalizedLevel) || normalizedGrade === "안전")) key = "safe"
+  if (!key && (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("보통"))) key = "normal"
+  if (!key && (["caution", "low", "risky"].includes(normalizedLevel) || normalizedGrade.includes("주의"))) key = "caution"
+  if (!key && ["danger", "very_low"].includes(normalizedLevel)) key = "danger"
 
   key = key ?? scoreToTrustKey(score)
 
   const labels = {
     ko: {
-      very_safe: "신뢰 단서가 충분한 리뷰 흐름이에요",
-      safe: "비교적 신뢰할 만한 리뷰 흐름이에요",
+      very_safe: "구체적인 경험 신호가 풍부한 리뷰 흐름이에요",
+      safe: "참고 가능한 리뷰 흐름이에요",
       normal: "추가 확인이 필요한 리뷰 흐름이에요",
       caution: "주의 깊게 확인할 리뷰 흐름이에요",
       danger: "리뷰만으로 판단하기 어려워요",
@@ -441,10 +442,10 @@ export function deriveTrustLevel(
 }
 
 function scoreToTrustKey(score: number): TrustResultKey {
-  if (score >= 90) return "very_safe"
-  if (score >= 75) return "safe"
-  if (score >= 60) return "normal"
-  if (score >= 45) return "caution"
+  if (score >= 85) return "very_safe"
+  if (score >= 70) return "safe"
+  if (score >= 50) return "normal"
+  if (score >= 30) return "caution"
   return "danger"
 }
 
@@ -602,8 +603,8 @@ function informationChecks(language: Language, root: Record<string, unknown>, re
 
 function analysisConfidenceLabel(key: "low" | "medium" | "high", language: Language) {
   const labels = {
-    ko: { high: "높음", medium: "보통", low: "낮음" },
-    en: { high: "High", medium: "Medium", low: "Low" },
+    ko: { high: "충분", medium: "보통", low: "제한적" },
+    en: { high: "Sufficient", medium: "Moderate", low: "Limited" },
   }
   return labels[language][key]
 }
@@ -623,7 +624,7 @@ function fallbackConfidenceDescription(key: "low" | "medium" | "high", language:
   }
   if (key === "high") return "분석 가능한 리뷰가 충분하고 표현도 비교적 다양해요."
   if (key === "medium") return "리뷰 수는 충분하지만, 일부 항목에서 반복/집중 신호가 있을 수 있어요."
-  return "리뷰 수가 적거나 특정 표현이 과도하게 반복되어 신뢰도 해석에 주의가 필요해요."
+  return "리뷰 수가 적거나 특정 표현이 반복되어 샘플 해석에 주의가 필요해요."
 }
 
 function reviewBurstDescription(status: "available" | "unavailable", score: number | undefined, language: Language) {
