@@ -34,7 +34,6 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const initialPathnameRef = useRef(pathname);
   const pendingFavoriteHandledRef = useRef(false);
 
   const [user, setUser] = useState<User | null>(null);
@@ -87,16 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const storedUser = readStoredUser();
-        if (initialPathnameRef.current !== ROUTES.AUTH_CALLBACK) {
-          try {
-            await authService.refresh();
-          } catch {
-            // refresh가 실패해도 남아 있는 access 쿠키만으로 /me가 통과할 수 있으니 한 번 더 확인한다.
-          }
-        }
-        // 소셜 callback 화면에서는 방금 받은 fresh access 쿠키를 refresh로 덮어쓰지 않는다.
-        // 이 fresh 값은 소셜 전용 계정 탈퇴 같은 본인 확인 흐름에서 필요하다.
-
+        // /me가 401인 경우에만 apiClient가 refresh를 한 번 수행하고 /me를 재시도한다.
+        // 유효한 access 쿠키와 소셜 callback의 fresh 쿠키는 불필요하게 갱신하지 않는다.
         const meResult = await authService.me();
         if (storedUser?.id !== meResult.data.id) {
           clearSelectedChatbotAnalysisContext();

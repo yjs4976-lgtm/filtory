@@ -92,20 +92,30 @@ function attachCsrfHeader(headers: Headers, path: string, method: HttpMethod) {
   }
 }
 
-async function refreshAuthSession() {
-  try {
-    const headers = new Headers();
-    attachCsrfHeader(headers, "/api/auth/refresh", "POST");
+let refreshAuthSessionPromise: Promise<boolean> | null = null;
 
-    const response = await fetch(getRequestUrl("/api/auth/refresh"), {
-      method: "POST",
-      headers,
-      credentials: "include",
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+function refreshAuthSession() {
+  if (refreshAuthSessionPromise) return refreshAuthSessionPromise;
+
+  refreshAuthSessionPromise = (async () => {
+    try {
+      const headers = new Headers();
+      attachCsrfHeader(headers, "/api/auth/refresh", "POST");
+
+      const response = await fetch(getRequestUrl("/api/auth/refresh"), {
+        method: "POST",
+        headers,
+        credentials: "include",
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshAuthSessionPromise = null;
+  });
+
+  return refreshAuthSessionPromise;
 }
 
 async function authenticatedFetch(path: string, options: RequestOptions = {}, retryOnUnauthorized = true) {
