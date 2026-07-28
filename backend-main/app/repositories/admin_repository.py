@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import joinedload
@@ -16,10 +16,47 @@ from app.models import (
     MemberSavedHospital,
     Review,
     ReviewReport,
+    SubscriptionPlan,
 )
 
 
 class AdminRepository:
+    @staticmethod
+    def list_subscription_plans():
+        return SubscriptionPlan.query.order_by(SubscriptionPlan.monthly_price.asc(), SubscriptionPlan.id.asc()).all()
+
+    @staticmethod
+    def database_is_available():
+        db.session.execute(db.text("select 1"))
+        return True
+
+    @staticmethod
+    def system_status_counts(now=None):
+        current = now or datetime.now(timezone.utc)
+        today_start = datetime.combine(current.date(), time.min, tzinfo=timezone.utc)
+        recent_start = current.replace(microsecond=0) - timedelta(hours=24)
+        return {
+            "totalAnalyses": AdminRepository.count_analyses(),
+            "pendingAnalyses": AdminRepository.count_analyses(status="pending"),
+            "analyzingAnalyses": AdminRepository.count_analyses(status="analyzing"),
+            "failedAnalyses": AdminRepository.count_analyses(status="failed"),
+            "recentFailedAnalyses": (
+                db.session.query(func.count(AnalysisRequest.id))
+                .filter(
+                    AnalysisRequest.request_status == "failed",
+                    AnalysisRequest.created_at >= recent_start,
+                )
+                .scalar()
+                or 0
+            ),
+            "auditLogsToday": (
+                db.session.query(func.count(AdminAuditLog.id))
+                .filter(AdminAuditLog.created_at >= today_start)
+                .scalar()
+                or 0
+            ),
+            "openInquiries": AdminRepository.count_open_inquiries(),
+        }
     @staticmethod
     def list_analyses(
         keyword=None,

@@ -46,12 +46,12 @@ def user_auth_header(app):
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs"])
+@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs", "/api/admin/settings", "/api/admin/system-status"])
 def test_new_admin_read_apis_require_login(client, path):
     assert client.get(path).status_code == 401
 
 
-@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs"])
+@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs", "/api/admin/settings", "/api/admin/system-status"])
 def test_new_admin_read_apis_reject_regular_users(app, client, path):
     assert client.get(path, headers=user_auth_header(app)).status_code == 403
 
@@ -198,6 +198,62 @@ def test_admin_summary_keeps_member_counts_and_adds_operations(app, client, monk
 
     assert response.status_code == 200
     assert body["data"] == summary
+
+
+def test_admin_settings_returns_readonly_policy_without_secrets(app, client, monkeypatch):
+    payload = {
+        "supportedCategories": ["dentistry", "dermatology", "ophthalmology", "orthopedics"],
+        "plans": [{"planCode": "free", "planName": "Free", "monthlyPrice": 0, "monthlyAnalysisLimit": 5, "active": True}],
+        "usagePolicy": {"freeMonthlyLimit": 5, "plusMockMonthlyLimit": 30, "usageTypes": ["FREE_BASE"], "periodBasis": "UTC_MONTH"},
+        "readonly": True,
+        "canEdit": False,
+    }
+    monkeypatch.setattr(AdminService, "get_settings", staticmethod(lambda: payload))
+
+    response = client.get("/api/admin/settings", headers=auth_header(app))
+    body = response.get_json()
+    serialized = str(body).lower()
+
+    assert response.status_code == 200
+    assert "orthopedics" in body["data"]["supportedCategories"]
+    assert body["data"]["readonly"] is True
+    assert body["data"]["canEdit"] is False
+    assert "secret" not in serialized
+    assert "token" not in serialized
+    assert "database_url" not in serialized
+
+
+def test_admin_system_status_returns_readonly_counts_without_secrets(app, client, monkeypatch):
+    payload = {
+        "backendMain": "ok",
+        "database": "ok",
+        "backendAi": "not_checked",
+        "serverTime": "2026-07-28T00:00:00+00:00",
+        "totalAnalyses": 20,
+        "pendingAnalyses": 2,
+        "analyzingAnalyses": 1,
+        "failedAnalyses": 3,
+        "recentFailedAnalyses": 1,
+        "auditLogsToday": 4,
+        "openInquiries": 5,
+        "readonly": True,
+    }
+    monkeypatch.setattr(AdminService, "get_system_status", staticmethod(lambda: payload))
+
+    response = client.get("/api/admin/system-status", headers=auth_header(app))
+    body = response.get_json()
+    serialized = str(body).lower()
+
+    assert response.status_code == 200
+    assert body["data"]["database"] == "ok"
+    assert body["data"]["serverTime"]
+    assert body["data"]["pendingAnalyses"] == 2
+    assert body["data"]["analyzingAnalyses"] == 1
+    assert body["data"]["failedAnalyses"] == 3
+    assert body["data"]["openInquiries"] == 5
+    assert "secret" not in serialized
+    assert "token" not in serialized
+    assert "database_url" not in serialized
 
 
 def test_admin_audit_logs_forwards_filters_and_pagination(app, client, monkeypatch):

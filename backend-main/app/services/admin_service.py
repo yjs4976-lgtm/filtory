@@ -61,6 +61,60 @@ class AdminService:
         return summary
 
     @staticmethod
+    def get_settings():
+        from app.services.analysis_usage_service import AnalysisUsageService
+
+        plans = AdminRepository.list_subscription_plans()
+        return {
+            "supportedCategories": sorted(AdminService.HOSPITAL_CATEGORIES),
+            "plans": [
+                {
+                    "planCode": plan.plan_code,
+                    "planName": plan.plan_name,
+                    "monthlyPrice": plan.monthly_price,
+                    "monthlyAnalysisLimit": plan.monthly_analysis_limit,
+                    "active": plan.active,
+                }
+                for plan in plans
+            ],
+            "usagePolicy": {
+                "freeMonthlyLimit": AnalysisUsageService.FREE_LIMIT,
+                "plusMockMonthlyLimit": AnalysisUsageService.PLUS_LIMIT,
+                "usageTypes": sorted(AdminService.USAGE_TYPES),
+                "periodBasis": "UTC_MONTH",
+            },
+            "readonly": True,
+            "canEdit": False,
+        }
+
+    @staticmethod
+    def get_system_status():
+        now = datetime.now(timezone.utc)
+        database_status = "ok"
+        try:
+            AdminRepository.database_is_available()
+            counts = AdminRepository.system_status_counts(now=now)
+        except Exception:
+            database_status = "error"
+            counts = {
+                "totalAnalyses": None,
+                "pendingAnalyses": None,
+                "analyzingAnalyses": None,
+                "failedAnalyses": None,
+                "recentFailedAnalyses": None,
+                "auditLogsToday": None,
+                "openInquiries": None,
+            }
+        return {
+            "backendMain": "ok",
+            "database": database_status,
+            "backendAi": "not_checked",
+            "serverTime": now.isoformat(),
+            **counts,
+            "readonly": True,
+        }
+
+    @staticmethod
     def list_analyses(keyword=None, status=None, category=None, analysis_type=None, limit=20, offset=0):
         rows, total = AdminRepository.list_analyses(
             keyword=keyword,

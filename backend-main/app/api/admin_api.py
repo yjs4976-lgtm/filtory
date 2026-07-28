@@ -14,6 +14,18 @@ def get_summary():
     return success_response(AdminService.get_summary())
 
 
+@admin_bp.route("/settings", methods=["GET"])
+@require_admin
+def get_settings():
+    return success_response(AdminService.get_settings())
+
+
+@admin_bp.route("/system-status", methods=["GET"])
+@require_admin
+def get_system_status():
+    return success_response(AdminService.get_system_status())
+
+
 def _paginated_admin_response(loader, **filters):
     pagination = get_pagination_params(request.args)
     items, total = loader(limit=pagination["limit"], offset=pagination["offset"], **filters)
