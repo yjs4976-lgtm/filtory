@@ -25,6 +25,29 @@ class AdminService:
     ANALYSIS_STATUSES = {"pending", "analyzing", "success", "failed", "canceled"}
     ANALYSIS_TYPES = {"single_review", "multi_review", "place_only", "full"}
     USAGE_TYPES = {"FREE_BASE", "PLUS", "REWARDED", "ADMIN_GRANTED"}
+    AUDIT_ACTIONS = {
+        "member_update",
+        "member_deactivate",
+        "hospital_create",
+        "hospital_update",
+        "hospital_delete",
+        "review_update",
+        "review_delete",
+        "analysis_review",
+        "report_resolve",
+        "subscription_update",
+        "login",
+    }
+    SENSITIVE_AUDIT_KEYS = {
+        "password",
+        "token",
+        "accesstoken",
+        "refreshtoken",
+        "authorization",
+        "cookie",
+        "secret",
+        "apikey",
+    }
 
     @staticmethod
     def get_summary():
@@ -78,6 +101,21 @@ class AdminService:
             offset=offset,
         )
         return [AdminService._usage_log_to_dict(item) for item in rows], total
+
+    @staticmethod
+    def list_audit_logs(keyword=None, action=None, resource_type=None, admin_id=None, limit=20, offset=0):
+        normalized_action = AdminService._normalize_optional(action, AdminService.AUDIT_ACTIONS, "audit action")
+        normalized_resource = AdminService._clean_optional_text(resource_type)
+        normalized_admin_id = AdminService._normalize_admin_id(admin_id)
+        rows, total = AdminRepository.list_audit_logs(
+            keyword=keyword,
+            action=normalized_action,
+            resource_type=normalized_resource,
+            admin_id=normalized_admin_id,
+            limit=limit,
+            offset=offset,
+        )
+        return [AdminService._audit_log_to_dict(item) for item in rows], total
 
     @staticmethod
     def list_members(keyword=None, status=None, role=None, limit=20, offset=0):
@@ -320,6 +358,25 @@ class AdminService:
         }
 
     @staticmethod
+    def _audit_log_to_dict(audit_log):
+        return {
+            "id": audit_log.id,
+            "adminId": audit_log.admin_member_id,
+            "admin": AdminService._member_summary(audit_log.admin_member),
+            "action": audit_log.action_type,
+            "resourceType": audit_log.target_table,
+            "resourceId": audit_log.target_id,
+            "targetMemberId": audit_log.target_id if audit_log.target_table == "members" else None,
+            "description": AdminService._truncate_text(audit_log.description),
+            "ipAddress": audit_log.request_ip,
+            "metadataSummary": {
+                "before": AdminService._sanitize_audit_metadata(audit_log.before_json),
+                "after": AdminService._sanitize_audit_metadata(audit_log.after_json),
+            },
+            "createdAt": AdminService._date_to_str(audit_log.created_at),
+        }
+
+    @staticmethod
     def _member_summary(member):
         if not member:
             return None
@@ -524,6 +581,53 @@ class AdminService:
         except ValueError as exc:
             raise ValueError("Invalid period key") from exc
         return normalized
+
+    @staticmethod
+    def _normalize_admin_id(admin_id):
+        if admin_id is None or str(admin_id).strip() == "":
+            return None
+        try:
+            normalized = int(admin_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid admin id") from exc
+        if normalized <= 0:
+            raise ValueError("Invalid admin id")
+        return normalized
+
+    @staticmethod
+    def _sanitize_audit_metadata(value, depth=0):
+        if value is None:
+            return None
+        if depth >= 3:
+            return "[SUMMARY OMITTED]"
+        if isinstance(value, dict):
+            sanitized = {}
+            for key, item in list(value.items())[:20]:
+                normalized_key = str(key).lower().replace("_", "").replace("-", "")
+                if any(sensitive in normalized_key for sensitive in AdminService.SENSITIVE_AUDIT_KEYS):
+                    sanitized[str(key)] = "[REDACTED]"
+                else:
+                    sanitized[str(key)] = AdminService._sanitize_audit_metadata(item, depth + 1)
+            if len(value) > 20:
+                sanitized["_omitted"] = len(value) - 20
+            return sanitized
+        if isinstance(value, (list, tuple)):
+            items = [AdminService._sanitize_audit_metadata(item, depth + 1) for item in list(value)[:10]]
+            if len(value) > 10:
+                items.append(f"[{len(value) - 10} MORE]")
+            return items
+        if isinstance(value, str):
+            return AdminService._truncate_text(value)
+        if isinstance(value, (int, float, bool)):
+            return value
+        return AdminService._truncate_text(str(value))
+
+    @staticmethod
+    def _truncate_text(value, limit=200):
+        if value is None:
+            return None
+        text = str(value)
+        return text if len(text) <= limit else f"{text[:limit]}…"
 
     @staticmethod
     def _hospital_update_data(payload, admin_member_id):

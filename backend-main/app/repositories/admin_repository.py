@@ -237,6 +237,44 @@ class AdminRepository:
         return audit_log
 
     @staticmethod
+    def list_audit_logs(keyword=None, action=None, resource_type=None, admin_id=None, limit=20, offset=0):
+        query = AdminAuditLog.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.outerjoin(Member, AdminAuditLog.admin_member_id == Member.id)
+                .filter(
+                    or_(
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        AdminAuditLog.action_type.ilike(pattern),
+                        AdminAuditLog.target_table.ilike(pattern),
+                        AdminAuditLog.description.ilike(pattern),
+                        cast(AdminAuditLog.id, String).ilike(pattern),
+                        cast(AdminAuditLog.target_id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if action:
+            query = query.filter(AdminAuditLog.action_type == action)
+        if resource_type:
+            query = query.filter(AdminAuditLog.target_table == resource_type)
+        if admin_id is not None:
+            query = query.filter(AdminAuditLog.admin_member_id == admin_id)
+
+        total = query.count()
+        items = (
+            query.options(joinedload(AdminAuditLog.admin_member))
+            .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
     def get_review_case_by_id(case_id):
         return db.session.get(AdminReviewModerationCase, case_id)
 

@@ -670,6 +670,7 @@ a {
 .admin-summary-card:nth-child(3){border-color:rgba(239,184,138,.4);background:#fff8f2}
 .admin-summary-card:nth-child(4){border-color:rgba(148,145,160,.52);background:#eeedf2}
 .admin-summary-card:nth-child(2)>span{background:#9fd9b4}.admin-summary-card:nth-child(3)>span{background:#efbe94}.admin-summary-card:nth-child(4)>span{background:#aaa5b8}
+.admin-summary-sections{display:grid;gap:14px}.admin-summary-sections>section>h2{margin:0 0 8px;color:var(--foreground);font-size:13px}.admin-summary-sections .admin-summary-grid{margin:0}
 .admin-core-menu-panel,.admin-menu-browser{position:relative;overflow:hidden;border:1px solid rgba(220,207,255,.38);border-radius:26px;box-shadow:0 18px 44px rgba(168,165,183,.1);backdrop-filter:blur(10px)}
 .admin-core-menu-panel{display:flex;flex-direction:column;gap:14px;background:radial-gradient(circle at 92% 4%,rgba(168,165,183,.18),transparent 42%),linear-gradient(145deg,rgba(238,237,243,.92),rgba(255,253,249,.96));padding:18px}
 .admin-menu-browser{border-color:rgba(239,184,138,.34);background:radial-gradient(circle at 94% 6%,rgba(255,215,181,.24),transparent 40%),radial-gradient(circle at 4% 92%,rgba(255,229,207,.18),transparent 44%),linear-gradient(145deg,rgba(255,247,239,.94),rgba(255,253,249,.96))}

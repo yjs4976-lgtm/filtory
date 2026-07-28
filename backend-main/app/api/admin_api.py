@@ -66,6 +66,21 @@ def list_usage():
         return error_response(str(e), 400)
 
 
+@admin_bp.route("/audit-logs", methods=["GET"])
+@require_admin
+def list_audit_logs():
+    try:
+        return _paginated_admin_response(
+            AdminService.list_audit_logs,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            action=request.args.get("action"),
+            resource_type=request.args.get("resourceType") or request.args.get("resource"),
+            admin_id=request.args.get("adminId"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @admin_bp.route("/inquiries", methods=["GET"])
 @require_admin
 def list_inquiries():

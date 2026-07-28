@@ -25,13 +25,13 @@ const operationMenus: AdminMenuItem[] = [
   { href: ROUTES.ADMIN_ANALYSES, title: "분석 관리", description: "실제 분석 요청과 결과 점수, 처리 상태를 확인합니다.", status: "connected" },
   { href: ROUTES.ADMIN_ERRORS, title: "오류 관리", description: "실패한 분석 요청과 서버 오류 메시지를 확인합니다.", status: "connected" },
   { href: ROUTES.ADMIN_USAGE, title: "사용량 관리", description: "서버에 기록된 분석 사용량과 차감 유형을 확인합니다.", status: "connected" },
-  { href: ROUTES.ADMIN_MEMBERSHIPS, title: "멤버십 관리", description: "샘플 데이터로 구독 및 이용 정책을 확인합니다.", status: "sample" },
-  { href: ROUTES.ADMIN_AD_REWARDS, title: "광고 보상 관리", description: "샘플 데이터로 광고 보상 지급 내역을 확인합니다.", status: "sample" },
-  { href: ROUTES.ADMIN_SUPPORT, title: "고객 지원", description: "샘플 데이터로 문의와 신고 운영 현황을 확인합니다.", status: "sample" },
+  { href: ROUTES.ADMIN_MEMBERSHIPS, title: "멤버십 관리", description: "실제 결제 검증 전 구독 정책을 확인하는 준비 화면입니다.", status: "sample" },
+  { href: ROUTES.ADMIN_AD_REWARDS, title: "광고 보상 관리", description: "광고 보상 지급 기능 연결 전 샘플 화면입니다.", status: "sample" },
+  { href: ROUTES.ADMIN_SUPPORT, title: "고객 지원", description: "문의 관리는 실제 문의 관리 화면으로 연결하는 안내 허브입니다.", status: "partial" },
   { href: ROUTES.ADMIN_NOTICES, title: "공지사항", description: "공지사항과 FAQ 콘텐츠를 위한 준비 중 화면입니다.", status: "preparing" },
   { href: ROUTES.ADMIN_SETTINGS, title: "설정", description: "서비스 운영 설정을 조회하며 저장 API 연결이 필요합니다.", status: "api-needed" },
   { href: ROUTES.ADMIN_SYSTEM, title: "시스템 관리", description: "서비스 시스템 상태를 위한 준비 중 화면입니다.", status: "preparing" },
-  { href: ROUTES.ADMIN_AUDIT_LOGS, title: "감사 로그", description: "관리자 작업 기록 조회 API 연결이 필요합니다.", status: "api-needed" },
+  { href: ROUTES.ADMIN_AUDIT_LOGS, title: "감사 로그", description: "실제 관리자 작업 기록을 읽기 전용으로 확인합니다.", status: "connected" },
 ]
 
 const MENU_PAGE_SIZE = 4

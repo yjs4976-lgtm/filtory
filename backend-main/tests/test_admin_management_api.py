@@ -46,12 +46,12 @@ def user_auth_header(app):
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage"])
+@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs"])
 def test_new_admin_read_apis_require_login(client, path):
     assert client.get(path).status_code == 401
 
 
-@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage"])
+@pytest.mark.parametrize("path", ["/api/admin/analyses", "/api/admin/errors", "/api/admin/usage", "/api/admin/audit-logs"])
 def test_new_admin_read_apis_reject_regular_users(app, client, path):
     assert client.get(path, headers=user_auth_header(app)).status_code == 403
 
@@ -198,6 +198,66 @@ def test_admin_summary_keeps_member_counts_and_adds_operations(app, client, monk
 
     assert response.status_code == 200
     assert body["data"] == summary
+
+
+def test_admin_audit_logs_forwards_filters_and_pagination(app, client, monkeypatch):
+    def fake_list_audit_logs(**kwargs):
+        assert kwargs == {
+            "keyword": "SampleAdmin",
+            "action": "member_update",
+            "resource_type": "members",
+            "admin_id": "9",
+            "limit": 10,
+            "offset": 10,
+        }
+        return ([{"id": 11, "action": "member_update"}], 21)
+
+    monkeypatch.setattr(AdminService, "list_audit_logs", staticmethod(fake_list_audit_logs))
+    response = client.get(
+        "/api/admin/audit-logs?q=SampleAdmin&action=member_update&resourceType=members&adminId=9&page=2&per_page=10",
+        headers=auth_header(app),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["data"][0]["action"] == "member_update"
+    assert body["meta"] == {"page": 2, "per_page": 10, "count": 21}
+
+
+def test_audit_log_metadata_masks_sensitive_keys(monkeypatch):
+    audit_log = SimpleNamespace(
+        id=11,
+        admin_member_id=9,
+        admin_member=SimpleNamespace(id=9, email="admin@example.com", nickname="SampleAdmin"),
+        action_type="member_update",
+        target_table="members",
+        target_id=2,
+        description="회원 상태 변경",
+        request_ip="127.0.0.1",
+        before_json={"status": "active", "accessToken": "secret-value", "nested": {"password_hash": "hash"}},
+        after_json={"status": "suspended", "cookie": "session-value", "note": "safe"},
+        created_at=None,
+    )
+    monkeypatch.setattr(
+        AdminRepository,
+        "list_audit_logs",
+        staticmethod(lambda **kwargs: ([audit_log], 1)),
+    )
+
+    items, total = AdminService.list_audit_logs(
+        keyword="SampleAdmin",
+        action="member_update",
+        resource_type="members",
+        admin_id="9",
+    )
+
+    assert total == 1
+    assert items[0]["admin"]["nickname"] == "SampleAdmin"
+    assert items[0]["targetMemberId"] == 2
+    assert items[0]["metadataSummary"]["before"]["accessToken"] == "[REDACTED]"
+    assert items[0]["metadataSummary"]["before"]["nested"]["password_hash"] == "[REDACTED]"
+    assert items[0]["metadataSummary"]["after"]["cookie"] == "[REDACTED]"
+    assert "userAgent" not in items[0]
 
 
 def test_analysis_service_returns_member_hospital_and_score_summary(monkeypatch):
