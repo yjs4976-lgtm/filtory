@@ -22,9 +22,9 @@ type AdminMenuItem = {
 }
 
 const operationMenus: AdminMenuItem[] = [
-  { href: ROUTES.ADMIN_ANALYSES, title: "분석 관리", description: "샘플 데이터로 분석 결과와 검토 대상을 확인합니다.", status: "sample" },
-  { href: ROUTES.ADMIN_ERRORS, title: "오류 관리", description: "샘플 데이터로 분석 오류와 재처리 대상을 확인합니다.", status: "sample" },
-  { href: ROUTES.ADMIN_USAGE, title: "사용량 관리", description: "샘플 데이터로 분석 이용 현황을 확인합니다.", status: "sample" },
+  { href: ROUTES.ADMIN_ANALYSES, title: "분석 관리", description: "실제 분석 요청과 결과 점수, 처리 상태를 확인합니다.", status: "connected" },
+  { href: ROUTES.ADMIN_ERRORS, title: "오류 관리", description: "실패한 분석 요청과 서버 오류 메시지를 확인합니다.", status: "connected" },
+  { href: ROUTES.ADMIN_USAGE, title: "사용량 관리", description: "서버에 기록된 분석 사용량과 차감 유형을 확인합니다.", status: "connected" },
   { href: ROUTES.ADMIN_MEMBERSHIPS, title: "멤버십 관리", description: "샘플 데이터로 구독 및 이용 정책을 확인합니다.", status: "sample" },
   { href: ROUTES.ADMIN_AD_REWARDS, title: "광고 보상 관리", description: "샘플 데이터로 광고 보상 지급 내역을 확인합니다.", status: "sample" },
   { href: ROUTES.ADMIN_SUPPORT, title: "고객 지원", description: "샘플 데이터로 문의와 신고 운영 현황을 확인합니다.", status: "sample" },

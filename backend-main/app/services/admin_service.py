@@ -22,15 +22,62 @@ class AdminService:
     REVIEW_CASE_FINAL_STATUSES = {"resolved"}
     HOSPITAL_CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
     HOSPITAL_STATUSES = {"active", "needs_review", "hidden", "archived"}
+    ANALYSIS_STATUSES = {"pending", "analyzing", "success", "failed", "canceled"}
+    ANALYSIS_TYPES = {"single_review", "multi_review", "place_only", "full"}
+    USAGE_TYPES = {"FREE_BASE", "PLUS", "REWARDED", "ADMIN_GRANTED"}
 
     @staticmethod
     def get_summary():
-        return {
+        summary = {
             "totalUsers": AdminRepository.count_members(),
             "activeUsers": AdminRepository.count_members(status="active"),
             "suspendedUsers": AdminRepository.count_members(status="suspended"),
             "withdrawnUsers": AdminRepository.count_members(status="withdrawn"),
         }
+        summary.update(AdminRepository.analysis_summary_counts())
+        return summary
+
+    @staticmethod
+    def list_analyses(keyword=None, status=None, category=None, analysis_type=None, limit=20, offset=0):
+        rows, total = AdminRepository.list_analyses(
+            keyword=keyword,
+            status=AdminService._normalize_optional(status, AdminService.ANALYSIS_STATUSES, "analysis status"),
+            category=AdminService._normalize_optional(category, AdminService.HOSPITAL_CATEGORIES, "hospital category"),
+            analysis_type=AdminService._normalize_optional(analysis_type, AdminService.ANALYSIS_TYPES, "analysis type"),
+            limit=limit,
+            offset=offset,
+        )
+        return [AdminService._analysis_to_dict(item) for item in rows], total
+
+    @staticmethod
+    def list_errors(keyword=None, category=None, analysis_type=None, limit=20, offset=0):
+        rows, total = AdminRepository.list_analyses(
+            keyword=keyword,
+            category=AdminService._normalize_optional(category, AdminService.HOSPITAL_CATEGORIES, "hospital category"),
+            analysis_type=AdminService._normalize_optional(analysis_type, AdminService.ANALYSIS_TYPES, "analysis type"),
+            errors_only=True,
+            limit=limit,
+            offset=offset,
+        )
+        return [
+            {
+                **AdminService._analysis_to_dict(item),
+                "retryAvailable": False,
+            }
+            for item in rows
+        ], total
+
+    @staticmethod
+    def list_usage_logs(keyword=None, usage_type=None, period_key=None, limit=20, offset=0):
+        normalized_period = AdminService._normalize_period_key(period_key)
+        rows, total = AdminRepository.list_usage_logs(
+            keyword=keyword,
+            usage_type=AdminService._normalize_optional(usage_type, AdminService.USAGE_TYPES, "usage type", uppercase=True),
+            period_key=normalized_period,
+            limit=limit,
+            offset=offset,
+        )
+        return [AdminService._usage_log_to_dict(item) for item in rows], total
 
     @staticmethod
     def list_members(keyword=None, status=None, role=None, limit=20, offset=0):
@@ -225,6 +272,78 @@ class AdminService:
         return admin_member_to_dict(member, AdminRepository.get_member_activity_counts(member.id))
 
     @staticmethod
+    def _analysis_to_dict(analysis_request):
+        member = analysis_request.member
+        hospital = analysis_request.hospital
+        result = analysis_request.analysis_result
+        duration = None
+        if analysis_request.started_at and analysis_request.completed_at:
+            duration = max(0, int((analysis_request.completed_at - analysis_request.started_at).total_seconds()))
+
+        return {
+            "id": analysis_request.id,
+            "requestId": analysis_request.id,
+            "resultId": result.id if result else None,
+            "member": AdminService._member_summary(member),
+            "hospital": AdminService._hospital_summary(hospital, include_address=True),
+            "analysisType": analysis_request.analysis_type,
+            "reviewCount": analysis_request.review_count,
+            "status": analysis_request.request_status,
+            "totalScore": result.total_score if result else None,
+            "trustScore": result.trust_score if result else None,
+            "adScore": result.ad_score if result else None,
+            "placeScore": result.place_score if result else None,
+            "foreignerScore": result.foreigner_score if result else None,
+            "trustLevel": result.trust_level if result else None,
+            "adSuspicion": result.ad_suspicion if result else None,
+            "errorMessage": analysis_request.error_message,
+            "startedAt": AdminService._date_to_str(analysis_request.started_at),
+            "completedAt": AdminService._date_to_str(analysis_request.completed_at),
+            "createdAt": AdminService._date_to_str(analysis_request.created_at),
+            "durationSeconds": duration,
+        }
+
+    @staticmethod
+    def _usage_log_to_dict(usage_log):
+        result = usage_log.analysis_result
+        return {
+            "id": usage_log.id,
+            "member": AdminService._member_summary(usage_log.member),
+            "analysisResultId": usage_log.analysis_result_id,
+            "hospital": AdminService._hospital_summary(result.hospital if result else None),
+            "usageType": usage_log.usage_type,
+            "periodKey": usage_log.period_key,
+            "chargedAt": AdminService._date_to_str(usage_log.charged_at),
+            "totalScore": result.total_score if result else None,
+            "trustScore": result.trust_score if result else None,
+            "adScore": result.ad_score if result else None,
+        }
+
+    @staticmethod
+    def _member_summary(member):
+        if not member:
+            return None
+        return {"id": member.id, "email": member.email, "nickname": member.nickname}
+
+    @staticmethod
+    def _hospital_summary(hospital, include_address=False):
+        if not hospital:
+            return None
+        data = {
+            "id": hospital.id,
+            "hospitalName": hospital.hospital_name,
+            "category": hospital.category,
+        }
+        if include_address:
+            data.update(
+                {
+                    "region": hospital.region,
+                    "address": hospital.road_address or hospital.address,
+                }
+            )
+        return data
+
+    @staticmethod
     def _get_mutable_member(member_id, admin_member_id):
         member = AdminRepository.get_member_by_id(member_id)
         if not member:
@@ -384,6 +503,27 @@ class AdminService:
         if normalized_status not in AdminService.HOSPITAL_STATUSES:
             raise ValueError("Invalid hospital admin status")
         return normalized_status
+
+    @staticmethod
+    def _normalize_optional(value, allowed, field_name, uppercase=False):
+        if value is None or str(value).strip().lower() == "all":
+            return None
+        normalized = str(value).strip()
+        normalized = normalized.upper() if uppercase else normalized.lower()
+        if normalized not in allowed:
+            raise ValueError(f"Invalid {field_name}")
+        return normalized
+
+    @staticmethod
+    def _normalize_period_key(period_key):
+        if period_key is None or str(period_key).strip().lower() == "all":
+            return None
+        normalized = str(period_key).strip()
+        try:
+            datetime.strptime(normalized, "%Y-%m")
+        except ValueError as exc:
+            raise ValueError("Invalid period key") from exc
+        return normalized
 
     @staticmethod
     def _hospital_update_data(payload, admin_member_id):

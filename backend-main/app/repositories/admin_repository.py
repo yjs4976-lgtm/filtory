@@ -1,4 +1,6 @@
-from sqlalchemy import func, or_
+from datetime import datetime, time, timezone
+
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -6,7 +8,10 @@ from app.models import (
     AdminAuditLog,
     AdminReviewModerationCase,
     AnalysisRequest,
+    AnalysisResult,
+    AnalysisUsageLog,
     Hospital,
+    Inquiry,
     Member,
     MemberSavedHospital,
     Review,
@@ -15,6 +20,153 @@ from app.models import (
 
 
 class AdminRepository:
+    @staticmethod
+    def list_analyses(
+        keyword=None,
+        status=None,
+        category=None,
+        analysis_type=None,
+        errors_only=False,
+        limit=20,
+        offset=0,
+    ):
+        query = AnalysisRequest.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.outerjoin(Member, AnalysisRequest.member_id == Member.id)
+                .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+                .outerjoin(AnalysisResult, AnalysisResult.request_id == AnalysisRequest.id)
+                .filter(
+                    or_(
+                        Hospital.hospital_name.ilike(pattern),
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        AnalysisRequest.error_message.ilike(pattern),
+                        cast(AnalysisRequest.id, String).ilike(pattern),
+                        cast(AnalysisResult.id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if status:
+            query = query.filter(AnalysisRequest.request_status == status)
+        if category:
+            query = query.join(Hospital, AnalysisRequest.hospital_id == Hospital.id) if not keyword else query
+            query = query.filter(Hospital.category == category)
+        if analysis_type:
+            query = query.filter(AnalysisRequest.analysis_type == analysis_type)
+        if errors_only:
+            query = query.filter(
+                or_(
+                    AnalysisRequest.request_status == "failed",
+                    AnalysisRequest.error_message.is_not(None),
+                )
+            )
+
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(AnalysisRequest.member),
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.analysis_result),
+            )
+            .order_by(AnalysisRequest.created_at.desc(), AnalysisRequest.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
+    def list_usage_logs(keyword=None, usage_type=None, period_key=None, limit=20, offset=0):
+        query = AnalysisUsageLog.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.join(Member, AnalysisUsageLog.member_id == Member.id)
+                .join(AnalysisResult, AnalysisUsageLog.analysis_result_id == AnalysisResult.id)
+                .join(Hospital, AnalysisResult.hospital_id == Hospital.id)
+                .filter(
+                    or_(
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        Hospital.hospital_name.ilike(pattern),
+                        cast(AnalysisUsageLog.id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if usage_type:
+            query = query.filter(AnalysisUsageLog.usage_type == usage_type)
+        if period_key:
+            query = query.filter(AnalysisUsageLog.period_key == period_key)
+
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(AnalysisUsageLog.member),
+                joinedload(AnalysisUsageLog.analysis_result).joinedload(AnalysisResult.hospital),
+            )
+            .order_by(AnalysisUsageLog.charged_at.desc(), AnalysisUsageLog.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
+    def count_analyses(status=None, created_from=None):
+        query = db.session.query(func.count(AnalysisRequest.id))
+        if status:
+            query = query.filter(AnalysisRequest.request_status == status)
+        if created_from:
+            query = query.filter(AnalysisRequest.created_at >= created_from)
+        return query.scalar() or 0
+
+    @staticmethod
+    def count_pending_review_cases():
+        return (
+            db.session.query(func.count(AdminReviewModerationCase.id))
+            .filter(AdminReviewModerationCase.status.in_(("pending", "reviewing")))
+            .scalar()
+            or 0
+        )
+
+    @staticmethod
+    def count_open_inquiries():
+        return (
+            db.session.query(func.count(Inquiry.id))
+            .filter(Inquiry.status.in_(("PENDING", "IN_PROGRESS")))
+            .scalar()
+            or 0
+        )
+
+    @staticmethod
+    def count_hospitals(status=None):
+        query = db.session.query(func.count(Hospital.id))
+        if status:
+            query = query.filter(Hospital.admin_status == status)
+        return query.scalar() or 0
+
+    @staticmethod
+    def analysis_summary_counts(now=None):
+        current = now or datetime.now(timezone.utc)
+        today_start = datetime.combine(current.date(), time.min, tzinfo=timezone.utc)
+        month_start = datetime(current.year, current.month, 1, tzinfo=timezone.utc)
+        return {
+            "totalAnalyses": AdminRepository.count_analyses(),
+            "todayAnalyses": AdminRepository.count_analyses(created_from=today_start),
+            "monthAnalyses": AdminRepository.count_analyses(created_from=month_start),
+            "failedAnalyses": AdminRepository.count_analyses(status="failed"),
+            "pendingReviewCases": AdminRepository.count_pending_review_cases(),
+            "openInquiries": AdminRepository.count_open_inquiries(),
+            "totalHospitals": AdminRepository.count_hospitals(),
+            "needsReviewHospitals": AdminRepository.count_hospitals(status="needs_review"),
+        }
+
     @staticmethod
     def get_member_by_id(member_id):
         return db.session.get(Member, member_id)
