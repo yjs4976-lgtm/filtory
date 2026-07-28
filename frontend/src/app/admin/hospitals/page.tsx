@@ -13,7 +13,7 @@ import {
   type AdminHospitalUpdatePayload,
 } from "@/services/adminHospitalService"
 
-const CATEGORY_OPTIONS: AdminHospitalCategory[] = ["dermatology", "ophthalmology", "dentistry"]
+const CATEGORY_OPTIONS: AdminHospitalCategory[] = ["dermatology", "ophthalmology", "dentistry", "orthopedics"]
 const STATUS_OPTIONS: AdminHospitalStatus[] = ["active", "needs_review", "hidden", "archived"]
 const PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 
@@ -343,6 +343,7 @@ const koLabels = {
     dermatology: "피부과",
     ophthalmology: "안과",
     dentistry: "치과",
+    orthopedics: "정형외과",
   },
   status: {
     active: "활성",
@@ -384,6 +385,7 @@ const enLabels: typeof koLabels = {
     dermatology: "Dermatology",
     ophthalmology: "Ophthalmology",
     dentistry: "Dental",
+    orthopedics: "Orthopedics",
   },
   status: {
     active: "Active",

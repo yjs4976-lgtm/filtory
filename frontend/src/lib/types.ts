@@ -543,6 +543,14 @@ export interface AdminSummary {
   activeUsers: number;
   suspendedUsers: number;
   withdrawnUsers: number;
+  totalAnalyses: number;
+  todayAnalyses: number;
+  monthAnalyses: number;
+  failedAnalyses: number;
+  pendingReviewCases: number;
+  openInquiries: number;
+  totalHospitals: number;
+  needsReviewHospitals: number;
 }
 
 export interface AdminUser extends Omit<User, "id"> {

@@ -14,6 +14,58 @@ def get_summary():
     return success_response(AdminService.get_summary())
 
 
+def _paginated_admin_response(loader, **filters):
+    pagination = get_pagination_params(request.args)
+    items, total = loader(limit=pagination["limit"], offset=pagination["offset"], **filters)
+    return success_response(
+        data=items,
+        meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
+    )
+
+
+@admin_bp.route("/analyses", methods=["GET"])
+@require_admin
+def list_analyses():
+    try:
+        return _paginated_admin_response(
+            AdminService.list_analyses,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            category=request.args.get("category"),
+            analysis_type=request.args.get("analysisType"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/errors", methods=["GET"])
+@require_admin
+def list_errors():
+    try:
+        return _paginated_admin_response(
+            AdminService.list_errors,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            category=request.args.get("category"),
+            analysis_type=request.args.get("analysisType"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/usage", methods=["GET"])
+@require_admin
+def list_usage():
+    try:
+        return _paginated_admin_response(
+            AdminService.list_usage_logs,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            usage_type=request.args.get("usageType"),
+            period_key=request.args.get("periodKey"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @admin_bp.route("/inquiries", methods=["GET"])
 @require_admin
 def list_inquiries():
