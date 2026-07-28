@@ -1,7 +1,7 @@
 import { apiClient } from "./apiClient"
 
 export type AdminHospitalStatus = "active" | "needs_review" | "hidden" | "archived"
-export type AdminHospitalCategory = "dermatology" | "ophthalmology" | "dentistry"
+export type AdminHospitalCategory = "dermatology" | "ophthalmology" | "dentistry" | "orthopedics"
 
 export type AdminHospital = {
   id: number

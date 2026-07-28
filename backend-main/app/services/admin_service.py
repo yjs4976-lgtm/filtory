@@ -20,7 +20,7 @@ class AdminService:
     }
     REVIEW_CASE_STATUSES = {"pending", "reviewing", "resolved"}
     REVIEW_CASE_FINAL_STATUSES = {"resolved"}
-    HOSPITAL_CATEGORIES = {"dermatology", "ophthalmology", "dentistry"}
+    HOSPITAL_CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}
     HOSPITAL_STATUSES = {"active", "needs_review", "hidden", "archived"}
     ANALYSIS_STATUSES = {"pending", "analyzing", "success", "failed", "canceled"}
     ANALYSIS_TYPES = {"single_review", "multi_review", "place_only", "full"}

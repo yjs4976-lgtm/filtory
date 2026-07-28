@@ -110,6 +110,41 @@ def test_admin_errors_returns_failed_analysis_summary(app, client, monkeypatch):
     assert body["data"][0]["retryAvailable"] is False
 
 
+@pytest.mark.parametrize(
+    ("path", "service_method"),
+    [
+        ("/api/admin/analyses?category=orthopedics", "list_analyses"),
+        ("/api/admin/errors?category=orthopedics", "list_errors"),
+    ],
+)
+def test_admin_analysis_endpoints_forward_orthopedics_category(app, client, monkeypatch, path, service_method):
+    captured = {}
+
+    def fake_loader(**kwargs):
+        captured.update(kwargs)
+        return ([], 0)
+
+    monkeypatch.setattr(AdminService, service_method, staticmethod(fake_loader))
+
+    response = client.get(path, headers=auth_header(app))
+
+    assert response.status_code == 200
+    assert captured["category"] == "orthopedics"
+
+
+def test_admin_service_accepts_orthopedics_category(monkeypatch):
+    captured = {}
+
+    def fake_list_analyses(**kwargs):
+        captured.update(kwargs)
+        return ([], 0)
+
+    monkeypatch.setattr(AdminRepository, "list_analyses", staticmethod(fake_list_analyses))
+
+    assert AdminService.list_analyses(category="orthopedics") == ([], 0)
+    assert captured["category"] == "orthopedics"
+
+
 def test_admin_usage_forwards_usage_filters(app, client, monkeypatch):
     def fake_list_usage_logs(**kwargs):
         assert kwargs["keyword"] == "sample@example.com"

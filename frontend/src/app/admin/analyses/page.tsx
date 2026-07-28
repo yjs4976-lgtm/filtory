@@ -79,6 +79,7 @@ export default function AdminAnalysesPage() {
               <option value="dermatology">피부과</option>
               <option value="ophthalmology">안과</option>
               <option value="dentistry">치과</option>
+              <option value="orthopedics">정형외과</option>
             </select>
             <select value={filters.status} onChange={(event) => updateFilters({ ...filters, status: event.target.value as AdminAnalysisFilters["status"] })}>
               <option value="all">전체 상태</option>

@@ -38,7 +38,7 @@ export default function AdminErrorsPage() {
     <section className="page-title"><p className="eyebrow">ADMIN ERRORS</p><h1>분석 오류 관리</h1><p>실패한 분석 요청과 서버 오류 메시지를 조회하세요.</p></section>
     <section className="soft-card admin-table-card"><div className="admin-filter-grid">
       <input value={filters.keyword ?? ""} onChange={(event) => updateFilters({ ...filters, keyword: event.target.value })} placeholder="요청 ID, 병원, 사용자, 오류 메시지" />
-      <select value={filters.category} onChange={(event) => updateFilters({ ...filters, category: event.target.value as AdminAnalysisFilters["category"] })}><option value="all">전체 진료과</option><option value="dermatology">피부과</option><option value="ophthalmology">안과</option><option value="dentistry">치과</option></select>
+      <select value={filters.category} onChange={(event) => updateFilters({ ...filters, category: event.target.value as AdminAnalysisFilters["category"] })}><option value="all">전체 진료과</option><option value="dermatology">피부과</option><option value="ophthalmology">안과</option><option value="dentistry">치과</option><option value="orthopedics">정형외과</option></select>
       <select value={filters.analysisType} onChange={(event) => updateFilters({ ...filters, analysisType: event.target.value as AdminAnalysisFilters["analysisType"] })}><option value="all">전체 분석 방식</option><option value="single_review">단일 리뷰</option><option value="multi_review">다중 리뷰</option><option value="place_only">장소 정보</option><option value="full">전체 분석</option></select>
     </div></section>
     {isLoading && <p>{t.admin.loading}</p>}{error && <p className="form-error">{error}</p>}

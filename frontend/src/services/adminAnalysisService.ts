@@ -2,7 +2,7 @@ import { apiClient } from "./apiClient"
 
 export type AdminAnalysisStatus = "pending" | "analyzing" | "success" | "failed" | "canceled"
 export type AdminAnalysisType = "single_review" | "multi_review" | "place_only" | "full"
-export type AdminAnalysisCategory = "dermatology" | "ophthalmology" | "dentistry"
+export type AdminAnalysisCategory = "dermatology" | "ophthalmology" | "dentistry" | "orthopedics"
 
 export type AdminAnalysisItem = {
   id: number
