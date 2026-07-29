@@ -28,7 +28,7 @@ const operationMenus: AdminMenuItem[] = [
   { href: ROUTES.ADMIN_MEMBERSHIPS, title: "멤버십 관리", description: "실제 결제 검증 전 구독 정책을 확인하는 준비 화면입니다.", status: "sample" },
   { href: ROUTES.ADMIN_AD_REWARDS, title: "광고 보상 관리", description: "광고 보상 지급 기능 연결 전 샘플 화면입니다.", status: "sample" },
   { href: ROUTES.ADMIN_SUPPORT, title: "고객 지원", description: "문의 관리는 실제 문의 관리 화면으로 연결하는 안내 허브입니다.", status: "partial" },
-  { href: ROUTES.ADMIN_NOTICES, title: "공지사항", description: "공지사항과 FAQ 콘텐츠를 위한 준비 중 화면입니다.", status: "preparing" },
+  { href: ROUTES.ADMIN_NOTICES, title: "공지사항", description: "사용자 공지와 FAQ 콘텐츠를 작성하고 게시 상태를 관리합니다.", status: "connected" },
   { href: ROUTES.ADMIN_SETTINGS, title: "설정", description: "서버의 진료과·플랜·사용량 정책을 읽기 전용으로 확인합니다.", status: "partial" },
   { href: ROUTES.ADMIN_SYSTEM, title: "시스템 관리", description: "메인 API와 DB, 분석 처리 현황을 읽기 전용으로 확인합니다.", status: "partial" },
   { href: ROUTES.ADMIN_AUDIT_LOGS, title: "감사 로그", description: "실제 관리자 작업 기록을 읽기 전용으로 확인합니다.", status: "connected" },

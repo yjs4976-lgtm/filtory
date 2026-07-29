@@ -7,6 +7,7 @@ import { Header } from "@/components/common/Header"
 import { ChatbotModal } from "@/components/chatbot/ChatbotModal"
 import { FeatureGrid } from "@/components/home/FeatureGrid"
 import { HomeHero } from "@/components/home/HomeHero"
+import { NoticeBar } from "@/components/notices/NoticeBar"
 import { RecentAnalysisSection } from "@/components/home/RecentAnalysisSection"
 import { TrustTipCard } from "@/components/home/TrustTipCard"
 import { PartneredInsight } from "@/components/ads/PartneredInsight"
@@ -24,6 +25,7 @@ export default function HomePage() {
       <Header showBrand showBell />
 
       <main className={`${styles.main} ${styles.stackMd}`}>
+        <NoticeBar />
         <HomeHero />
         <FeatureGrid />
         <RecentAnalysisSection />

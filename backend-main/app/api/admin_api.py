@@ -1,6 +1,6 @@
 from flask import Blueprint, g, request
 
-from app.services import AdminService, InquiryService
+from app.services import AdminService, ContentService, InquiryService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
 from app.utils.security import require_admin
@@ -33,6 +33,70 @@ def _paginated_admin_response(loader, **filters):
         data=items,
         meta=build_pagination_meta(pagination["page"], pagination["per_page"], total),
     )
+
+
+@admin_bp.route("/notices", methods=["GET", "POST"])
+@require_admin
+def admin_notices():
+    if request.method == "POST":
+        try:
+            return success_response(ContentService.save_notice(request.get_json(silent=True) or {}, g.current_member.id), status_code=201)
+        except ValueError as e:
+            return error_response(str(e), 400)
+    try:
+        return _paginated_admin_response(
+            ContentService.list_admin_notices,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            pinned=request.args.get("pinned"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/notices/<int:notice_id>", methods=["GET", "PATCH"])
+@require_admin
+def admin_notice_detail(notice_id):
+    try:
+        if request.method == "PATCH":
+            return success_response(ContentService.save_notice(request.get_json(silent=True) or {}, g.current_member.id, notice_id))
+        return success_response(ContentService.get_admin_notice(notice_id))
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/faqs", methods=["GET", "POST"])
+@require_admin
+def admin_faqs():
+    if request.method == "POST":
+        try:
+            return success_response(ContentService.save_faq(request.get_json(silent=True) or {}, g.current_member.id), status_code=201)
+        except ValueError as e:
+            return error_response(str(e), 400)
+    try:
+        return _paginated_admin_response(
+            ContentService.list_admin_faqs,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            category=request.args.get("category"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/faqs/<int:faq_id>", methods=["GET", "PATCH"])
+@require_admin
+def admin_faq_detail(faq_id):
+    try:
+        if request.method == "PATCH":
+            return success_response(ContentService.save_faq(request.get_json(silent=True) or {}, g.current_member.id, faq_id))
+        return success_response(ContentService.get_admin_faq(faq_id))
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
 
 
 @admin_bp.route("/analyses", methods=["GET"])
