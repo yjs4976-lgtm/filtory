@@ -9,6 +9,7 @@ from app.schemas import admin_member_to_dict
 class AdminService:
     ROLES = {"user", "admin"}
     STATUSES = {"active", "suspended", "withdrawn", "dormant"}
+    ADMIN_MUTABLE_STATUSES = {"active", "suspended"}
     REVIEW_CASE_TYPES = {
         "ad_suspicion",
         "repetition_pattern",
@@ -25,6 +26,29 @@ class AdminService:
     ANALYSIS_STATUSES = {"pending", "analyzing", "success", "failed", "canceled"}
     ANALYSIS_TYPES = {"single_review", "multi_review", "place_only", "full"}
     USAGE_TYPES = {"FREE_BASE", "PLUS", "REWARDED", "ADMIN_GRANTED"}
+    AUDIT_ACTIONS = {
+        "member_update",
+        "member_deactivate",
+        "hospital_create",
+        "hospital_update",
+        "hospital_delete",
+        "review_update",
+        "review_delete",
+        "analysis_review",
+        "report_resolve",
+        "subscription_update",
+        "login",
+    }
+    SENSITIVE_AUDIT_KEYS = {
+        "password",
+        "token",
+        "accesstoken",
+        "refreshtoken",
+        "authorization",
+        "cookie",
+        "secret",
+        "apikey",
+    }
 
     @staticmethod
     def get_summary():
@@ -36,6 +60,60 @@ class AdminService:
         }
         summary.update(AdminRepository.analysis_summary_counts())
         return summary
+
+    @staticmethod
+    def get_settings():
+        from app.services.analysis_usage_service import AnalysisUsageService
+
+        plans = AdminRepository.list_subscription_plans()
+        return {
+            "supportedCategories": sorted(AdminService.HOSPITAL_CATEGORIES),
+            "plans": [
+                {
+                    "planCode": plan.plan_code,
+                    "planName": plan.plan_name,
+                    "monthlyPrice": plan.monthly_price,
+                    "monthlyAnalysisLimit": plan.monthly_analysis_limit,
+                    "active": plan.active,
+                }
+                for plan in plans
+            ],
+            "usagePolicy": {
+                "freeMonthlyLimit": AnalysisUsageService.FREE_LIMIT,
+                "plusMockMonthlyLimit": AnalysisUsageService.PLUS_LIMIT,
+                "usageTypes": sorted(AdminService.USAGE_TYPES),
+                "periodBasis": "UTC_MONTH",
+            },
+            "readonly": True,
+            "canEdit": False,
+        }
+
+    @staticmethod
+    def get_system_status():
+        now = datetime.now(timezone.utc)
+        database_status = "ok"
+        try:
+            AdminRepository.database_is_available()
+            counts = AdminRepository.system_status_counts(now=now)
+        except Exception:
+            database_status = "error"
+            counts = {
+                "totalAnalyses": None,
+                "pendingAnalyses": None,
+                "analyzingAnalyses": None,
+                "failedAnalyses": None,
+                "recentFailedAnalyses": None,
+                "auditLogsToday": None,
+                "openInquiries": None,
+            }
+        return {
+            "backendMain": "ok",
+            "database": database_status,
+            "backendAi": "not_checked",
+            "serverTime": now.isoformat(),
+            **counts,
+            "readonly": True,
+        }
 
     @staticmethod
     def list_analyses(keyword=None, status=None, category=None, analysis_type=None, limit=20, offset=0):
@@ -80,6 +158,21 @@ class AdminService:
         return [AdminService._usage_log_to_dict(item) for item in rows], total
 
     @staticmethod
+    def list_audit_logs(keyword=None, action=None, resource_type=None, admin_id=None, limit=20, offset=0):
+        normalized_action = AdminService._normalize_optional(action, AdminService.AUDIT_ACTIONS, "audit action")
+        normalized_resource = AdminService._clean_optional_text(resource_type)
+        normalized_admin_id = AdminService._normalize_admin_id(admin_id)
+        rows, total = AdminRepository.list_audit_logs(
+            keyword=keyword,
+            action=normalized_action,
+            resource_type=normalized_resource,
+            admin_id=normalized_admin_id,
+            limit=limit,
+            offset=offset,
+        )
+        return [AdminService._audit_log_to_dict(item) for item in rows], total
+
+    @staticmethod
     def list_members(keyword=None, status=None, role=None, limit=20, offset=0):
         normalized_status = AdminService._normalize_status(status) if status else None
         normalized_role = AdminService._normalize_role(role) if role else None
@@ -98,6 +191,27 @@ class AdminService:
         if not member:
             raise ValueError("Member not found")
         return AdminService._member_to_dict(member)
+
+    @staticmethod
+    def get_member_activity(member_id):
+        member = AdminRepository.get_member_by_id(member_id)
+        if not member:
+            raise ValueError("Member not found")
+        analyses = AdminRepository.list_member_analysis_activity(member_id)
+        saved_hospitals = AdminRepository.list_member_saved_hospital_activity(member_id)
+        reports = AdminRepository.list_member_report_activity(member_id)
+        counts = AdminRepository.get_member_activity_counts(member_id)
+        return {
+            "memberId": member_id,
+            "analysisHistory": [AdminService._member_analysis_activity_to_dict(item) for item in analyses],
+            "savedHospitals": [AdminService._member_saved_hospital_to_dict(item) for item in saved_hospitals],
+            "reports": [AdminService._member_report_to_dict(item) for item in reports],
+            "counts": {
+                "analyses": counts["analysis_count"],
+                "savedHospitals": counts["saved_hospital_count"],
+                "reports": counts["report_count"],
+            },
+        }
 
     @staticmethod
     def update_member_role(member_id, role, admin_member_id):
@@ -123,7 +237,7 @@ class AdminService:
     @staticmethod
     def update_member_status(member_id, status, admin_member_id):
         member = AdminService._get_mutable_member(member_id, admin_member_id)
-        normalized_status = AdminService._normalize_status(status)
+        normalized_status = AdminService._normalize_mutable_status(status)
         before = {
             "status": member.status,
             "active": member.active,
@@ -142,25 +256,6 @@ class AdminService:
             )
             db.session.commit()
             return AdminService._member_to_dict(member)
-        except Exception:
-            db.session.rollback()
-            raise
-
-    @staticmethod
-    def withdraw_member(member_id, admin_member_id):
-        member = AdminService._get_mutable_member(member_id, admin_member_id)
-        before = {"status": member.status}
-
-        try:
-            AdminRepository.update_member(member, AdminService._status_update_data("withdrawn"))
-            AdminService._create_audit_log(
-                admin_member_id,
-                "member_deactivate",
-                member.id,
-                before,
-                {"status": "withdrawn"},
-            )
-            db.session.commit()
         except Exception:
             db.session.rollback()
             raise
@@ -272,6 +367,44 @@ class AdminService:
         return admin_member_to_dict(member, AdminRepository.get_member_activity_counts(member.id))
 
     @staticmethod
+    def _member_analysis_activity_to_dict(analysis_request):
+        result = analysis_request.analysis_result
+        hospital = analysis_request.hospital
+        return {
+            "requestId": analysis_request.id,
+            "resultId": result.id if result else None,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "category": hospital.category if hospital else None,
+            "totalScore": result.total_score if result else None,
+            "trustScore": result.trust_score if result else None,
+            "adScore": result.ad_score if result else None,
+            "status": analysis_request.request_status,
+            "createdAt": AdminService._date_to_str(analysis_request.created_at),
+        }
+
+    @staticmethod
+    def _member_saved_hospital_to_dict(saved):
+        hospital = saved.hospital
+        return {
+            "hospitalId": saved.hospital_id,
+            "analysisResultId": saved.analysis_result_id,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "category": hospital.category if hospital else None,
+            "savedAt": AdminService._date_to_str(saved.saved_at),
+        }
+
+    @staticmethod
+    def _member_report_to_dict(report):
+        hospital = report.hospital
+        return {
+            "id": report.id,
+            "type": report.report_type,
+            "status": report.status,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "createdAt": AdminService._date_to_str(report.created_at),
+        }
+
+    @staticmethod
     def _analysis_to_dict(analysis_request):
         member = analysis_request.member
         hospital = analysis_request.hospital
@@ -320,6 +453,25 @@ class AdminService:
         }
 
     @staticmethod
+    def _audit_log_to_dict(audit_log):
+        return {
+            "id": audit_log.id,
+            "adminId": audit_log.admin_member_id,
+            "admin": AdminService._member_summary(audit_log.admin_member),
+            "action": audit_log.action_type,
+            "resourceType": audit_log.target_table,
+            "resourceId": audit_log.target_id,
+            "targetMemberId": audit_log.target_id if audit_log.target_table == "members" else None,
+            "description": AdminService._truncate_text(audit_log.description),
+            "ipAddress": audit_log.request_ip,
+            "metadataSummary": {
+                "before": AdminService._sanitize_audit_metadata(audit_log.before_json),
+                "after": AdminService._sanitize_audit_metadata(audit_log.after_json),
+            },
+            "createdAt": AdminService._date_to_str(audit_log.created_at),
+        }
+
+    @staticmethod
     def _member_summary(member):
         if not member:
             return None
@@ -364,6 +516,13 @@ class AdminService:
         normalized_status = str(status or "").lower()
         if normalized_status not in AdminService.STATUSES:
             raise ValueError("Invalid member status")
+        return normalized_status
+
+    @staticmethod
+    def _normalize_mutable_status(status):
+        normalized_status = str(status or "").lower()
+        if normalized_status not in AdminService.ADMIN_MUTABLE_STATUSES:
+            raise ValueError("Administrators can only set active or suspended status")
         return normalized_status
 
     @staticmethod
@@ -524,6 +683,53 @@ class AdminService:
         except ValueError as exc:
             raise ValueError("Invalid period key") from exc
         return normalized
+
+    @staticmethod
+    def _normalize_admin_id(admin_id):
+        if admin_id is None or str(admin_id).strip() == "":
+            return None
+        try:
+            normalized = int(admin_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid admin id") from exc
+        if normalized <= 0:
+            raise ValueError("Invalid admin id")
+        return normalized
+
+    @staticmethod
+    def _sanitize_audit_metadata(value, depth=0):
+        if value is None:
+            return None
+        if depth >= 3:
+            return "[SUMMARY OMITTED]"
+        if isinstance(value, dict):
+            sanitized = {}
+            for key, item in list(value.items())[:20]:
+                normalized_key = str(key).lower().replace("_", "").replace("-", "")
+                if any(sensitive in normalized_key for sensitive in AdminService.SENSITIVE_AUDIT_KEYS):
+                    sanitized[str(key)] = "[REDACTED]"
+                else:
+                    sanitized[str(key)] = AdminService._sanitize_audit_metadata(item, depth + 1)
+            if len(value) > 20:
+                sanitized["_omitted"] = len(value) - 20
+            return sanitized
+        if isinstance(value, (list, tuple)):
+            items = [AdminService._sanitize_audit_metadata(item, depth + 1) for item in list(value)[:10]]
+            if len(value) > 10:
+                items.append(f"[{len(value) - 10} MORE]")
+            return items
+        if isinstance(value, str):
+            return AdminService._truncate_text(value)
+        if isinstance(value, (int, float, bool)):
+            return value
+        return AdminService._truncate_text(str(value))
+
+    @staticmethod
+    def _truncate_text(value, limit=200):
+        if value is None:
+            return None
+        text = str(value)
+        return text if len(text) <= limit else f"{text[:limit]}…"
 
     @staticmethod
     def _hospital_update_data(payload, admin_member_id):

@@ -68,6 +68,29 @@ def test_login_checks_all_matching_identifier_candidates(monkeypatch):
     assert wrong_email_match.failed_login_count == 0
 
 
+def test_suspended_member_cannot_login_authenticate_or_refresh(monkeypatch):
+    member = _member(1, "correct-password")
+    member.active = False
+
+    monkeypatch.setattr(
+        MemberRepository,
+        "list_by_login_identifier_for_update",
+        staticmethod(lambda identifier: [member]),
+    )
+    monkeypatch.setattr(
+        MemberRepository,
+        "get_by_id",
+        staticmethod(lambda member_id: member),
+    )
+
+    with pytest.raises(ValueError, match="Invalid login ID"):
+        AuthService.login({"identifier": "user", "password": "correct-password"})
+    with pytest.raises(ValueError, match="Invalid member"):
+        AuthService.authenticate(member.id)
+    with pytest.raises(ValueError, match="Invalid member"):
+        AuthService.refresh(member.id)
+
+
 def test_login_locks_account_after_repeated_failures(monkeypatch):
     member = _member(1, "correct-password")
 

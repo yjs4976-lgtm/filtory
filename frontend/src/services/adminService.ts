@@ -31,11 +31,4 @@ export const adminService = {
       auth: true,
     });
   },
-
-  deleteUser(userId: number) {
-    return apiClient<null>(`/api/admin/users/${userId}`, {
-      method: "DELETE",
-      auth: true,
-    });
-  },
 };

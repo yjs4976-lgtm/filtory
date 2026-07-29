@@ -85,16 +85,6 @@ export function AdminUserTable({ users, onRefresh, onError }: AdminUserTableProp
     }
   }
 
-  const handleWithdraw = async (user: AdminUser) => {
-    if (!window.confirm(t.admin.userDeleteConfirm)) return
-    try {
-      await adminService.deleteUser(user.id)
-      onRefresh?.()
-    } catch (error) {
-      onError?.(error instanceof Error ? error.message : t.admin.loadFailed)
-    }
-  }
-
   const handlePageSizeChange = (value: string) => {
     setPageSize(Number(value) as (typeof PAGE_SIZE_OPTIONS)[number])
     setCurrentPage(1)
@@ -119,15 +109,16 @@ export function AdminUserTable({ users, onRefresh, onError }: AdminUserTableProp
   }
 
   return (
-    <section className="soft-card admin-table-card">
+    <section className="soft-card admin-table-card admin-member-list-panel">
       <div className="admin-card-title-row">
         <h2>{labels.listTitle}</h2>
         <span>{labels.totalPrefix} {users.length}{labels.totalSuffix}</span>
       </div>
+      <p className="admin-management-note">{labels.statusPolicy}</p>
 
       <div className="admin-user-mobile-list">
         {paginatedUsers.map((user) => (
-          <article key={user.id} className="admin-user-card">
+          <article key={user.id} className={`admin-user-card admin-user-card-${visibleStatus(user.status).toLowerCase()}`}>
             <div className="admin-user-card-header">
               <div className="admin-user-identity">
                 <strong>{user.nickname || user.name || "-"}</strong>
@@ -163,9 +154,6 @@ export function AdminUserTable({ users, onRefresh, onError }: AdminUserTableProp
                 <option value="USER">{labels.roleUser}</option>
                 <option value="ADMIN">{labels.roleAdmin}</option>
               </select>
-              <button type="button" className="small-danger-button" disabled={user.status === WITHDRAWN_STATUS} onClick={() => handleWithdraw(user)}>
-                {t.mypage.delete}
-              </button>
             </div>
           </article>
         ))}

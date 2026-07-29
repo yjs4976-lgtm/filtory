@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext"
 import type { AdminUser } from "@/lib/types"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
-import { adminUserService } from "@/services/adminUserService"
+import { adminUserService, type AdminUserActivity } from "@/services/adminUserService"
 import { AdminUserDetailCard } from "@/components/admin/users/AdminUserDetailCard"
 
 export default function AdminUserDetailPage() {
@@ -14,6 +14,7 @@ export default function AdminUserDetailPage() {
   const params = useParams<{ id: string }>()
   const userId = Number(params.id)
   const [user, setUser] = useState<AdminUser | null>(null)
+  const [activity, setActivity] = useState<AdminUserActivity | null>(null)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -21,7 +22,12 @@ export default function AdminUserDetailPage() {
     try {
       setIsLoading(true)
       setError("")
-      setUser(await adminUserService.getUserDetail(userId))
+      const [nextUser, nextActivity] = await Promise.all([
+        adminUserService.getUserDetail(userId),
+        adminUserService.getUserActivity(userId),
+      ])
+      setUser(nextUser)
+      setActivity(nextActivity)
     } catch (error) {
       setError(error instanceof Error ? error.message : t.admin.loadFailed)
     } finally {
@@ -44,7 +50,7 @@ export default function AdminUserDetailPage() {
         </section>
         {isLoading && <p>{t.admin.loading}</p>}
         {error && <p className="form-error">{error}</p>}
-        {!isLoading && user && <AdminUserDetailCard user={user} onRefresh={loadUser} onError={setError} />}
+        {!isLoading && user && activity && <AdminUserDetailCard user={user} activity={activity} onRefresh={loadUser} onError={setError} />}
       </AdminGuard>
     </AdminAppShell>
   )

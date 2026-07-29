@@ -23,14 +23,6 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
     onRefresh()
   }
 
-  const handleDelete = async (userId: number) => {
-    const ok = window.confirm(t.admin.userDeleteConfirm)
-    if (!ok) return
-
-    await adminService.deleteUser(userId)
-    onRefresh()
-  }
-
   return (
     <section className="soft-card admin-table-card">
       <h2>{t.admin.menuUsersTitle}</h2>
@@ -81,9 +73,7 @@ export function AdminUserTable({ users, onRefresh }: AdminUserTableProps) {
                 </td>
                 <td>{user.createdAt?.slice(0, 10) || "-"}</td>
                 <td>
-                  <button type="button" className="small-danger-button" onClick={() => handleDelete(user.id)}>
-                    {t.mypage.delete}
-                  </button>
+                  {labels.viewDetail}
                 </td>
               </tr>
             ))}

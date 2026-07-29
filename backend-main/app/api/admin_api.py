@@ -14,6 +14,18 @@ def get_summary():
     return success_response(AdminService.get_summary())
 
 
+@admin_bp.route("/settings", methods=["GET"])
+@require_admin
+def get_settings():
+    return success_response(AdminService.get_settings())
+
+
+@admin_bp.route("/system-status", methods=["GET"])
+@require_admin
+def get_system_status():
+    return success_response(AdminService.get_system_status())
+
+
 def _paginated_admin_response(loader, **filters):
     pagination = get_pagination_params(request.args)
     items, total = loader(limit=pagination["limit"], offset=pagination["offset"], **filters)
@@ -61,6 +73,21 @@ def list_usage():
             keyword=request.args.get("q") or request.args.get("keyword"),
             usage_type=request.args.get("usageType"),
             period_key=request.args.get("periodKey"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/audit-logs", methods=["GET"])
+@require_admin
+def list_audit_logs():
+    try:
+        return _paginated_admin_response(
+            AdminService.list_audit_logs,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            action=request.args.get("action"),
+            resource_type=request.args.get("resourceType") or request.args.get("resource"),
+            admin_id=request.args.get("adminId"),
         )
     except ValueError as e:
         return error_response(str(e), 400)
@@ -221,6 +248,15 @@ def get_user(member_id):
         return error_response(str(e), 404)
 
 
+@admin_bp.route("/users/<int:member_id>/activity", methods=["GET"])
+@require_admin
+def get_user_activity(member_id):
+    try:
+        return success_response(AdminService.get_member_activity(member_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
 @admin_bp.route("/users/<int:member_id>/role", methods=["PATCH"])
 @require_admin
 def update_user_role(member_id):
@@ -241,15 +277,5 @@ def update_user_status(member_id):
     try:
         member = AdminService.update_member_status(member_id, payload.get("status"), g.current_member.id)
         return success_response(member, "Member status updated")
-    except ValueError as e:
-        return error_response(str(e), 400)
-
-
-@admin_bp.route("/users/<int:member_id>", methods=["DELETE"])
-@require_admin
-def withdraw_user(member_id):
-    try:
-        AdminService.withdraw_member(member_id, g.current_member.id)
-        return success_response(None, "Member withdrawn")
     except ValueError as e:
         return error_response(str(e), 400)

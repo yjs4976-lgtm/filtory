@@ -1,2 +1,11 @@
-import { AdminSimplePage } from "@/components/admin/AdminSimplePage"
-export default function Page(){return <AdminSimplePage title="공지사항·FAQ" description="서비스 공지와 자주 묻는 질문을 관리하세요." summary={[["게시 중 공지","8건"],["FAQ","24건"],["임시 저장","3건"]]} headers={["구분","제목","수정일","상태"]} rows={[["공지","Filtory 분석 이용 안내","2026-07-15","게시 중"],["FAQ","무료 분석 횟수는 언제 초기화되나요?","2026-07-14","게시 중"],["공지","URL 분석 지원 범위 안내","2026-07-11","임시 저장"]]} />}
+import { AdminAppShell } from "@/components/admin/AdminAppShell"
+import { AdminGuard } from "@/components/admin/AdminGuard"
+import { AdminSampleNotice } from "@/components/admin/AdminSampleNotice"
+
+export default function AdminNoticesPage() {
+  return <AdminAppShell title="공지사항·FAQ"><AdminGuard>
+    <section className="page-title"><p className="eyebrow">ADMIN CONTENT</p><h1>공지사항·FAQ</h1><p>공지사항·FAQ 콘텐츠 관리는 DB 테이블 적용 후 연결 예정입니다.</p></section>
+    <AdminSampleNotice message="현재는 사용자에게 노출되는 공지 관리 API나 저장·수정 기능을 제공하지 않아요." />
+    <section className="soft-card admin-table-card"><h2>준비 상태</h2><p>Supabase SQL Editor용 스키마 파일만 준비되어 있으며 실제 DB 적용과 API 연결은 별도 작업이 필요합니다.</p></section>
+  </AdminGuard></AdminAppShell>
+}
