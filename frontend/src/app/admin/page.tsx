@@ -56,7 +56,7 @@ export default function AdminPage() {
   }, [isAdmin, t.admin.loadFailed])
 
   const coreMenus: AdminMenuItem[] = [
-    { href: ROUTES.ADMIN_USERS, title: t.admin.menuUsersTitle, description: t.admin.menuUsersDescription, status: "partial" },
+    { href: ROUTES.ADMIN_USERS, title: t.admin.menuUsersTitle, description: t.admin.menuUsersDescription, status: "connected" },
     { href: ROUTES.ADMIN_REVIEWS, title: "분석 품질 관리", description: t.admin.menuReviewsDescription, status: "connected" },
     { href: ROUTES.ADMIN_HOSPITALS, title: t.admin.menuHospitalsTitle, description: t.admin.menuHospitalsDescription, status: "connected" },
     { href: ROUTES.ADMIN_INQUIRIES, title: t.admin.menuInquiriesTitle, description: t.admin.menuInquiriesDescription, status: "connected" },

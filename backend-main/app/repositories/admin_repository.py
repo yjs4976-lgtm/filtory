@@ -262,6 +262,39 @@ class AdminRepository:
         }
 
     @staticmethod
+    def list_member_analysis_activity(member_id, limit=10):
+        return (
+            AnalysisRequest.query.options(
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.analysis_result),
+            )
+            .filter(AnalysisRequest.member_id == member_id)
+            .order_by(AnalysisRequest.created_at.desc(), AnalysisRequest.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_member_saved_hospital_activity(member_id, limit=10):
+        return (
+            MemberSavedHospital.query.options(joinedload(MemberSavedHospital.hospital))
+            .filter(MemberSavedHospital.member_id == member_id)
+            .order_by(MemberSavedHospital.saved_at.desc(), MemberSavedHospital.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_member_report_activity(member_id, limit=10):
+        return (
+            ReviewReport.query.options(joinedload(ReviewReport.hospital))
+            .filter(ReviewReport.reporter_member_id == member_id)
+            .order_by(ReviewReport.created_at.desc(), ReviewReport.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
     def update_member(member, data):
         for key, value in data.items():
             setattr(member, key, value)

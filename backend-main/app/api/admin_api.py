@@ -248,6 +248,15 @@ def get_user(member_id):
         return error_response(str(e), 404)
 
 
+@admin_bp.route("/users/<int:member_id>/activity", methods=["GET"])
+@require_admin
+def get_user_activity(member_id):
+    try:
+        return success_response(AdminService.get_member_activity(member_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
+
+
 @admin_bp.route("/users/<int:member_id>/role", methods=["PATCH"])
 @require_admin
 def update_user_role(member_id):
@@ -268,15 +277,5 @@ def update_user_status(member_id):
     try:
         member = AdminService.update_member_status(member_id, payload.get("status"), g.current_member.id)
         return success_response(member, "Member status updated")
-    except ValueError as e:
-        return error_response(str(e), 400)
-
-
-@admin_bp.route("/users/<int:member_id>", methods=["DELETE"])
-@require_admin
-def withdraw_user(member_id):
-    try:
-        AdminService.withdraw_member(member_id, g.current_member.id)
-        return success_response(None, "Member withdrawn")
     except ValueError as e:
         return error_response(str(e), 400)

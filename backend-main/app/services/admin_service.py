@@ -9,6 +9,7 @@ from app.schemas import admin_member_to_dict
 class AdminService:
     ROLES = {"user", "admin"}
     STATUSES = {"active", "suspended", "withdrawn", "dormant"}
+    ADMIN_MUTABLE_STATUSES = {"active", "suspended"}
     REVIEW_CASE_TYPES = {
         "ad_suspicion",
         "repetition_pattern",
@@ -192,6 +193,27 @@ class AdminService:
         return AdminService._member_to_dict(member)
 
     @staticmethod
+    def get_member_activity(member_id):
+        member = AdminRepository.get_member_by_id(member_id)
+        if not member:
+            raise ValueError("Member not found")
+        analyses = AdminRepository.list_member_analysis_activity(member_id)
+        saved_hospitals = AdminRepository.list_member_saved_hospital_activity(member_id)
+        reports = AdminRepository.list_member_report_activity(member_id)
+        counts = AdminRepository.get_member_activity_counts(member_id)
+        return {
+            "memberId": member_id,
+            "analysisHistory": [AdminService._member_analysis_activity_to_dict(item) for item in analyses],
+            "savedHospitals": [AdminService._member_saved_hospital_to_dict(item) for item in saved_hospitals],
+            "reports": [AdminService._member_report_to_dict(item) for item in reports],
+            "counts": {
+                "analyses": counts["analysis_count"],
+                "savedHospitals": counts["saved_hospital_count"],
+                "reports": counts["report_count"],
+            },
+        }
+
+    @staticmethod
     def update_member_role(member_id, role, admin_member_id):
         member = AdminService._get_mutable_member(member_id, admin_member_id)
         normalized_role = AdminService._normalize_role(role)
@@ -215,7 +237,7 @@ class AdminService:
     @staticmethod
     def update_member_status(member_id, status, admin_member_id):
         member = AdminService._get_mutable_member(member_id, admin_member_id)
-        normalized_status = AdminService._normalize_status(status)
+        normalized_status = AdminService._normalize_mutable_status(status)
         before = {
             "status": member.status,
             "active": member.active,
@@ -234,25 +256,6 @@ class AdminService:
             )
             db.session.commit()
             return AdminService._member_to_dict(member)
-        except Exception:
-            db.session.rollback()
-            raise
-
-    @staticmethod
-    def withdraw_member(member_id, admin_member_id):
-        member = AdminService._get_mutable_member(member_id, admin_member_id)
-        before = {"status": member.status}
-
-        try:
-            AdminRepository.update_member(member, AdminService._status_update_data("withdrawn"))
-            AdminService._create_audit_log(
-                admin_member_id,
-                "member_deactivate",
-                member.id,
-                before,
-                {"status": "withdrawn"},
-            )
-            db.session.commit()
         except Exception:
             db.session.rollback()
             raise
@@ -362,6 +365,44 @@ class AdminService:
     @staticmethod
     def _member_to_dict(member):
         return admin_member_to_dict(member, AdminRepository.get_member_activity_counts(member.id))
+
+    @staticmethod
+    def _member_analysis_activity_to_dict(analysis_request):
+        result = analysis_request.analysis_result
+        hospital = analysis_request.hospital
+        return {
+            "requestId": analysis_request.id,
+            "resultId": result.id if result else None,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "category": hospital.category if hospital else None,
+            "totalScore": result.total_score if result else None,
+            "trustScore": result.trust_score if result else None,
+            "adScore": result.ad_score if result else None,
+            "status": analysis_request.request_status,
+            "createdAt": AdminService._date_to_str(analysis_request.created_at),
+        }
+
+    @staticmethod
+    def _member_saved_hospital_to_dict(saved):
+        hospital = saved.hospital
+        return {
+            "hospitalId": saved.hospital_id,
+            "analysisResultId": saved.analysis_result_id,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "category": hospital.category if hospital else None,
+            "savedAt": AdminService._date_to_str(saved.saved_at),
+        }
+
+    @staticmethod
+    def _member_report_to_dict(report):
+        hospital = report.hospital
+        return {
+            "id": report.id,
+            "type": report.report_type,
+            "status": report.status,
+            "hospitalName": hospital.hospital_name if hospital else None,
+            "createdAt": AdminService._date_to_str(report.created_at),
+        }
 
     @staticmethod
     def _analysis_to_dict(analysis_request):
@@ -475,6 +516,13 @@ class AdminService:
         normalized_status = str(status or "").lower()
         if normalized_status not in AdminService.STATUSES:
             raise ValueError("Invalid member status")
+        return normalized_status
+
+    @staticmethod
+    def _normalize_mutable_status(status):
+        normalized_status = str(status or "").lower()
+        if normalized_status not in AdminService.ADMIN_MUTABLE_STATUSES:
+            raise ValueError("Administrators can only set active or suspended status")
         return normalized_status
 
     @staticmethod

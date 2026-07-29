@@ -56,6 +56,35 @@ def test_new_admin_read_apis_reject_regular_users(app, client, path):
     assert client.get(path, headers=user_auth_header(app)).status_code == 403
 
 
+def test_admin_user_activity_requires_login_and_admin(app, client):
+    assert client.get("/api/admin/users/2/activity").status_code == 401
+    assert client.get("/api/admin/users/2/activity", headers=user_auth_header(app)).status_code == 403
+
+
+def test_admin_member_delete_route_is_not_available(app, client):
+    response = client.delete("/api/admin/users/2", headers=auth_header(app))
+
+    assert response.status_code == 405
+
+
+@pytest.mark.parametrize("requested_status", ["ACTIVE", "SUSPENDED"])
+def test_admin_member_status_update_keeps_supported_states(app, client, monkeypatch, requested_status):
+    def fake_update(member_id, status, admin_member_id):
+        assert (member_id, status, admin_member_id) == (2, requested_status, 9)
+        return {"id": member_id, "status": requested_status}
+
+    monkeypatch.setattr(AdminService, "update_member_status", staticmethod(fake_update))
+
+    response = client.patch(
+        "/api/admin/users/2/status",
+        headers=auth_header(app),
+        json={"status": requested_status},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["status"] == requested_status
+
+
 def test_admin_analyses_forwards_filters_and_pagination(app, client, monkeypatch):
     def fake_list_analyses(**kwargs):
         assert kwargs == {
@@ -198,6 +227,69 @@ def test_admin_summary_keeps_member_counts_and_adds_operations(app, client, monk
 
     assert response.status_code == 200
     assert body["data"] == summary
+
+
+def test_admin_user_activity_returns_readonly_summaries(app, client, monkeypatch):
+    payload = {
+        "memberId": 2,
+        "analysisHistory": [{"requestId": 11, "resultId": 21, "hospitalName": "샘플의원", "status": "success"}],
+        "savedHospitals": [{"hospitalId": 3, "hospitalName": "샘플병원", "category": "orthopedics"}],
+        "reports": [{"id": 4, "type": "other", "status": "pending", "hospitalName": "샘플의원"}],
+        "counts": {"analyses": 1, "savedHospitals": 1, "reports": 1},
+    }
+    monkeypatch.setattr(AdminService, "get_member_activity", staticmethod(lambda member_id: payload if member_id == 2 else None))
+
+    response = client.get("/api/admin/users/2/activity", headers=auth_header(app))
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["data"] == payload
+    assert "reviewOriginal" not in str(body)
+
+
+def test_admin_user_activity_returns_404_for_unknown_member(app, client, monkeypatch):
+    def raise_not_found(member_id):
+        raise ValueError("Member not found")
+
+    monkeypatch.setattr(AdminService, "get_member_activity", staticmethod(raise_not_found))
+
+    assert client.get("/api/admin/users/999/activity", headers=auth_header(app)).status_code == 404
+
+
+def test_admin_user_activity_supports_empty_history(monkeypatch):
+    monkeypatch.setattr(AdminRepository, "get_member_by_id", staticmethod(lambda member_id: SimpleNamespace(id=member_id)))
+    monkeypatch.setattr(AdminRepository, "list_member_analysis_activity", staticmethod(lambda member_id: []))
+    monkeypatch.setattr(AdminRepository, "list_member_saved_hospital_activity", staticmethod(lambda member_id: []))
+    monkeypatch.setattr(AdminRepository, "list_member_report_activity", staticmethod(lambda member_id: []))
+    monkeypatch.setattr(
+        AdminRepository,
+        "get_member_activity_counts",
+        staticmethod(lambda member_id: {"analysis_count": 0, "saved_hospital_count": 0, "report_count": 0}),
+    )
+
+    assert AdminService.get_member_activity(2) == {
+        "memberId": 2,
+        "analysisHistory": [],
+        "savedHospitals": [],
+        "reports": [],
+        "counts": {"analyses": 0, "savedHospitals": 0, "reports": 0},
+    }
+
+
+def test_admin_status_normalization_allows_active_and_suspended_only():
+    assert AdminService._normalize_mutable_status("ACTIVE") == "active"
+    assert AdminService._normalize_mutable_status("SUSPENDED") == "suspended"
+    assert AdminService._status_update_data("active")["active"] is True
+    assert AdminService._status_update_data("suspended")["active"] is False
+    with pytest.raises(ValueError, match="active or suspended"):
+        AdminService._normalize_mutable_status("WITHDRAWN")
+
+
+def test_admin_cannot_change_own_member_role_or_status(monkeypatch):
+    monkeypatch.setattr(AdminRepository, "get_member_by_id", staticmethod(lambda member_id: SimpleNamespace(id=member_id)))
+
+    with pytest.raises(ValueError, match="own role or status"):
+        AdminService._get_mutable_member(9, 9)
 
 
 def test_admin_settings_returns_readonly_policy_without_secrets(app, client, monkeypatch):
