@@ -205,9 +205,9 @@ class AdminService:
                     analysis_request.member_id,
                     "system",
                     "분석 요청 처리 안내",
-                    "요청하신 리뷰 분석을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+                    "요청하신 리뷰 분석의 처리 상태가 업데이트됐습니다. 분석 기록을 확인해 주세요.",
                     link_url="/history",
-                    metadata={"analysisRequestId": request_id, "reason": "analysis_failed"},
+                    metadata={"analysisRequestId": request_id, "reason": "admin_status_update"},
                 )
                 states["userNotified"] = True
                 audit_action = "error_user_notified"

@@ -5,9 +5,11 @@ from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token
 
 from app.api.admin_api import admin_bp
+import app.services.admin_service as admin_service_module
 from app.repositories import AdminRepository
 from app.repositories.member_repository import MemberRepository
 from app.services import AdminService
+from app.services.analysis_service import AnalysisService
 
 
 @pytest.fixture
@@ -109,6 +111,47 @@ def test_admin_reanalysis_forwards_request_and_admin(app, client, monkeypatch):
 
     assert response.status_code == 201
     assert response.get_json()["data"]["requestId"] == 22
+
+
+def test_admin_reanalysis_waits_for_manual_user_notification(monkeypatch):
+    captured = {}
+    original_request = SimpleNamespace(
+        id=21,
+        member_id=3,
+        reviews=[SimpleNamespace(review_original="상담 과정이 자세했어요.")],
+        hospital=SimpleNamespace(
+            id=5,
+            hospital_name="샘플의원",
+            category="dermatology",
+            address=None,
+            road_address=None,
+            phone=None,
+        ),
+        request_options_json={},
+        input_language="ko",
+        output_language="ko",
+    )
+    new_request = SimpleNamespace(id=22)
+    session = SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+
+    def get_request(request_id):
+        return original_request if request_id == 21 else new_request
+
+    def analyze_reviews(member_id, payload, **kwargs):
+        captured.update(member_id=member_id, payload=payload, kwargs=kwargs)
+        return {"analysisRequestId": 22}
+
+    monkeypatch.setattr(admin_service_module.db, "session", session)
+    monkeypatch.setattr(AdminRepository, "get_analysis_request_by_id", staticmethod(get_request))
+    monkeypatch.setattr(AnalysisService, "analyze_reviews", staticmethod(analyze_reviews))
+    monkeypatch.setattr(AdminService, "_create_audit_log", staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(AdminService, "_analysis_to_dict", staticmethod(lambda request: {"requestId": request.id}))
+
+    result = AdminService.reanalyze(21, 9)
+
+    assert result == {"requestId": 22}
+    assert captured["member_id"] == 3
+    assert captured["kwargs"]["create_completion_notification"] is False
 
 
 @pytest.mark.parametrize(
