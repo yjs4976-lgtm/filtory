@@ -1,3 +1,4 @@
+from datetime import timezone
 from types import SimpleNamespace
 
 import pytest
@@ -108,6 +109,40 @@ def test_publishing_notice_sets_utc_timestamp(monkeypatch):
     assert result["status"] == "PUBLISHED"
     assert item.published_at is not None
     assert item.published_at.tzinfo is not None
+
+
+@pytest.mark.parametrize(
+    ("save_method", "repository_method", "payload", "item"),
+    [
+        (
+            ContentService.save_notice,
+            "get_notice",
+            {"title": "수정된 공지"},
+            SimpleNamespace(
+                id=1, title="기존 공지", content="내용", status="DRAFT", pinned=False,
+                published_at=None, created_by=1, updated_by=1, created_at=None, updated_at=None,
+            ),
+        ),
+        (
+            ContentService.save_faq,
+            "get_faq",
+            {"question": "수정된 질문"},
+            SimpleNamespace(
+                id=1, category="SERVICE", question="기존 질문", answer="답변", status="DRAFT",
+                sort_order=0, published_at=None, created_at=None, updated_at=None,
+            ),
+        ),
+    ],
+)
+def test_content_patch_updates_utc_timestamp(monkeypatch, save_method, repository_method, payload, item):
+    monkeypatch.setattr(ContentRepository, repository_method, staticmethod(lambda item_id: item))
+    monkeypatch.setattr("app.services.content_service.db.session.commit", lambda: None)
+    monkeypatch.setattr("app.services.content_service.db.session.rollback", lambda: None)
+
+    save_method(payload, admin_id=2, **({"notice_id": 1} if repository_method == "get_notice" else {"faq_id": 1}))
+
+    assert item.updated_at is not None
+    assert item.updated_at.tzinfo is timezone.utc
 
 
 def test_public_notice_routes_are_anonymous_and_hide_admin_fields(app, monkeypatch):

@@ -32,6 +32,7 @@ class ContentService:
         if data.get("status") == "PUBLISHED" and not (item and item.published_at):
             data["published_at"] = datetime.now(timezone.utc)
         data["updated_by"] = admin_id
+        data["updated_at"] = datetime.now(timezone.utc)
         if item:
             for key, value in data.items():
                 setattr(item, key, value)
@@ -81,6 +82,7 @@ class ContentService:
         if data.get("status") == "PUBLISHED" and not (item and item.published_at):
             data["published_at"] = datetime.now(timezone.utc)
         data["updated_by"] = admin_id
+        data["updated_at"] = datetime.now(timezone.utc)
         if item:
             for key, value in data.items():
                 setattr(item, key, value)
@@ -192,4 +194,3 @@ class ContentService:
     @staticmethod
     def _date(value):
         return value.isoformat() if value else None
-
