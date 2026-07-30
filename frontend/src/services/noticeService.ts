@@ -9,6 +9,18 @@ export type NoticeSummary = {
 
 export type NoticeDetail = NoticeSummary & { content: string }
 
+export function normalizeFeaturedNotice(value: unknown): NoticeSummary | null {
+  if (!value || typeof value !== "object") return null
+  const notice = value as Partial<NoticeSummary>
+  if (!Number.isInteger(notice.id) || Number(notice.id) <= 0) return null
+  if (typeof notice.title !== "string" || !notice.title.trim()) return null
+  return notice as NoticeSummary
+}
+
+export function selectActiveNotice(items: NoticeSummary[], activeIndex: number) {
+  return items[activeIndex] ?? null
+}
+
 export type AdminNotice = NoticeDetail & {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED"
   createdAt: string | null
@@ -32,8 +44,8 @@ export const noticeService = {
     return { items: result.data, total: result.meta?.count ?? result.data.length }
   },
   async featured() {
-    const result = await apiClient<NoticeSummary | undefined>("/api/notices/featured")
-    return result.data ?? null
+    const result = await apiClient<unknown>("/api/notices/featured")
+    return normalizeFeaturedNotice(result.data)
   },
   async detail(id: number) {
     return (await apiClient<NoticeDetail>(`/api/notices/${id}`)).data

@@ -2065,7 +2065,29 @@
 }
 
 .adminInquiryDetailPanel {
-  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  gap: 24px;
+  padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.adminInquiryDetailHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.adminInquiryDetailHeader .inquiryStatusBadge {
+  margin-bottom: 16px;
+}
+
+.adminInquiryDetailHeader .titleLg {
+  line-height: 1.4;
+}
+
+.adminInquiryDetailHeader .bodyText {
+  margin-top: 16px;
+  line-height: 1.85;
 }
 
 .adminInquiryDetailPanel .titleLg,
@@ -2077,14 +2099,50 @@
   white-space: pre-wrap;
 }
 
+.adminInquiryDetailPanel .inquiryDetailMeta {
+  gap: 9px;
+  border-radius: 16px;
+  background: rgba(248, 246, 252, 0.72);
+  padding: 14px 16px;
+}
+
 .adminInquiryDetailPanel .inquiryDetailMeta span,
 .adminInquiryDetailPanel .inquiryRelatedPanel p {
   overflow-wrap: anywhere;
 }
 
+.adminInquiryDetailPanel .inquiryDetailMeta span {
+  line-height: 1.55;
+}
+
+.adminInquiryAnswerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+}
+
+.adminInquiryAnswerForm .label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  line-height: 1.4;
+}
+
+.adminInquiryAnswerForm .input {
+  min-height: 46px;
+}
+
 .adminInquiryDetailPanel .textarea {
   min-height: 140px;
+  padding: 14px 16px;
+  line-height: 1.65;
   resize: vertical;
+}
+
+.adminInquiryAnswerForm .primaryButton {
+  min-height: 50px;
 }
 
 @media (max-width: 420px) {

@@ -3,7 +3,8 @@ import { apiClient } from "./apiClient"
 export type AdminSystemStatus = {
   backendMain: "ok" | "error"
   database: "ok" | "error"
-  backendAi: "checked" | "unknown" | "not_checked"
+  backendAi: "ok" | "error" | "not_configured"
+  backendAiLatencyMs?: number | null
   serverTime: string
   totalAnalyses?: number | null
   pendingAnalyses?: number | null

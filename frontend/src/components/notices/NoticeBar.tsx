@@ -4,11 +4,10 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ChevronRight, X } from "lucide-react"
 import { ROUTES } from "@/lib/routes"
-import { noticeService, type NoticeSummary } from "@/services/noticeService"
+import { noticeService, selectActiveNotice, type NoticeSummary } from "@/services/noticeService"
 import styles from "@/styles/App.module.css"
 
 export function NoticeBar() {
-  const [featured, setFeatured] = useState<NoticeSummary | null>(null)
   const [items, setItems] = useState<NoticeSummary[]>([])
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -16,9 +15,14 @@ export function NoticeBar() {
 
   useEffect(() => {
     let alive = true
-    Promise.all([noticeService.featured(), noticeService.list(1, 10)])
-      .then(([nextFeatured, list]) => { if (alive) { setFeatured(nextFeatured); setItems(list.items) } })
-      .catch(() => { if (alive) { setFeatured(null); setItems([]) } })
+    noticeService.list(1, 10)
+      .then((list) => {
+        if (!alive) return
+        setItems(list.items)
+        setActiveIndex(0)
+        if (list.items.length === 0) setOpen(false)
+      })
+      .catch(() => { if (alive) setItems([]) })
     return () => { alive = false }
   }, [])
 
@@ -38,7 +42,7 @@ export function NoticeBar() {
     return () => window.removeEventListener("keydown", close)
   }, [open])
 
-  const activeNotice = items[activeIndex] ?? featured
+  const activeNotice = selectActiveNotice(items, activeIndex)
   if (!activeNotice) return null
   return <>
     <aside className={styles.noticeBar}>

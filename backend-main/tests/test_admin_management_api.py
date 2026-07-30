@@ -56,6 +56,88 @@ def test_new_admin_read_apis_reject_regular_users(app, client, path):
     assert client.get(path, headers=user_auth_header(app)).status_code == 403
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("patch", "/api/admin/analyses/21/review"),
+        ("post", "/api/admin/analyses/21/reanalyze"),
+        ("patch", "/api/admin/errors/21"),
+    ],
+)
+def test_admin_analysis_actions_require_login_and_admin(app, client, method, path):
+    request_method = getattr(client, method)
+    assert request_method(path).status_code == 401
+    assert request_method(path, headers=user_auth_header(app)).status_code == 403
+
+
+def test_admin_analysis_review_action_forwards_payload(app, client, monkeypatch):
+    def fake_update(request_id, action, admin_member_id, admin_memo=None):
+        assert (request_id, action, admin_member_id, admin_memo) == (
+            21,
+            "needs_review",
+            9,
+            "점수 근거 재확인",
+        )
+        return {
+            "requestId": request_id,
+            "reviewCaseId": 4,
+            "reviewStatus": "pending",
+            "adminMemo": admin_memo,
+        }
+
+    monkeypatch.setattr(AdminService, "update_analysis_review", staticmethod(fake_update))
+    response = client.patch(
+        "/api/admin/analyses/21/review",
+        headers=auth_header(app),
+        json={"action": "needs_review", "adminMemo": "점수 근거 재확인"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["reviewStatus"] == "pending"
+
+
+def test_admin_reanalysis_forwards_request_and_admin(app, client, monkeypatch):
+    def fake_reanalyze(request_id, admin_member_id):
+        assert (request_id, admin_member_id) == (21, 9)
+        return {"requestId": 22, "status": "success"}
+
+    monkeypatch.setattr(AdminService, "reanalyze", staticmethod(fake_reanalyze))
+    response = client.post(
+        "/api/admin/analyses/21/reanalyze",
+        headers=auth_header(app),
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["requestId"] == 22
+
+
+@pytest.mark.parametrize(
+    ("action", "expected_key"),
+    [
+        ("resolve", "errorResolved"),
+        ("notify_user", "userNotified"),
+    ],
+)
+def test_admin_error_action_forwards_request_and_admin(app, client, monkeypatch, action, expected_key):
+    def fake_update(request_id, received_action, admin_member_id):
+        assert (request_id, received_action, admin_member_id) == (21, action, 9)
+        return {
+            "requestId": request_id,
+            "errorResolved": action == "resolve",
+            "userNotified": action == "notify_user",
+        }
+
+    monkeypatch.setattr(AdminService, "update_analysis_error", staticmethod(fake_update))
+    response = client.patch(
+        "/api/admin/errors/21",
+        headers=auth_header(app),
+        json={"action": action},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"][expected_key] is True
+
+
 def test_admin_user_activity_requires_login_and_admin(app, client):
     assert client.get("/api/admin/users/2/activity").status_code == 401
     assert client.get("/api/admin/users/2/activity", headers=user_auth_header(app)).status_code == 403
@@ -346,6 +428,44 @@ def test_admin_system_status_returns_readonly_counts_without_secrets(app, client
     assert "secret" not in serialized
     assert "token" not in serialized
     assert "database_url" not in serialized
+
+
+def test_admin_ai_health_check_uses_configured_internal_health_endpoint(app, monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        @staticmethod
+        def read():
+            return b'{"success": true}'
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr("app.services.admin_service.urlopen", fake_urlopen)
+    with app.app_context():
+        app.config["BACKEND_AI_BASE_URL"] = "http://ai.internal:8000"
+        app.config["BACKEND_AI_TIMEOUT_SECONDS"] = 20
+        status, latency = AdminService._check_backend_ai()
+
+    assert status == "ok"
+    assert isinstance(latency, int)
+    assert captured == {"url": "http://ai.internal:8000/api/health", "timeout": 3.0}
+
+
+def test_admin_ai_health_check_reports_missing_configuration(app):
+    with app.app_context():
+        app.config["BACKEND_AI_BASE_URL"] = ""
+        assert AdminService._check_backend_ai() == ("not_configured", None)
 
 
 def test_admin_audit_logs_forwards_filters_and_pagination(app, client, monkeypatch):

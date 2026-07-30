@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react"
 import { AdminAppShell } from "@/components/admin/AdminAppShell"
 import { AdminGuard } from "@/components/admin/AdminGuard"
 import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards"
@@ -13,7 +13,6 @@ import type { AdminSummary } from "@/lib/types"
 import { adminService } from "@/services/adminService"
 
 type AdminMenuStatus = "connected" | "partial" | "sample" | "preparing" | "api-needed"
-type AdminMenuFilter = "connected" | "pending" | "all"
 type AdminMenuItem = {
   href: string
   title: string
@@ -35,6 +34,12 @@ const operationMenus: AdminMenuItem[] = [
 ]
 
 const MENU_PAGE_SIZE = 4
+const menuPageMeta = [
+  { eyebrow: "QUICK MENU", title: "핵심 운영 메뉴", description: "자주 확인하는 운영 메뉴를 모았어요." },
+  { eyebrow: "ANALYSIS", title: "분석·사용량 관리", description: "분석 처리와 사용량 정책을 확인하세요." },
+  { eyebrow: "CONTENT", title: "콘텐츠·고객 지원", description: "사용자 안내와 지원 메뉴를 관리하세요." },
+  { eyebrow: "SYSTEM", title: "시스템·감사 관리", description: "서비스 정책과 운영 기록을 확인하세요." },
+] as const
 
 export default function AdminPage() {
   const { isAdmin, logout } = useAuth()
@@ -42,7 +47,6 @@ export default function AdminPage() {
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
-  const [menuFilter, setMenuFilter] = useState<AdminMenuFilter>("pending")
   const [menuPage, setMenuPage] = useState(0)
 
   useEffect(() => {
@@ -62,18 +66,9 @@ export default function AdminPage() {
     { href: ROUTES.ADMIN_INQUIRIES, title: t.admin.menuInquiriesTitle, description: t.admin.menuInquiriesDescription, status: "connected" },
   ]
   const allMenus = [...coreMenus, ...operationMenus]
-  const filteredMenus = allMenus.filter((menu) => {
-    if (menuFilter === "connected") return menu.status === "connected" || menu.status === "partial"
-    if (menuFilter === "pending") return menu.status !== "connected" && menu.status !== "partial"
-    return true
-  })
-  const menuPageCount = Math.max(1, Math.ceil(filteredMenus.length / MENU_PAGE_SIZE))
-  const visibleMenus = filteredMenus.slice(menuPage * MENU_PAGE_SIZE, (menuPage + 1) * MENU_PAGE_SIZE)
-
-  const selectMenuFilter = (filter: AdminMenuFilter) => {
-    setMenuFilter(filter)
-    setMenuPage(0)
-  }
+  const menuPageCount = Math.max(1, Math.ceil(allMenus.length / MENU_PAGE_SIZE))
+  const visibleMenus = allMenus.slice(menuPage * MENU_PAGE_SIZE, (menuPage + 1) * MENU_PAGE_SIZE)
+  const currentMenuMeta = menuPageMeta[menuPage] ?? menuPageMeta[menuPageMeta.length - 1]
 
   return (
     <AdminAppShell title={t.nav.admin}>
@@ -87,42 +82,32 @@ export default function AdminPage() {
             <span>준비 중 메뉴 포함</span>
             <span>관리자 무제한</span>
           </div>
+          <div className="admin-hero-mark" aria-hidden="true"><ShieldCheck /><span>ADMIN CONSOLE</span></div>
         </section>
 
         {isLoading && <p>{t.admin.loading}</p>}
         {error && <p className="form-error">{error}</p>}
         {summary && <AdminSummaryCards summary={summary} />}
 
-        <section className="admin-core-menu-panel" aria-labelledby="admin-core-menu-title">
+        <section className="admin-menu-deck" aria-labelledby="admin-menu-deck-title">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">QUICK MENU</p><h2 id="admin-core-menu-title">핵심 운영 메뉴</h2></div>
-            <span>자주 확인하는 메뉴예요</span>
+            <div>
+              <p className="eyebrow">{currentMenuMeta.eyebrow}</p>
+              <h2 id="admin-menu-deck-title">{currentMenuMeta.title}</h2>
+              <p className="admin-menu-deck-description">{currentMenuMeta.description}</p>
+            </div>
+            <span className="admin-menu-page-label">{menuPage + 1} / {menuPageCount}</span>
           </div>
-          <div className="admin-menu-grid">
-            {coreMenus.map((menu) => <AdminMenu key={menu.href} {...menu} />)}
-          </div>
-        </section>
-
-        <section className="admin-menu-browser" aria-labelledby="admin-menu-browser-title">
-          <div className="admin-section-heading">
-            <div><p className="eyebrow">ADMIN MENU</p><h2 id="admin-menu-browser-title">운영 메뉴 찾아보기</h2></div>
-          </div>
-          <p className="admin-menu-helper">연결된 운영 메뉴와 준비 중인 메뉴를 나눠 확인할 수 있어요. 준비 중 메뉴는 샘플 데이터 또는 API 연결 전 화면입니다.</p>
-          <div className="admin-menu-tabs" role="tablist" aria-label="관리자 메뉴 상태 필터">
-            {([["connected", "연결됨"], ["pending", "샘플·준비 중"], ["all", "전체"]] as const).map(([value, label]) => (
-              <button key={value} type="button" role="tab" aria-selected={menuFilter === value} className={menuFilter === value ? "active" : ""} onClick={() => selectMenuFilter(value)}>{label}</button>
-            ))}
-          </div>
-          <div className="admin-menu-grid" aria-live="polite">
+          <div key={menuPage} className={`admin-menu-grid admin-menu-page${visibleMenus.length <= 2 ? " admin-menu-page-short" : ""}`} aria-live="polite">
             {visibleMenus.map((menu) => <AdminMenu key={menu.href} {...menu} />)}
           </div>
-          {menuPageCount > 1 && <nav className="admin-menu-pagination" aria-label="관리자 메뉴 페이지">
-            <button type="button" onClick={() => setMenuPage((page) => Math.max(0, page - 1))} disabled={menuPage === 0} aria-label="이전 메뉴 페이지"><ChevronLeft aria-hidden="true" /></button>
+          <nav className="admin-menu-pagination admin-menu-deck-pagination" aria-label="관리자 메뉴 페이지">
+            <button type="button" onClick={() => setMenuPage((page) => Math.max(0, page - 1))} disabled={menuPage === 0} aria-label="이전 메뉴 페이지"><ChevronLeft aria-hidden="true" /><span>이전</span></button>
             <div aria-label={`${menuPage + 1} / ${menuPageCount} 페이지`}>
-              {Array.from({ length: menuPageCount }, (_, index) => <span key={index} className={index === menuPage ? "active" : ""} />)}
+              {Array.from({ length: menuPageCount }, (_, index) => <button key={index} type="button" className={index === menuPage ? "active" : ""} onClick={() => setMenuPage(index)} aria-label={`${index + 1}페이지`} aria-current={index === menuPage ? "page" : undefined} />)}
             </div>
-            <button type="button" onClick={() => setMenuPage((page) => Math.min(menuPageCount - 1, page + 1))} disabled={menuPage === menuPageCount - 1} aria-label="다음 메뉴 페이지"><ChevronRight aria-hidden="true" /></button>
-          </nav>}
+            <button type="button" onClick={() => setMenuPage((page) => Math.min(menuPageCount - 1, page + 1))} disabled={menuPage === menuPageCount - 1} aria-label="다음 메뉴 페이지"><span>다음</span><ChevronRight aria-hidden="true" /></button>
+          </nav>
         </section>
 
         <aside className="admin-unlimited-note">관리자 계정은 운영 확인을 위해 상세 분석 제한이 적용되지 않아요.</aside>

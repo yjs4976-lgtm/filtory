@@ -22,7 +22,7 @@ const CASE_TYPE_OPTIONS: AdminReviewCaseType[] = [
   "manual_review",
   "other",
 ]
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 
 function formatDate(value?: string | null) {
   if (!value) return "-"
@@ -41,6 +41,7 @@ export default function AdminReviewsPage() {
   const [filters, setFilters] = useState<AdminReviewFilters>({ status: "all", caseType: "all" })
   const [reviewCases, setReviewCases] = useState<AdminReviewCase[]>([])
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(5)
   const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -50,7 +51,7 @@ export default function AdminReviewsPage() {
     try {
       setIsLoading(true)
       setError("")
-      const result = await adminReviewService.getReviewCases({ ...filters, page, perPage: PAGE_SIZE })
+      const result = await adminReviewService.getReviewCases({ ...filters, page, perPage: pageSize })
       setReviewCases(result.items)
       setTotal(result.total)
     } catch (error) {
@@ -58,7 +59,7 @@ export default function AdminReviewsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [filters, page, t.admin.loadFailed])
+  }, [filters, page, pageSize, t.admin.loadFailed])
 
   useEffect(() => {
     const timer = window.setTimeout(loadData, 0)
@@ -75,7 +76,9 @@ export default function AdminReviewsPage() {
     setPage(1)
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = Math.min(page * pageSize, total)
 
   return (
     <AdminAppShell title={t.admin.reviews}>
@@ -86,7 +89,7 @@ export default function AdminReviewsPage() {
           <p>{t.admin.reviewsDescription}</p>
         </section>
 
-        <section className="soft-card admin-table-card">
+        <section className="soft-card admin-table-card admin-review-filter">
           <h2>{labels.filterTitle}</h2>
           <div className="admin-filter-grid">
             <input
@@ -123,45 +126,25 @@ export default function AdminReviewsPage() {
         {error && <p className="form-error">{error}</p>}
 
         {!isLoading && (
-          <section className="soft-card admin-table-card">
+          <section className="soft-card admin-table-card admin-review-panel">
             <div className="admin-card-title-row">
               <h2>{labels.listTitle}</h2>
               <span>{total}{labels.countSuffix}</span>
             </div>
 
-            <div className="table-scroll">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>{labels.caseColumn}</th>
-                    <th>{labels.hospitalColumn}</th>
-                    <th>{labels.reviewColumn}</th>
-                    <th>{labels.scoreColumn}</th>
-                    <th>{labels.statusColumn}</th>
-                    <th>{labels.memoColumn}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviewCases.map((reviewCase) => (
-                    <ReviewCaseRow
-                      key={reviewCase.id}
-                      reviewCase={reviewCase}
-                      labels={labels}
-                      onStatusChange={handleStatusChange}
-                    />
-                  ))}
-                  {reviewCases.length === 0 && (
-                    <tr>
-                      <td className="empty-cell" colSpan={6}>
-                        {labels.empty}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="admin-review-list">
+              {reviewCases.map((reviewCase) => (
+                <ReviewCaseCard
+                  key={reviewCase.id}
+                  reviewCase={reviewCase}
+                  labels={labels}
+                  onStatusChange={handleStatusChange}
+                />
+              ))}
+              {reviewCases.length === 0 && <p className="admin-review-empty">{labels.empty}</p>}
             </div>
 
-            {total > PAGE_SIZE && (
+            {total > 0 && (
               <div className="admin-pagination-area" aria-label={labels.paginationLabel}>
                 <div className="admin-pagination-controls">
                   <button
@@ -182,6 +165,18 @@ export default function AdminReviewsPage() {
                     {labels.nextPage}
                   </button>
                 </div>
+                <select
+                  className="admin-page-size-select"
+                  value={pageSize}
+                  aria-label={labels.pageSizeLabel}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value) as (typeof PAGE_SIZE_OPTIONS)[number])
+                    setPage(1)
+                  }}
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{labels.perPage.replace("{count}", String(option))}</option>)}
+                </select>
+                <p className="admin-pagination-range">{rangeStart}-{rangeEnd} / {total}{labels.countSuffix}</p>
               </div>
             )}
           </section>
@@ -191,7 +186,7 @@ export default function AdminReviewsPage() {
   )
 }
 
-function ReviewCaseRow({
+function ReviewCaseCard({
   reviewCase,
   labels,
   onStatusChange,
@@ -213,24 +208,28 @@ function ReviewCaseRow({
   }
 
   return (
-    <tr>
-      <td>
-        <strong>{labels.caseType[reviewCase.caseType] ?? reviewCase.caseType}</strong>
-        <br />
-        <span>{formatDate(reviewCase.createdAt)}</span>
-      </td>
-      <td>
-        <strong>{reviewCase.hospital?.hospitalName ?? "-"}</strong>
-        <br />
-        <span>{reviewCase.hospital?.region ?? reviewCase.hospital?.address ?? "-"}</span>
-      </td>
-      <td>{shortText(reviewCase.review?.content ?? reviewCase.reviewReport?.reportReason ?? reviewCase.reason)}</td>
-      <td>
-        {reviewCase.analysisResult?.totalScore ?? "-"}
-        <br />
-        <span>{reviewCase.analysisResult?.adSuspicion ?? reviewCase.analysisResult?.repetitionSuspicion ?? "-"}</span>
-      </td>
-      <td>
+    <article className="admin-review-card">
+      <header>
+        <div>
+          <span>{labels.caseType[reviewCase.caseType] ?? reviewCase.caseType}</span>
+          <strong>{reviewCase.hospital?.hospitalName ?? labels.noHospital}</strong>
+          <small>{reviewCase.hospital?.region ?? reviewCase.hospital?.address ?? formatDate(reviewCase.createdAt)}</small>
+        </div>
+        <span className={`admin-review-status status-${reviewCase.status}`}>{labels.status[reviewCase.status]}</span>
+      </header>
+      <section className="admin-review-evidence">
+        <span>{labels.reviewColumn}</span>
+        <p>{shortText(reviewCase.review?.content ?? reviewCase.reviewReport?.reportReason ?? reviewCase.reason, labels.noEvidence)}</p>
+      </section>
+      <div className="admin-review-score-grid">
+        <div><span>{labels.totalScore}</span><strong>{reviewCase.analysisResult?.totalScore ?? "-"}</strong></div>
+        <div><span>{labels.trustScore}</span><strong>{reviewCase.analysisResult?.trustScore ?? "-"}</strong></div>
+        <div><span>{labels.adScore}</span><strong>{reviewCase.analysisResult?.adScore ?? "-"}</strong></div>
+        <div><span>{labels.signal}</span><strong>{reviewCase.analysisResult?.adSuspicion ?? reviewCase.analysisResult?.repetitionSuspicion ?? "-"}</strong></div>
+      </div>
+      <div className="admin-review-controls">
+        <label>
+          <span>{labels.statusColumn}</span>
         <select
           className="admin-status-select"
           value={reviewCase.status}
@@ -243,19 +242,24 @@ function ReviewCaseRow({
             </option>
           ))}
         </select>
-      </td>
-      <td>
+        </label>
+        <label>
+          <span>{labels.memoColumn}</span>
         <textarea
-          rows={2}
+          rows={3}
           value={memo}
           placeholder={labels.memoPlaceholder}
           onChange={(event) => setMemo(event.target.value)}
         />
+        </label>
+      </div>
+      <footer>
+        <span>#{reviewCase.id} · {formatDate(reviewCase.createdAt)}</span>
         <button type="button" className="small-button" disabled={isSaving} onClick={() => saveStatus(reviewCase.status)}>
-          {labels.save}
+          {isSaving ? labels.saving : labels.save}
         </button>
-      </td>
-    </tr>
+      </footer>
+    </article>
   )
 }
 
@@ -274,10 +278,19 @@ const koLabels = {
   memoColumn: "관리자 메모",
   memoPlaceholder: "처리 메모",
   save: "저장",
+  saving: "저장 중…",
+  noHospital: "병원 정보 없음",
+  noEvidence: "표시할 분석 근거가 없습니다.",
+  totalScore: "종합 점수",
+  trustScore: "신뢰 점수",
+  adScore: "광고 위험",
+  signal: "감지 신호",
   empty: "확인할 분석 품질 항목이 없습니다.",
   paginationLabel: "품질 확인 큐 페이지",
   previousPage: "이전",
   nextPage: "다음",
+  pageSizeLabel: "페이지당 품질 항목 수",
+  perPage: "{count}개씩 보기",
   status: {
     pending: "확인 필요",
     reviewing: "검토 중",
@@ -309,10 +322,19 @@ const enLabels: typeof koLabels = {
   memoColumn: "Admin memo",
   memoPlaceholder: "Processing memo",
   save: "Save",
+  saving: "Saving…",
+  noHospital: "No clinic information",
+  noEvidence: "No analysis evidence available.",
+  totalScore: "Total score",
+  trustScore: "Trust score",
+  adScore: "Ad risk",
+  signal: "Detected signal",
   empty: "No analysis quality items need review.",
   paginationLabel: "Quality queue pages",
   previousPage: "Previous",
   nextPage: "Next",
+  pageSizeLabel: "Quality items per page",
+  perPage: "{count} per page",
   status: {
     pending: "Needs check",
     reviewing: "Reviewing",
