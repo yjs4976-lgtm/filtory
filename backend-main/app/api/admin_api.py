@@ -1,6 +1,6 @@
 from flask import Blueprint, g, request
 
-from app.services import AdminService, InquiryService
+from app.services import AdminService, ContentService, InquiryService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
 from app.utils.security import require_admin
@@ -35,6 +35,70 @@ def _paginated_admin_response(loader, **filters):
     )
 
 
+@admin_bp.route("/notices", methods=["GET", "POST"])
+@require_admin
+def admin_notices():
+    if request.method == "POST":
+        try:
+            return success_response(ContentService.save_notice(request.get_json(silent=True) or {}, g.current_member.id), status_code=201)
+        except ValueError as e:
+            return error_response(str(e), 400)
+    try:
+        return _paginated_admin_response(
+            ContentService.list_admin_notices,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            pinned=request.args.get("pinned"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/notices/<int:notice_id>", methods=["GET", "PATCH"])
+@require_admin
+def admin_notice_detail(notice_id):
+    try:
+        if request.method == "PATCH":
+            return success_response(ContentService.save_notice(request.get_json(silent=True) or {}, g.current_member.id, notice_id))
+        return success_response(ContentService.get_admin_notice(notice_id))
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/faqs", methods=["GET", "POST"])
+@require_admin
+def admin_faqs():
+    if request.method == "POST":
+        try:
+            return success_response(ContentService.save_faq(request.get_json(silent=True) or {}, g.current_member.id), status_code=201)
+        except ValueError as e:
+            return error_response(str(e), 400)
+    try:
+        return _paginated_admin_response(
+            ContentService.list_admin_faqs,
+            keyword=request.args.get("q") or request.args.get("keyword"),
+            status=request.args.get("status"),
+            category=request.args.get("category"),
+        )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/faqs/<int:faq_id>", methods=["GET", "PATCH"])
+@require_admin
+def admin_faq_detail(faq_id):
+    try:
+        if request.method == "PATCH":
+            return success_response(ContentService.save_faq(request.get_json(silent=True) or {}, g.current_member.id, faq_id))
+        return success_response(ContentService.get_admin_faq(faq_id))
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
 @admin_bp.route("/analyses", methods=["GET"])
 @require_admin
 def list_analyses():
@@ -50,6 +114,43 @@ def list_analyses():
         return error_response(str(e), 400)
 
 
+@admin_bp.route("/analyses/<int:request_id>/review", methods=["PATCH"])
+@require_admin
+def update_analysis_review(request_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(
+            AdminService.update_analysis_review(
+                request_id,
+                payload.get("action"),
+                g.current_member.id,
+                admin_memo=payload.get("adminMemo"),
+            ),
+            "Analysis review updated",
+        )
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+
+@admin_bp.route("/analyses/<int:request_id>/reanalyze", methods=["POST"])
+@require_admin
+def reanalyze(request_id):
+    try:
+        return success_response(
+            AdminService.reanalyze(request_id, g.current_member.id),
+            "Analysis reanalysis completed",
+            status_code=201,
+        )
+    except LookupError as e:
+        return error_response(str(e), 404)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except RuntimeError as e:
+        return error_response(str(e), 502)
+
+
 @admin_bp.route("/errors", methods=["GET"])
 @require_admin
 def list_errors():
@@ -60,6 +161,24 @@ def list_errors():
             category=request.args.get("category"),
             analysis_type=request.args.get("analysisType"),
         )
+    except ValueError as e:
+        return error_response(str(e), 400)
+
+@admin_bp.route("/errors/<int:request_id>", methods=["PATCH"])
+@require_admin
+def update_analysis_error(request_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        return success_response(
+            AdminService.update_analysis_error(
+                request_id,
+                payload.get("action"),
+                g.current_member.id,
+            ),
+            "Analysis error updated",
+        )
+    except LookupError as e:
+        return error_response(str(e), 404)
     except ValueError as e:
         return error_response(str(e), 400)
 

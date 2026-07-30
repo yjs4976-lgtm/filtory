@@ -31,6 +31,20 @@ export type AdminAnalysisItem = {
   completedAt?: string | null
   createdAt?: string | null
   durationSeconds?: number | null
+  reviewCaseId?: number | null
+  reviewStatus?: "pending" | "reviewing" | "resolved" | null
+  adminMemo?: string | null
+  retryAvailable?: boolean
+  errorResolved?: boolean
+  userNotified?: boolean
+}
+
+export type AdminAnalysisReviewResult = {
+  requestId: number
+  reviewCaseId: number
+  reviewStatus: "pending" | "reviewing" | "resolved"
+  adminMemo?: string | null
+  resolvedAt?: string | null
 }
 
 export type AdminAnalysisFilters = {
@@ -80,5 +94,39 @@ export const adminAnalysisService = {
   },
   getErrors(filters: Omit<AdminAnalysisFilters, "status"> = {}) {
     return getList("/api/admin/errors", filters)
+  },
+  async updateReview(
+    requestId: number,
+    action: "needs_review" | "confirm" | "memo",
+    adminMemo?: string,
+  ) {
+    const result = await apiClient<AdminAnalysisReviewResult>(
+      `/api/admin/analyses/${requestId}/review`,
+      {
+        method: "PATCH",
+        auth: true,
+        body: { action, adminMemo },
+      },
+    )
+    return result.data
+  },
+  async reanalyze(requestId: number) {
+    const result = await apiClient<AdminAnalysisItem>(
+      `/api/admin/analyses/${requestId}/reanalyze`,
+      { method: "POST", auth: true },
+    )
+    return result.data
+  },
+  async updateError(requestId: number, action: "resolve" | "notify_user") {
+    const result = await apiClient<{
+      requestId: number
+      errorResolved: boolean
+      userNotified: boolean
+    }>(`/api/admin/errors/${requestId}`, {
+      method: "PATCH",
+      auth: true,
+      body: { action },
+    })
+    return result.data
   },
 }

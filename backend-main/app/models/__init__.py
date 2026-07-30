@@ -1,4 +1,6 @@
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.admin_faq import AdminFaq
+from app.models.admin_notice import AdminNotice
 from app.models.admin_review_moderation_case import AdminReviewModerationCase
 from app.models.analysis_request import AnalysisRequest
 from app.models.analysis_result import AnalysisResult
@@ -24,6 +26,8 @@ from app.models.subscription_plan import SubscriptionPlan
 
 __all__ = [
     "AdminAuditLog",
+    "AdminFaq",
+    "AdminNotice",
     "AdminReviewModerationCase",
     "AnalysisRequest",
     "AnalysisResult",

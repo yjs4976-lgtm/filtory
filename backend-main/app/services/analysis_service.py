@@ -160,7 +160,7 @@ class AnalysisService:
             raise
 
     @staticmethod
-    def analyze_reviews(member_id, payload):
+    def analyze_reviews(member_id, payload, *, create_completion_notification=True):
         data = AnalysisService._normalize_integrated_payload(payload)
         hospital = None
         analysis_request = None
@@ -243,13 +243,14 @@ class AnalysisService:
             from app.services.notification_service import NotificationService
 
             # 분석 완료 알림은 결과 저장과 같은 트랜잭션에서 생성해 히스토리/알림 상태를 맞춘다.
-            NotificationService.create_analysis_completed_notification(
-                member_id,
-                hospital.hospital_name if hospital else None,
-                analysis_request.id,
-                analysis_result.id,
-                analysis_result.total_score,
-            )
+            if create_completion_notification:
+                NotificationService.create_analysis_completed_notification(
+                    member_id,
+                    hospital.hospital_name if hospital else None,
+                    analysis_request.id,
+                    analysis_result.id,
+                    analysis_result.total_score,
+                )
             db.session.commit()
         except Exception as exc:
             db.session.rollback()

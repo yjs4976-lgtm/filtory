@@ -171,3 +171,9 @@ def test_ai_review_analysis_client_requires_internal_token(monkeypatch):
         assert str(exc) == "AI_INTERNAL_TOKEN is not configured"
     else:
         raise AssertionError("AI_INTERNAL_TOKEN must be required")
+
+
+def test_ai_review_analysis_client_default_timeout_allows_backend_ai_fallback(monkeypatch):
+    monkeypatch.delenv("BACKEND_AI_TIMEOUT_SECONDS", raising=False)
+
+    assert AIReviewAnalysisClient._timeout_seconds() == 30

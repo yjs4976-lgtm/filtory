@@ -1,6 +1,11 @@
 from datetime import datetime, timezone
+import json
+from time import monotonic
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
+from flask import current_app
 from app.extensions import db
 from app.repositories import AdminRepository
 from app.schemas import admin_member_to_dict
@@ -106,14 +111,40 @@ class AdminService:
                 "auditLogsToday": None,
                 "openInquiries": None,
             }
+        ai_status, ai_latency_ms = AdminService._check_backend_ai()
         return {
             "backendMain": "ok",
             "database": database_status,
-            "backendAi": "not_checked",
+            "backendAi": ai_status,
+            "backendAiLatencyMs": ai_latency_ms,
             "serverTime": now.isoformat(),
             **counts,
             "readonly": True,
         }
+
+    @staticmethod
+    def _check_backend_ai():
+        base_url = str(current_app.config.get("BACKEND_AI_BASE_URL") or "").strip()
+        if not base_url:
+            return "not_configured", None
+
+        health_url = f"{base_url.rstrip('/')}/api/health"
+        configured_timeout = current_app.config.get("BACKEND_AI_TIMEOUT_SECONDS", 3)
+        try:
+            timeout = min(max(float(configured_timeout), 0.5), 3.0)
+        except (TypeError, ValueError):
+            timeout = 3.0
+
+        started_at = monotonic()
+        request = Request(health_url, headers={"Accept": "application/json"}, method="GET")
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                is_healthy = response.status == 200 and payload.get("success") is True
+                latency_ms = round((monotonic() - started_at) * 1000)
+                return ("ok" if is_healthy else "error"), latency_ms
+        except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
+            return "error", None
 
     @staticmethod
     def list_analyses(keyword=None, status=None, category=None, analysis_type=None, limit=20, offset=0):
@@ -137,13 +168,203 @@ class AdminService:
             limit=limit,
             offset=offset,
         )
+        action_states = AdminRepository.get_analysis_error_action_states([item.id for item in rows])
         return [
             {
                 **AdminService._analysis_to_dict(item),
-                "retryAvailable": False,
+                "retryAvailable": bool(item.member_id),
+                **action_states.get(item.id, {"errorResolved": False, "userNotified": False}),
             }
             for item in rows
         ], total
+
+    @staticmethod
+    def update_analysis_error(request_id, action, admin_member_id):
+        analysis_request = AdminRepository.get_analysis_request_by_id(request_id)
+        if not analysis_request:
+            raise LookupError("Analysis request not found")
+        if analysis_request.request_status != "failed" and not analysis_request.error_message:
+            raise ValueError("Failed analysis request is required")
+
+        normalized_action = str(action or "").strip().lower()
+        if normalized_action not in {"resolve", "notify_user"}:
+            raise ValueError("Invalid analysis error action")
+
+        states = AdminRepository.get_analysis_error_action_states([request_id]).get(
+            request_id,
+            {"errorResolved": False, "userNotified": False},
+        )
+        if normalized_action == "notify_user" and not analysis_request.member_id:
+            raise ValueError("Analysis owner is required for notification")
+
+        try:
+            if normalized_action == "notify_user" and not states["userNotified"]:
+                from app.services.notification_service import NotificationService
+
+                NotificationService.create_notification(
+                    analysis_request.member_id,
+                    "system",
+                    "분석 요청 처리 안내",
+                    "요청하신 리뷰 분석의 처리 상태가 업데이트됐습니다. 분석 기록을 확인해 주세요.",
+                    link_url="/history",
+                    metadata={"analysisRequestId": request_id, "reason": "admin_status_update"},
+                )
+                states["userNotified"] = True
+                audit_action = "error_user_notified"
+            elif normalized_action == "resolve" and not states["errorResolved"]:
+                states["errorResolved"] = True
+                audit_action = "error_resolved"
+            else:
+                return {"requestId": request_id, **states}
+
+            AdminService._create_audit_log(
+                admin_member_id,
+                "analysis_review",
+                request_id,
+                {"requestStatus": analysis_request.request_status},
+                {"action": audit_action},
+                target_table="analysis_requests",
+            )
+            db.session.commit()
+            return {"requestId": request_id, **states}
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def update_analysis_review(request_id, action, admin_member_id, admin_memo=None):
+        analysis_request = AdminRepository.get_analysis_request_by_id(request_id)
+        if not analysis_request:
+            raise LookupError("Analysis request not found")
+        result = analysis_request.analysis_result
+        if not result:
+            raise ValueError("Completed analysis result is required")
+
+        normalized_action = str(action or "").strip().lower()
+        if normalized_action not in {"needs_review", "confirm", "memo"}:
+            raise ValueError("Invalid analysis review action")
+
+        review_case = AdminRepository.get_latest_analysis_review_case(result.id)
+        if not review_case or (normalized_action == "needs_review" and review_case.status == "resolved"):
+            review_case = AdminRepository.create_review_case_if_absent(
+                {
+                    "hospital_id": analysis_request.hospital_id,
+                    "analysis_result_id": result.id,
+                    "case_type": "manual_review",
+                    "status": "pending",
+                    "priority": "normal",
+                    "reason": "관리자 수동 검토",
+                    "score_snapshot": {
+                        "totalScore": result.total_score,
+                        "trustScore": result.trust_score,
+                        "adScore": result.ad_score,
+                    },
+                }
+            )
+
+        before = {
+            "status": review_case.status,
+            "admin_memo": review_case.admin_memo,
+            "resolved_admin_member_id": review_case.resolved_admin_member_id,
+        }
+        data = {}
+        if normalized_action == "needs_review":
+            data.update(
+                status="pending",
+                assigned_admin_member_id=admin_member_id,
+                resolved_admin_member_id=None,
+                resolved_at=None,
+            )
+        elif normalized_action == "confirm":
+            data.update(
+                status="resolved",
+                assigned_admin_member_id=admin_member_id,
+                resolved_admin_member_id=admin_member_id,
+                resolved_at=datetime.now(timezone.utc),
+            )
+
+        if admin_memo is not None:
+            data["admin_memo"] = AdminService._clean_optional_text(admin_memo)
+
+        try:
+            AdminRepository.update_review_case(review_case, data)
+            db.session.flush()
+            AdminService._create_audit_log(
+                admin_member_id,
+                "analysis_review",
+                review_case.id,
+                before,
+                {
+                    "action": normalized_action,
+                    "status": review_case.status,
+                    "admin_memo": review_case.admin_memo,
+                },
+                target_table="admin_review_moderation_cases",
+            )
+            db.session.commit()
+            return AdminService._analysis_review_to_dict(review_case, request_id)
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def reanalyze(request_id, admin_member_id):
+        analysis_request = AdminRepository.get_analysis_request_by_id(request_id)
+        if not analysis_request:
+            raise LookupError("Analysis request not found")
+        if not analysis_request.member_id:
+            raise ValueError("Analysis owner is required for reanalysis")
+
+        reviews = [
+            review.review_original
+            for review in analysis_request.reviews
+            if review.review_original and review.review_original.strip()
+        ]
+        if not reviews:
+            raise ValueError("Original reviews are required for reanalysis")
+
+        hospital = analysis_request.hospital
+        options = analysis_request.request_options_json or {}
+        metadata = options.get("hospitalMetadata") if isinstance(options, dict) else {}
+        metadata = metadata if isinstance(metadata, dict) else {}
+        payload = {
+            **metadata,
+            "reviews": reviews,
+            "reviewDates": options.get("reviewDates") or [],
+            "inputLanguage": analysis_request.input_language,
+            "outputLanguage": analysis_request.output_language,
+            "hospitalId": hospital.id,
+            "hospitalName": hospital.hospital_name,
+            "category": hospital.category,
+            "address": hospital.address,
+            "roadAddress": hospital.road_address,
+            "phone": hospital.phone,
+        }
+
+        from app.services.analysis_service import AnalysisService
+
+        response = AnalysisService.analyze_reviews(
+            analysis_request.member_id,
+            payload,
+            create_completion_notification=False,
+        )
+        new_request_id = response.get("analysisRequestId")
+        try:
+            AdminService._create_audit_log(
+                admin_member_id,
+                "analysis_review",
+                request_id,
+                {"requestId": request_id},
+                {"action": "reanalyze", "newRequestId": new_request_id},
+                target_table="analysis_requests",
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+
+        new_request = AdminRepository.get_analysis_request_by_id(new_request_id)
+        return AdminService._analysis_to_dict(new_request)
 
     @staticmethod
     def list_usage_logs(keyword=None, usage_type=None, period_key=None, limit=20, offset=0):
@@ -409,6 +630,7 @@ class AdminService:
         member = analysis_request.member
         hospital = analysis_request.hospital
         result = analysis_request.analysis_result
+        review_case = AdminService._latest_manual_review_case(result)
         duration = None
         if analysis_request.started_at and analysis_request.completed_at:
             duration = max(0, int((analysis_request.completed_at - analysis_request.started_at).total_seconds()))
@@ -434,6 +656,30 @@ class AdminService:
             "completedAt": AdminService._date_to_str(analysis_request.completed_at),
             "createdAt": AdminService._date_to_str(analysis_request.created_at),
             "durationSeconds": duration,
+            "reviewCaseId": review_case.id if review_case else None,
+            "reviewStatus": review_case.status if review_case else None,
+            "adminMemo": review_case.admin_memo if review_case else None,
+        }
+
+    @staticmethod
+    def _latest_manual_review_case(result):
+        if not result:
+            return None
+        cases = [
+            item
+            for item in (getattr(result, "admin_moderation_cases", None) or [])
+            if item.case_type == "manual_review"
+        ]
+        return max(cases, key=lambda item: item.id or 0, default=None)
+
+    @staticmethod
+    def _analysis_review_to_dict(review_case, request_id):
+        return {
+            "requestId": request_id,
+            "reviewCaseId": review_case.id,
+            "reviewStatus": review_case.status,
+            "adminMemo": review_case.admin_memo,
+            "resolvedAt": AdminService._date_to_str(review_case.resolved_at),
         }
 
     @staticmethod

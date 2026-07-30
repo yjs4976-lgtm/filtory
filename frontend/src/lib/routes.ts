@@ -18,6 +18,7 @@ export const ROUTES = {
   HELP: "/help",
   HELP_NEW: "/help/new",
   HELP_MY: "/help/my",
+  NOTICES: "/notices",
 
   MYPAGE: "/mypage",
   MYPAGE_PROFILE: "/mypage/profile",

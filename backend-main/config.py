@@ -85,7 +85,9 @@ class Config:
 
     AI_INTERNAL_TOKEN = os.getenv("AI_INTERNAL_TOKEN")
     BACKEND_AI_BASE_URL = os.getenv("BACKEND_AI_BASE_URL", "http://127.0.0.1:8000")
-    BACKEND_AI_TIMEOUT_SECONDS = _float_or_default(os.getenv("BACKEND_AI_TIMEOUT_SECONDS"), 20)
+    # backend-ai가 외부 모델 요청을 최대 20초 기다린 뒤 안전 fallback을 만들 수 있으므로,
+    # 내부 HTTP 호출은 그보다 여유 있게 기다려 fallback 응답을 502로 오인하지 않게 한다.
+    BACKEND_AI_TIMEOUT_SECONDS = _float_or_default(os.getenv("BACKEND_AI_TIMEOUT_SECONDS"), 30)
     ENABLE_REMOTE_CHATBOT = os.getenv("ENABLE_REMOTE_CHATBOT")
     AI_CHATBOT_API_URL = os.getenv("AI_CHATBOT_API_URL")
     AI_CHATBOT_TIMEOUT_SECONDS = _float_or_default(os.getenv("AI_CHATBOT_TIMEOUT_SECONDS"), 12)
