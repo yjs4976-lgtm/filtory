@@ -1,7 +1,7 @@
 from flask import Blueprint, g, request
 
 from app.clients.ai_review_ocr_client import AIReviewOcrClient
-from app.services import AnalysisService
+from app.services import AnalysisService, AnalysisUsageService
 from app.utils.pagination import build_pagination_meta, get_pagination_params
 from app.utils.response import error_response, success_response
 from app.utils.security import require_admin, require_auth
@@ -15,6 +15,40 @@ def _current_member_is_admin():
 
 def _can_access_member(member_id):
     return _current_member_is_admin() or member_id == g.current_member.id
+
+
+@analysis_bp.route("/usage/me", methods=["GET"])
+@require_auth
+def get_my_analysis_usage():
+    return success_response(AnalysisUsageService.get_usage(g.current_member.id))
+
+
+@analysis_bp.route("/usage/charge", methods=["POST"])
+@require_auth
+def charge_analysis_usage():
+    payload = request.get_json(silent=True) or {}
+    analysis_result_id = payload.get("analysis_result_id") or payload.get("analysisResultId")
+    if not analysis_result_id:
+        return error_response("analysis_result_id is required", 400)
+    try:
+        result = AnalysisUsageService.charge(g.current_member.id, int(analysis_result_id))
+        status = 200 if result["canUseDetailedAnalysis"] or result["charged"] or result["alreadyCharged"] else 409
+        return success_response(result, status_code=status)
+    except (TypeError, ValueError) as e:
+        return error_response(str(e), 404 if str(e) == "Analysis result not found" else 400)
+    except PermissionError as e:
+        return error_response(str(e), 403)
+
+
+@analysis_bp.route("/<int:analysis_id>/access", methods=["GET"])
+@require_auth
+def get_analysis_access(analysis_id):
+    try:
+        return success_response(AnalysisUsageService.get_access(g.current_member.id, analysis_id))
+    except ValueError as e:
+        return error_response(str(e), 404)
+    except PermissionError as e:
+        return error_response(str(e), 403)
 
 
 @analysis_bp.route("/analyze", methods=["POST"])

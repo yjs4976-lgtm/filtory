@@ -4,14 +4,12 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  BarChart3,
   Bell,
   ChevronDown,
   ClipboardList,
   X,
   Headphones,
   History,
-  HeartPulse,
   Info,
   LogIn,
   LockKeyhole,
@@ -40,7 +38,7 @@ type SidebarNavProps = {
 export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onChatbotOpen }: SidebarNavProps) {
   const pathname = usePathname()
   const { t } = useLanguage()
-  const { isAdmin, user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout } = useAuth()
   const [mounted, setMounted] = useState(false)
   const [accountOpen, setAccountOpen] = useState(() => (
     pathname.startsWith(ROUTES.MYPAGE) ||
@@ -90,13 +88,6 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
         { href: ROUTES.FIND_ID, label: t.auth.findIdTitle, icon: ClipboardList },
         { href: ROUTES.FORGOT_PASSWORD, label: t.auth.forgotPasswordTitle, icon: ShieldCheck },
       ]
-
-  const adminItems = [
-    { href: ROUTES.ADMIN, label: t.admin.dashboard, icon: BarChart3 },
-    { href: ROUTES.ADMIN_USERS, label: t.admin.users, icon: UsersRound },
-    { href: ROUTES.ADMIN_REVIEWS, label: t.admin.reviews, icon: ClipboardList },
-    { href: ROUTES.ADMIN_HOSPITALS, label: t.admin.hospitals, icon: HeartPulse },
-  ]
 
   if (!mounted) return null
 
@@ -199,30 +190,6 @@ export function SidebarNav({ variant = "desktop", isOpen = false, onClose, onCha
           )}
         </section>
 
-        {isAdmin && (
-          <details className={styles.sidebarGroup} open={pathname.startsWith(ROUTES.ADMIN)}>
-            <summary>
-              <span>
-                <ShieldCheck className={styles.iconSm} />
-                {t.nav.admin}
-              </span>
-              <ChevronDown className={styles.iconXs} />
-            </summary>
-            <div className={styles.sidebarSubMenu}>
-              {adminItems.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`${styles.sidebarSubLink} ${isActive(pathname, href) ? styles.sidebarLinkActive : ""}`}
-                  onClick={onClose}
-                >
-                  <Icon className={styles.iconXs} />
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </details>
-        )}
       </nav>
     </>
   )

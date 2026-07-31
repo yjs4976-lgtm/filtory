@@ -64,11 +64,13 @@ import type {
 } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { translations } from "@/lib/translations"
+import { isShortReviewText, splitReviewText, stripOwnerReplyText } from "@/lib/reviewTextParser"
 import { analysisHistoryService } from "@/services/analysisHistoryService"
 import { hospitalSearchService } from "@/services/hospitalSearchService"
 import { reviewAnalysisService } from "@/services/reviewAnalysisService"
 import { ApiClientError } from "@/services/apiClient"
 import styles from "@/styles/App.module.css"
+import { useMembership } from "@/context/MembershipContext"
 
 type SelectedAnalyzeRegion = {
   provinceCode: RegionProvinceCode
@@ -153,7 +155,6 @@ const categoryKeywordMatchers: Record<HospitalCategory, string[]> = {
 
 const REVIEW_EXAMPLE_CATEGORIES: ReviewExampleCategory[] = ["kindness", "waiting", "cost", "consultation", "aftercare"]
 const PAGE_SIZE = 3
-const MIN_REVIEW_TEXT_LENGTH = 20
 const MAX_REVIEW_IMPORT_FILE_SIZE = 5 * 1024 * 1024
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
 const SUPPORTED_REVIEW_FILE_TYPES = new Set(["text/plain", "text/csv", "application/vnd.ms-excel"])
@@ -356,27 +357,9 @@ function normalizeReviewContent(content: string) {
     .toLowerCase()
 }
 
-function stripOwnerReplyText(content: string) {
-  const markerPattern = /^\s*(병원\s*측|병원|업체|매장|원장님?|의사|관리자|사장님|클리닉)\s*(?:의|측)?\s*(?:답변|답글|댓글)\s*[:：]?\s*$|^\s*(?:답변|답글)\s*[:：]\s*(?:병원|업체|관리자|사장님|클리닉)\s*$|^\s*(?:owner|business|clinic|hospital)\s*(?:reply|response)\s*[:：]?\s*$/i
-  const lines = content.replace(/\r\n/g, "\n").split("\n")
-  const keptLines: string[] = []
-
-  for (const line of lines) {
-    const match = markerPattern.exec(line)
-    if (match) {
-      const beforeReply = line.slice(0, match.index).trim()
-      if (beforeReply) keptLines.push(beforeReply)
-      break
-    }
-    keptLines.push(line)
-  }
-
-  return keptLines.join("\n").trim()
-}
-
 function getReviewDraftStatus(content: string, duplicateCount: number): ReviewDraftStatus {
-  if (content.trim().length < MIN_REVIEW_TEXT_LENGTH) return "short"
   if (duplicateCount > 1) return "duplicate"
+  if (isShortReviewText(content)) return "short"
   return "ready"
 }
 
@@ -395,24 +378,6 @@ function normalizeReviewDrafts(drafts: ReviewDraft[]) {
       status: getReviewDraftStatus(draft.content, key ? counts[key] ?? 1 : 1),
     }
   })
-}
-
-function splitReviewText(value: string) {
-  // 여러 리뷰를 한 번에 붙여넣으면 빈 줄 기준으로 먼저 나누고, 없으면 줄 단위로 나눈다.
-  const trimmed = value.trim()
-  if (!trimmed) return []
-
-  const paragraphParts = trimmed
-    .split(/\n\s*\n+/)
-    .map((part) => stripOwnerReplyText(part))
-    .filter(Boolean)
-
-  if (paragraphParts.length > 1) return paragraphParts
-
-  return trimmed
-    .split(/\n+/)
-    .map((part) => stripOwnerReplyText(part))
-    .filter(Boolean)
 }
 
 function uniqueReviewTexts(values: string[]) {
@@ -1009,6 +974,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const { t, language } = useLanguage()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
+  const { chargeCompletedAnalysis } = useMembership()
   const currentLanguage = language === "en" ? "en" : "ko"
   const [category, setCategory] = useState<AnalyzeCategoryFilter>(() => normalizeCategoryParam(searchParams.get("category")))
   const [selectedRegion, setSelectedRegion] = useState<SelectedAnalyzeRegion | null>(null)
@@ -1057,7 +1023,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
   const reviewInboxSummary = useMemo(() => {
     const shortCount = reviewDrafts.filter((review) => review.status === "short").length
     const duplicateCount = reviewDrafts.filter((review) => review.status === "duplicate").length
-    const readyCount = reviewDrafts.filter((review) => review.included && review.status === "ready").length
+    const readyCount = reviewDrafts.filter((review) => review.included && review.status !== "duplicate").length
 
     return {
       totalCount: reviewDrafts.length,
@@ -1067,7 +1033,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }
   }, [reviewDrafts])
   const analysisReadyReviewDrafts = useMemo(
-    () => reviewDrafts.filter((review) => review.included && review.status === "ready" && review.content.trim()),
+    () => reviewDrafts.filter((review) => review.included && review.status !== "duplicate" && review.content.trim()),
     [reviewDrafts]
   )
   const includedReviewDraftTexts = useMemo(
@@ -1085,7 +1051,7 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
     }))
 
     return normalizeReviewDrafts(pendingDrafts)
-      .filter((review) => review.included && review.status === "ready")
+      .filter((review) => review.included && review.status !== "duplicate")
       .map((review) => review.content.trim())
       .filter(Boolean)
   }, [directReviewText])
@@ -1690,9 +1656,23 @@ export function CategoryFirstAnalyzeFlow({ userId }: { userId?: string | number 
         hospitalNameEn: nextAnalysisResult.hospitalNameEn,
         hospitalEnglishName: nextAnalysisResult.hospitalEnglishName,
         englishName: nextAnalysisResult.englishName,
+        mapUrl: nextAnalysisResult.mapUrl,
+        googleMapUrl: nextAnalysisResult.googleMapUrl,
+        naverPlaceUrl: nextAnalysisResult.naverPlaceUrl,
+        kakaoPlaceUrl: nextAnalysisResult.kakaoPlaceUrl,
+        homepageUrl: nextAnalysisResult.homepageUrl,
+        phone: nextAnalysisResult.phone,
+        treatmentItems: nextAnalysisResult.treatmentItems,
+        hasPhotos: nextAnalysisResult.hasPhotos,
+        hasGooglePhotos: nextAnalysisResult.hasGooglePhotos,
         reviewText: reviewText ?? targetReviewTexts?.join("\n\n"),
         analyzedAt: nextAnalysisResult.analyzedAt ?? new Date().toISOString(),
       })
+      // Charge only after the API completed and the result was saved. The usage event is idempotent by analysis ID.
+      const charged = response.analysisResultId
+        ? await chargeCompletedAnalysis(response.analysisResultId)
+        : false
+      if (!charged) throw new Error(language === "en" ? "Detailed analysis usage could not be charged." : "상세 분석 사용량을 확인하거나 차감하지 못했습니다.")
       router.push(ROUTES.RESULT)
     } catch (error) {
       setReviewFeedback("")
@@ -2465,11 +2445,16 @@ function ReviewInputWorkspace({
   const [activeExampleCategory, setActiveExampleCategory] = useState<ReviewExampleCategory>("kindness")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const detectedCount = splitReviewText(value).length
+  const currentGuideCount = Math.max(detectedCount, summary.readyCount)
+  const reviewCountGuide =
+    currentGuideCount === 0
+      ? t.analyze.reviewInbox.reviewCountGuideEmpty
+      : currentGuideCount < 5
+        ? t.analyze.reviewInbox.reviewCountGuideFew
+        : currentGuideCount < 10
+          ? t.analyze.reviewInbox.reviewCountGuideLimited
+          : t.analyze.reviewInbox.reviewCountGuideEnough
   const hasReviewText = value.trim().length > 0
-  const readinessText = t.analyze.reviewReadyStatus
-    .replace("{hospitalName}", selectedHospital?.name || "-")
-    .replace("{pendingCount}", String(detectedCount))
-    .replace("{importedCount}", String(reviews.length))
   const reviewExamples = t.analyze.reviewExamples
   const activeSentences = reviewExamples.sentences[activeExampleCategory]
 
@@ -2564,19 +2549,7 @@ function ReviewInputWorkspace({
         onChange={(event) => onChange(event.target.value)}
       />
 
-      <section className={styles.reviewReadyPanel} aria-live="polite">
-        <p className={styles.reviewReadyText}>{readinessText}</p>
-        {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
-        <button
-          type="button"
-          className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
-          disabled={isAnalyzeDisabled}
-          onClick={onStartAnalysis}
-        >
-          {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
-          {isAnalyzing ? t.analyze.submitting : t.analyze.analyzePastedReviewsButton}
-        </button>
-      </section>
+      {inputError && <p className={styles.reviewFeedback}>{inputError}</p>}
 
       <div className={styles.reviewExampleToggleRow}>
         <button
@@ -2630,7 +2603,7 @@ function ReviewInputWorkspace({
       )}
 
       <div className={styles.reviewInputFooter}>
-        <span className={styles.reviewDetectedText}>
+        <span className={styles.reviewDetectedText} aria-live="polite">
           {t.analyze.detectedReviewCount.replace("{count}", String(detectedCount))}
         </span>
         <button
@@ -2643,6 +2616,12 @@ function ReviewInputWorkspace({
         </button>
       </div>
 
+      <article className={`${styles.reviewMinimumGuide} ${styles.reviewCountGuide}`}>
+        <strong>{t.analyze.reviewInbox.reviewCountGuideTitle}</strong>
+        <p>{reviewCountGuide.replace("{count}", String(currentGuideCount))}</p>
+        <small>{t.analyze.reviewInbox.reviewCountGuideHelper}</small>
+      </article>
+
       <ReviewStatusPanel
         reviews={reviews}
         summary={summary}
@@ -2651,6 +2630,9 @@ function ReviewInputWorkspace({
         onToggleIncluded={onToggleIncluded}
         onDelete={onDelete}
         onClear={onClear}
+        isAnalyzing={isAnalyzing}
+        isAnalyzeDisabled={isAnalyzeDisabled}
+        onStartAnalysis={onStartAnalysis}
       />
     </section>
   )
@@ -2814,6 +2796,9 @@ function ReviewStatusPanel({
   onToggleIncluded,
   onDelete,
   onClear,
+  isAnalyzing,
+  isAnalyzeDisabled,
+  onStartAnalysis,
 }: {
   reviews: ReviewDraft[]
   summary: { totalCount: number; shortCount: number; duplicateCount: number; readyCount: number }
@@ -2822,6 +2807,9 @@ function ReviewStatusPanel({
   onToggleIncluded: (reviewId: string) => void
   onDelete: (reviewId: string) => void
   onClear: () => void
+  isAnalyzing: boolean
+  isAnalyzeDisabled: boolean
+  onStartAnalysis: () => void
 }) {
   const { t } = useLanguage()
   const [showAllReviews, setShowAllReviews] = useState(false)
@@ -2880,6 +2868,22 @@ function ReviewStatusPanel({
           </div>
           {!showAllReviews && <p className={styles.mutedText}>{t.analyze.reviewInbox.partialPreviewNotice}</p>}
         </section>
+      )}
+      {reviews.length > 0 && (
+        <div className={styles.reviewStartPanel}>
+          {summary.readyCount === 0 && (
+            <p className={styles.reviewFeedback}>{t.analyze.reviewInboxRequired}</p>
+          )}
+          <button
+            type="button"
+            className={`${styles.primaryButton} ${styles.reviewAnalyzeButton}`}
+            disabled={isAnalyzeDisabled || summary.readyCount === 0}
+            onClick={onStartAnalysis}
+          >
+            {isAnalyzing && <LoaderCircle className={`${styles.iconSm} ${styles.spin}`} />}
+            {isAnalyzing ? t.analyze.submitting : t.analyze.analyzeSelectedReviews}
+          </button>
+        </div>
       )}
     </section>
   )

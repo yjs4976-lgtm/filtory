@@ -24,6 +24,8 @@ type BackendSignupPayload = {
   termsAgreed: boolean;
   privacyAgreed: boolean;
   marketingAgreed?: boolean;
+  date_of_birth?: string | null;
+  gender?: SignupPayload["gender"];
 };
 
 function normalizeEmail(value: string) {
@@ -121,6 +123,8 @@ export const authService = {
         data: {
           ...createMockUser(payload.email, payload.nickname ?? payload.loginId, payload.name),
           phone: payload.phone,
+          dateOfBirth: payload.dateOfBirth ?? null,
+          gender: payload.gender ?? null,
         },
       };
     }
@@ -137,6 +141,8 @@ export const authService = {
       termsAgreed: payload.termsAgreed,
       privacyAgreed: payload.privacyAgreed,
       marketingAgreed: payload.marketingAgreed,
+      dateOfBirth: payload.dateOfBirth,
+      gender: payload.gender,
     });
   },
 
@@ -227,5 +233,7 @@ function toBackendSignupPayload(payload: SignupPayload): BackendSignupPayload {
     termsAgreed: payload.termsAgreed,
     privacyAgreed: payload.privacyAgreed,
     marketingAgreed: payload.marketingAgreed,
+    date_of_birth: payload.dateOfBirth ?? null,
+    gender: payload.gender ?? null,
   };
 }

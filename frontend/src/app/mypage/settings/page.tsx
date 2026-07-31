@@ -12,6 +12,7 @@ import { ROUTES } from "@/lib/routes"
 import type { NotificationSettings as NotificationSettingsType } from "@/lib/types"
 import { settingService } from "@/services/settingService"
 import styles from "@/styles/App.module.css"
+import { WorkspacePreferenceSettings } from "@/components/workspace/WorkspacePreferenceSettings"
 
 export default function MySettingsPage() {
   const { language, t } = useLanguage()
@@ -48,6 +49,7 @@ export default function MySettingsPage() {
             {message && <p className={styles.formSuccess}>{message}</p>}
             <NotificationSettings value={settings} onChange={setSettings} />
             <LanguageSettings />
+            <WorkspacePreferenceSettings />
             <Link href={ROUTES.MYPAGE_CHATBOT_HISTORY} className={styles.secondaryButton}>
               {t.mypage.chatbotHistoryManage}
             </Link>

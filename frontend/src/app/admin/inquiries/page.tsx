@@ -125,7 +125,7 @@ export default function AdminInquiriesPage() {
         </section>
 
         <section className="soft-card admin-table-card">
-          <div className="admin-filter-grid">
+          <div className={`admin-filter-grid ${styles.adminInquiryFilters}`}>
             <input
               value={filters.keyword ?? ""}
               placeholder={t.help.admin.searchPlaceholder}
@@ -161,7 +161,7 @@ export default function AdminInquiriesPage() {
 
         {!isLoading && (
           <section className={styles.adminInquiryLayout}>
-            <div className={`${styles.card} ${styles.stackSm}`}>
+            <div className={`${styles.card} ${styles.stackSm} ${styles.adminInquiryListPanel}`}>
               <div className={styles.rowBetween}>
                 <h2 className={styles.titleMd}>{t.help.admin.listTitle}</h2>
                 <span className={styles.mutedText}>{total}</span>
@@ -209,12 +209,12 @@ export default function AdminInquiriesPage() {
               )}
             </div>
 
-            <div className={`${styles.card} ${styles.stackMd}`}>
+            <div className={`${styles.card} ${styles.stackMd} ${styles.adminInquiryDetailPanel}`}>
               {!selectedInquiry ? (
                 <p className={styles.mutedText}>{t.help.admin.selectFirst}</p>
               ) : (
                 <>
-                  <div className={styles.stackSm}>
+                  <div className={styles.adminInquiryDetailHeader}>
                     <InquiryStatusBadge status={selectedInquiry.status} label={t.help.status[selectedInquiry.status]} />
                     <h2 className={styles.titleLg}>{selectedInquiry.title}</h2>
                     <p className={styles.bodyText}>{selectedInquiry.content}</p>
@@ -246,46 +246,48 @@ export default function AdminInquiriesPage() {
                     />
                   )}
 
-                  <label className={styles.label}>
-                    {t.help.admin.statusChange}
-                    <select
-                      className={styles.input}
-                      value={selectedInquiry.status}
-                      disabled={isSaving}
-                      onChange={(event) => handleStatusChange(event.target.value as InquiryStatus)}
+                  <div className={styles.adminInquiryAnswerForm}>
+                    <label className={styles.label}>
+                      {t.help.admin.statusChange}
+                      <select
+                        className={styles.input}
+                        value={selectedInquiry.status}
+                        disabled={isSaving}
+                        onChange={(event) => handleStatusChange(event.target.value as InquiryStatus)}
+                      >
+                        {INQUIRY_STATUSES.map((status) => (
+                          <option key={status} value={status} disabled={status === "ANSWERED" && !selectedInquiry.answer}>
+                            {t.help.status[status]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className={styles.label}>
+                      {t.help.admin.answer}
+                      <textarea
+                        className={styles.textarea}
+                        value={answerContent}
+                        placeholder={t.help.admin.answerPlaceholder}
+                        onChange={(event) => {
+                          const nextValue = event.target.value
+                          setAnswerDrafts((current) => ({
+                            ...current,
+                            [selectedInquiry.id]: nextValue,
+                          }))
+                        }}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={isSaving || !answerContent.trim()}
+                      onClick={handleSaveAnswer}
                     >
-                      {INQUIRY_STATUSES.map((status) => (
-                        <option key={status} value={status} disabled={status === "ANSWERED" && !selectedInquiry.answer}>
-                          {t.help.status[status]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className={styles.label}>
-                    {t.help.admin.answer}
-                    <textarea
-                      className={styles.textarea}
-                      value={answerContent}
-                      placeholder={t.help.admin.answerPlaceholder}
-                      onChange={(event) => {
-                        const nextValue = event.target.value
-                        setAnswerDrafts((current) => ({
-                          ...current,
-                          [selectedInquiry.id]: nextValue,
-                        }))
-                      }}
-                    />
-                  </label>
-
-                  <button
-                    type="button"
-                    className={styles.primaryButton}
-                    disabled={isSaving || !answerContent.trim()}
-                    onClick={handleSaveAnswer}
-                  >
-                    {isSaving ? t.help.admin.saving : t.help.admin.saveAnswer}
-                  </button>
+                      {isSaving ? t.help.admin.saving : t.help.admin.saveAnswer}
+                    </button>
+                  </div>
                 </>
               )}
             </div>

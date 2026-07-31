@@ -66,11 +66,12 @@ class AIReviewAnalysisClient:
 
     @classmethod
     def _timeout_seconds(cls):
-        value = _config_value("BACKEND_AI_TIMEOUT_SECONDS") or os.getenv("BACKEND_AI_TIMEOUT_SECONDS") or 20
+        # backend-ai의 OpenAI 제한시간(기본 20초) 이후 생성되는 안전 fallback까지 받을 수 있어야 한다.
+        value = _config_value("BACKEND_AI_TIMEOUT_SECONDS") or os.getenv("BACKEND_AI_TIMEOUT_SECONDS") or 30
         try:
             return float(value)
         except (TypeError, ValueError):
-            return 20
+            return 30
 
     @classmethod
     def _internal_token(cls):

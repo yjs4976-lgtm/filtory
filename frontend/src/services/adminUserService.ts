@@ -1,6 +1,39 @@
 import type { AdminUser, UserRole, UserStatus } from "@/lib/types"
 import { apiClient } from "./apiClient"
-import { mockAnalysisHistory, mockReports, mockSavedHospitals } from "./memberMockData"
+
+export type AdminUserActivity = {
+  memberId: number
+  analysisHistory: Array<{
+    requestId: number
+    resultId: number | null
+    hospitalName: string | null
+    category: string | null
+    totalScore: number | null
+    trustScore: number | null
+    adScore: number | null
+    status: string
+    createdAt: string | null
+  }>
+  savedHospitals: Array<{
+    hospitalId: number
+    analysisResultId: number | null
+    hospitalName: string | null
+    category: string | null
+    savedAt: string | null
+  }>
+  reports: Array<{
+    id: number
+    type: string
+    status: string
+    hospitalName: string | null
+    createdAt: string | null
+  }>
+  counts: {
+    analyses: number
+    savedHospitals: number
+    reports: number
+  }
+}
 
 export type AdminUserFilters = {
   keyword?: string
@@ -28,13 +61,8 @@ export const adminUserService = {
   },
 
   async getUserActivity(id: number) {
-    // TODO: 실제 회원별 활동 API가 준비되면 /api/admin/users/:id/activity로 교체합니다.
-    return {
-      userId: id,
-      analysisHistory: mockAnalysisHistory,
-      savedHospitals: mockSavedHospitals,
-      reports: mockReports,
-    }
+    const result = await apiClient<AdminUserActivity>(`/api/admin/users/${id}/activity`, { auth: true })
+    return result.data
   },
 
   async updateUserStatus(id: number, status: UserStatus) {
@@ -44,10 +72,5 @@ export const adminUserService = {
       auth: true,
     })
     return result.data
-  },
-
-  async saveMemo(id: number, memo: string) {
-    // TODO: 실제 관리자 메모 API 연결 시 PATCH /api/admin/users/:id/memo 호출로 교체합니다.
-    return { success: true, id, memo }
   },
 }

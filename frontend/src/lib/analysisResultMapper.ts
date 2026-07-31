@@ -25,6 +25,7 @@ export type AnalysisResultViewModel = {
     adSuspicionScore: number
     informationScore: number
     globalAccessibilityScore: number
+    preVisitCheckScore: number
     analyzedReviewCount: number
   }
   analysisConfidence: {
@@ -117,6 +118,63 @@ export type AnalysisResultViewModel = {
     exaggerationScore: number
     eventDiscountScore: number
     reviewBurstScore?: number
+    explicitPromoScore?: number
+    softPromoScore?: number
+    eventBenefitScore?: number
+    callToActionScore?: number
+    promoRepetitionScore?: number
+    balancedPromoRelief?: number
+    concreteAspectCoverageScore?: number
+    concreteAspectCount?: number
+    concreteDepthBonus?: number
+    perReviewConcreteCoverageScore?: number
+    lexicalUniqueScore?: number
+    semanticClusterVarietyScore?: number
+    genericPraiseRepetitionScore?: number
+    concreteAspectVarietyScore?: number
+    lowInformationRatio?: number
+    rawReviewTrustScore?: number
+    adjustedReviewTrustScore?: number
+    trustAdjustmentPenalty?: number
+    specificityPenalty?: number
+    evidencePenalty?: number
+    repetitionPenalty?: number
+    riskPenalty?: number
+    lowInformationPenalty?: number
+    hardCapApplied?: boolean
+    hardCapReason?: string
+    sampleSizeConfidenceScore?: number
+    sampleSizeBonus?: number
+    deterministicPromoRiskScore?: number
+    modelAdRiskScore?: number
+    combinedAdRiskScore?: number
+    promoRiskFloor?: number
+    promoRiskFloorReason?: string
+    rawInputReviewCount?: number
+    cleanedReviewCount?: number
+    analyzedReviewCount?: number
+    deduplicatedReviewCount?: number
+    promoMatchedReviewCount?: number
+    softPromoMatchedReviewCount?: number
+    eventBenefitMatchedReviewCount?: number
+    callToActionMatchedReviewCount?: number
+    explicitPromoMatchedReviewCount?: number
+    highEvidenceReviewCount?: number
+    mediumEvidenceReviewCount?: number
+    lowEvidenceReviewCount?: number
+    promoRiskReviewCount?: number
+    highEvidenceReviewRatio?: number
+    mediumEvidenceReviewRatio?: number
+    lowEvidenceReviewRatio?: number
+    promoRiskReviewRatio?: number
+    reviewQualityDistributionScore?: number
+    reviewQualityBonus?: number
+    lowEvidenceReviewPenalty?: number
+    promoRiskReviewPenalty?: number
+    reviewQualityNetAdjustment?: number
+    hasSoftPromoPattern?: boolean
+    hasGenericPraisePattern?: boolean
+    hasPromoRepetitionPattern?: boolean
   }
   content: {
     summary: string
@@ -202,6 +260,10 @@ function optionalNumber(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
+}
+
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === 1
 }
 
 function normalizeCategory(value: unknown): HospitalCategory | undefined {
@@ -327,20 +389,21 @@ export function deriveTrustLevel(
 ): AnalysisResultViewModel["trust"] {
   const normalizedLevel = stringValue(level).toLowerCase()
   const normalizedGrade = stringValue(grade)
-  let key: TrustResultKey | undefined
+  // 점수가 있으면 저장 시점의 단계 문자열보다 현재 공통 경계 기준을 우선한다.
+  let key: TrustResultKey | undefined = Number.isFinite(score) ? scoreToTrustKey(score) : undefined
 
-  if (["very_safe", "very_high"].includes(normalizedLevel) || normalizedGrade.includes("매우 안전")) key = "very_safe"
-  if (["safe", "high"].includes(normalizedLevel) || normalizedGrade === "안전") key = key ?? "safe"
-  if (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("보통")) key = key ?? "normal"
-  if (["caution", "low", "risky"].includes(normalizedLevel) || normalizedGrade.includes("주의")) key = key ?? "caution"
-  if (["danger", "very_low"].includes(normalizedLevel)) key = "danger"
+  if (!key && (["very_safe", "very_high"].includes(normalizedLevel) || normalizedGrade.includes("매우 안전"))) key = "very_safe"
+  if (!key && (["safe", "high"].includes(normalizedLevel) || normalizedGrade === "안전")) key = "safe"
+  if (!key && (["normal", "medium"].includes(normalizedLevel) || normalizedGrade.includes("보통"))) key = "normal"
+  if (!key && (["caution", "low", "risky"].includes(normalizedLevel) || normalizedGrade.includes("주의"))) key = "caution"
+  if (!key && ["danger", "very_low"].includes(normalizedLevel)) key = "danger"
 
   key = key ?? scoreToTrustKey(score)
 
   const labels = {
     ko: {
-      very_safe: "신뢰 단서가 충분한 리뷰 흐름이에요",
-      safe: "비교적 신뢰할 만한 리뷰 흐름이에요",
+      very_safe: "구체적인 경험 신호가 풍부한 리뷰 흐름이에요",
+      safe: "참고 가능한 리뷰 흐름이에요",
       normal: "추가 확인이 필요한 리뷰 흐름이에요",
       caution: "주의 깊게 확인할 리뷰 흐름이에요",
       danger: "리뷰만으로 판단하기 어려워요",
@@ -379,10 +442,10 @@ export function deriveTrustLevel(
 }
 
 function scoreToTrustKey(score: number): TrustResultKey {
-  if (score >= 90) return "very_safe"
-  if (score >= 75) return "safe"
-  if (score >= 60) return "normal"
-  if (score >= 45) return "caution"
+  if (score >= 85) return "very_safe"
+  if (score >= 70) return "safe"
+  if (score >= 50) return "normal"
+  if (score >= 30) return "caution"
   return "danger"
 }
 
@@ -540,8 +603,8 @@ function informationChecks(language: Language, root: Record<string, unknown>, re
 
 function analysisConfidenceLabel(key: "low" | "medium" | "high", language: Language) {
   const labels = {
-    ko: { high: "높음", medium: "보통", low: "낮음" },
-    en: { high: "High", medium: "Medium", low: "Low" },
+    ko: { high: "충분", medium: "보통", low: "제한적" },
+    en: { high: "Sufficient", medium: "Moderate", low: "Limited" },
   }
   return labels[language][key]
 }
@@ -561,7 +624,7 @@ function fallbackConfidenceDescription(key: "low" | "medium" | "high", language:
   }
   if (key === "high") return "분석 가능한 리뷰가 충분하고 표현도 비교적 다양해요."
   if (key === "medium") return "리뷰 수는 충분하지만, 일부 항목에서 반복/집중 신호가 있을 수 있어요."
-  return "리뷰 수가 적거나 특정 표현이 과도하게 반복되어 신뢰도 해석에 주의가 필요해요."
+  return "리뷰 수가 적거나 특정 표현이 반복되어 샘플 해석에 주의가 필요해요."
 }
 
 function reviewBurstDescription(status: "available" | "unavailable", score: number | undefined, language: Language) {
@@ -854,6 +917,14 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const { root, result } = normalizeInput(input)
   const evidence = pickRecord(result, "evidence")
   const evidenceJson = pickRecord(root, "evidence_json")
+  const resultScoreBreakdown = {
+    ...pickRecord(result, "score_breakdown"),
+    ...pickRecord(result, "scoreBreakdown"),
+  }
+  const rootScoreBreakdown = {
+    ...pickRecord(root, "score_breakdown"),
+    ...pickRecord(root, "scoreBreakdown"),
+  }
   const totalScore = scoreValue(result.totalScore, result.total_score, root.score, root.total_score, result.trustScore, root.trustScore)
   // reviewTrustScore를 화면의 신뢰도 기준으로 사용해 병원 정보 완성도와 섞이지 않게 한다.
   const reviewTrustScore = scoreValue(
@@ -877,6 +948,14 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
     root.globalAccessibilityScore,
     root.foreignerFriendlyScore,
     globalAccessRatingToScore(root.globalAccessRating)
+  )
+  const preVisitCheckScore = scoreValue(
+    result.preVisitCheckScore,
+    result.pre_visit_check_score,
+    result.decisionSupportScore,
+    root.preVisitCheckScore,
+    root.pre_visit_check_score,
+    reviewTrustScore * 0.60 + informationScore * 0.25 + globalAccessibilityScore * 0.15
   )
   const analyzedReviewCount = countValue(result.analyzedReviewCount, root.selectedReviewCount, root.totalReviewCount, root.review_count)
   const specificitySignals = safeSignalArray(result.specificitySignals, root.specificitySignals, evidenceJson.specificitySignals)
@@ -935,7 +1014,16 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
   const englishAccessibilityGroup = groupSummary(globalAccessibilityChecks, "english", language)
   const globalAccessibilityQuestions = buildConvenienceQuestions(globalAccessibilityChecks, language)
   const globalAccessibilityReadiness = deriveConvenienceReadiness(globalAccessibilityQuestions, language)
-  const reviewBurstScore = optionalNumber(firstValue(result.reviewBurstScore, root.reviewBurstScore))
+  const reviewBurstScore = optionalNumber(firstValue(
+    result.reviewBurstScore,
+    result.review_burst_score,
+    resultScoreBreakdown.reviewBurstScore,
+    resultScoreBreakdown.review_burst_score,
+    root.reviewBurstScore,
+    root.review_burst_score,
+    rootScoreBreakdown.reviewBurstScore,
+    rootScoreBreakdown.review_burst_score
+  ))
   const reviewBurstStatus =
     stringValue(firstValue(result.reviewBurstStatus, root.reviewBurstStatus)) === "available" || reviewBurstScore !== undefined
       ? "available"
@@ -961,6 +1049,7 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       adSuspicionScore,
       informationScore,
       globalAccessibilityScore,
+      preVisitCheckScore,
       analyzedReviewCount,
     },
     analysisConfidence: {
@@ -1012,18 +1101,75 @@ export function normalizeAnalysisResult(input: unknown, options: { language?: La
       description: reviewBurstDescription(reviewBurstStatus, reviewBurstScore, language),
     },
     scoreBreakdown: {
-      evidenceScore: scoreValue(result.evidenceScore, root.evidenceScore),
-      riskScore: scoreValue(result.riskScore, root.riskScore, adSuspicionScore),
-      specificityScore: scoreValue(result.specificityScore, root.specificityScore),
-      balanceScore: scoreValue(result.balanceScore, root.balanceScore),
-      diversityScore: scoreValue(result.diversityScore, root.diversityScore),
-      informativeScore: scoreValue(result.informativeScore, root.informativeScore, informationScore),
-      naturalnessScore: scoreValue(result.naturalnessScore, root.naturalnessScore),
-      promoSignalScore: scoreValue(result.promoSignalScore, root.promoSignalScore),
-      repetitionScore: scoreValue(result.repetitionScore, root.repetitionScore),
-      exaggerationScore: scoreValue(result.exaggerationScore, root.exaggerationScore),
-      eventDiscountScore: scoreValue(result.eventDiscountScore, root.eventDiscountScore),
+      evidenceScore: scoreValue(result.evidenceScore, result.evidence_score, resultScoreBreakdown.evidenceScore, resultScoreBreakdown.evidence_score, root.evidenceScore, root.evidence_score, rootScoreBreakdown.evidenceScore, rootScoreBreakdown.evidence_score),
+      riskScore: scoreValue(result.riskScore, result.risk_score, resultScoreBreakdown.riskScore, resultScoreBreakdown.risk_score, root.riskScore, root.risk_score, rootScoreBreakdown.riskScore, rootScoreBreakdown.risk_score, adSuspicionScore),
+      specificityScore: scoreValue(result.specificityScore, result.specificity_score, resultScoreBreakdown.specificityScore, resultScoreBreakdown.specificity_score, root.specificityScore, root.specificity_score, rootScoreBreakdown.specificityScore, rootScoreBreakdown.specificity_score),
+      balanceScore: scoreValue(result.balanceScore, result.balance_score, resultScoreBreakdown.balanceScore, resultScoreBreakdown.balance_score, root.balanceScore, root.balance_score, rootScoreBreakdown.balanceScore, rootScoreBreakdown.balance_score),
+      diversityScore: scoreValue(result.diversityScore, result.diversity_score, resultScoreBreakdown.diversityScore, resultScoreBreakdown.diversity_score, root.diversityScore, root.diversity_score, rootScoreBreakdown.diversityScore, rootScoreBreakdown.diversity_score),
+      informativeScore: scoreValue(result.informativeScore, result.informative_score, resultScoreBreakdown.informativeScore, resultScoreBreakdown.informative_score, root.informativeScore, root.informative_score, rootScoreBreakdown.informativeScore, rootScoreBreakdown.informative_score, informationScore),
+      naturalnessScore: scoreValue(result.naturalnessScore, result.naturalness_score, resultScoreBreakdown.naturalnessScore, resultScoreBreakdown.naturalness_score, root.naturalnessScore, root.naturalness_score, rootScoreBreakdown.naturalnessScore, rootScoreBreakdown.naturalness_score),
+      promoSignalScore: scoreValue(result.promoSignalScore, result.promo_signal_score, resultScoreBreakdown.promoSignalScore, resultScoreBreakdown.promo_signal_score, root.promoSignalScore, root.promo_signal_score, rootScoreBreakdown.promoSignalScore, rootScoreBreakdown.promo_signal_score),
+      repetitionScore: scoreValue(result.repetitionScore, result.repetition_score, resultScoreBreakdown.repetitionScore, resultScoreBreakdown.repetition_score, root.repetitionScore, root.repetition_score, rootScoreBreakdown.repetitionScore, rootScoreBreakdown.repetition_score),
+      exaggerationScore: scoreValue(result.exaggerationScore, result.exaggeration_score, resultScoreBreakdown.exaggerationScore, resultScoreBreakdown.exaggeration_score, root.exaggerationScore, root.exaggeration_score, rootScoreBreakdown.exaggerationScore, rootScoreBreakdown.exaggeration_score),
+      eventDiscountScore: scoreValue(result.eventDiscountScore, result.event_discount_score, resultScoreBreakdown.eventDiscountScore, resultScoreBreakdown.event_discount_score, root.eventDiscountScore, root.event_discount_score, rootScoreBreakdown.eventDiscountScore, rootScoreBreakdown.event_discount_score),
       reviewBurstScore,
+      explicitPromoScore: optionalNumber(firstValue(resultScoreBreakdown.explicitPromoScore, resultScoreBreakdown.explicit_promo_score)),
+      softPromoScore: optionalNumber(firstValue(resultScoreBreakdown.softPromoScore, resultScoreBreakdown.soft_promo_score)),
+      eventBenefitScore: optionalNumber(firstValue(resultScoreBreakdown.eventBenefitScore, resultScoreBreakdown.event_benefit_score)),
+      callToActionScore: optionalNumber(firstValue(resultScoreBreakdown.callToActionScore, resultScoreBreakdown.call_to_action_score)),
+      promoRepetitionScore: optionalNumber(firstValue(resultScoreBreakdown.promoRepetitionScore, resultScoreBreakdown.promo_repetition_score)),
+      balancedPromoRelief: optionalNumber(firstValue(resultScoreBreakdown.balancedPromoRelief, resultScoreBreakdown.balanced_promo_relief)),
+      concreteAspectCoverageScore: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectCoverageScore, resultScoreBreakdown.concrete_aspect_coverage_score)),
+      concreteAspectCount: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectCount, resultScoreBreakdown.concrete_aspect_count)),
+      concreteDepthBonus: optionalNumber(firstValue(resultScoreBreakdown.concreteDepthBonus, resultScoreBreakdown.concrete_depth_bonus)),
+      perReviewConcreteCoverageScore: optionalNumber(firstValue(resultScoreBreakdown.perReviewConcreteCoverageScore, resultScoreBreakdown.per_review_concrete_coverage_score)),
+      lexicalUniqueScore: optionalNumber(firstValue(resultScoreBreakdown.lexicalUniqueScore, resultScoreBreakdown.lexical_unique_score)),
+      semanticClusterVarietyScore: optionalNumber(firstValue(resultScoreBreakdown.semanticClusterVarietyScore, resultScoreBreakdown.semantic_cluster_variety_score)),
+      genericPraiseRepetitionScore: optionalNumber(firstValue(resultScoreBreakdown.genericPraiseRepetitionScore, resultScoreBreakdown.generic_praise_repetition_score)),
+      concreteAspectVarietyScore: optionalNumber(firstValue(resultScoreBreakdown.concreteAspectVarietyScore, resultScoreBreakdown.concrete_aspect_variety_score)),
+      lowInformationRatio: optionalNumber(firstValue(resultScoreBreakdown.lowInformationRatio, resultScoreBreakdown.low_information_ratio)),
+      rawReviewTrustScore: optionalNumber(firstValue(resultScoreBreakdown.rawReviewTrustScore, resultScoreBreakdown.raw_review_trust_score)),
+      adjustedReviewTrustScore: optionalNumber(firstValue(resultScoreBreakdown.adjustedReviewTrustScore, resultScoreBreakdown.adjusted_review_trust_score)),
+      trustAdjustmentPenalty: optionalNumber(firstValue(resultScoreBreakdown.trustAdjustmentPenalty, resultScoreBreakdown.trust_adjustment_penalty)),
+      specificityPenalty: optionalNumber(firstValue(resultScoreBreakdown.specificityPenalty, resultScoreBreakdown.specificity_penalty)),
+      evidencePenalty: optionalNumber(firstValue(resultScoreBreakdown.evidencePenalty, resultScoreBreakdown.evidence_penalty)),
+      repetitionPenalty: optionalNumber(firstValue(resultScoreBreakdown.repetitionPenalty, resultScoreBreakdown.repetition_penalty)),
+      riskPenalty: optionalNumber(firstValue(resultScoreBreakdown.riskPenalty, resultScoreBreakdown.risk_penalty)),
+      lowInformationPenalty: optionalNumber(firstValue(resultScoreBreakdown.lowInformationPenalty, resultScoreBreakdown.low_information_penalty)),
+      hardCapApplied: booleanValue(firstValue(resultScoreBreakdown.hardCapApplied, resultScoreBreakdown.hard_cap_applied)),
+      hardCapReason: stringValue(firstValue(resultScoreBreakdown.hardCapReason, resultScoreBreakdown.hard_cap_reason)) || undefined,
+      sampleSizeConfidenceScore: optionalNumber(firstValue(resultScoreBreakdown.sampleSizeConfidenceScore, resultScoreBreakdown.sample_size_confidence_score)),
+      sampleSizeBonus: optionalNumber(firstValue(resultScoreBreakdown.sampleSizeBonus, resultScoreBreakdown.sample_size_bonus)),
+      deterministicPromoRiskScore: optionalNumber(firstValue(resultScoreBreakdown.deterministicPromoRiskScore, resultScoreBreakdown.deterministic_promo_risk_score)),
+      modelAdRiskScore: optionalNumber(firstValue(resultScoreBreakdown.modelAdRiskScore, resultScoreBreakdown.model_ad_risk_score)),
+      combinedAdRiskScore: optionalNumber(firstValue(resultScoreBreakdown.combinedAdRiskScore, resultScoreBreakdown.combined_ad_risk_score)),
+      promoRiskFloor: optionalNumber(firstValue(resultScoreBreakdown.promoRiskFloor, resultScoreBreakdown.promo_risk_floor)),
+      promoRiskFloorReason: stringValue(firstValue(resultScoreBreakdown.promoRiskFloorReason, resultScoreBreakdown.promo_risk_floor_reason)) || undefined,
+      rawInputReviewCount: optionalNumber(firstValue(resultScoreBreakdown.rawInputReviewCount, resultScoreBreakdown.raw_input_review_count)),
+      cleanedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.cleanedReviewCount, resultScoreBreakdown.cleaned_review_count)),
+      analyzedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.analyzedReviewCount, resultScoreBreakdown.analyzed_review_count)),
+      deduplicatedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.deduplicatedReviewCount, resultScoreBreakdown.deduplicated_review_count)),
+      promoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.promoMatchedReviewCount, resultScoreBreakdown.promo_matched_review_count)),
+      softPromoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.softPromoMatchedReviewCount, resultScoreBreakdown.soft_promo_matched_review_count)),
+      eventBenefitMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.eventBenefitMatchedReviewCount, resultScoreBreakdown.event_benefit_matched_review_count)),
+      callToActionMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.callToActionMatchedReviewCount, resultScoreBreakdown.call_to_action_matched_review_count)),
+      explicitPromoMatchedReviewCount: optionalNumber(firstValue(resultScoreBreakdown.explicitPromoMatchedReviewCount, resultScoreBreakdown.explicit_promo_matched_review_count)),
+      highEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.highEvidenceReviewCount, resultScoreBreakdown.high_evidence_review_count)),
+      mediumEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.mediumEvidenceReviewCount, resultScoreBreakdown.medium_evidence_review_count)),
+      lowEvidenceReviewCount: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewCount, resultScoreBreakdown.low_evidence_review_count)),
+      promoRiskReviewCount: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewCount, resultScoreBreakdown.promo_risk_review_count)),
+      highEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.highEvidenceReviewRatio, resultScoreBreakdown.high_evidence_review_ratio)),
+      mediumEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.mediumEvidenceReviewRatio, resultScoreBreakdown.medium_evidence_review_ratio)),
+      lowEvidenceReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewRatio, resultScoreBreakdown.low_evidence_review_ratio)),
+      promoRiskReviewRatio: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewRatio, resultScoreBreakdown.promo_risk_review_ratio)),
+      reviewQualityDistributionScore: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityDistributionScore, resultScoreBreakdown.review_quality_distribution_score)),
+      reviewQualityBonus: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityBonus, resultScoreBreakdown.review_quality_bonus)),
+      lowEvidenceReviewPenalty: optionalNumber(firstValue(resultScoreBreakdown.lowEvidenceReviewPenalty, resultScoreBreakdown.low_evidence_review_penalty)),
+      promoRiskReviewPenalty: optionalNumber(firstValue(resultScoreBreakdown.promoRiskReviewPenalty, resultScoreBreakdown.promo_risk_review_penalty)),
+      reviewQualityNetAdjustment: optionalNumber(firstValue(resultScoreBreakdown.reviewQualityNetAdjustment, resultScoreBreakdown.review_quality_net_adjustment)),
+      hasSoftPromoPattern: booleanValue(firstValue(resultScoreBreakdown.hasSoftPromoPattern, resultScoreBreakdown.has_soft_promo_pattern)),
+      hasGenericPraisePattern: booleanValue(firstValue(resultScoreBreakdown.hasGenericPraisePattern, resultScoreBreakdown.has_generic_praise_pattern)),
+      hasPromoRepetitionPattern: booleanValue(firstValue(resultScoreBreakdown.hasPromoRepetitionPattern, resultScoreBreakdown.has_promo_repetition_pattern)),
     },
     content: {
       summary: languageSafeText(summary, language, fallbackSummary),

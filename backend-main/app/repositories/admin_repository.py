@@ -1,4 +1,6 @@
-from sqlalchemy import func, or_
+from datetime import datetime, time, timedelta, timezone
+
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -6,15 +8,219 @@ from app.models import (
     AdminAuditLog,
     AdminReviewModerationCase,
     AnalysisRequest,
+    AnalysisResult,
+    AnalysisUsageLog,
     Hospital,
+    Inquiry,
     Member,
     MemberSavedHospital,
     Review,
     ReviewReport,
+    SubscriptionPlan,
 )
 
 
 class AdminRepository:
+    @staticmethod
+    def list_subscription_plans():
+        return SubscriptionPlan.query.order_by(SubscriptionPlan.monthly_price.asc(), SubscriptionPlan.id.asc()).all()
+
+    @staticmethod
+    def database_is_available():
+        db.session.execute(db.text("select 1"))
+        return True
+
+    @staticmethod
+    def system_status_counts(now=None):
+        current = now or datetime.now(timezone.utc)
+        today_start = datetime.combine(current.date(), time.min, tzinfo=timezone.utc)
+        recent_start = current.replace(microsecond=0) - timedelta(hours=24)
+        return {
+            "totalAnalyses": AdminRepository.count_analyses(),
+            "pendingAnalyses": AdminRepository.count_analyses(status="pending"),
+            "analyzingAnalyses": AdminRepository.count_analyses(status="analyzing"),
+            "failedAnalyses": AdminRepository.count_analyses(status="failed"),
+            "recentFailedAnalyses": (
+                db.session.query(func.count(AnalysisRequest.id))
+                .filter(
+                    AnalysisRequest.request_status == "failed",
+                    AnalysisRequest.created_at >= recent_start,
+                )
+                .scalar()
+                or 0
+            ),
+            "auditLogsToday": (
+                db.session.query(func.count(AdminAuditLog.id))
+                .filter(AdminAuditLog.created_at >= today_start)
+                .scalar()
+                or 0
+            ),
+            "openInquiries": AdminRepository.count_open_inquiries(),
+        }
+    @staticmethod
+    def list_analyses(
+        keyword=None,
+        status=None,
+        category=None,
+        analysis_type=None,
+        errors_only=False,
+        limit=20,
+        offset=0,
+    ):
+        query = AnalysisRequest.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.outerjoin(Member, AnalysisRequest.member_id == Member.id)
+                .join(Hospital, AnalysisRequest.hospital_id == Hospital.id)
+                .outerjoin(AnalysisResult, AnalysisResult.request_id == AnalysisRequest.id)
+                .filter(
+                    or_(
+                        Hospital.hospital_name.ilike(pattern),
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        AnalysisRequest.error_message.ilike(pattern),
+                        cast(AnalysisRequest.id, String).ilike(pattern),
+                        cast(AnalysisResult.id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if status:
+            query = query.filter(AnalysisRequest.request_status == status)
+        if category:
+            query = query.join(Hospital, AnalysisRequest.hospital_id == Hospital.id) if not keyword else query
+            query = query.filter(Hospital.category == category)
+        if analysis_type:
+            query = query.filter(AnalysisRequest.analysis_type == analysis_type)
+        if errors_only:
+            query = query.filter(
+                or_(
+                    AnalysisRequest.request_status == "failed",
+                    AnalysisRequest.error_message.is_not(None),
+                )
+            )
+
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(AnalysisRequest.member),
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.analysis_result).joinedload(
+                    AnalysisResult.admin_moderation_cases
+                ),
+            )
+            .order_by(AnalysisRequest.created_at.desc(), AnalysisRequest.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
+    def get_analysis_request_by_id(request_id):
+        return (
+            AnalysisRequest.query.options(
+                joinedload(AnalysisRequest.member),
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.reviews),
+                joinedload(AnalysisRequest.analysis_result).joinedload(
+                    AnalysisResult.admin_moderation_cases
+                ),
+            )
+            .filter(AnalysisRequest.id == request_id)
+            .first()
+        )
+
+    @staticmethod
+    def list_usage_logs(keyword=None, usage_type=None, period_key=None, limit=20, offset=0):
+        query = AnalysisUsageLog.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.join(Member, AnalysisUsageLog.member_id == Member.id)
+                .join(AnalysisResult, AnalysisUsageLog.analysis_result_id == AnalysisResult.id)
+                .join(Hospital, AnalysisResult.hospital_id == Hospital.id)
+                .filter(
+                    or_(
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        Hospital.hospital_name.ilike(pattern),
+                        cast(AnalysisUsageLog.id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if usage_type:
+            query = query.filter(AnalysisUsageLog.usage_type == usage_type)
+        if period_key:
+            query = query.filter(AnalysisUsageLog.period_key == period_key)
+
+        total = query.count()
+        items = (
+            query.options(
+                joinedload(AnalysisUsageLog.member),
+                joinedload(AnalysisUsageLog.analysis_result).joinedload(AnalysisResult.hospital),
+            )
+            .order_by(AnalysisUsageLog.charged_at.desc(), AnalysisUsageLog.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
+    def count_analyses(status=None, created_from=None):
+        query = db.session.query(func.count(AnalysisRequest.id))
+        if status:
+            query = query.filter(AnalysisRequest.request_status == status)
+        if created_from:
+            query = query.filter(AnalysisRequest.created_at >= created_from)
+        return query.scalar() or 0
+
+    @staticmethod
+    def count_pending_review_cases():
+        return (
+            db.session.query(func.count(AdminReviewModerationCase.id))
+            .filter(AdminReviewModerationCase.status.in_(("pending", "reviewing")))
+            .scalar()
+            or 0
+        )
+
+    @staticmethod
+    def count_open_inquiries():
+        return (
+            db.session.query(func.count(Inquiry.id))
+            .filter(Inquiry.status.in_(("PENDING", "IN_PROGRESS")))
+            .scalar()
+            or 0
+        )
+
+    @staticmethod
+    def count_hospitals(status=None):
+        query = db.session.query(func.count(Hospital.id))
+        if status:
+            query = query.filter(Hospital.admin_status == status)
+        return query.scalar() or 0
+
+    @staticmethod
+    def analysis_summary_counts(now=None):
+        current = now or datetime.now(timezone.utc)
+        today_start = datetime.combine(current.date(), time.min, tzinfo=timezone.utc)
+        month_start = datetime(current.year, current.month, 1, tzinfo=timezone.utc)
+        return {
+            "totalAnalyses": AdminRepository.count_analyses(),
+            "todayAnalyses": AdminRepository.count_analyses(created_from=today_start),
+            "monthAnalyses": AdminRepository.count_analyses(created_from=month_start),
+            "failedAnalyses": AdminRepository.count_analyses(status="failed"),
+            "pendingReviewCases": AdminRepository.count_pending_review_cases(),
+            "openInquiries": AdminRepository.count_open_inquiries(),
+            "totalHospitals": AdminRepository.count_hospitals(),
+            "needsReviewHospitals": AdminRepository.count_hospitals(status="needs_review"),
+        }
+
     @staticmethod
     def get_member_by_id(member_id):
         return db.session.get(Member, member_id)
@@ -73,6 +279,39 @@ class AdminRepository:
         }
 
     @staticmethod
+    def list_member_analysis_activity(member_id, limit=10):
+        return (
+            AnalysisRequest.query.options(
+                joinedload(AnalysisRequest.hospital),
+                joinedload(AnalysisRequest.analysis_result),
+            )
+            .filter(AnalysisRequest.member_id == member_id)
+            .order_by(AnalysisRequest.created_at.desc(), AnalysisRequest.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_member_saved_hospital_activity(member_id, limit=10):
+        return (
+            MemberSavedHospital.query.options(joinedload(MemberSavedHospital.hospital))
+            .filter(MemberSavedHospital.member_id == member_id)
+            .order_by(MemberSavedHospital.saved_at.desc(), MemberSavedHospital.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
+    def list_member_report_activity(member_id, limit=10):
+        return (
+            ReviewReport.query.options(joinedload(ReviewReport.hospital))
+            .filter(ReviewReport.reporter_member_id == member_id)
+            .order_by(ReviewReport.created_at.desc(), ReviewReport.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    @staticmethod
     def update_member(member, data):
         for key, value in data.items():
             setattr(member, key, value)
@@ -85,8 +324,83 @@ class AdminRepository:
         return audit_log
 
     @staticmethod
+    def get_analysis_error_action_states(request_ids):
+        if not request_ids:
+            return {}
+        logs = (
+            AdminAuditLog.query.filter(
+                AdminAuditLog.action_type == "analysis_review",
+                AdminAuditLog.target_table == "analysis_requests",
+                AdminAuditLog.target_id.in_(request_ids),
+            )
+            .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+            .all()
+        )
+        states = {}
+        for log in logs:
+            state = states.setdefault(log.target_id, {"errorResolved": False, "userNotified": False})
+            action = (log.after_json or {}).get("action")
+            if action == "error_resolved":
+                state["errorResolved"] = True
+            elif action == "error_user_notified":
+                state["userNotified"] = True
+        return states
+
+    @staticmethod
+    def list_audit_logs(keyword=None, action=None, resource_type=None, admin_id=None, limit=20, offset=0):
+        query = AdminAuditLog.query
+
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            query = (
+                query.outerjoin(Member, AdminAuditLog.admin_member_id == Member.id)
+                .filter(
+                    or_(
+                        Member.email.ilike(pattern),
+                        Member.nickname.ilike(pattern),
+                        AdminAuditLog.action_type.ilike(pattern),
+                        AdminAuditLog.target_table.ilike(pattern),
+                        AdminAuditLog.description.ilike(pattern),
+                        cast(AdminAuditLog.id, String).ilike(pattern),
+                        cast(AdminAuditLog.target_id, String).ilike(pattern),
+                    )
+                )
+            )
+
+        if action:
+            query = query.filter(AdminAuditLog.action_type == action)
+        if resource_type:
+            query = query.filter(AdminAuditLog.target_table == resource_type)
+        if admin_id is not None:
+            query = query.filter(AdminAuditLog.admin_member_id == admin_id)
+
+        total = query.count()
+        items = (
+            query.options(joinedload(AdminAuditLog.admin_member))
+            .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return items, total
+
+    @staticmethod
     def get_review_case_by_id(case_id):
         return db.session.get(AdminReviewModerationCase, case_id)
+
+    @staticmethod
+    def get_latest_analysis_review_case(analysis_result_id):
+        return (
+            AdminReviewModerationCase.query.filter(
+                AdminReviewModerationCase.analysis_result_id == analysis_result_id,
+                AdminReviewModerationCase.case_type == "manual_review",
+            )
+            .order_by(
+                AdminReviewModerationCase.created_at.desc(),
+                AdminReviewModerationCase.id.desc(),
+            )
+            .first()
+        )
 
     @staticmethod
     def list_review_cases(keyword=None, status=None, case_type=None, limit=20, offset=0):

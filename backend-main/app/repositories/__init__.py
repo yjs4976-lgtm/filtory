@@ -1,6 +1,8 @@
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.analysis_repository import AnalysisRepository
+from app.repositories.analysis_usage_repository import AnalysisUsageRepository
 from app.repositories.chatbot_history_repository import ChatbotHistoryRepository
+from app.repositories.content_repository import ContentRepository
 from app.repositories.hospital_repository import HospitalRepository
 from app.repositories.hospital_enrichment_suggestion_repository import HospitalEnrichmentSuggestionRepository
 from app.repositories.inquiry_repository import InquiryRepository
@@ -15,7 +17,9 @@ from app.repositories.subscription_repository import SubscriptionRepository
 __all__ = [
     "AdminRepository",
     "AnalysisRepository",
+    "AnalysisUsageRepository",
     "ChatbotHistoryRepository",
+    "ContentRepository",
     "HospitalRepository",
     "HospitalEnrichmentSuggestionRepository",
     "InquiryRepository",

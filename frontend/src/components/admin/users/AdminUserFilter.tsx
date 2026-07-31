@@ -14,8 +14,11 @@ export function AdminUserFilter({ value, onChange }: AdminUserFilterProps) {
   const labels = t.admin.userManagement
 
   return (
-    <section className="soft-card admin-table-card">
-      <h2>{labels.searchTitle}</h2>
+    <section className="soft-card admin-table-card admin-member-filter-card">
+      <div className="admin-member-section-title">
+        <span className="admin-member-section-icon" aria-hidden="true">⌕</span>
+        <div><h2>{labels.searchTitle}</h2><p>{labels.searchPlaceholder}</p></div>
+      </div>
       <div className="admin-filter-grid">
         <input
           value={value.keyword ?? ""}

@@ -21,6 +21,7 @@ class GoogleOAuthClient:
                 "state": state,
                 "access_type": "offline",
                 "prompt": "consent",
+                "hl": "ko",
             }
         )
         return f"{GoogleOAuthClient.AUTHORIZE_URL}?{query}"

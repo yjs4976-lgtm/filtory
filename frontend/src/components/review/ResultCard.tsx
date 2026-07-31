@@ -20,12 +20,20 @@ import styles from "@/styles/App.module.css"
 import { recentHospitalService } from "@/services/recentHospitalService"
 import { useAuth } from "@/hooks/useAuth"
 import type { HospitalItem } from "@/lib/types"
+import { PartneredInsight } from "@/components/ads/PartneredInsight"
+import { useMembership } from "@/context/MembershipContext"
+import { getActiveSponsoredInsight } from "@/data/sponsoredInsights"
+import { MembershipSheet } from "@/components/membership/MembershipSheet"
+import { subscriptionPlans } from "@/data/subscriptionPlans"
 
 export function ResultCard() {
   const router = useRouter()
   const { t, language } = useLanguage()
   const { isAuthenticated } = useAuth()
+  const { membershipType, checkDetailedAccessForAnalysis, formattedResetDate } = useMembership()
+  const [plusOpen, setPlusOpen] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<CurrentReviewAnalysis | null>(null)
+  const [authorizedAnalysisId, setAuthorizedAnalysisId] = useState<string | null>(null)
   const viewModel = useMemo(
     () => (analysisResult ? normalizeAnalysisResult(analysisResult, { language }) : null),
     [analysisResult, language]
@@ -43,6 +51,16 @@ export function ResultCard() {
     if (!isAuthenticated || !analysisResult?.hospitalId) return
     void recentHospitalService.recordRecentHospital(analysisResult.hospitalId, analysisResult.analysisResultId).catch(() => undefined)
   }, [analysisResult?.analysisResultId, analysisResult?.hospitalId, isAuthenticated])
+
+  useEffect(() => {
+    const analysisId = analysisResult?.analysisResultId
+    if (!analysisId) return
+    let active = true
+    void checkDetailedAccessForAnalysis(analysisId).then((allowed) => {
+      if (active) setAuthorizedAnalysisId(allowed ? String(analysisId) : null)
+    })
+    return () => { active = false }
+  }, [analysisResult?.analysisResultId, checkDetailedAccessForAnalysis])
 
   if (!viewModel) {
     return (
@@ -90,7 +108,7 @@ export function ResultCard() {
         categoryLabel={categoryLabel}
         analyzedAt={analysisResult?.analyzedAt}
       />
-      <ResultInsightSection viewModel={viewModel} />
+      <ResultInsightSection viewModel={viewModel} hasDetailedAccess={authorizedAnalysisId === String(viewModel.ids.analysisResultId ?? "")} formattedResetDate={formattedResetDate} onShowPlus={() => setPlusOpen(true)} />
       <Link href={helpInquiryHref} className={styles.analysisHelpCard}>
         <span className={styles.analysisHelpIcon}>
           <MessageCircle className={styles.iconMd} />
@@ -104,6 +122,8 @@ export function ResultCard() {
       <ResultGuideSection viewModel={viewModel} />
       <ResultActionCard />
       <ChatbotConnectCard analysisResultId={viewModel.ids.analysisResultId} analysisResult={analysisResult} />
+      <PartneredInsight insight={getActiveSponsoredInsight("analysis-result")} showSponsoredContent={subscriptionPlans[membershipType].showPartneredInsight} showResultEnd />
+      <MembershipSheet open={plusOpen} variant="benefits" onClose={() => setPlusOpen(false)} />
     </div>
   )
 }

@@ -19,6 +19,8 @@ export type HospitalRegionCode =
   | "gyeongnam"
   | "jeju"
 export type UserRole = "USER" | "ADMIN"
+export type Workspace = "USER" | "ADMIN"
+export type WorkspacePreference = Workspace | "LAST_USED"
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "DORMANT"
 export type SocialProvider = "google" | "naver" | "kakao"
 
@@ -384,7 +386,14 @@ export type CurrentReviewAnalysis = ReviewAnalyzeResponse & {
   provider?: string
   externalPlaceId?: string
   mapUrl?: string
+  googleMapUrl?: string
+  naverPlaceUrl?: string
+  kakaoPlaceUrl?: string
+  homepageUrl?: string
   phone?: string
+  treatmentItems?: string | string[]
+  hasPhotos?: boolean
+  hasGooglePhotos?: boolean
   isFavorite?: boolean
   favoriteHospitalId?: number
   reviewText?: string
@@ -429,7 +438,12 @@ export interface User {
   reportCount?: number
   profileCompletion?: number
   createdAt?: string
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
+
+export type Gender = "FEMALE" | "MALE" | "OTHER" | "PREFER_NOT_TO_SAY"
+export type AgeGroup = "UNDER_TEN" | "TEENS" | "TWENTIES" | "THIRTIES" | "FORTIES" | "FIFTIES" | "SIXTIES_OR_MORE"
 
 export interface ApiResponse<T> {
   success: boolean
@@ -460,6 +474,8 @@ export interface SignupPayload {
   termsAgreed: boolean
   privacyAgreed: boolean
   marketingAgreed?: boolean
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
 
 export interface SignupRequest extends SignupPayload {
@@ -507,6 +523,8 @@ export interface UpdateProfilePayload {
   nickname?: string
   phone?: string
   profileImageUrl?: string | null
+  dateOfBirth?: string | null
+  gender?: Gender | null
 }
 
 export interface WithdrawPayload {
@@ -525,6 +543,14 @@ export interface AdminSummary {
   activeUsers: number;
   suspendedUsers: number;
   withdrawnUsers: number;
+  totalAnalyses: number;
+  todayAnalyses: number;
+  monthAnalyses: number;
+  failedAnalyses: number;
+  pendingReviewCases: number;
+  openInquiries: number;
+  totalHospitals: number;
+  needsReviewHospitals: number;
 }
 
 export interface AdminUser extends Omit<User, "id"> {

@@ -6,10 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { useLanguage } from "@/context/LanguageContext";
-import { sanitizeInternalNextPath } from "@/lib/navigation";
+import { isAdminRole } from "@/lib/adminAccess";
+import { sanitizeAuthRedirectPath } from "@/lib/navigation";
 import { ROUTES } from "@/lib/routes";
 import { ApiClientError } from "@/services/apiClient";
 import { PasswordField } from "./PasswordField";
+import { AdminWorkspaceIntro } from "@/components/workspace/AdminWorkspaceIntro";
+import { getWorkspaceStartPath, readWorkspaceSettings } from "@/lib/workspace";
+import type { Workspace } from "@/lib/types";
 import styles from "@/styles/App.module.css";
 
 function retryAfterMinutesFromError(error: ApiClientError) {
@@ -35,7 +39,7 @@ function retryAfterMinutesFromError(error: ApiClientError) {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, markAdminIntroSeen } = useAuth();
   const { showToast } = useToast();
   const { t, language } = useLanguage();
 
@@ -44,6 +48,13 @@ export function LoginForm() {
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdminIntro, setShowAdminIntro] = useState(false);
+  const signupNextPath = sanitizeAuthRedirectPath(
+    searchParams.get("redirect") ?? searchParams.get("next")
+  );
+  const signupHref = signupNextPath
+    ? `${ROUTES.SIGNUP}?next=${encodeURIComponent(signupNextPath)}`
+    : ROUTES.SIGNUP;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,14 +68,25 @@ export function LoginForm() {
 
     try {
       setIsSubmitting(true);
-      await login({ identifier: normalizedIdentifier, password });
+      const loggedInUser = await login({ identifier: normalizedIdentifier, password });
       showToast({
         title: t.auth.loginToastTitle,
         description: t.auth.loginToastDescription,
         tone: "success",
       });
-      const nextPath = sanitizeInternalNextPath(searchParams.get("next"));
-      router.push(nextPath ?? ROUTES.MYPAGE);
+      const redirect = sanitizeAuthRedirectPath(searchParams.get("redirect") ?? searchParams.get("next"));
+      if (redirect?.startsWith(ROUTES.ADMIN)) {
+        router.replace(isAdminRole(loggedInUser.role) ? redirect : ROUTES.UNAUTHORIZED);
+        return;
+      }
+      if (redirect) { router.replace(redirect); return }
+      if (isAdminRole(loggedInUser.role)) {
+        const settings = readWorkspaceSettings(loggedInUser)
+        if (!settings.hasSeenAdminWorkspaceIntro) { setShowAdminIntro(true); return }
+        router.replace(getWorkspaceStartPath(settings));
+        return
+      }
+      router.replace(ROUTES.HOME);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 429) {
         const minutes = retryAfterMinutesFromError(error);
@@ -81,7 +103,14 @@ export function LoginForm() {
     }
   };
 
+  const selectWorkspace = (workspace: Workspace, remember: boolean) => {
+    markAdminIntroSeen(workspace, remember)
+    setShowAdminIntro(false)
+    router.replace(workspace === "ADMIN" ? ROUTES.ADMIN : ROUTES.HOME)
+  }
+
   return (
+    <>
     <form className={styles.memberForm} onSubmit={handleSubmit}>
       {error && <p className={styles.formError}>{error}</p>}
 
@@ -120,8 +149,10 @@ export function LoginForm() {
       </div>
 
       <p className={styles.authBottomText}>
-        {t.auth.signupPrompt} <Link href={ROUTES.SIGNUP}>{t.auth.signupButton}</Link>
+        {t.auth.signupPrompt} <Link href={signupHref}>{t.auth.signupButton}</Link>
       </p>
     </form>
+    {showAdminIntro && <AdminWorkspaceIntro onSelect={selectWorkspace} />}
+    </>
   );
 }

@@ -13,7 +13,7 @@ import {
   type AdminHospitalUpdatePayload,
 } from "@/services/adminHospitalService"
 
-const CATEGORY_OPTIONS: AdminHospitalCategory[] = ["dermatology", "ophthalmology", "dentistry"]
+const CATEGORY_OPTIONS: AdminHospitalCategory[] = ["dermatology", "ophthalmology", "dentistry", "orthopedics"]
 const STATUS_OPTIONS: AdminHospitalStatus[] = ["active", "needs_review", "hidden", "archived"]
 const PAGE_SIZE_OPTIONS = [5, 10, 20] as const
 
@@ -83,7 +83,7 @@ export default function AdminHospitalsPage() {
           <p>{t.admin.hospitalsDescription}</p>
         </section>
 
-        <section className="soft-card admin-table-card">
+        <section className="soft-card admin-table-card admin-hospital-filter">
           <h2>{labels.filterTitle}</h2>
           <div className="admin-filter-grid">
             <input
@@ -120,37 +120,17 @@ export default function AdminHospitalsPage() {
         {error && <p className="form-error">{error}</p>}
 
         {!isLoading && (
-          <section className="soft-card admin-table-card">
+          <section className="soft-card admin-table-card admin-hospital-panel">
             <div className="admin-card-title-row">
               <h2>{labels.listTitle}</h2>
               <span>{total}{labels.countSuffix}</span>
             </div>
 
-            <div className="table-scroll">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>{labels.nameColumn}</th>
-                    <th>{labels.linksColumn}</th>
-                    <th>{labels.statusColumn}</th>
-                    <th>{labels.memoColumn}</th>
-                    <th>{labels.updatedColumn}</th>
-                    <th>{labels.actionColumn}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hospitals.map((hospital) => (
-                    <HospitalRow key={hospital.id} hospital={hospital} labels={labels} onSave={handleSave} />
-                  ))}
-                  {hospitals.length === 0 && (
-                    <tr>
-                      <td className="empty-cell" colSpan={6}>
-                        {labels.empty}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="admin-hospital-list">
+              {hospitals.map((hospital) => (
+                <HospitalCard key={hospital.id} hospital={hospital} labels={labels} onSave={handleSave} />
+              ))}
+              {hospitals.length === 0 && <p className="admin-hospital-empty">{labels.empty}</p>}
             </div>
 
             {total > 0 && (
@@ -198,7 +178,7 @@ export default function AdminHospitalsPage() {
   )
 }
 
-function HospitalRow({
+function HospitalCard({
   hospital,
   labels,
   onSave,
@@ -237,19 +217,26 @@ function HospitalRow({
   }
 
   return (
-    <tr>
-      <td>
+    <article className="admin-hospital-card">
+      <header>
+        <div>
+          <span>{labels.category[hospital.category]}</span>
+          <strong>{draft.hospitalName || labels.nameColumn}</strong>
+          <small>{hospital.region ?? hospital.roadAddress ?? hospital.address ?? "-"}</small>
+        </div>
+        <span className={`admin-hospital-status status-${draft.adminStatus}`}>{labels.status[draft.adminStatus]}</span>
+      </header>
+      <div className="admin-hospital-fields">
+        <label className="admin-hospital-name-field">
+          <span>{labels.nameColumn}</span>
         <input
           value={draft.hospitalName}
           aria-label={labels.nameColumn}
           onChange={(event) => setDraft({ ...draft, hospitalName: event.target.value })}
         />
-        <br />
-        <span>
-          {labels.category[hospital.category]} · {hospital.region ?? hospital.roadAddress ?? hospital.address ?? "-"}
-        </span>
-      </td>
-      <td>
+        </label>
+        <fieldset className="admin-hospital-links">
+          <legend>{labels.linksColumn}</legend>
         <input
           value={draft.naverPlaceUrl}
           placeholder={labels.naverPlaceholder}
@@ -274,8 +261,9 @@ function HospitalRow({
           aria-label={labels.homepagePlaceholder}
           onChange={(event) => setDraft({ ...draft, homepageUrl: event.target.value })}
         />
-      </td>
-      <td>
+        </fieldset>
+        <label>
+          <span>{labels.statusColumn}</span>
         <select
           className="admin-status-select"
           value={draft.adminStatus}
@@ -287,27 +275,30 @@ function HospitalRow({
             </option>
           ))}
         </select>
-        <br />
-        <span>{hospital.verifiedAt ? labels.verifiedAt.replace("{date}", formatDate(hospital.verifiedAt)) : labels.unverified}</span>
-      </td>
-      <td>
+          <small>{hospital.verifiedAt ? labels.verifiedAt.replace("{date}", formatDate(hospital.verifiedAt)) : labels.unverified}</small>
+        </label>
+        <label>
+          <span>{labels.memoColumn}</span>
         <textarea
-          rows={4}
+          rows={3}
           value={draft.adminMemo}
           placeholder={labels.memoPlaceholder}
           onChange={(event) => setDraft({ ...draft, adminMemo: event.target.value })}
         />
-      </td>
-      <td>{formatDate(hospital.updatedAt)}</td>
-      <td>
+        </label>
+      </div>
+      <footer>
+        <span>{labels.updatedColumn} {formatDate(hospital.updatedAt)}</span>
+        <div>
         <button type="button" className="small-button" disabled={isSaving} onClick={() => save(false)}>
           {labels.save}
         </button>
         <button type="button" className="small-button" disabled={isSaving} onClick={() => save(true)}>
           {labels.verifyAndSave}
         </button>
-      </td>
-    </tr>
+        </div>
+      </footer>
+    </article>
   )
 }
 
@@ -343,6 +334,7 @@ const koLabels = {
     dermatology: "피부과",
     ophthalmology: "안과",
     dentistry: "치과",
+    orthopedics: "정형외과",
   },
   status: {
     active: "활성",
@@ -384,6 +376,7 @@ const enLabels: typeof koLabels = {
     dermatology: "Dermatology",
     ophthalmology: "Ophthalmology",
     dentistry: "Dental",
+    orthopedics: "Orthopedics",
   },
   status: {
     active: "Active",

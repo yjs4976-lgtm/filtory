@@ -12,6 +12,8 @@ type BackendUser = Partial<User> & {
   deleted_at?: string | null
   created_at?: string | null
   updated_at?: string | null
+  date_of_birth?: string | null
+  gender?: string | null
 }
 
 type RawLoginResponse = Partial<LoginResponse> & {
@@ -79,6 +81,8 @@ export function normalizeUser(rawUser: BackendUser): User {
     savedHospitalCount: rawUser.savedHospitalCount,
     reportCount: rawUser.reportCount,
     createdAt: rawUser.createdAt || rawUser.created_at || undefined,
+    dateOfBirth: rawUser.dateOfBirth ?? rawUser.date_of_birth ?? null,
+    gender: rawUser.gender === "FEMALE" || rawUser.gender === "MALE" || rawUser.gender === "OTHER" || rawUser.gender === "PREFER_NOT_TO_SAY" ? rawUser.gender : null,
   }
 }
 

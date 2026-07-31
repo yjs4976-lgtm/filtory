@@ -44,6 +44,12 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     item.globalAccessibilityScore ?? item.global_accessibility_score ?? item.foreignerScore ?? item.foreigner_score ?? 0
   )
   const globalAccessRating = Number(item.globalAccessRating ?? item.global_access_rating ?? globalAccessibilityScore)
+  const scoreBreakdown =
+    item.scoreBreakdown && typeof item.scoreBreakdown === "object"
+      ? item.scoreBreakdown as Record<string, unknown>
+      : item.score_breakdown && typeof item.score_breakdown === "object"
+        ? item.score_breakdown as Record<string, unknown>
+        : {}
 
   return {
     ...item,
@@ -89,21 +95,21 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     score: Number(item.score ?? item.reviewTrustScore ?? item.review_trust_score ?? item.totalScore ?? item.total_score ?? item.trustScore ?? item.trust_score ?? 0),
     trustScore: Number(item.reviewTrustScore ?? item.review_trust_score ?? item.trustScore ?? item.trust_score ?? item.score ?? item.totalScore ?? item.total_score ?? 0),
     reviewTrustScore: optionalNumber(item.reviewTrustScore ?? item.review_trust_score),
-    evidenceScore: optionalNumber(item.evidenceScore ?? item.evidence_score),
-    riskScore: optionalNumber(item.riskScore ?? item.risk_score),
-    specificityScore: optionalNumber(item.specificityScore ?? item.specificity_score),
-    balanceScore: optionalNumber(item.balanceScore ?? item.balance_score),
-    diversityScore: optionalNumber(item.diversityScore ?? item.diversity_score),
-    informativeScore: optionalNumber(item.informativeScore ?? item.informative_score),
-    naturalnessScore: optionalNumber(item.naturalnessScore ?? item.naturalness_score),
-    promoSignalScore: optionalNumber(item.promoSignalScore ?? item.promo_signal_score),
-    repetitionScore: optionalNumber(item.repetitionScore ?? item.repetition_score),
-    exaggerationScore: optionalNumber(item.exaggerationScore ?? item.exaggeration_score),
-    eventDiscountScore: optionalNumber(item.eventDiscountScore ?? item.event_discount_score),
+    evidenceScore: optionalNumber(item.evidenceScore ?? item.evidence_score ?? scoreBreakdown.evidenceScore ?? scoreBreakdown.evidence_score),
+    riskScore: optionalNumber(item.riskScore ?? item.risk_score ?? scoreBreakdown.riskScore ?? scoreBreakdown.risk_score),
+    specificityScore: optionalNumber(item.specificityScore ?? item.specificity_score ?? scoreBreakdown.specificityScore ?? scoreBreakdown.specificity_score),
+    balanceScore: optionalNumber(item.balanceScore ?? item.balance_score ?? scoreBreakdown.balanceScore ?? scoreBreakdown.balance_score),
+    diversityScore: optionalNumber(item.diversityScore ?? item.diversity_score ?? scoreBreakdown.diversityScore ?? scoreBreakdown.diversity_score),
+    informativeScore: optionalNumber(item.informativeScore ?? item.informative_score ?? scoreBreakdown.informativeScore ?? scoreBreakdown.informative_score),
+    naturalnessScore: optionalNumber(item.naturalnessScore ?? item.naturalness_score ?? scoreBreakdown.naturalnessScore ?? scoreBreakdown.naturalness_score),
+    promoSignalScore: optionalNumber(item.promoSignalScore ?? item.promo_signal_score ?? scoreBreakdown.promoSignalScore ?? scoreBreakdown.promo_signal_score),
+    repetitionScore: optionalNumber(item.repetitionScore ?? item.repetition_score ?? scoreBreakdown.repetitionScore ?? scoreBreakdown.repetition_score),
+    exaggerationScore: optionalNumber(item.exaggerationScore ?? item.exaggeration_score ?? scoreBreakdown.exaggerationScore ?? scoreBreakdown.exaggeration_score),
+    eventDiscountScore: optionalNumber(item.eventDiscountScore ?? item.event_discount_score ?? scoreBreakdown.eventDiscountScore ?? scoreBreakdown.event_discount_score),
     reviewBurstScore:
       item.reviewBurstScore === null || item.review_burst_score === null
         ? null
-        : optionalNumber(item.reviewBurstScore ?? item.review_burst_score),
+        : optionalNumber(item.reviewBurstScore ?? item.review_burst_score ?? scoreBreakdown.reviewBurstScore ?? scoreBreakdown.review_burst_score),
     reviewBurstStatus: item.reviewBurstStatus || item.review_burst_status
       ? String(item.reviewBurstStatus ?? item.review_burst_status)
       : undefined,
@@ -113,8 +119,8 @@ function normalizeStoredHistoryItem(item: Record<string, unknown>): AnalysisHist
     analysisConfidenceDescription: item.analysisConfidenceDescription || item.analysis_confidence_description
       ? String(item.analysisConfidenceDescription ?? item.analysis_confidence_description)
       : undefined,
-    scoreBreakdown: item.scoreBreakdown && typeof item.scoreBreakdown === "object"
-      ? item.scoreBreakdown as AnalysisHistoryItem["scoreBreakdown"]
+    scoreBreakdown: Object.keys(scoreBreakdown).length > 0
+      ? scoreBreakdown as AnalysisHistoryItem["scoreBreakdown"]
       : undefined,
     adSuspicionScore: Number(item.adSuspicionScore ?? item.ad_suspicion_score ?? item.adScore ?? item.ad_score ?? 0),
     informationScore: Number(item.informationScore ?? item.information_score ?? item.placeScore ?? item.place_score ?? 0),
@@ -279,6 +285,22 @@ export function writeCurrentReviewAnalysisFromHistory(item: AnalysisHistoryItem)
     trustScore,
     adScore: adSuspicionScore,
     adSuspicionScore,
+    evidenceScore: item.evidenceScore,
+    riskScore: item.riskScore,
+    specificityScore: item.specificityScore,
+    balanceScore: item.balanceScore,
+    diversityScore: item.diversityScore,
+    informativeScore: item.informativeScore,
+    naturalnessScore: item.naturalnessScore,
+    promoSignalScore: item.promoSignalScore,
+    repetitionScore: item.repetitionScore,
+    exaggerationScore: item.exaggerationScore,
+    eventDiscountScore: item.eventDiscountScore,
+    reviewBurstScore: item.reviewBurstScore,
+    reviewBurstStatus: item.reviewBurstStatus,
+    analysisConfidence: item.analysisConfidence,
+    analysisConfidenceDescription: item.analysisConfidenceDescription,
+    scoreBreakdown: item.scoreBreakdown,
     placeScore: informationScore,
     informationScore,
     foreignerScore: globalAccessibilityScore,

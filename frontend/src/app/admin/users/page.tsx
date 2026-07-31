@@ -21,9 +21,7 @@ export default function AdminUsersPage() {
     try {
       setIsLoading(true)
       setError("")
-
-      const nextUsers = await adminUserService.getUsers(filters)
-      setUsers(nextUsers)
+      setUsers(await adminUserService.getUsers(filters))
     } catch (error) {
       setError(error instanceof Error ? error.message : t.admin.loadFailed)
     } finally {
@@ -32,10 +30,7 @@ export default function AdminUsersPage() {
   }, [filters, t.admin.loadFailed])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadData()
-    }, 0)
-
+    const timer = window.setTimeout(loadData, 0)
     return () => window.clearTimeout(timer)
   }, [loadData])
 
@@ -47,17 +42,10 @@ export default function AdminUsersPage() {
           <h1>{t.admin.menuUsersTitle}</h1>
           <p>{t.admin.usersDescription}</p>
         </section>
-
+        <AdminUserFilter value={filters} onChange={setFilters} />
         {isLoading && <p>{t.admin.loading}</p>}
         {error && <p className="form-error">{error}</p>}
-        <AdminUserFilter value={filters} onChange={setFilters} />
-        {!isLoading && (
-          <AdminUserTable
-            key={paginationResetKey}
-            users={users}
-            onRefresh={loadData}
-          />
-        )}
+        {!isLoading && !error && <AdminUserTable key={paginationResetKey} users={users} onRefresh={loadData} onError={setError} />}
       </AdminGuard>
     </AdminAppShell>
   )

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/lib/routes";
-import { sanitizeInternalNextPath } from "@/lib/navigation";
+import { sanitizeAuthRedirectPath } from "@/lib/navigation";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
@@ -30,7 +30,7 @@ export function AuthCallbackHandler() {
 
         const result = await authService.me();
         saveLogin({ user: result.data });
-        const nextPath = sanitizeInternalNextPath(searchParams.get("next"));
+        const nextPath = sanitizeAuthRedirectPath(searchParams.get("next"));
         router.replace(nextPath ?? ROUTES.HOME);
       } catch {
         setMessage(t.auth.socialProcessingError);
