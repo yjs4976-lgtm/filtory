@@ -2,6 +2,8 @@ import { apiClient } from "./apiClient"
 import type { BillingPrepareResponse, BillingProfileSummary, InitialChargeResponse, PaidSubscriptionSummary, PaymentSummary } from "@/types/payment"
 
 export const paymentFeatureEnabled = process.env.NEXT_PUBLIC_PAYMENT_ENABLED === "true"
+export const paymentRenewalEnabled = process.env.NEXT_PUBLIC_PAYMENT_RENEWAL_ENABLED === "true"
+export const paymentPurchaseEnabled = paymentFeatureEnabled && paymentRenewalEnabled
 
 export const paymentService = {
   async prepareBillingAuth() {

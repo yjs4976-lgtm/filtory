@@ -94,6 +94,8 @@ class Config:
 
     # 실제 결제는 명시적으로 활성화하기 전까지 모든 변경 API가 fail closed 된다.
     PAYMENT_ENABLED = os.getenv("PAYMENT_ENABLED", "false").lower() == "true"
+    # 월 자동 갱신 작업이 운영 준비된 경우에만 신규 카드 등록/최초 결제를 연다.
+    PAYMENT_RENEWAL_ENABLED = os.getenv("PAYMENT_RENEWAL_ENABLED", "false").lower() == "true"
     PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "TOSS").upper()
     TOSS_CLIENT_KEY = os.getenv("TOSS_CLIENT_KEY")
     TOSS_SECRET_KEY = os.getenv("TOSS_SECRET_KEY")

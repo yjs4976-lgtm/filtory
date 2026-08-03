@@ -5,7 +5,8 @@ import { subscriptionPlans } from "@/data/subscriptionPlans"
 import { useAuth } from "@/hooks/useAuth"
 import { analysisUsageService, serverUsageToAllowance } from "@/services/analysisUsageService"
 import { subscriptionService } from "@/services/subscriptionService"
-import { paymentFeatureEnabled, paymentService } from "@/services/paymentService"
+import { paymentPurchaseEnabled, paymentService } from "@/services/paymentService"
+import { hasActivePaidSubscription } from "@/lib/paymentFlow"
 import type { AnalysisAllowance, AnalysisUsageEvent, AnalysisUsageType } from "@/types/analysisAllowance"
 import type { MonthlyFreeUsage } from "@/types/analysisAllowance"
 import type { CancellationFeedback, MembershipEntitlement, SubscriptionPlan } from "@/types/subscription"
@@ -161,16 +162,19 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
 
   const startPlusPurchase = useCallback(async () => {
     if (!user) throw new Error("로그인이 필요합니다.")
-    if (!paymentFeatureEnabled) throw new Error("Plus 결제는 현재 준비 중입니다.")
+    if (!paymentPurchaseEnabled) throw new Error("Plus 결제는 현재 준비 중입니다.")
     if (purchaseInFlightRef.current) return
-    if (entitlement.plan === "PLUS" && ["ACTIVE", "CANCEL_SCHEDULED", "GRACE_PERIOD"].includes(entitlement.status)) throw new Error("이미 Filtory Plus를 이용하고 있어요.")
     purchaseInFlightRef.current = true
     try {
       const summary = await paymentService.getPaymentSummary()
-      const paidStatus = summary.subscription?.status?.toLowerCase()
-      if (paidStatus && ["active", "cancel_scheduled", "grace_period"].includes(paidStatus)) {
+      if (!summary.renewalEnabled) throw new Error("Plus 자동 갱신은 현재 준비 중입니다.")
+      if (hasActivePaidSubscription(summary.subscription?.status)) {
         await refreshEntitlement()
-        throw new Error("이미 Filtory Plus를 이용하고 있어요.")
+        return
+      }
+      if (entitlement.plan === "PLUS" && ["ACTIVE", "CANCEL_SCHEDULED", "GRACE_PERIOD"].includes(entitlement.status)) {
+        await refreshEntitlement()
+        return
       }
       if (summary.billingProfile?.status === "active") {
         await paymentService.chargeInitialSubscription()

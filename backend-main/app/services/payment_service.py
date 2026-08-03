@@ -57,6 +57,12 @@ class PaymentService:
             raise PaymentConfigurationError("Unsupported payment provider")
 
     @staticmethod
+    def _ensure_purchase_enabled():
+        PaymentService._ensure_enabled()
+        if not current_app.config.get("PAYMENT_RENEWAL_ENABLED", False):
+            raise PaymentDisabledError("Recurring payment capability is disabled")
+
+    @staticmethod
     def _client():
         secret = current_app.config.get("TOSS_SECRET_KEY")
         if not secret:
@@ -73,7 +79,7 @@ class PaymentService:
 
     @staticmethod
     def prepare_billing_auth(member_id):
-        PaymentService._ensure_enabled()
+        PaymentService._ensure_purchase_enabled()
         product = PaymentService.get_plus_product()
         client_key = current_app.config.get("TOSS_CLIENT_KEY")
         if not client_key:
@@ -107,7 +113,7 @@ class PaymentService:
 
     @staticmethod
     def confirm_billing_auth(member_id, auth_key, customer_key):
-        PaymentService._ensure_enabled()
+        PaymentService._ensure_purchase_enabled()
         if not auth_key or not customer_key:
             raise ValueError("authKey and customerKey are required")
         profile = MemberBillingProfileRepository.get_by_customer_key(
@@ -153,7 +159,7 @@ class PaymentService:
         READY/IN_PROGRESS partial unique index가 동시 요청의 최종 중재자다. 네트워크
         응답이 유실된 경우에는 거래를 실패로 닫지 않아 동일 주문으로 재시도한다.
         """
-        PaymentService._ensure_enabled()
+        PaymentService._ensure_purchase_enabled()
         product = PaymentService.get_plus_product()
         if SubscriptionRepository.get_current_paid_subscription(member_id):
             raise ValueError("An active subscription already exists")
@@ -382,6 +388,7 @@ class PaymentService:
             public_transactions.append(item)
         return {
             "paymentEnabled": bool(current_app.config.get("PAYMENT_ENABLED", False)),
+            "renewalEnabled": bool(current_app.config.get("PAYMENT_RENEWAL_ENABLED", False)),
             "subscription": member_subscription_to_dict(subscription) if subscription else None,
             "billingProfile": billing_profile,
             "transactions": public_transactions,

@@ -16,7 +16,7 @@ from app.repositories import (
 )
 from app.clients.toss_payments_client import TossPaymentsError
 from app.models import PaymentTransaction
-from app.services.payment_service import PaymentService, PaymentVerificationError
+from app.services.payment_service import PaymentDisabledError, PaymentService, PaymentVerificationError
 from app.utils.crypto import BillingKeyEncryptionError, decrypt_text, encrypt_text
 
 
@@ -25,6 +25,7 @@ def app():
     app = Flask(__name__)
     app.config.update(
         PAYMENT_ENABLED=True,
+        PAYMENT_RENEWAL_ENABLED=True,
         PAYMENT_PROVIDER="TOSS",
         TOSS_CLIENT_KEY="test_client_key",
         TOSS_SECRET_KEY="test_secret_key",
@@ -39,6 +40,12 @@ def app():
 def test_billing_encryption_key_is_required(app):
     with app.app_context(), pytest.raises(BillingKeyEncryptionError):
         encrypt_text("billing-key")
+
+
+def test_new_purchase_is_disabled_until_renewal_capability_is_enabled(app):
+    app.config["PAYMENT_RENEWAL_ENABLED"] = False
+    with app.app_context(), pytest.raises(PaymentDisabledError):
+        PaymentService.prepare_billing_auth(1)
 
 
 def test_billing_key_encryption_round_trip_never_returns_plaintext(app):

@@ -10,7 +10,7 @@ export interface BillingProduct {
 
 export interface BillingProfileSummary {
   provider: "TOSS"
-  status: "pending" | "active" | "revoked"
+  status: "pending" | "active" | "revoked" | "verification_required"
   cardCompany: string | null
   cardNumberMasked: string | null
   authenticatedAt: string | null
@@ -43,6 +43,7 @@ export interface PaidSubscriptionSummary {
 
 export interface PaymentSummary {
   paymentEnabled: boolean
+  renewalEnabled: boolean
   subscription: PaidSubscriptionSummary | null
   billingProfile: BillingProfileSummary | null
   transactions: PaymentTransactionSummary[]
