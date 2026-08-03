@@ -10,9 +10,7 @@ class AnalysisUsageService:
     FREE_LIMIT = 5
     PLUS_LIMIT = 30
     PLUS_PROVIDERS = {"TOSS", "GOOGLE_PLAY", "MOCK", "ADMIN"}
-    PLUS_STATUSES = {
-        "active", "trialing", "cancel_scheduled", "grace_period", "past_due", "on_hold", "verification_required"
-    }
+    PLUS_ACCESS_STATUSES = {"active", "trialing", "cancel_scheduled", "grace_period", "past_due"}
     STATUS_MAP = {
         "active": "ACTIVE", "trialing": "ACTIVE", "cancel_scheduled": "CANCEL_SCHEDULED",
         "grace_period": "GRACE_PERIOD", "past_due": "GRACE_PERIOD", "pending": "PAYMENT_PENDING",
@@ -48,13 +46,13 @@ class AnalysisUsageService:
         status = str(getattr(subscription, "status", "") or "").lower()
         period_end = AnalysisUsageService._as_utc(getattr(subscription, "current_period_end", None))
         now = datetime.now(timezone.utc)
-        is_plus = bool(
+        has_plus_subscription = bool(
             subscription
             and plan_code == "plus"
             and provider in AnalysisUsageService.PLUS_PROVIDERS
-            and status in AnalysisUsageService.PLUS_STATUSES
             and (period_end is None or period_end > now)
         )
+        has_plus_access = has_plus_subscription and status in AnalysisUsageService.PLUS_ACCESS_STATUSES
         free_plan = AnalysisUsageRepository.get_plan_by_code("free")
         free_limit = getattr(free_plan, "monthly_analysis_limit", None) or AnalysisUsageService.FREE_LIMIT
         plus_limit = (
@@ -63,19 +61,19 @@ class AnalysisUsageService:
         )
 
         return {
-            "plan": "PLUS" if is_plus else "FREE",
-            "status": AnalysisUsageService.STATUS_MAP.get(status, "ACTIVE") if is_plus else "FREE",
-            "provider": provider if is_plus else None,
+            "plan": "PLUS" if has_plus_access else "FREE",
+            "status": AnalysisUsageService.STATUS_MAP.get(status, "ACTIVE") if has_plus_subscription else "FREE",
+            "provider": provider if has_plus_subscription else None,
             "currentPeriodStart": (
-                getattr(subscription, "current_period_start", None) if is_plus else period["start"]
+                getattr(subscription, "current_period_start", None) if has_plus_subscription else period["start"]
             or period["start"]
             ).isoformat(),
             "currentPeriodEnd": (
-                getattr(subscription, "current_period_end", None) if is_plus else period["end"]
+                getattr(subscription, "current_period_end", None) if has_plus_subscription else period["end"]
             or period["end"]
             ).isoformat(),
-            "baseLimit": plus_limit if is_plus else free_limit,
-            "cancelAtPeriodEnd": bool(getattr(subscription, "cancel_at_period_end", False)) if is_plus else False,
+            "baseLimit": plus_limit if has_plus_access else free_limit,
+            "cancelAtPeriodEnd": bool(getattr(subscription, "cancel_at_period_end", False)) if has_plus_subscription else False,
             "isUnlimited": is_unlimited,
         }
 

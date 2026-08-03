@@ -19,6 +19,7 @@ from app.schemas.subscription_schema import (
     extract_member_subscription_data,
     extract_subscription_plan_data,
     member_subscription_to_dict,
+    member_subscription_to_public_dict,
     subscription_plan_to_dict,
 )
 
@@ -42,6 +43,7 @@ __all__ = [
     "hospital_to_dict",
     "integrated_analysis_to_dict",
     "member_subscription_to_dict",
+    "member_subscription_to_public_dict",
     "member_to_dict",
     "report_to_dict",
     "review_to_dict",

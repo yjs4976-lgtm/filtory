@@ -172,6 +172,27 @@ def test_active_plus_has_thirty_base_limit(app, client, usage_state, provider):
     assert membership["baseLimit"] == 30
 
 
+@pytest.mark.parametrize("status", ["on_hold", "verification_required"])
+def test_restricted_subscription_keeps_toss_state_without_plus_allowance(app, client, usage_state, status):
+    usage_state["subscriptions"][1] = SimpleNamespace(
+        plan=SimpleNamespace(plan_code="plus", monthly_analysis_limit=30),
+        payment_provider="TOSS",
+        status=status,
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+        cancel_at_period_end=False,
+    )
+
+    membership = client.get("/api/membership/me", headers=auth_header(app)).get_json()["data"]
+    usage = client.get("/api/analysis/usage/me", headers=auth_header(app)).get_json()["data"]
+
+    assert membership["plan"] == "FREE"
+    assert membership["provider"] == "TOSS"
+    assert membership["status"] in {"ON_HOLD", "VERIFICATION_REQUIRED"}
+    assert membership["baseLimit"] == 5
+    assert usage["availableCount"] == 5
+
+
 def test_expired_plus_returns_free(app, client, usage_state):
     usage_state["subscriptions"][1] = SimpleNamespace(
         plan=SimpleNamespace(plan_code="plus", monthly_analysis_limit=30),

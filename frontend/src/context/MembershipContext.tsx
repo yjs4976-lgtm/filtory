@@ -172,6 +172,10 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
         await refreshEntitlement()
         return
       }
+      if (summary.subscription || entitlement.provider === "TOSS") {
+        await refreshEntitlement()
+        return
+      }
       if (entitlement.plan === "PLUS" && ["ACTIVE", "CANCEL_SCHEDULED", "GRACE_PERIOD"].includes(entitlement.status)) {
         await refreshEntitlement()
         return
@@ -182,16 +186,8 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
         return
       }
       const prepared = await paymentService.prepareBillingAuth()
-      const { loadTossPayments } = await import("@tosspayments/payment-sdk")
-      // payment-sdk 로더로 공식 v2 Standard SDK를 불러온다. 시크릿이나 금액은
-      // 브라우저 SDK에 전달하지 않고 서버 prepare 값만 사용한다.
-      const tossPayments = await loadTossPayments(prepared.clientKey, {
-        src: "https://js.tosspayments.com/v2/standard",
-      }) as unknown as {
-        payment: (options: { customerKey: string }) => {
-          requestBillingAuth: (options: { method: "CARD"; successUrl: string; failUrl: string }) => Promise<void>
-        }
-      }
+      const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk")
+      const tossPayments = await loadTossPayments(prepared.clientKey)
       const payment = tossPayments.payment({ customerKey: prepared.customerKey })
       await payment.requestBillingAuth({
         method: "CARD",
@@ -201,7 +197,7 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
     } finally {
       purchaseInFlightRef.current = false
     }
-  }, [entitlement.plan, entitlement.status, refreshEntitlement, user])
+  }, [entitlement.plan, entitlement.provider, entitlement.status, refreshEntitlement, user])
 
   const restorePurchases = useCallback(async () => {
     if (!user) throw new Error("로그인이 필요합니다.")

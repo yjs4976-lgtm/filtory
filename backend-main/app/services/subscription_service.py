@@ -2,7 +2,7 @@ from app.extensions import db
 from app.repositories import SubscriptionRepository
 from app.schemas import (
     extract_member_subscription_data,
-    member_subscription_to_dict,
+    member_subscription_to_public_dict,
     subscription_plan_to_dict,
 )
 
@@ -23,7 +23,7 @@ class SubscriptionService:
         subscription = SubscriptionRepository.get_current_member_subscription(member_id)
         if not subscription:
             raise ValueError("Current subscription not found")
-        return member_subscription_to_dict(subscription)
+        return member_subscription_to_public_dict(subscription)
 
     @staticmethod
     def create_member_subscription(payload):
@@ -38,7 +38,7 @@ class SubscriptionService:
         try:
             subscription = SubscriptionRepository.create_member_subscription(data)
             db.session.commit()
-            return member_subscription_to_dict(subscription)
+            return member_subscription_to_public_dict(subscription)
         except Exception:
             db.session.rollback()
             raise
@@ -57,7 +57,7 @@ class SubscriptionService:
         try:
             subscription = SubscriptionRepository.update_member_subscription(subscription, data)
             db.session.commit()
-            return member_subscription_to_dict(subscription)
+            return member_subscription_to_public_dict(subscription)
         except Exception:
             db.session.rollback()
             raise

@@ -268,6 +268,11 @@ def test_initial_charge_uses_db_amount_and_resumes_same_idempotency_key(app, mon
     assert captured["order_id"] == "fixed-order"
     assert captured["idempotency_key"] == fixed_key
     assert result["payment"]["amount"] == 4900
+    assert "paymentKey" not in result["payment"]
+    assert "payment_customer_id" not in result["subscription"]
+    assert "payment_subscription_id" not in result["subscription"]
+    assert "provider_purchase_id" not in result["subscription"]
+    assert "metadata_json" not in result["subscription"]
 
 
 def _charge_objects():
@@ -567,14 +572,24 @@ def test_unknown_webhook_payment_key_does_not_call_provider(app, monkeypatch):
 
 
 def test_payment_summary_omits_provider_identifiers(app, monkeypatch):
-    _, profile, transaction = _charge_objects()
+    product, profile, transaction = _charge_objects()
     profile.provider = "TOSS"
     profile.card_company = "TEST"
     profile.card_number_masked = "****-1234"
     profile.authenticated_at = None
     profile.last_verified_at = None
     transaction.payment_key = "secret-payment-key"
-    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: None))
+    transaction.raw_response_json = {"provider": "raw"}
+    subscription = SimpleNamespace(
+        id=8, member_id=1, plan_id=product.plan_id, status="active",
+        started_at=None, current_period_start=None, current_period_end=None,
+        cancel_at_period_end=False, canceled_at=None, payment_provider="TOSS",
+        payment_customer_id="secret-customer", payment_subscription_id="secret-subscription",
+        provider_product_id="plus", provider_purchase_id="secret-purchase",
+        last_verified_at=None, grace_period_end=None, ended_at=None, auto_renew=True,
+        metadata_json={"internal": True}, created_at=None, updated_at=None,
+    )
+    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: subscription))
     monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
     monkeypatch.setattr(PaymentTransactionRepository, "list_by_member", staticmethod(lambda member_id: [transaction]))
 
@@ -583,6 +598,12 @@ def test_payment_summary_omits_provider_identifiers(app, monkeypatch):
 
     assert "customerKey" not in result["billingProfile"]
     assert "paymentKey" not in result["transactions"][0]
+    forbidden = {
+        "payment_customer_id", "payment_subscription_id", "provider_purchase_id",
+        "raw_response_json", "metadata_json", "idempotency_key",
+    }
+    assert forbidden.isdisjoint(result["subscription"])
+    assert forbidden.isdisjoint(result["transactions"][0])
 
 
 def test_billing_prepare_keeps_customer_key_for_toss_sdk(app, monkeypatch):

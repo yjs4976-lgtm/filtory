@@ -83,6 +83,31 @@ def member_subscription_to_dict(subscription):
     }
 
 
+def member_subscription_to_public_dict(subscription):
+    """구독 상태 응답에서 결제사 연결키와 내부 metadata를 제거한다."""
+    if subscription is None:
+        return None
+    return {
+        "id": subscription.id,
+        "member_id": subscription.member_id,
+        "plan_id": subscription.plan_id,
+        "status": subscription.status,
+        "started_at": _isoformat(subscription.started_at),
+        "current_period_start": _isoformat(subscription.current_period_start),
+        "current_period_end": _isoformat(subscription.current_period_end),
+        "cancel_at_period_end": subscription.cancel_at_period_end,
+        "canceled_at": _isoformat(subscription.canceled_at),
+        "payment_provider": subscription.payment_provider,
+        "provider_product_id": subscription.provider_product_id,
+        "last_verified_at": _isoformat(subscription.last_verified_at),
+        "grace_period_end": _isoformat(subscription.grace_period_end),
+        "ended_at": _isoformat(subscription.ended_at),
+        "auto_renew": subscription.auto_renew,
+        "created_at": _isoformat(subscription.created_at),
+        "updated_at": _isoformat(subscription.updated_at),
+    }
+
+
 def extract_subscription_plan_data(payload):
     return {
         key: payload[key]

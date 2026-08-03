@@ -17,11 +17,11 @@ from app.repositories import (
     SubscriptionRepository,
 )
 from app.schemas.payment_schema import (
-    billing_profile_to_dict,
+    billing_profile_to_public_dict,
     billing_product_to_dict,
-    payment_transaction_to_dict,
+    payment_transaction_to_public_dict,
 )
-from app.schemas.subscription_schema import member_subscription_to_dict
+from app.schemas.subscription_schema import member_subscription_to_public_dict
 from app.utils.crypto import decrypt_text, encrypt_text
 
 
@@ -126,7 +126,7 @@ class PaymentService:
             # 그대로 사용한다. 같은 authKey를 Toss에 다시 교환하지 않는다.
             if profile.status == "active" and profile.encrypted_billing_key:
                 db.session.commit()
-                return billing_profile_to_dict(profile)
+                return billing_profile_to_public_dict(profile)
 
             response = PaymentService._client().issue_billing_key(auth_key, customer_key)
             if response.get("customerKey") and response.get("customerKey") != customer_key:
@@ -150,7 +150,7 @@ class PaymentService:
         except Exception:
             db.session.rollback()
             raise
-        return billing_profile_to_dict(profile)
+        return billing_profile_to_public_dict(profile)
 
     @staticmethod
     def charge_initial_subscription(member_id):
@@ -356,8 +356,8 @@ class PaymentService:
             db.session.rollback()
             raise
         return {
-            "subscription": member_subscription_to_dict(subscription),
-            "payment": payment_transaction_to_dict(transaction),
+            "subscription": member_subscription_to_public_dict(subscription),
+            "payment": payment_transaction_to_public_dict(transaction),
         }
 
     @staticmethod
@@ -378,18 +378,12 @@ class PaymentService:
         subscription = SubscriptionRepository.get_current_paid_subscription(member_id)
         profile = MemberBillingProfileRepository.get_by_member_provider(member_id, PaymentService.PROVIDER)
         transactions = PaymentTransactionRepository.list_by_member(member_id)
-        billing_profile = billing_profile_to_dict(profile) if profile else None
-        if billing_profile:
-            billing_profile.pop("customerKey", None)
-        public_transactions = []
-        for transaction in transactions:
-            item = payment_transaction_to_dict(transaction)
-            item.pop("paymentKey", None)
-            public_transactions.append(item)
+        billing_profile = billing_profile_to_public_dict(profile)
+        public_transactions = [payment_transaction_to_public_dict(item) for item in transactions]
         return {
             "paymentEnabled": bool(current_app.config.get("PAYMENT_ENABLED", False)),
             "renewalEnabled": bool(current_app.config.get("PAYMENT_RENEWAL_ENABLED", False)),
-            "subscription": member_subscription_to_dict(subscription) if subscription else None,
+            "subscription": member_subscription_to_public_dict(subscription),
             "billingProfile": billing_profile,
             "transactions": public_transactions,
         }
@@ -408,7 +402,7 @@ class PaymentService:
             "auto_renew": False,
         })
         db.session.commit()
-        return member_subscription_to_dict(subscription)
+        return member_subscription_to_public_dict(subscription)
 
     @staticmethod
     def process_webhook(payload, headers):
