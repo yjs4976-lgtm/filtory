@@ -9,6 +9,16 @@ from app.repositories import AnalysisUsageRepository
 class AnalysisUsageService:
     FREE_LIMIT = 5
     PLUS_LIMIT = 30
+    PLUS_PROVIDERS = {"TOSS", "GOOGLE_PLAY", "MOCK", "ADMIN"}
+    PLUS_STATUSES = {
+        "active", "trialing", "cancel_scheduled", "grace_period", "past_due", "on_hold", "verification_required"
+    }
+    STATUS_MAP = {
+        "active": "ACTIVE", "trialing": "ACTIVE", "cancel_scheduled": "CANCEL_SCHEDULED",
+        "grace_period": "GRACE_PERIOD", "past_due": "GRACE_PERIOD", "pending": "PAYMENT_PENDING",
+        "on_hold": "ON_HOLD", "expired": "EXPIRED", "canceled": "EXPIRED", "refunded": "REFUNDED",
+        "verification_required": "VERIFICATION_REQUIRED",
+    }
 
     @staticmethod
     def _is_admin(member_id):
@@ -35,21 +45,47 @@ class AnalysisUsageService:
         subscription = AnalysisUsageRepository.get_current_subscription(member_id)
         plan_code = str(getattr(getattr(subscription, "plan", None), "plan_code", "") or "").lower()
         provider = str(getattr(subscription, "payment_provider", "") or "").upper()
-        is_mock_plus = bool(subscription and provider == "MOCK" and plan_code in {"pro", "plus", "business"})
+        status = str(getattr(subscription, "status", "") or "").lower()
+        period_end = AnalysisUsageService._as_utc(getattr(subscription, "current_period_end", None))
+        now = datetime.now(timezone.utc)
+        is_plus = bool(
+            subscription
+            and plan_code == "plus"
+            and provider in AnalysisUsageService.PLUS_PROVIDERS
+            and status in AnalysisUsageService.PLUS_STATUSES
+            and (period_end is None or period_end > now)
+        )
+        free_plan = AnalysisUsageRepository.get_plan_by_code("free")
+        free_limit = getattr(free_plan, "monthly_analysis_limit", None) or AnalysisUsageService.FREE_LIMIT
+        plus_limit = (
+            getattr(getattr(subscription, "plan", None), "monthly_analysis_limit", None)
+            or AnalysisUsageService.PLUS_LIMIT
+        )
 
         return {
-            "plan": "PLUS" if is_mock_plus else "FREE",
-            "status": "ACTIVE" if is_mock_plus else "FREE",
-            "provider": "MOCK" if is_mock_plus else None,
+            "plan": "PLUS" if is_plus else "FREE",
+            "status": AnalysisUsageService.STATUS_MAP.get(status, "ACTIVE") if is_plus else "FREE",
+            "provider": provider if is_plus else None,
             "currentPeriodStart": (
-                getattr(subscription, "current_period_start", None) or period["start"]
+                getattr(subscription, "current_period_start", None) if is_plus else period["start"]
+            or period["start"]
             ).isoformat(),
             "currentPeriodEnd": (
-                getattr(subscription, "current_period_end", None) or period["end"]
+                getattr(subscription, "current_period_end", None) if is_plus else period["end"]
+            or period["end"]
             ).isoformat(),
-            "baseLimit": AnalysisUsageService.PLUS_LIMIT if is_mock_plus else AnalysisUsageService.FREE_LIMIT,
+            "baseLimit": plus_limit if is_plus else free_limit,
+            "cancelAtPeriodEnd": bool(getattr(subscription, "cancel_at_period_end", False)) if is_plus else False,
             "isUnlimited": is_unlimited,
         }
+
+    @staticmethod
+    def _as_utc(value):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     @staticmethod
     def get_usage(member_id):

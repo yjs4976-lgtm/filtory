@@ -8,6 +8,8 @@ SUBSCRIPTION_PLAN_FIELDS = {
     "monthly_price",
     "monthly_analysis_limit",
     "description",
+    "currency",
+    "billing_interval",
     "active",
 }
 
@@ -23,6 +25,13 @@ MEMBER_SUBSCRIPTION_FIELDS = {
     "payment_provider",
     "payment_customer_id",
     "payment_subscription_id",
+    "provider_product_id",
+    "provider_purchase_id",
+    "last_verified_at",
+    "grace_period_end",
+    "ended_at",
+    "auto_renew",
+    "metadata_json",
 }
 
 
@@ -37,6 +46,8 @@ def subscription_plan_to_dict(plan):
         "monthly_price": plan.monthly_price,
         "monthly_analysis_limit": plan.monthly_analysis_limit,
         "description": plan.description,
+        "currency": plan.currency,
+        "billing_interval": plan.billing_interval,
         "active": plan.active,
         "created_at": _isoformat(plan.created_at),
         "updated_at": _isoformat(plan.updated_at),
@@ -60,6 +71,13 @@ def member_subscription_to_dict(subscription):
         "payment_provider": subscription.payment_provider,
         "payment_customer_id": subscription.payment_customer_id,
         "payment_subscription_id": subscription.payment_subscription_id,
+        "provider_product_id": subscription.provider_product_id,
+        "provider_purchase_id": subscription.provider_purchase_id,
+        "last_verified_at": _isoformat(subscription.last_verified_at),
+        "grace_period_end": _isoformat(subscription.grace_period_end),
+        "ended_at": _isoformat(subscription.ended_at),
+        "auto_renew": subscription.auto_renew,
+        "metadata_json": subscription.metadata_json,
         "created_at": _isoformat(subscription.created_at),
         "updated_at": _isoformat(subscription.updated_at),
     }

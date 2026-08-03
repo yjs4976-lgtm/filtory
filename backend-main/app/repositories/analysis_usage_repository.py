@@ -39,7 +39,11 @@ class AnalysisUsageRepository:
 
     @staticmethod
     def get_current_subscription(member_id):
-        return SubscriptionRepository.get_current_member_subscription(member_id)
+        return SubscriptionRepository.get_current_paid_subscription(member_id)
+
+    @staticmethod
+    def get_plan_by_code(plan_code):
+        return SubscriptionRepository.get_plan_by_code(plan_code)
 
     @staticmethod
     def commit():

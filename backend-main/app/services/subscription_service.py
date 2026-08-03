@@ -8,7 +8,10 @@ from app.schemas import (
 
 
 class SubscriptionService:
-    STATUSES = {"active", "trialing", "past_due", "canceled", "expired"}
+    STATUSES = {
+        "pending", "active", "trialing", "cancel_scheduled", "grace_period", "past_due", "on_hold",
+        "canceled", "expired", "refunded", "verification_required",
+    }
 
     @staticmethod
     def list_active_plans():

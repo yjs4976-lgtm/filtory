@@ -91,3 +91,14 @@ class Config:
     ENABLE_REMOTE_CHATBOT = os.getenv("ENABLE_REMOTE_CHATBOT")
     AI_CHATBOT_API_URL = os.getenv("AI_CHATBOT_API_URL")
     AI_CHATBOT_TIMEOUT_SECONDS = _float_or_default(os.getenv("AI_CHATBOT_TIMEOUT_SECONDS"), 12)
+
+    # 실제 결제는 명시적으로 활성화하기 전까지 모든 변경 API가 fail closed 된다.
+    PAYMENT_ENABLED = os.getenv("PAYMENT_ENABLED", "false").lower() == "true"
+    PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "TOSS").upper()
+    TOSS_CLIENT_KEY = os.getenv("TOSS_CLIENT_KEY")
+    TOSS_SECRET_KEY = os.getenv("TOSS_SECRET_KEY")
+    TOSS_WEBHOOK_SECRET = os.getenv("TOSS_WEBHOOK_SECRET")
+    BILLING_KEY_ENCRYPTION_KEY = os.getenv("BILLING_KEY_ENCRYPTION_KEY")
+    BILLING_KEY_ENCRYPTION_VERSION = os.getenv("BILLING_KEY_ENCRYPTION_VERSION", "v1")
+    PAYMENT_SUCCESS_URL = os.getenv("PAYMENT_SUCCESS_URL", f"{FRONTEND_BASE_URL.rstrip('/')}/payments/success")
+    PAYMENT_FAIL_URL = os.getenv("PAYMENT_FAIL_URL", f"{FRONTEND_BASE_URL.rstrip('/')}/payments/fail")

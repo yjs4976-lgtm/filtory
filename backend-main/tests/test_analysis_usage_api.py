@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from flask import Flask
@@ -74,6 +75,11 @@ def usage_state(monkeypatch):
         "get_member",
         staticmethod(lambda member_id: state["members"].get(member_id)),
     )
+    monkeypatch.setattr(
+        AnalysisUsageRepository,
+        "get_plan_by_code",
+        staticmethod(lambda plan_code: SimpleNamespace(monthly_analysis_limit=5) if plan_code == "free" else None),
+    )
     monkeypatch.setattr(AnalysisUsageRepository, "commit", staticmethod(lambda: None))
     monkeypatch.setattr(AnalysisUsageRepository, "rollback", staticmethod(lambda: None))
     return state
@@ -148,19 +154,38 @@ def test_charge_is_idempotent_for_same_analysis(app, client):
     assert second.get_json()["data"]["usedCount"] == 1
 
 
-def test_mock_plus_has_thirty_base_limit(app, client, usage_state):
+@pytest.mark.parametrize("provider", ["MOCK", "TOSS"])
+def test_active_plus_has_thirty_base_limit(app, client, usage_state, provider):
     usage_state["subscriptions"][1] = SimpleNamespace(
-        plan=SimpleNamespace(plan_code="pro"),
-        payment_provider="MOCK",
-        current_period_start=None,
-        current_period_end=None,
+        plan=SimpleNamespace(plan_code="plus", monthly_analysis_limit=30),
+        payment_provider=provider,
+        status="active",
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+        cancel_at_period_end=False,
     )
 
     membership = client.get("/api/membership/me", headers=auth_header(app)).get_json()["data"]
 
     assert membership["plan"] == "PLUS"
-    assert membership["provider"] == "MOCK"
+    assert membership["provider"] == provider
     assert membership["baseLimit"] == 30
+
+
+def test_expired_plus_returns_free(app, client, usage_state):
+    usage_state["subscriptions"][1] = SimpleNamespace(
+        plan=SimpleNamespace(plan_code="plus", monthly_analysis_limit=30),
+        payment_provider="TOSS",
+        status="active",
+        current_period_start=datetime.now(timezone.utc) - timedelta(days=60),
+        current_period_end=datetime.now(timezone.utc) - timedelta(days=30),
+        cancel_at_period_end=False,
+    )
+
+    membership = client.get("/api/membership/me", headers=auth_header(app)).get_json()["data"]
+
+    assert membership["plan"] == "FREE"
+    assert membership["baseLimit"] == 5
 
 
 def test_access_rejects_other_members_analysis(app, client):
