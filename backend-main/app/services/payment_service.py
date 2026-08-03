@@ -5,6 +5,7 @@ from calendar import monthrange
 from datetime import datetime, timezone
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from app.clients.toss_payments_client import TossPaymentsClient, TossPaymentsError
 from app.extensions import db
@@ -32,7 +33,19 @@ class PaymentConfigurationError(RuntimeError):
     pass
 
 
+class PaymentVerificationError(RuntimeError):
+    """제공자 응답이 서버에 저장된 결제 계약과 일치하지 않을 때 발생한다."""
+
+    pass
+
+
 class PaymentService:
+    """결제·구독 상태 전이를 조율하는 애플리케이션 서비스.
+
+    클라이언트가 보낸 금액이나 웹훅 payload를 최종 사실로 신뢰하지 않는다.
+    상품 가격은 DB에서 읽고, 웹훅 상태는 Toss 결제 조회 응답으로 재검증한다.
+    """
+
     PROVIDER = "TOSS"
 
     @staticmethod
@@ -124,6 +137,11 @@ class PaymentService:
 
     @staticmethod
     def charge_initial_subscription(member_id):
+        """최초 Plus 결제를 멱등하게 승인하고 검증된 경우에만 구독을 생성한다.
+
+        READY/IN_PROGRESS partial unique index가 동시 요청의 최종 중재자다. 네트워크
+        응답이 유실된 경우에는 거래를 실패로 닫지 않아 동일 주문으로 재시도한다.
+        """
         PaymentService._ensure_enabled()
         product = PaymentService.get_plus_product()
         if SubscriptionRepository.get_current_paid_subscription(member_id):
@@ -133,10 +151,7 @@ class PaymentService:
             raise ValueError("Active billing profile is required")
         billing_key = decrypt_text(profile.encrypted_billing_key)
         transaction = PaymentTransactionRepository.get_resumable_initial(member_id, product.id)
-        if transaction:
-            idempotency_key = transaction.idempotency_key
-            order_id = transaction.order_id
-        else:
+        if not transaction:
             idempotency_key = uuid.uuid4()
             order_id = f"filtory-plus-{member_id}-{uuid.uuid4().hex}"
             transaction = PaymentTransactionRepository.create({
@@ -151,6 +166,29 @@ class PaymentService:
                 "currency": product.currency,
                 "status": "READY",
             })
+            try:
+                # Flush makes the partial unique index arbitrate concurrent requests.
+                db.session.flush()
+            except IntegrityError:
+                # 다른 요청이 먼저 진행 거래를 만들었다. 새 주문을 사용하지 않고
+                # 승리한 거래의 order_id/idempotency_key를 이어서 사용한다.
+                db.session.rollback()
+                transaction = PaymentTransactionRepository.get_resumable_initial(member_id, product.id)
+                if not transaction:
+                    raise
+
+        idempotency_key = transaction.idempotency_key
+        order_id = transaction.order_id
+        # A competing request may have completed while this request waited on
+        # the partial unique index. Re-check before any provider call.
+        if SubscriptionRepository.get_current_paid_subscription(member_id):
+            PaymentTransactionRepository.update(transaction, {
+                "status": "FAILED",
+                "failure_code": "SUBSCRIPTION_ALREADY_ACTIVE",
+                "failure_message": "An active subscription already exists",
+            })
+            db.session.commit()
+            raise ValueError("An active subscription already exists")
         try:
             PaymentTransactionRepository.update(transaction, {"status": "IN_PROGRESS"})
             db.session.commit()
@@ -163,8 +201,32 @@ class PaymentService:
                 idempotency_key=idempotency_key,
             )
         except TossPaymentsError as exc:
+            if exc.outcome_uncertain:
+                # Toss가 결제를 처리했으나 응답만 유실됐을 수 있으므로 FAILED로
+                # 확정하면 안 된다. 같은 멱등 키 재호출이 중복 과금을 막는다.
+                PaymentTransactionRepository.update(transaction, {
+                    "status": "IN_PROGRESS",
+                    "failure_code": "PROVIDER_OUTCOME_UNKNOWN",
+                    "failure_message": "Payment result verification is pending",
+                })
+            else:
+                PaymentTransactionRepository.update(transaction, {
+                    "status": "FAILED",
+                    "failure_code": exc.code or "PROVIDER_REJECTED",
+                    "failure_message": "Payment approval failed",
+                })
+            db.session.commit()
+            raise
+        try:
+            # 구독 entitlement는 결제 객체의 핵심 필드가 서버 계약과 모두 일치한
+            # 뒤에만 부여한다. 검증보다 구독 생성을 먼저 옮기지 않는다.
+            PaymentService._validate_payment_response(response, transaction, product)
+        except PaymentVerificationError:
             PaymentTransactionRepository.update(transaction, {
-                "status": "FAILED", "failure_code": exc.code, "failure_message": "Payment approval failed"
+                "status": "FAILED",
+                "failure_code": "INVALID_PROVIDER_RESPONSE",
+                "failure_message": "Payment approval response verification failed",
+                "raw_response_json": PaymentService._safe_provider_payload(response),
             })
             db.session.commit()
             raise
@@ -233,44 +295,136 @@ class PaymentService:
 
     @staticmethod
     def process_webhook(payload, headers):
+        """Toss 웹훅을 재처리 가능하게 기록하고 조회 API 결과만 DB에 반영한다.
+
+        RECEIVED/FAILED 이벤트는 서버 종료나 일시 장애 후 다시 처리할 수 있다.
+        PROCESSED/IGNORED만 종결 상태이며, row lock으로 동시 재전송을 직렬화한다.
+        """
         PaymentService._ensure_enabled()
         event_type = str(payload.get("eventType") or payload.get("type") or "UNKNOWN")[:100]
         payment_key = payload.get("paymentKey") or (payload.get("data") or {}).get("paymentKey")
-        supplied_key = headers.get("X-Toss-Event-Id")
+        supplied_key = headers.get("tosspayments-webhook-transmission-id")
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         deduplication_key = str(supplied_key or hashlib.sha256(canonical.encode("utf-8")).hexdigest())[:255]
-        existing = PaymentWebhookRepository.get_by_deduplication_key(PaymentService.PROVIDER, deduplication_key)
-        if existing:
-            return {"duplicate": True, "status": existing.processing_status}
-        event = PaymentWebhookRepository.create({
-            "provider": PaymentService.PROVIDER,
-            "event_type": event_type,
-            "deduplication_key": deduplication_key,
-            "payment_key": payment_key,
+        event = PaymentWebhookRepository.get_by_deduplication_key(
+            PaymentService.PROVIDER, deduplication_key, for_update=True
+        )
+        if event and event.processing_status in {"PROCESSED", "IGNORED"}:
+            db.session.rollback()
+            return {"duplicate": True, "status": event.processing_status}
+        if not event:
+            event = PaymentWebhookRepository.create({
+                "provider": PaymentService.PROVIDER,
+                "event_type": event_type,
+                "deduplication_key": deduplication_key,
+                "payment_key": payment_key,
+                "processing_status": "RECEIVED",
+                "payload_json": PaymentService._safe_provider_payload(payload),
+            })
+            try:
+                # dedup unique constraint가 동시에 도착한 동일 이벤트를 중재한다.
+                db.session.flush()
+            except IntegrityError:
+                db.session.rollback()
+                event = PaymentWebhookRepository.get_by_deduplication_key(
+                    PaymentService.PROVIDER, deduplication_key, for_update=True
+                )
+                if not event:
+                    raise
+                if event.processing_status in {"PROCESSED", "IGNORED"}:
+                    db.session.rollback()
+                    return {"duplicate": True, "status": event.processing_status}
+        PaymentWebhookRepository.update(event, {
             "processing_status": "RECEIVED",
-            "payload_json": PaymentService._safe_provider_payload(payload),
+            "processed_at": None,
+            "error_message": None,
+            "payment_key": payment_key,
         })
-        db.session.commit()
-        try:
-            transaction = PaymentTransactionRepository.get_by_payment_key(PaymentService.PROVIDER, payment_key)
-            now = datetime.now(timezone.utc)
-            if not transaction:
-                PaymentWebhookRepository.update(event, {"processing_status": "IGNORED", "processed_at": now})
-            else:
-                provider_status = str(payload.get("status") or (payload.get("data") or {}).get("status") or "").upper()
-                mapped = provider_status if provider_status in {
-                    "DONE", "FAILED", "CANCELED", "PARTIAL_CANCELED", "ABORTED", "EXPIRED"
-                } else transaction.status
-                PaymentTransactionRepository.update(transaction, {
-                    "status": mapped,
-                    "canceled_at": now if mapped in {"CANCELED", "PARTIAL_CANCELED"} else transaction.canceled_at,
-                })
-                PaymentWebhookRepository.update(event, {"processing_status": "PROCESSED", "processed_at": now})
+        if not payment_key:
+            PaymentWebhookRepository.update(event, {
+                "processing_status": "IGNORED",
+                "processed_at": datetime.now(timezone.utc),
+                "error_message": "Payment key is required",
+            })
             db.session.commit()
-            return {"duplicate": False, "status": event.processing_status}
+            return {"duplicate": False, "status": "IGNORED"}
+        try:
+            # The webhook body is only a notification. Provider query is the
+            # source of truth for all payment/subscription state changes.
+            provider_payment = PaymentService._client().get_payment(payment_key)
+            transaction = PaymentTransactionRepository.get_by_payment_key(PaymentService.PROVIDER, payment_key)
+            if not transaction:
+                PaymentWebhookRepository.update(event, {
+                    "processing_status": "IGNORED", "processed_at": datetime.now(timezone.utc)
+                })
+                db.session.commit()
+                return {"duplicate": False, "status": "IGNORED"}
+
+            PaymentService._validate_payment_response(
+                provider_payment,
+                transaction,
+                transaction.billing_product,
+                allowed_statuses={"DONE", "CANCELED", "PARTIAL_CANCELED"},
+            )
+            now = datetime.now(timezone.utc)
+            provider_status = str(provider_payment.get("status") or "").upper()
+            update = {
+                "status": provider_status,
+                "raw_response_json": PaymentService._safe_provider_payload(provider_payment),
+            }
+            if provider_status in {"CANCELED", "PARTIAL_CANCELED"}:
+                update["canceled_at"] = now
+            PaymentTransactionRepository.update(transaction, update)
+
+            subscription = transaction.subscription
+            if subscription:
+                if provider_status == "DONE":
+                    SubscriptionRepository.update_member_subscription(subscription, {"last_verified_at": now})
+                elif provider_status == "CANCELED" or int(provider_payment.get("balanceAmount") or 0) == 0:
+                    # 전액 취소는 즉시 entitlement에서 제외되는 종결 상태로 만든다.
+                    SubscriptionRepository.update_member_subscription(subscription, {
+                        "status": "refunded",
+                        "auto_renew": False,
+                        "cancel_at_period_end": False,
+                        "canceled_at": now,
+                        "ended_at": now,
+                        "last_verified_at": now,
+                    })
+                else:
+                    SubscriptionRepository.update_member_subscription(subscription, {"last_verified_at": now})
+            PaymentWebhookRepository.update(event, {
+                "processing_status": "PROCESSED", "processed_at": now
+            })
+            db.session.commit()
+            return {"duplicate": False, "status": "PROCESSED"}
+        except PaymentVerificationError:
+            db.session.rollback()
+            transaction = PaymentTransactionRepository.get_by_payment_key(PaymentService.PROVIDER, payment_key)
+            if transaction:
+                PaymentTransactionRepository.update(transaction, {
+                    "failure_code": "WEBHOOK_VERIFICATION_FAILED",
+                    "failure_message": "Payment status verification failed",
+                })
+                if transaction.subscription:
+                    SubscriptionRepository.update_member_subscription(transaction.subscription, {
+                        "status": "verification_required", "auto_renew": False
+                    })
+            failed_event = PaymentWebhookRepository.get_by_deduplication_key(
+                PaymentService.PROVIDER, deduplication_key, for_update=True
+            )
+            if failed_event:
+                PaymentWebhookRepository.update(failed_event, {
+                    "processing_status": "FAILED",
+                    "processed_at": datetime.now(timezone.utc),
+                    "error_message": "Payment verification failed",
+                })
+            db.session.commit()
+            raise
         except Exception as exc:
             db.session.rollback()
-            failed_event = PaymentWebhookRepository.get_by_deduplication_key(PaymentService.PROVIDER, deduplication_key)
+            failed_event = PaymentWebhookRepository.get_by_deduplication_key(
+                PaymentService.PROVIDER, deduplication_key, for_update=True
+            )
             if failed_event:
                 PaymentWebhookRepository.update(failed_event, {
                     "processing_status": "FAILED",
@@ -279,6 +433,27 @@ class PaymentService:
                 })
                 db.session.commit()
             raise
+
+    @staticmethod
+    def _validate_payment_response(response, transaction, product, *, allowed_statuses=None):
+        """결제 응답을 DB 주문·상품과 대조해 변조 및 잘못된 연결을 차단한다."""
+        allowed_statuses = allowed_statuses or {"DONE"}
+        if not isinstance(response, dict):
+            raise PaymentVerificationError("Invalid payment provider response")
+        try:
+            amount_matches = int(response.get("totalAmount")) == int(product.amount)
+        except (TypeError, ValueError):
+            amount_matches = False
+        checks = (
+            str(response.get("status") or "").upper() in allowed_statuses,
+            bool(response.get("paymentKey")),
+            response.get("paymentKey") == (transaction.payment_key or response.get("paymentKey")),
+            response.get("orderId") == transaction.order_id,
+            amount_matches,
+            str(response.get("currency") or "").upper() == str(product.currency or "").upper(),
+        )
+        if not all(checks):
+            raise PaymentVerificationError("Payment provider response verification failed")
 
     @staticmethod
     def _add_one_month(value):
@@ -298,6 +473,7 @@ class PaymentService:
 
     @staticmethod
     def _safe_provider_payload(payload):
+        """운영 진단에 필요한 필드만 남기고 결제 비밀정보 저장을 차단한다."""
         blocked = {"billingkey", "authkey", "cardnumber", "number", "secret", "cvc"}
         if isinstance(payload, dict):
             return {

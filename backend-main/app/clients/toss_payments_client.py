@@ -6,13 +6,36 @@ import urllib.request
 
 
 class TossPaymentsError(RuntimeError):
-    def __init__(self, message="Toss Payments request failed", *, code=None, status=None):
+    """Toss 요청 실패와 결제 결과의 확정 가능 여부를 함께 전달한다.
+
+    HTTP 오류는 제공자가 요청을 거절했다는 응답을 받은 경우이고, 전송 오류는
+    요청 처리 여부를 알 수 없다. 서비스 계층은 이 구분을 이용해 후자에서 기존
+    주문 ID와 멱등 키를 보존해야 한다.
+    """
+
+    def __init__(
+        self,
+        message="Toss Payments request failed",
+        *,
+        code=None,
+        status=None,
+        provider_rejected=False,
+        outcome_uncertain=False,
+    ):
         super().__init__(message)
         self.code = code
         self.status = status
+        self.provider_rejected = provider_rejected
+        self.outcome_uncertain = outcome_uncertain
 
 
 class TossPaymentsClient:
+    """Toss Payments HTTP 계약만 담당하는 최소 클라이언트.
+
+    결제 상태 변경이나 DB 기록은 이 계층에서 수행하지 않는다. 네트워크 결과가
+    불확실한 상황을 상위 서비스가 안전하게 재처리할 수 있도록 오류만 분류한다.
+    """
+
     BASE_URL = "https://api.tosspayments.com"
 
     def __init__(self, secret_key, timeout=10):
@@ -65,12 +88,19 @@ class TossPaymentsClient:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
+            # HTTP 응답을 받았으므로 제공자가 해당 요청을 명시적으로 거절한 경우다.
             code = None
             try:
                 body = json.loads(exc.read().decode("utf-8"))
                 code = body.get("code")
             except Exception:
                 pass
-            raise TossPaymentsError(status=exc.code, code=code) from exc
+            raise TossPaymentsError(
+                status=exc.code,
+                code=code,
+                provider_rejected=True,
+            ) from exc
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            raise TossPaymentsError() from exc
+            # The request may have reached Toss even when the response was lost.
+            # Callers must retain the order/idempotency key and retry safely.
+            raise TossPaymentsError(outcome_uncertain=True) from exc

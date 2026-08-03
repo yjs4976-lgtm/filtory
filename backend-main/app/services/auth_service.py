@@ -23,6 +23,12 @@ class LoginLockedError(ValueError):
 
 
 class AuthService:
+    """회원가입·로그인·토큰 발급을 하나의 인증 정책으로 조율한다.
+
+    계정 잠금과 탈퇴 상태를 DB에서 확인한 뒤 토큰을 발급한다. API 계층은 인증
+    세부 정책을 재구현하지 않고 이 서비스의 결과와 도메인 예외만 처리한다.
+    """
+
     @staticmethod
     def register(payload):
         # 일반 회원가입은 약관 동의와 비밀번호 정책을 통과한 뒤 MemberService로 생성 작업을 위임한다.
@@ -56,6 +62,11 @@ class AuthService:
 
     @staticmethod
     def login(payload):
+        """계정 잠금 경쟁을 직렬화하고 자격 증명이 맞을 때만 fresh token을 발급한다.
+
+        동일 문자열이 한 계정의 email과 다른 계정의 login_id에 겹칠 수 있으므로
+        후보 전체를 확인한다. 실패 횟수 갱신도 잠근 행에서 처리해 동시 실패를 잃지 않는다.
+        """
         # 로그인 ID와 이메일을 모두 허용하되, 탈퇴/비활성 계정은 후보에서 제외한다.
         identifier = payload.get("identifier") or payload.get("email")
         validate_required(
@@ -65,6 +76,8 @@ class AuthService:
 
         now = datetime.now(timezone.utc)
         member = None
+        # FOR UPDATE 조회 결과를 유지한 채 잠금 만료 정리와 실패 횟수 갱신을 한다.
+        # 단순 get 후 update로 바꾸면 병렬 로그인 실패가 서로 덮어쓸 수 있다.
         active_candidates = [
             candidate
             for candidate in MemberRepository.list_by_login_identifier_for_update(identifier)
@@ -120,6 +133,7 @@ class AuthService:
 
     @staticmethod
     def refresh(member_id, provider="local"):
+        """refresh JWT의 신원을 현재 활성 회원과 다시 대조해 access token만 갱신한다."""
         # refresh token은 새 access token만 발급한다. 재인증이 아니므로 fresh=False로 내려간다.
         member = MemberRepository.get_by_id(int(member_id))
 

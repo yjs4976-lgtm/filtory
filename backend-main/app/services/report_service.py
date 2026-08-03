@@ -7,6 +7,12 @@ from app.utils.validators import validate_report_target
 
 
 class ReportService:
+    """리뷰 신고 접수와 관리자 처리 상태를 관리한다.
+
+    중복 신고와 대상 소유권을 검증하고, 관리자 처리 결과는 감사 가능한 상태로
+    남긴다. 신고가 곧 리뷰 위반 확정을 의미하지 않는 정책을 유지한다.
+    """
+
     STATUSES = {"pending", "reviewing", "resolved", "rejected"}
     REPORT_TYPES = {
         "spam",

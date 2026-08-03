@@ -6,6 +6,12 @@ from app.repositories import AnalysisRepository, HospitalRepository, RecentHospi
 
 
 class RecentHospitalService:
+    """회원별 최근 본 병원을 중복 없이 최신 순서로 관리한다.
+
+    동일 병원 재방문은 새 행을 계속 만들지 않고 조회 시각을 갱신하며, 모든 변경은
+    현재 회원 범위 안에서만 수행한다.
+    """
+
     @staticmethod
     def list(member_id, page=1, size=20):
         if page < 1 or size < 1 or size > 50:

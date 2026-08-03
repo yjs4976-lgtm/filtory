@@ -169,6 +169,12 @@ create index if not exists idx_payment_transactions_subscription
 on public.payment_transactions(subscription_id);
 create index if not exists idx_payment_transactions_payment_key
 on public.payment_transactions(payment_key) where payment_key is not null;
+
+-- 동일 회원·상품에 결제 가능한 최초 주문이 둘 이상 생기는 경쟁 조건을 DB에서 차단한다.
+create unique index if not exists uq_payment_transactions_active_initial
+on public.payment_transactions(member_id, billing_product_id, transaction_type)
+where transaction_type = 'INITIAL'
+  and status in ('READY', 'IN_PROGRESS');
 create index if not exists idx_payment_webhook_events_received
 on public.payment_webhook_events(received_at desc);
 

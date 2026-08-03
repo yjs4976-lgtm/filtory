@@ -1,3 +1,5 @@
+from sqlalchemy import Index, text
+
 from app.extensions import db
 
 
@@ -13,6 +15,18 @@ class PaymentTransaction(db.Model):
         db.CheckConstraint("amount >= 0", name="payment_transactions_amount_check"),
         db.UniqueConstraint("provider", "order_id", name="payment_transactions_provider_order_unique"),
         db.UniqueConstraint("provider", "payment_key", name="payment_transactions_provider_payment_unique"),
+        Index(
+            # 애플리케이션 사전 조회만으로는 동시 요청을 막을 수 없으므로 DB가
+            # 회원·상품별 진행 중 최초 결제를 하나로 제한한다.
+            "uq_payment_transactions_active_initial",
+            "member_id",
+            "billing_product_id",
+            "transaction_type",
+            unique=True,
+            postgresql_where=text(
+                "transaction_type = 'INITIAL' and status in ('READY', 'IN_PROGRESS')"
+            ),
+        ),
         {"schema": "public"},
     )
 
@@ -41,4 +55,3 @@ class PaymentTransaction(db.Model):
     subscription = db.relationship("MemberSubscription", back_populates="payment_transactions")
     billing_product = db.relationship("BillingProduct", back_populates="transactions")
     billing_profile = db.relationship("MemberBillingProfile", back_populates="transactions")
-

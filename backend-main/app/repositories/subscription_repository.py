@@ -8,6 +8,12 @@ from app.models import MemberSubscription, SubscriptionPlan
 
 
 class SubscriptionRepository:
+    """구독 플랜과 회원 구독 상태를 조회·저장하는 ORM 경계다.
+
+    현재 구독 판정은 상태뿐 아니라 기간 종료 시각도 함께 확인한다. 결제 제공자
+    응답 검증과 상태 전이 결정은 PaymentService에 두어 repository가 정책을 추측하지 않는다.
+    """
+
     VALID_CURRENT_STATUSES = {
         "active", "trialing", "cancel_scheduled", "grace_period", "past_due", "on_hold", "verification_required"
     }

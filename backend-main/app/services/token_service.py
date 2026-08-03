@@ -2,6 +2,13 @@ from flask_jwt_extended import create_access_token, create_refresh_token, get_jw
 
 
 class TokenService:
+    """JWT access/refresh 쌍의 발급·회전·폐기 정책을 담당한다.
+
+    토큰 원문은 서버에 저장하지 않고 JWT의 jti만 폐기 목록에 기록한다. 현재
+    폐기 목록은 프로세스 메모리 기반이므로 다중 인스턴스 운영 전 공유 저장소로
+    교체해야 한다는 제약을 호출부가 인지해야 한다.
+    """
+
     # 개발 환경용 간단한 메모리 revoke 목록이다. 운영에서 다중 인스턴스를 쓰면 Redis 같은 공유 저장소가 필요하다.
     _revoked_jtis = set()
 

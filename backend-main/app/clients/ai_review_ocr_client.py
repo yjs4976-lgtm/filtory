@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class AIReviewOcrClient:
+    """리뷰 이미지 OCR 요청을 backend-ai에 전달하는 내부 클라이언트다.
+
+    이미지 원문을 로그에 남기지 않으며, 네트워크·응답 형식 오류를 도메인 서비스가
+    처리 가능한 일반 오류로 변환한다.
+    """
+
     REVIEW_OCR_PATH = "/api/reviews/ocr"
     ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
     MAX_FILE_SIZE = 5 * 1024 * 1024

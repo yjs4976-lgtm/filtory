@@ -4,6 +4,12 @@ from sqlalchemy.orm import joinedload
 
 
 class AnalysisRepository:
+    """분석 요청·결과의 ORM 조회와 잠금 범위를 캡슐화한다.
+
+    서비스가 회원 소유권과 soft-delete 조건을 빠뜨리지 않도록 용도별 query를
+    제공하며, commit/rollback 정책은 상위 서비스에 남겨 둔다.
+    """
+
     # AnalysisService가 필요한 쿼리만 모아둔 저장소 계층이다.
     # 권한 판단과 상태 변경 의미는 Service에서 처리하고, Repository는 DB 조회/생성/삭제에 집중한다.
     @staticmethod

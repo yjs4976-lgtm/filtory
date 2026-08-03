@@ -8,6 +8,12 @@ from app.schemas import (
 
 
 class SubscriptionService:
+    """구독 플랜과 현재 entitlement를 읽기 위한 서비스 경계다.
+
+    결제 승인 자체는 PaymentService가 담당하며, 이 서비스는 검증된 구독 상태를
+    사용자 응답으로 변환해 결제 로직과 조회 로직의 책임을 분리한다.
+    """
+
     STATUSES = {
         "pending", "active", "trialing", "cancel_scheduled", "grace_period", "past_due", "on_hold",
         "canceled", "expired", "refunded", "verification_required",

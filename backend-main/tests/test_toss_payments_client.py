@@ -1,7 +1,11 @@
 import base64
 import json
+import socket
+import urllib.error
 
-from app.clients.toss_payments_client import TossPaymentsClient
+import pytest
+
+from app.clients.toss_payments_client import TossPaymentsClient, TossPaymentsError
 
 
 def test_billing_charge_uses_basic_auth_and_idempotency_header(monkeypatch):
@@ -45,3 +49,27 @@ def test_billing_charge_uses_basic_auth_and_idempotency_header(monkeypatch):
     assert captured["timeout"] == 7
     assert result["status"] == "DONE"
 
+
+def test_http_error_is_classified_as_provider_rejection(monkeypatch):
+    error = urllib.error.HTTPError("url", 400, "bad request", {}, None)
+    monkeypatch.setattr("urllib.request.urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(error))
+
+    with pytest.raises(TossPaymentsError) as raised:
+        TossPaymentsClient("secret").get_payment("payment-1")
+
+    assert raised.value.provider_rejected is True
+    assert raised.value.outcome_uncertain is False
+
+
+@pytest.mark.parametrize(
+    "error",
+    [urllib.error.URLError("connection reset"), socket.timeout("timed out")],
+)
+def test_transport_error_is_classified_as_uncertain(monkeypatch, error):
+    monkeypatch.setattr("urllib.request.urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(error))
+
+    with pytest.raises(TossPaymentsError) as raised:
+        TossPaymentsClient("secret").get_payment("payment-1")
+
+    assert raised.value.provider_rejected is False
+    assert raised.value.outcome_uncertain is True

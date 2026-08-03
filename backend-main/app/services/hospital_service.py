@@ -5,6 +5,12 @@ from app.services.hospital_search_provider import HospitalSearchProvider
 
 
 class HospitalService:
+    """병원 검색 결과와 저장된 병원 정보를 정규화하는 도메인 서비스다.
+
+    외부 지도 제공자의 불완전한 데이터와 내부 DB 레코드를 동일한 응답 계약으로
+    변환하되, 사용자가 제출한 보강 정보는 관리자 검토 없이 확정 정보로 취급하지 않는다.
+    """
+
     # 병원 검색/저장/분석용 병원 식별을 담당한다.
     # 외부 검색 결과를 바로 믿지 않고 기존 DB 병원과 매칭한 뒤, 없을 때만 새 병원을 만든다.
     CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}

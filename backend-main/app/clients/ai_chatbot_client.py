@@ -10,6 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class AIChatbotClient:
+    """backend-ai 챗봇 호출의 인증·timeout·응답 검증을 캡슐화한다.
+
+    사용자 응답 fallback 정책은 ChatbotService가 담당하고, 이 클래스는 원격 호출
+    성공 여부를 모호하게 숨기지 않는다.
+    """
+
     DEFAULT_URL = "http://127.0.0.1:8000/api/chatbot/message"
     DEFAULT_TIMEOUT_SECONDS = 12
 

@@ -9,6 +9,12 @@ from app.schemas import member_to_dict
 
 
 class ProfileImageService:
+    """프로필 이미지 검증·저장·교체 시 이전 객체 정리를 조율한다.
+
+    파일명과 MIME 타입을 신뢰하지 않고 허용 형식·크기를 검사한다. DB 갱신 실패 시
+    새 객체가 고아로 남지 않도록 storage 보상 처리를 수행한다.
+    """
+
     MAX_FILE_SIZE = 2 * 1024 * 1024
     ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
     EXTENSIONS = {

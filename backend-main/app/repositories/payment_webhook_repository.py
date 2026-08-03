@@ -4,11 +4,15 @@ from app.models import PaymentWebhookEvent
 
 class PaymentWebhookRepository:
     @staticmethod
-    def get_by_deduplication_key(provider, key):
-        return PaymentWebhookEvent.query.filter(
+    def get_by_deduplication_key(provider, key, *, for_update=False):
+        """웹훅을 조회하고 필요하면 재처리 경쟁을 막기 위해 행을 잠근다."""
+        query = PaymentWebhookEvent.query.filter(
             PaymentWebhookEvent.provider == provider,
             PaymentWebhookEvent.deduplication_key == key,
-        ).first()
+        )
+        if for_update:
+            query = query.with_for_update()
+        return query.first()
 
     @staticmethod
     def create(data):
@@ -21,4 +25,3 @@ class PaymentWebhookRepository:
         for key, value in data.items():
             setattr(event, key, value)
         return event
-

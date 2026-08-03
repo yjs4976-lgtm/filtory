@@ -12,6 +12,12 @@ from flask import current_app
 
 
 class HospitalSearchProvider:
+    """지도 검색 제공자 결과를 Filtory 병원 후보 형식으로 통합한다.
+
+    외부 API 장애는 내부 DB 장애와 구분하고, 제공자별 필드·좌표·URL을 정규화한다.
+    검색 결과는 확인 전 운영 DB의 확정 병원 정보로 간주하지 않는다.
+    """
+
     KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
     NAVER_LOCAL_URL = "https://openapi.naver.com/v1/search/local.json"
     KAKAO_CATEGORY_GROUP_CODE = "HP8"

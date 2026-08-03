@@ -6,6 +6,12 @@ from flask import current_app, render_template
 
 
 class MailService:
+    """애플리케이션 메일 발송을 템플릿 렌더링과 전송 단계로 분리한다.
+
+    메일 전송 실패를 성공으로 숨기지 않으며, 비밀값이나 전체 인증 토큰을 로그에
+    기록하지 않는 외부 통신 경계다.
+    """
+
     @staticmethod
     def send_password_reset_email(email, reset_token):
         if not email or not reset_token:

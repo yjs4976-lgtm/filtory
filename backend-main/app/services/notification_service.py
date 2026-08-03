@@ -4,6 +4,12 @@ from app.schemas import notification_to_dict
 
 
 class NotificationService:
+    """회원별 알림 조회·읽음 처리·생성을 담당한다.
+
+    알림 ID만으로 수정하지 않고 항상 member_id 범위를 함께 적용해 다른 사용자의
+    알림 상태를 변경할 수 없게 한다.
+    """
+
     @staticmethod
     def list_my_notifications(member_id, limit=20, offset=0):
         # 알림 목록은 항상 현재 로그인 회원 id 기준으로 조회한다.

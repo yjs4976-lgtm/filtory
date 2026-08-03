@@ -16,6 +16,12 @@ from app.services.chatbot_history_service import ChatbotHistoryService
 
 
 class ChatbotService:
+    """분석 문맥을 안전하게 축약하고 원격 AI·로컬 답변을 조율한다.
+
+    원격 모델 실패가 사용자 화면 전체 실패로 번지지 않도록 fallback을 제공하되,
+    분석 결과와 무관한 의료적 확정 판단을 생성하지 않는 제품 정책을 유지한다.
+    """
+
     MAX_MESSAGE_LENGTH = 800
     MAX_LLM_CONTEXT_MESSAGES = 6
     MAX_LLM_CONTEXT_MESSAGE_LENGTH = 240

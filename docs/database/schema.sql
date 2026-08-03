@@ -403,10 +403,13 @@ create table if not exists public.payment_webhook_events (
   error_message text, unique(provider, deduplication_key)
 );
 
+drop trigger if exists trg_billing_products_updated_at on public.billing_products;
 create trigger trg_billing_products_updated_at before update on public.billing_products
 for each row execute function public.set_updated_at();
+drop trigger if exists trg_member_billing_profiles_updated_at on public.member_billing_profiles;
 create trigger trg_member_billing_profiles_updated_at before update on public.member_billing_profiles
 for each row execute function public.set_updated_at();
+drop trigger if exists trg_payment_transactions_updated_at on public.payment_transactions;
 create trigger trg_payment_transactions_updated_at before update on public.payment_transactions
 for each row execute function public.set_updated_at();
 
@@ -499,6 +502,11 @@ create index if not exists idx_payment_transactions_subscription
 on public.payment_transactions(subscription_id);
 create index if not exists idx_payment_transactions_payment_key
 on public.payment_transactions(payment_key) where payment_key is not null;
+-- 애플리케이션 조회와 insert 사이의 경쟁에서도 진행 중 최초 결제는 하나만 허용한다.
+create unique index if not exists uq_payment_transactions_active_initial
+on public.payment_transactions(member_id, billing_product_id, transaction_type)
+where transaction_type = 'INITIAL'
+  and status in ('READY', 'IN_PROGRESS');
 create index if not exists idx_payment_webhook_events_received
 on public.payment_webhook_events(received_at desc);
 

@@ -31,6 +31,12 @@ def _int_or_default(value: str | None, default: int) -> int:
 
 
 class Settings:
+    """backend-ai의 외부 모델·timeout·내부 인증 설정 스냅샷이다.
+
+    기능 플래그가 꺼져 있거나 자격 증명이 없으면 서비스가 외부 모델을 호출하지
+    않도록 원시 환경값을 명시적인 bool·숫자 타입으로 정규화한다.
+    """
+
     def __init__(self):
         # 리뷰 분석은 USE_OPENAI_REVIEW_ANALYZER와 OPENAI_API_KEY가 모두 준비됐을 때만 OpenAI를 사용한다.
         # 설정이 부족하면 서비스 계층에서 Mock fallback으로 같은 응답 계약을 유지한다.
@@ -53,6 +59,6 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
-    # lru_cache는 인자가 없는 함수 결과를 한 번만 만들고 재사용하게 해주는 표준 라이브러리 데코레이터다.
-    # 요청마다 환경 변수를 다시 파싱하지 않도록 프로세스 단위로 Settings를 캐싱한다.
+    # 설정은 프로세스 시작 시점의 스냅샷이다. 테스트에서 환경값을 바꾸면
+    # get_settings.cache_clear()로 명시적으로 재로딩해야 한다.
     return Settings()

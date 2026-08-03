@@ -1,7 +1,4 @@
 from types import SimpleNamespace
-import hashlib
-import hmac
-import json
 
 import pytest
 from flask import Flask
@@ -80,35 +77,55 @@ def test_charge_endpoint_never_forwards_client_amount(app, monkeypatch):
     assert response.get_json()["data"]["payment"]["amount"] == 4900
 
 
-def test_toss_webhook_rejects_invalid_signature(app):
-    app.config.update(PAYMENT_ENABLED=True, TOSS_WEBHOOK_SECRET="webhook-secret")
-
-    response = app.test_client().post(
-        "/api/payments/webhooks/toss",
-        json={"eventType": "PAYMENT_STATUS_CHANGED"},
-        headers={"X-Toss-Signature": "invalid"},
-    )
-
-    assert response.status_code == 401
-
-
-def test_toss_webhook_accepts_valid_signature(app, monkeypatch):
-    app.config.update(PAYMENT_ENABLED=True, TOSS_WEBHOOK_SECRET="webhook-secret")
+def test_toss_payment_webhook_is_reverified_by_service_without_invented_signature(app, monkeypatch):
+    app.config["PAYMENT_ENABLED"] = True
     payload = {"eventType": "PAYMENT_STATUS_CHANGED", "paymentKey": "payment-1"}
-    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-    signature = hmac.new(b"webhook-secret", raw, hashlib.sha256).hexdigest()
+    captured = {}
+
+    def process_webhook(received, headers):
+        captured["payload"] = received
+        return {"duplicate": False, "status": "PROCESSED"}
+
     monkeypatch.setattr(
         PaymentService,
         "process_webhook",
-        staticmethod(lambda received, headers: {"duplicate": False, "status": "PROCESSED"}),
+        staticmethod(process_webhook),
     )
 
     response = app.test_client().post(
         "/api/payments/webhooks/toss",
-        data=raw,
-        content_type="application/json",
-        headers={"X-Toss-Signature": signature},
+        json=payload,
     )
 
     assert response.status_code == 200
+    assert captured["payload"] == payload
     assert response.get_json()["data"]["status"] == "PROCESSED"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/payments/billing/prepare",
+        "/api/payments/billing/confirm",
+        "/api/payments/subscriptions/charge",
+        "/api/payments/subscriptions/cancel",
+    ],
+)
+def test_cookie_payment_mutation_rejects_untrusted_origin(app, path):
+    app.config.update(
+        PAYMENT_ENABLED=True,
+        JWT_TOKEN_LOCATION=["cookies"],
+        JWT_COOKIE_CSRF_PROTECT=False,
+        CORS_ORIGINS=["https://filtory.example"],
+    )
+    with app.app_context():
+        token = create_access_token(identity="1")
+    client = app.test_client()
+    client.set_cookie("access_token_cookie", token)
+
+    response = client.post(
+        path,
+        headers={"Origin": "https://attacker.example"},
+    )
+
+    assert response.status_code == 403

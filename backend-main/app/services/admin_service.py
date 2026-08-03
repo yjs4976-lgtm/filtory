@@ -12,6 +12,12 @@ from app.schemas import admin_member_to_dict
 
 
 class AdminService:
+    """관리자 조회·상태 변경·감사 기록 정책의 단일 진입점이다.
+
+    관리자 화면 payload를 그대로 저장하지 않고 허용 목록으로 정규화한다. 변경
+    작업은 감사 로그와 함께 커밋하며 비밀번호·토큰 등 민감값은 기록하지 않는다.
+    """
+
     ROLES = {"user", "admin"}
     STATUSES = {"active", "suspended", "withdrawn", "dormant"}
     ADMIN_MUTABLE_STATUSES = {"active", "suspended"}
@@ -436,6 +442,7 @@ class AdminService:
 
     @staticmethod
     def update_member_role(member_id, role, admin_member_id):
+        """관리자 자기 권한 훼손을 막고 역할 변경과 감사 로그를 원자적으로 저장한다."""
         member = AdminService._get_mutable_member(member_id, admin_member_id)
         normalized_role = AdminService._normalize_role(role)
         before = {"role": member.role}
@@ -457,6 +464,7 @@ class AdminService:
 
     @staticmethod
     def update_member_status(member_id, status, admin_member_id):
+        """지원되는 계정 상태만 적용하고 변경 전후 값을 감사 로그에 남긴다."""
         member = AdminService._get_mutable_member(member_id, admin_member_id)
         normalized_status = AdminService._normalize_mutable_status(status)
         before = {
@@ -944,6 +952,7 @@ class AdminService:
 
     @staticmethod
     def _sanitize_audit_metadata(value, depth=0):
+        """감사 가능성은 유지하되 비밀값과 과도하게 깊은 payload 기록을 차단한다."""
         if value is None:
             return None
         if depth >= 3:

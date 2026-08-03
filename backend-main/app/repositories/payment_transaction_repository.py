@@ -3,6 +3,12 @@ from app.models import PaymentTransaction
 
 
 class PaymentTransactionRepository:
+    """결제 거래의 멱등 조회와 상태 저장을 담당하는 ORM 접근 계층이다.
+
+    재시도 가능한 최초 거래는 READY/IN_PROGRESS만 조회한다. 실제 동시성 보장은
+    모델과 SQL에 선언된 partial unique index가 담당한다.
+    """
+
     @staticmethod
     def get_by_order_id(provider, order_id):
         return PaymentTransaction.query.filter(
