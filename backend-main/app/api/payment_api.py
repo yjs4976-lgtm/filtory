@@ -47,7 +47,7 @@ def confirm_billing_auth():
         return success_response(PaymentService.confirm_billing_auth(
             g.current_member.id, payload.get("authKey"), payload.get("customerKey")
         ))
-    except (PaymentDisabledError, PaymentConfigurationError, BillingKeyEncryptionError, TossPaymentsError, PermissionError, ValueError) as error:
+    except (PaymentDisabledError, PaymentConfigurationError, BillingKeyEncryptionError, PaymentVerificationError, TossPaymentsError, PermissionError, ValueError) as error:
         return _payment_error(error)
 
 

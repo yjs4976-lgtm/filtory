@@ -1,6 +1,6 @@
 export type SubscriptionPlan = "FREE" | "PLUS"
 export type SubscriptionStatus = "FREE" | "ACTIVE" | "CANCEL_SCHEDULED" | "GRACE_PERIOD" | "PAYMENT_PENDING" | "ON_HOLD" | "EXPIRED" | "REFUNDED" | "VERIFICATION_REQUIRED"
-export type PaymentProvider = "GOOGLE_PLAY" | "ADMIN" | "MOCK"
+export type PaymentProvider = "GOOGLE_PLAY" | "TOSS" | "ADMIN" | "MOCK"
 
 export interface MembershipEntitlement {
   userId: string

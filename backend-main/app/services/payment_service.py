@@ -110,16 +110,26 @@ class PaymentService:
         PaymentService._ensure_enabled()
         if not auth_key or not customer_key:
             raise ValueError("authKey and customerKey are required")
-        profile = MemberBillingProfileRepository.get_by_customer_key(PaymentService.PROVIDER, customer_key)
+        profile = MemberBillingProfileRepository.get_by_customer_key(
+            PaymentService.PROVIDER, customer_key, for_update=True
+        )
         if not profile or profile.member_id != member_id:
             raise PermissionError("Billing profile permission is required")
-        response = PaymentService._client().issue_billing_key(auth_key, customer_key)
-        billing_key = response.get("billingKey")
-        if not billing_key:
-            raise TossPaymentsError("Toss billing key was not returned")
-        now = datetime.now(timezone.utc)
-        card = response.get("card") if isinstance(response.get("card"), dict) else {}
         try:
+            # 성공 콜백 재진입(새로고침/React Strict Mode)은 이미 저장된 빌링키를
+            # 그대로 사용한다. 같은 authKey를 Toss에 다시 교환하지 않는다.
+            if profile.status == "active" and profile.encrypted_billing_key:
+                db.session.commit()
+                return billing_profile_to_dict(profile)
+
+            response = PaymentService._client().issue_billing_key(auth_key, customer_key)
+            if response.get("customerKey") and response.get("customerKey") != customer_key:
+                raise PaymentVerificationError("Billing customer key does not match")
+            billing_key = response.get("billingKey")
+            if not billing_key:
+                raise TossPaymentsError("Toss billing key was not returned")
+            now = datetime.now(timezone.utc)
+            card = response.get("card") if isinstance(response.get("card"), dict) else {}
             MemberBillingProfileRepository.update(profile, {
                 "encrypted_billing_key": encrypt_text(billing_key),
                 "encryption_key_version": current_app.config.get("BILLING_KEY_ENCRYPTION_VERSION", "v1"),
@@ -304,7 +314,8 @@ class PaymentService:
 
     @staticmethod
     def _complete_initial_transaction(transaction, product, profile, response):
-        now = datetime.now(timezone.utc)
+        approved_at = PaymentService._parse_provider_datetime(response.get("approvedAt"))
+        now = approved_at or datetime.now(timezone.utc)
         subscription = getattr(transaction, "subscription", None)
         if not subscription:
             subscription = SubscriptionRepository.create_member_subscription({
@@ -342,6 +353,19 @@ class PaymentService:
             "subscription": member_subscription_to_dict(subscription),
             "payment": payment_transaction_to_dict(transaction),
         }
+
+    @staticmethod
+    def _parse_provider_datetime(value):
+        """Toss ISO-8601 시각을 UTC aware datetime으로 정규화한다."""
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                return None
+            return parsed.astimezone(timezone.utc)
+        except ValueError:
+            return None
 
     @staticmethod
     def get_my_payments(member_id):

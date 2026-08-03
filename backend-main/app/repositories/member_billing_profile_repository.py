@@ -11,11 +11,14 @@ class MemberBillingProfileRepository:
         ).first()
 
     @staticmethod
-    def get_by_customer_key(provider, customer_key):
-        return MemberBillingProfile.query.filter(
+    def get_by_customer_key(provider, customer_key, for_update=False):
+        query = MemberBillingProfile.query.filter(
             MemberBillingProfile.provider == provider,
             MemberBillingProfile.customer_key == customer_key,
-        ).first()
+        )
+        if for_update:
+            query = query.with_for_update()
+        return query.first()
 
     @staticmethod
     def create(data):
@@ -28,4 +31,3 @@ class MemberBillingProfileRepository:
         for key, value in data.items():
             setattr(profile, key, value)
         return profile
-

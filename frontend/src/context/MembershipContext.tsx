@@ -5,6 +5,7 @@ import { subscriptionPlans } from "@/data/subscriptionPlans"
 import { useAuth } from "@/hooks/useAuth"
 import { analysisUsageService, serverUsageToAllowance } from "@/services/analysisUsageService"
 import { subscriptionService } from "@/services/subscriptionService"
+import { paymentFeatureEnabled, paymentService } from "@/services/paymentService"
 import type { AnalysisAllowance, AnalysisUsageEvent, AnalysisUsageType } from "@/types/analysisAllowance"
 import type { MonthlyFreeUsage } from "@/types/analysisAllowance"
 import type { CancellationFeedback, MembershipEntitlement, SubscriptionPlan } from "@/types/subscription"
@@ -38,7 +39,7 @@ type MembershipContextValue = {
   addRewardAnalysis: () => boolean; chargeCompletedAnalysis: (analysisId: string | number) => Promise<boolean>
   hasDetailedAccessForAnalysis: (analysisId: string | number | undefined) => boolean
   checkDetailedAccessForAnalysis: (analysisId: string | number | undefined) => Promise<boolean>
-  startPlusPurchase: () => Promise<MembershipEntitlement>; restorePurchases: () => Promise<MembershipEntitlement | null>; scheduleCancellation: (feedback: CancellationFeedback) => Promise<MembershipEntitlement>; refreshEntitlement: () => Promise<void>
+  startPlusPurchase: () => Promise<void>; restorePurchases: () => Promise<MembershipEntitlement | null>; scheduleCancellation: (feedback: CancellationFeedback) => Promise<MembershipEntitlement>; refreshEntitlement: () => Promise<void>
 }
 
 const MembershipContext = createContext<MembershipContextValue | null>(null)
@@ -53,6 +54,7 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
   const eventsRef = useRef(initialStored.usageEvents)
   const allowanceRef = useRef(initialStored.allowance)
   const serverReadyRef = useRef(false)
+  const purchaseInFlightRef = useRef(false)
 
   const persist = useCallback((next: AnalysisAllowance) => {
     allowanceRef.current = next; setAllowance(next)
@@ -159,9 +161,42 @@ export function MembershipProvider({ children }: { children: React.ReactNode }) 
 
   const startPlusPurchase = useCallback(async () => {
     if (!user) throw new Error("로그인이 필요합니다.")
+    if (!paymentFeatureEnabled) throw new Error("Plus 결제는 현재 준비 중입니다.")
+    if (purchaseInFlightRef.current) return
     if (entitlement.plan === "PLUS" && ["ACTIVE", "CANCEL_SCHEDULED", "GRACE_PERIOD"].includes(entitlement.status)) throw new Error("이미 Filtory Plus를 이용하고 있어요.")
-    await refreshEntitlement()
-    throw new Error("Plus는 현재 서버 mock entitlement 테스트 전용입니다.")
+    purchaseInFlightRef.current = true
+    try {
+      const summary = await paymentService.getPaymentSummary()
+      const paidStatus = summary.subscription?.status?.toLowerCase()
+      if (paidStatus && ["active", "cancel_scheduled", "grace_period"].includes(paidStatus)) {
+        await refreshEntitlement()
+        throw new Error("이미 Filtory Plus를 이용하고 있어요.")
+      }
+      if (summary.billingProfile?.status === "active") {
+        await paymentService.chargeInitialSubscription()
+        await refreshEntitlement()
+        return
+      }
+      const prepared = await paymentService.prepareBillingAuth()
+      const { loadTossPayments } = await import("@tosspayments/payment-sdk")
+      // payment-sdk 로더로 공식 v2 Standard SDK를 불러온다. 시크릿이나 금액은
+      // 브라우저 SDK에 전달하지 않고 서버 prepare 값만 사용한다.
+      const tossPayments = await loadTossPayments(prepared.clientKey, {
+        src: "https://js.tosspayments.com/v2/standard",
+      }) as unknown as {
+        payment: (options: { customerKey: string }) => {
+          requestBillingAuth: (options: { method: "CARD"; successUrl: string; failUrl: string }) => Promise<void>
+        }
+      }
+      const payment = tossPayments.payment({ customerKey: prepared.customerKey })
+      await payment.requestBillingAuth({
+        method: "CARD",
+        successUrl: prepared.successUrl,
+        failUrl: prepared.failUrl,
+      })
+    } finally {
+      purchaseInFlightRef.current = false
+    }
   }, [entitlement.plan, entitlement.status, refreshEntitlement, user])
 
   const restorePurchases = useCallback(async () => {

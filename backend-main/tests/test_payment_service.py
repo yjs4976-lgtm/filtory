@@ -57,12 +57,111 @@ def test_other_members_customer_key_is_rejected_before_toss_call(app, monkeypatc
     monkeypatch.setattr(
         MemberBillingProfileRepository,
         "get_by_customer_key",
-        staticmethod(lambda provider, customer_key: profile),
+        staticmethod(lambda provider, customer_key, for_update=False: profile),
     )
     monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: pytest.fail("Toss must not be called")))
 
     with app.app_context(), pytest.raises(PermissionError):
         PaymentService.confirm_billing_auth(1, "auth-key", "customer-other")
+
+
+def test_billing_confirm_is_retry_safe_after_profile_activation(app, monkeypatch):
+    app.config["BILLING_KEY_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
+    profile = SimpleNamespace(
+        member_id=1, provider="TOSS", customer_key="customer-1", status="pending",
+        encrypted_billing_key=None, encryption_key_version=None,
+        card_company=None, card_number_masked=None, authenticated_at=None,
+        last_verified_at=None, revoked_at=None,
+    )
+    calls = []
+
+    class FakeClient:
+        def issue_billing_key(self, auth_key, customer_key):
+            calls.append((auth_key, customer_key))
+            return {"billingKey": "billing-key", "customerKey": customer_key, "card": {"number": "123456******7890"}}
+
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_customer_key", staticmethod(lambda *args, **kwargs: profile))
+    monkeypatch.setattr(MemberBillingProfileRepository, "update", staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: FakeClient()))
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+    monkeypatch.setattr(payment_service_module.db.session, "rollback", lambda: None)
+
+    with app.app_context():
+        PaymentService.confirm_billing_auth(1, "auth-key", "customer-1")
+        PaymentService.confirm_billing_auth(1, "auth-key", "customer-1")
+
+    assert len(calls) == 1
+    assert profile.status == "active"
+    assert profile.encrypted_billing_key
+
+
+def test_active_profile_without_encrypted_key_is_reissued(app, monkeypatch):
+    app.config["BILLING_KEY_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
+    profile = SimpleNamespace(
+        member_id=1, provider="TOSS", customer_key="customer-1", status="active", encrypted_billing_key=None,
+        encryption_key_version=None, card_company=None, card_number_masked=None,
+        authenticated_at=None, last_verified_at=None, revoked_at=None,
+    )
+    calls = []
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_customer_key", staticmethod(lambda *args, **kwargs: profile))
+    monkeypatch.setattr(MemberBillingProfileRepository, "update", staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: SimpleNamespace(issue_billing_key=lambda *args: calls.append(args) or {"billingKey": "new-key", "customerKey": "customer-1"})))
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+    monkeypatch.setattr(payment_service_module.db.session, "rollback", lambda: None)
+
+    with app.app_context():
+        PaymentService.confirm_billing_auth(1, "auth", "customer-1")
+    assert len(calls) == 1
+    assert profile.encrypted_billing_key
+
+
+def test_billing_customer_key_mismatch_rolls_back_without_save(app, monkeypatch):
+    profile = SimpleNamespace(member_id=1, customer_key="customer-1", status="pending", encrypted_billing_key=None)
+    updates = []
+    rollbacks = []
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_customer_key", staticmethod(lambda *args, **kwargs: profile))
+    monkeypatch.setattr(MemberBillingProfileRepository, "update", staticmethod(lambda *args: updates.append(args)))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: SimpleNamespace(issue_billing_key=lambda *args: {"billingKey": "key", "customerKey": "other"})))
+    monkeypatch.setattr(payment_service_module.db.session, "rollback", lambda: rollbacks.append(True))
+
+    with app.app_context(), pytest.raises(PaymentVerificationError):
+        PaymentService.confirm_billing_auth(1, "auth", "customer-1")
+    assert updates == []
+    assert rollbacks == [True]
+
+
+def test_provider_approved_at_is_parsed_as_utc(app):
+    with app.app_context():
+        parsed = PaymentService._parse_provider_datetime("2026-08-03T16:30:00+09:00")
+    assert parsed == datetime(2026, 8, 3, 7, 30, tzinfo=timezone.utc)
+
+
+def test_invalid_provider_approved_at_uses_utc_fallback(app, monkeypatch):
+    product, profile, transaction = _charge_objects()
+    captured = {}
+    subscription = SimpleNamespace(
+        id=7, member_id=1, plan_id=2, status="active", started_at=None,
+        current_period_start=None, current_period_end=None, cancel_at_period_end=False,
+        canceled_at=None, payment_provider="TOSS", payment_customer_id="customer-1",
+        payment_subscription_id="payment-1", provider_product_id="plus",
+        provider_purchase_id="payment-1", last_verified_at=None, grace_period_end=None,
+        ended_at=None, auto_renew=True, metadata_json=None, created_at=None, updated_at=None,
+    )
+    monkeypatch.setattr(SubscriptionRepository, "create_member_subscription", staticmethod(lambda data: captured.update(data) or subscription))
+    monkeypatch.setattr(PaymentTransactionRepository, "update", staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item))
+    monkeypatch.setattr(payment_service_module.db.session, "flush", lambda: None)
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    before = datetime.now(timezone.utc)
+    with app.app_context():
+        PaymentService._complete_initial_transaction(transaction, product, profile, {
+            "paymentKey": "payment-1", "approvedAt": "invalid",
+        })
+    after = datetime.now(timezone.utc)
+
+    assert before <= captured["current_period_start"] <= after
+    assert captured["current_period_start"].tzinfo == timezone.utc
+    assert transaction.approved_at == captured["current_period_start"]
 
 
 def test_cancel_schedules_period_end_without_immediate_refund(app, monkeypatch):
