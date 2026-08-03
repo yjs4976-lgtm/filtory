@@ -5,8 +5,6 @@ from urllib.request import Request, urlopen
 
 
 class GoogleOAuthClient:
-    """Google OAuth 코드 교환과 사용자 정보 조회를 담당하는 제공자 어댑터다."""
-
     AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     USER_INFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"

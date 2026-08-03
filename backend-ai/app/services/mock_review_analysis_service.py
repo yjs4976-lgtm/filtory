@@ -6,12 +6,6 @@ from app.services.openai_review_analysis_service import OpenAIReviewAnalysisServ
 
 
 class MockReviewAnalysisService:
-    """외부 모델 없이도 운영 응답 계약을 유지하는 결정론적 분석기다.
-
-    개발 전용 샘플 결과를 고정 반환하지 않고 입력 리뷰에서 최소 신호를 계산한 뒤
-    실제 분석기와 같은 정규화 경로를 거쳐 fallback 품질과 schema를 검증한다.
-    """
-
     MODEL_VERSION = "mock-review-analyzer-v2"
 
     PROMOTIONAL_KEYWORDS = [

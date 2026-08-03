@@ -15,6 +15,7 @@ from app.repositories import (
     SubscriptionRepository,
 )
 from app.clients.toss_payments_client import TossPaymentsError
+from app.models import PaymentTransaction
 from app.services.payment_service import PaymentService, PaymentVerificationError
 from app.utils.crypto import BillingKeyEncryptionError, decrypt_text, encrypt_text
 
@@ -27,6 +28,7 @@ def app():
         PAYMENT_PROVIDER="TOSS",
         TOSS_CLIENT_KEY="test_client_key",
         TOSS_SECRET_KEY="test_secret_key",
+        TOSS_API_TIMEOUT_SECONDS=70,
         PAYMENT_SUCCESS_URL="http://localhost/payments/success",
         PAYMENT_FAIL_URL="http://localhost/payments/fail",
         BILLING_KEY_ENCRYPTION_KEY=None,
@@ -117,7 +119,7 @@ def test_initial_charge_uses_db_amount_and_resumes_same_idempotency_key(app, mon
     )
     fixed_key = uuid.uuid4()
     transaction = SimpleNamespace(
-        id=6, subscription_id=None, provider="TOSS", transaction_type="INITIAL", order_id="fixed-order",
+        id=6, member_id=1, subscription_id=None, subscription=None, provider="TOSS", transaction_type="INITIAL", order_id="fixed-order",
         payment_key=None, idempotency_key=fixed_key, amount=4900, currency="KRW", status="READY",
         requested_at=now, approved_at=None, canceled_at=None, failure_code=None, failure_message=None,
     )
@@ -172,7 +174,7 @@ def _charge_objects():
         id=5, status="active", encrypted_billing_key="encrypted", customer_key="customer-1",
     )
     transaction = SimpleNamespace(
-        id=6, subscription_id=None, subscription=None, billing_product=product,
+        id=6, member_id=1, subscription_id=None, subscription=None, billing_product=product,
         provider="TOSS", transaction_type="INITIAL", order_id="fixed-order",
         payment_key=None, idempotency_key=uuid.uuid4(), amount=4900, currency="KRW", status="READY",
         requested_at=now, approved_at=None, canceled_at=None, failure_code=None, failure_message=None,
@@ -226,7 +228,7 @@ def test_invalid_approval_response_never_creates_subscription(app, monkeypatch, 
     with app.app_context(), pytest.raises(PaymentVerificationError):
         PaymentService.charge_initial_subscription(1)
 
-    assert transaction.status == "FAILED"
+    assert transaction.status == "VERIFICATION_REQUIRED"
     assert transaction.failure_code == "INVALID_PROVIDER_RESPONSE"
 
 
@@ -276,6 +278,227 @@ def test_concurrent_initial_creation_reuses_winning_order_and_idempotency(app, m
 
     assert captured["order_id"] == "winning-order"
     assert captured["idempotency_key"] == winning.idempotency_key
+
+
+def test_configured_timeout_is_passed_to_toss_client(app, monkeypatch):
+    captured = {}
+
+    class FakeTossClient:
+        def __init__(self, secret, timeout):
+            captured.update(secret=secret, timeout=timeout)
+
+    app.config["TOSS_API_TIMEOUT_SECONDS"] = 73
+    monkeypatch.setattr(payment_service_module, "TossPaymentsClient", FakeTossClient)
+
+    with app.app_context():
+        PaymentService._client()
+
+    assert captured == {"secret": "test_secret_key", "timeout": 73}
+
+
+def test_verification_required_is_covered_by_active_initial_unique_index():
+    index = next(
+        item for item in PaymentTransaction.__table__.indexes
+        if item.name == "uq_payment_transactions_active_initial"
+    )
+    predicate = str(index.dialect_options["postgresql"]["where"])
+
+    assert "VERIFICATION_REQUIRED" in predicate
+
+
+def test_uncertain_retry_reuses_same_order_and_idempotency_key(app, monkeypatch):
+    product, profile, transaction = _charge_objects()
+    attempts = []
+
+    class FakeClient:
+        def charge_billing_key(self, billing_key, **kwargs):
+            attempts.append((kwargs["order_id"], kwargs["idempotency_key"]))
+            raise TossPaymentsError(
+                status=409,
+                code="IDEMPOTENT_REQUEST_PROCESSING",
+                outcome_uncertain=True,
+            )
+
+    monkeypatch.setattr(PaymentService, "get_plus_product", staticmethod(lambda: product))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: FakeClient()))
+    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: None))
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
+    monkeypatch.setattr(PaymentTransactionRepository, "get_resumable_initial", staticmethod(lambda *args: transaction))
+    monkeypatch.setattr(
+        PaymentTransactionRepository, "update",
+        staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item),
+    )
+    monkeypatch.setattr(payment_service_module, "decrypt_text", lambda value: "plain-key")
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    with app.app_context():
+        for _ in range(2):
+            with pytest.raises(TossPaymentsError):
+                PaymentService.charge_initial_subscription(1)
+
+    assert attempts == [
+        (transaction.order_id, transaction.idempotency_key),
+        (transaction.order_id, transaction.idempotency_key),
+    ]
+
+
+def test_verification_required_without_payment_key_recovers_by_order_id(app, monkeypatch):
+    product, profile, transaction = _charge_objects()
+    transaction.status = "VERIFICATION_REQUIRED"
+    transaction.payment_key = None
+    now = datetime.now(timezone.utc)
+    subscription = SimpleNamespace(
+        id=8, member_id=1, plan_id=2, status="active", started_at=now,
+        current_period_start=now, current_period_end=now + timedelta(days=30),
+        cancel_at_period_end=False, canceled_at=None, payment_provider="TOSS",
+        payment_customer_id="customer-1", payment_subscription_id="recovered-payment",
+        provider_product_id="plus", provider_purchase_id="recovered-payment",
+        last_verified_at=now, grace_period_end=None, ended_at=None, auto_renew=True,
+        metadata_json=None, created_at=now, updated_at=now,
+    )
+    calls = []
+
+    class FakeClient:
+        def get_payment_by_order_id(self, order_id):
+            calls.append(order_id)
+            return {
+                "status": "DONE",
+                "paymentKey": "recovered-payment",
+                "orderId": transaction.order_id,
+                "totalAmount": product.amount,
+                "currency": product.currency,
+            }
+
+        def charge_billing_key(self, *args, **kwargs):
+            pytest.fail("verification-required transaction must not create a new charge")
+
+    monkeypatch.setattr(PaymentService, "get_plus_product", staticmethod(lambda: product))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: FakeClient()))
+    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: None))
+    monkeypatch.setattr(SubscriptionRepository, "create_member_subscription", staticmethod(lambda data: subscription))
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
+    monkeypatch.setattr(PaymentTransactionRepository, "get_resumable_initial", staticmethod(lambda *args: transaction))
+    monkeypatch.setattr(
+        PaymentTransactionRepository, "update",
+        staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item),
+    )
+    monkeypatch.setattr(payment_service_module, "decrypt_text", lambda value: "plain-key")
+    monkeypatch.setattr(payment_service_module.db.session, "flush", lambda: None)
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    with app.app_context():
+        result = PaymentService.charge_initial_subscription(1)
+
+    assert calls == [transaction.order_id]
+    assert transaction.status == "DONE"
+    assert transaction.payment_key == "recovered-payment"
+    assert result["subscription"]["id"] == 8
+
+
+@pytest.mark.parametrize(
+    "provider_response",
+    [
+        {"status": "DONE", "paymentKey": "payment-1", "orderId": "fixed-order", "totalAmount": 9999, "currency": "KRW"},
+        {"status": "DONE", "paymentKey": "payment-1", "orderId": "other-order", "totalAmount": 4900, "currency": "KRW"},
+    ],
+)
+def test_verification_failure_reconciliation_never_creates_new_order(app, monkeypatch, provider_response):
+    product, profile, transaction = _charge_objects()
+    transaction.status = "VERIFICATION_REQUIRED"
+    transaction.payment_key = "payment-1"
+
+    class FakeClient:
+        def get_payment(self, payment_key):
+            return provider_response
+
+        def charge_billing_key(self, *args, **kwargs):
+            pytest.fail("reconciliation must not create a new charge")
+
+    monkeypatch.setattr(PaymentService, "get_plus_product", staticmethod(lambda: product))
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: FakeClient()))
+    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: None))
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
+    monkeypatch.setattr(PaymentTransactionRepository, "get_resumable_initial", staticmethod(lambda *args: transaction))
+    monkeypatch.setattr(PaymentTransactionRepository, "create", staticmethod(lambda data: pytest.fail("new order forbidden")))
+    monkeypatch.setattr(
+        PaymentTransactionRepository, "update",
+        staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item),
+    )
+    monkeypatch.setattr(payment_service_module, "decrypt_text", lambda value: "plain-key")
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    with app.app_context(), pytest.raises(PaymentVerificationError):
+        PaymentService.charge_initial_subscription(1)
+
+    assert transaction.status == "VERIFICATION_REQUIRED"
+
+
+def test_unknown_webhook_payment_key_does_not_call_provider(app, monkeypatch):
+    event = SimpleNamespace(
+        processing_status="RECEIVED", processed_at=None, error_message=None, payment_key="unknown"
+    )
+    monkeypatch.setattr(
+        PaymentWebhookRepository, "get_by_deduplication_key",
+        staticmethod(lambda *args, **kwargs: event),
+    )
+    monkeypatch.setattr(
+        PaymentWebhookRepository, "update",
+        staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item),
+    )
+    monkeypatch.setattr(
+        PaymentTransactionRepository, "get_by_payment_key", staticmethod(lambda *args: None)
+    )
+    monkeypatch.setattr(PaymentService, "_client", staticmethod(lambda: pytest.fail("provider must not be called")))
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    with app.app_context():
+        result = PaymentService.process_webhook(
+            {"eventType": "PAYMENT_STATUS_CHANGED", "paymentKey": "unknown"},
+            {"tosspayments-webhook-transmission-id": "unknown-event"},
+        )
+
+    assert result == {"duplicate": False, "status": "IGNORED"}
+
+
+def test_payment_summary_omits_provider_identifiers(app, monkeypatch):
+    _, profile, transaction = _charge_objects()
+    profile.provider = "TOSS"
+    profile.card_company = "TEST"
+    profile.card_number_masked = "****-1234"
+    profile.authenticated_at = None
+    profile.last_verified_at = None
+    transaction.payment_key = "secret-payment-key"
+    monkeypatch.setattr(SubscriptionRepository, "get_current_paid_subscription", staticmethod(lambda member_id: None))
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
+    monkeypatch.setattr(PaymentTransactionRepository, "list_by_member", staticmethod(lambda member_id: [transaction]))
+
+    with app.app_context():
+        result = PaymentService.get_my_payments(1)
+
+    assert "customerKey" not in result["billingProfile"]
+    assert "paymentKey" not in result["transactions"][0]
+
+
+def test_billing_prepare_keeps_customer_key_for_toss_sdk(app, monkeypatch):
+    product, profile, _ = _charge_objects()
+    product.provider = "TOSS"
+    product.billing_interval = "month"
+    product.plan.plan_code = "plus"
+    profile.member_id = 1
+    profile.provider = "TOSS"
+    monkeypatch.setattr(PaymentService, "get_plus_product", staticmethod(lambda: product))
+    monkeypatch.setattr(MemberBillingProfileRepository, "get_by_member_provider", staticmethod(lambda *args: profile))
+    monkeypatch.setattr(
+        MemberBillingProfileRepository,
+        "update",
+        staticmethod(lambda item, data: [setattr(item, key, value) for key, value in data.items()] and item),
+    )
+    monkeypatch.setattr(payment_service_module.db.session, "commit", lambda: None)
+
+    with app.app_context():
+        result = PaymentService.prepare_billing_auth(1)
+
+    assert result["customerKey"] == "customer-1"
 
 
 @pytest.mark.parametrize("starting_status", ["RECEIVED", "FAILED"])

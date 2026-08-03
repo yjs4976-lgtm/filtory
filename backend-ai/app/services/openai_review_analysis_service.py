@@ -17,12 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIReviewAnalysisService:
-    """LLM 근거 추출 결과를 서버 점수 정책으로 재계산하는 분석 엔진이다.
-
-    모델이 반환한 점수를 그대로 신뢰하지 않는다. 리뷰 정제, 근거·홍보 신호 계산,
-    리뷰 수 상한과 저정보 guardrail을 결정론적으로 적용해 결과를 설명 가능하게 만든다.
-    """
-
     # OpenAI가 맡는 일은 리뷰 문장의 판단 근거를 추출하는 것이다.
     # 최종 점수, 등급, 응답 호환 필드는 이 서비스의 normalize_response_data()에서 서버 규칙으로 다시 계산한다.
     MODEL_VERSION = "openai-review-analyzer-v1"
@@ -251,11 +245,6 @@ class OpenAIReviewAnalysisService:
 
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest, settings: Settings) -> ReviewAnalyzeResponse:
-        """LLM에서 구조화된 판단 신호를 받고 서버 정규화 또는 안전 fallback을 반환한다.
-
-        모델 호출 성공 여부와 무관하게 최종 응답은 Pydantic schema 검증을 통과해야 한다.
-        timeout 이후 fallback도 정상 응답 계약이므로 호출부는 저장 전에 modelVersion을 보존한다.
-        """
         # OpenAI Responses API에 JSON schema를 강제해 응답 구조가 흔들리지 않게 한다.
         # 실패하면 같은 응답 모델을 만족하는 안전 fallback을 반환한다.
         if not settings.openai_api_key:
@@ -381,11 +370,6 @@ class OpenAIReviewAnalysisService:
         payload: ReviewAnalyzeRequest,
         model_version: str,
     ) -> dict[str, Any]:
-        """모델 출력과 결정론적 서버 지표를 결합해 최종 공개 응답을 만든다.
-
-        모델은 문맥 판단 신호를 제공하지만 최종 점수·등급·리뷰 수·모델 버전은 서버가
-        다시 계산한다. 이 함수 밖에서 LLM 점수를 직접 결과 필드에 복사하지 않는다.
-        """
         # OpenAI 원응답은 trustScore/adScore/evidence 같은 최소 판단만 믿고,
         # placeScore, foreignerScore, totalScore, analyzedReviewCount, modelVersion은 서버가 확정한다.
         if not isinstance(data, dict):
@@ -826,11 +810,6 @@ class OpenAIReviewAnalysisService:
         balanced_experience_signals: list[dict[str, str]] | None = None,
         mentioned_aspects: ReviewMentionedAspects | None = None,
     ) -> dict[str, Any]:
-        """리뷰별 근거 품질과 홍보 위험을 분리 계산한 뒤 신뢰 점수로 합성한다.
-
-        점수 가중치 변경 시 일반 칭찬·구체 경험·명시 홍보·저정보 fixture의 상대 순서를
-        함께 검증해야 한다. 특정 샘플 점수 하나에 맞춰 상수만 조정하지 않는다.
-        """
         review_texts = cls._review_texts(payload)
         actual_review_count = len(review_texts)
         review_count = max(actual_review_count, 1)
@@ -856,8 +835,6 @@ class OpenAIReviewAnalysisService:
         )
         event_discount_score = promo_breakdown["eventBenefitScore"]
         review_burst_score = cls.calculate_review_burst_score(payload.reviewDates)
-        # 약한 홍보 표현 하나만으로 광고로 단정하지 않는다. 명시 신호·행동 유도·
-        # 이벤트·반복이 함께 나타날수록 연속적으로 위험 점수가 올라가게 구성한다.
         risk_parts = [
             (promo_breakdown["explicitPromoScore"], 0.30),
             (promo_breakdown["softPromoScore"], 0.18),
@@ -1551,11 +1528,6 @@ class OpenAIReviewAnalysisService:
         low_information_ratio: float,
         explicit_promo_score: int,
     ) -> dict[str, int | str | bool | None]:
-        """연속 감점과 제한적인 hard cap을 적용해 점수 쏠림을 방지한다.
-
-        리뷰 수 cap은 표본 신뢰도의 상한일 뿐 병원 품질 평가가 아니다. 명시 홍보 cap은
-        강한 홍보 신호와 높은 위험이 동시에 있을 때만 적용해 일반 긍정 리뷰를 보호한다.
-        """
         # 일반적인 구체성 부족·반복·저정보 신호는 연속 감점해 특정 상한값에 점수가 몰리지 않게 한다.
         specificity_penalty = max(0, 40 - specificity_score) * 0.35
         evidence_penalty = max(0, 45 - evidence_score) * 0.25

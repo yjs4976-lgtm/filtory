@@ -9,7 +9,7 @@ class PaymentTransaction(db.Model):
         db.CheckConstraint("provider in ('TOSS', 'GOOGLE_PLAY', 'MOCK')", name="payment_transactions_provider_check"),
         db.CheckConstraint("transaction_type in ('INITIAL', 'RENEWAL', 'CANCEL', 'REFUND')", name="payment_transactions_type_check"),
         db.CheckConstraint(
-            "status in ('READY', 'IN_PROGRESS', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')",
+            "status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')",
             name="payment_transactions_status_check",
         ),
         db.CheckConstraint("amount >= 0", name="payment_transactions_amount_check"),
@@ -24,7 +24,7 @@ class PaymentTransaction(db.Model):
             "transaction_type",
             unique=True,
             postgresql_where=text(
-                "transaction_type = 'INITIAL' and status in ('READY', 'IN_PROGRESS')"
+                "transaction_type = 'INITIAL' and status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED')"
             ),
         ),
         {"schema": "public"},

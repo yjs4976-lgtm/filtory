@@ -4,12 +4,6 @@ from app.repositories.subscription_repository import SubscriptionRepository
 
 
 class AnalysisUsageRepository:
-    """분석 사용량 차감을 위한 조회·잠금·로그 저장 연산을 제공한다.
-
-    lock_member는 같은 회원의 동시 차감을 직렬화하고, usage log unique 제약은
-    동일 분석 결과의 재시도를 한 번의 차감으로 수렴시킨다.
-    """
-
     @staticmethod
     def get_member(member_id):
         return db.session.get(Member, member_id)

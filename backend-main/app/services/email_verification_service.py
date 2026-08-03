@@ -8,12 +8,6 @@ from app.schemas import member_to_dict
 
 
 class EmailVerificationService:
-    """이메일 인증 코드의 발급·만료·일회성 사용 정책을 관리한다.
-
-    코드 원문 노출을 최소화하고, 이미 사용했거나 만료된 토큰은 회원 상태 변경의
-    근거로 재사용하지 않는다.
-    """
-
     @staticmethod
     def request_verification(member_id, request_ip=None, user_agent=None):
         member = MemberRepository.get_by_id(member_id)

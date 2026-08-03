@@ -22,12 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class AnalysisService:
-    """리뷰 입력부터 AI 분석 결과 저장까지의 트랜잭션을 조율한다.
-
-    병원·리뷰·요청·결과의 소유 관계를 서버에서 확정하고, AI 호출 실패 시 요청을
-    실패 상태로 남긴다. 외부 AI 응답은 schema 정규화 후에만 영속화한다.
-    """
-
     # 분석 도메인의 중심 서비스다.
     # 프론트 요청을 받아 병원/리뷰/분석요청/분석결과/알림까지 이어지는 전체 업무 흐름을 조율한다.
     # 실제 DB 조회/저장은 Repository가, AI 호출은 Client가, 응답 변환은 Schema helper가 맡는다.
@@ -167,11 +161,6 @@ class AnalysisService:
 
     @staticmethod
     def analyze_reviews(member_id, payload, *, create_completion_notification=True):
-        """분석 요청을 추적 가능한 상태 머신으로 실행하고 결과를 원자적으로 저장한다.
-
-        AI 호출 전 요청 원본을 커밋해 장애 이력을 남기고, AI 응답 이후에는 결과·검토
-        케이스·완료 알림을 한 트랜잭션으로 묶는다. 실패 경로는 반드시 request를 failed로 닫는다.
-        """
         data = AnalysisService._normalize_integrated_payload(payload)
         hospital = None
         analysis_request = None
@@ -224,8 +213,6 @@ class AnalysisService:
             )
             raise RuntimeError("Failed to prepare review analysis request") from exc
 
-        # DB 모델이나 회원 객체 전체를 내부 AI 서버에 넘기지 않는다. 명시적으로
-        # 구성한 분석 payload만 전달해 개인정보와 서버 전용 필드의 확산을 막는다.
         backend_ai_payload = AnalysisService._backend_ai_payload(data, hospital)
 
         try:
@@ -266,8 +253,6 @@ class AnalysisService:
                 )
             db.session.commit()
         except Exception as exc:
-            # 결과 insert 일부가 남지 않도록 먼저 rollback한 뒤, 별도 트랜잭션으로
-            # 요청 실패 상태를 기록한다. 이 순서를 바꾸면 실패 표시도 함께 rollback된다.
             db.session.rollback()
             logger.warning(
                 "Failed to save review analysis result: %s",

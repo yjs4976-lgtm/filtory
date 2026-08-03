@@ -38,11 +38,15 @@ class TossPaymentsClient:
 
     BASE_URL = "https://api.tosspayments.com"
 
-    def __init__(self, secret_key, timeout=10):
+    def __init__(self, secret_key, timeout=70):
         if not secret_key:
             raise TossPaymentsError("Toss secret key is not configured")
         self._secret_key = secret_key
-        self._timeout = timeout
+        try:
+            parsed_timeout = float(timeout)
+        except (TypeError, ValueError):
+            parsed_timeout = 70
+        self._timeout = max(60, parsed_timeout)
 
     def issue_billing_key(self, auth_key, customer_key):
         return self._request("POST", "/v1/billing/authorizations/issue", {
@@ -61,6 +65,9 @@ class TossPaymentsClient:
 
     def get_payment(self, payment_key):
         return self._request("GET", f"/v1/payments/{urllib.parse.quote(str(payment_key), safe='')}")
+
+    def get_payment_by_order_id(self, order_id):
+        return self._request("GET", f"/v1/payments/orders/{urllib.parse.quote(str(order_id), safe='')}")
 
     def cancel_payment(self, payment_key, reason, *, idempotency_key=None):
         return self._request(
@@ -88,17 +95,22 @@ class TossPaymentsClient:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            # HTTP 응답을 받았으므로 제공자가 해당 요청을 명시적으로 거절한 경우다.
             code = None
             try:
                 body = json.loads(exc.read().decode("utf-8"))
                 code = body.get("code")
             except Exception:
                 pass
+            outcome_uncertain = (
+                exc.code in {408, 409, 429}
+                or exc.code >= 500
+                or code == "IDEMPOTENT_REQUEST_PROCESSING"
+            )
             raise TossPaymentsError(
                 status=exc.code,
                 code=code,
-                provider_rejected=True,
+                provider_rejected=400 <= exc.code < 500 and not outcome_uncertain,
+                outcome_uncertain=outcome_uncertain,
             ) from exc
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             # The request may have reached Toss even when the response was lost.

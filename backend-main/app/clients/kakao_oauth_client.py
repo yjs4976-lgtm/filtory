@@ -5,8 +5,6 @@ from urllib.request import Request, urlopen
 
 
 class KakaoOAuthClient:
-    """Kakao OAuth 응답을 내부 소셜 계정 식별 정보로 정규화한다."""
-
     AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
     TOKEN_URL = "https://kauth.kakao.com/oauth/token"
     USER_INFO_URL = "https://kapi.kakao.com/v2/user/me"

@@ -11,12 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiChatbotService:
-    """Gemini 챗봇 호출과 제한된 재시도 정책을 담당한다.
-
-    대화 문맥은 길이와 개수를 제한해 전달하고, 재시도 가능한 일시 오류만 지수형
-    backoff로 처리한다. 최종 fallback 답변 결정은 backend-main에 남겨 둔다.
-    """
-
     MAX_CONTEXT_MESSAGES = 6
     MAX_CONTEXT_MESSAGE_LENGTH = 240
 
@@ -36,10 +30,10 @@ class GeminiChatbotService:
         except ImportError as exc:
             raise RuntimeError("google-genai package is not installed") from exc
 
+        # google-genai SDK의 Client가 Gemini 모델 호출을 담당한다.
         client = genai.Client(api_key=settings.gemini_api_key)
         contents = cls._build_user_content(payload)
-        # 낮은 temperature와 출력 상한은 안내 답변의 일관성과 비용을 함께 제한한다.
-        # timeout 단위는 SDK 계약상 millisecond이므로 설정 초 값을 변환한다.
+        # GenerateContentConfig는 timeout, system prompt, temperature, 최대 토큰 수 같은 생성 옵션을 담는다.
         config = types.GenerateContentConfig(
             http_options=types.HttpOptions(timeout=cls._timeout_milliseconds(settings)),
             system_instruction=CHATBOT_SYSTEM_PROMPT,

@@ -11,12 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class ReviewOcrService:
-    """리뷰 스크린샷에서 사용자 리뷰 본문만 추출하는 멀티모달 경계다.
-
-    이미지 크기와 base64 형식을 호출 전에 검증하고, 모델 출력은 엄격한 JSON으로
-    파싱한다. 프로필·병원 답변·버튼 문구는 분석 리뷰로 전달하지 않는 것이 핵심이다.
-    """
-
     MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
     @classmethod
@@ -35,8 +29,7 @@ class ReviewOcrService:
         image_parts = []
         for image in payload.images:
             image_bytes = cls._decode_image(image.dataBase64)
-            # 서버에서 검증한 MIME 타입만 모델 입력에 전달한다. 파일명이 주장하는
-            # 확장자는 모델 content type의 근거로 사용하지 않는다.
+            # Part.from_bytes는 이미지 bytes와 MIME 타입을 Gemini 멀티모달 입력 조각으로 만든다.
             image_parts.append(types.Part.from_bytes(data=image_bytes, mime_type=image.mimeType))
 
         contents = [cls._build_prompt(payload.language), *image_parts]
@@ -107,11 +100,6 @@ class ReviewOcrService:
 
     @classmethod
     def _parse_result(cls, raw_text: str) -> tuple[list[str], str]:
-        """모델 JSON을 우선 사용하고 형식이 깨진 경우에만 제한적으로 텍스트를 복구한다.
-
-        fallback 분리는 가용성 보조 수단이며 메타데이터를 리뷰로 확정하는 근거가 아니다.
-        정규화 후 빈 문자열과 중복 항목을 제거해 분석 리뷰 수 부풀림을 막는다.
-        """
         # Gemini가 markdown code fence나 배열만 반환해도 최대한 복구해 리뷰 목록으로 정규화한다.
         parsed = cls._parse_json_payload(raw_text)
         if isinstance(parsed, dict):

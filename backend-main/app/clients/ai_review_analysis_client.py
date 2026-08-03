@@ -10,12 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class AIReviewAnalysisClient:
-    """backend-ai 리뷰 분석 API와 통신하는 내부 HTTP 어댑터다.
-
-    호출 시간 제한과 내부 인증 헤더를 이 경계에서 통일한다. 응답 schema가 예상과
-    다르면 성공으로 간주하지 않아 불완전한 분석 결과가 DB에 저장되는 것을 막는다.
-    """
-
     REVIEW_ANALYSIS_PATH = "/api/reviews/analyze"
 
     @classmethod
@@ -32,6 +26,7 @@ class AIReviewAnalysisClient:
             "X-Internal-Token": internal_token,
         }
 
+        # urllib.request.Request는 표준 라이브러리만으로 HTTP method/header/body를 지정하는 객체다.
         request = urllib.request.Request(
             url,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -40,8 +35,7 @@ class AIReviewAnalysisClient:
         )
 
         try:
-            # backend-ai가 모델 timeout 뒤 안전 fallback을 만들 시간까지 포함한
-            # timeout을 사용한다. 너무 짧게 줄이면 정상 fallback도 502로 오인된다.
+            # urlopen()은 실제 HTTP 요청을 보내고 file-like response 객체를 돌려준다.
             with urllib.request.urlopen(request, timeout=cls._timeout_seconds()) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
@@ -66,8 +60,7 @@ class AIReviewAnalysisClient:
 
     @classmethod
     def _api_url(cls):
-        # 앱 컨텍스트 밖에서 실행되는 단위 테스트도 같은 client를 사용할 수 있도록
-        # Flask config를 우선하고 프로세스 환경값을 보조 경로로 둔다.
+        # has_app_context()가 true면 Flask current_app.config를, 아니면 os.getenv를 사용해 테스트에서도 호출 가능하게 한다.
         base_url = str(_config_value("BACKEND_AI_BASE_URL") or os.getenv("BACKEND_AI_BASE_URL") or "http://127.0.0.1:8000").strip()
         return f"{base_url.rstrip('/')}{cls.REVIEW_ANALYSIS_PATH}"
 

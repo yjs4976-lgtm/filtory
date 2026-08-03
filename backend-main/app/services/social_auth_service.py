@@ -9,12 +9,6 @@ from app.clients.naver_oauth_client import NaverOAuthClient
 
 
 class SocialAuthService:
-    """외부 OAuth 계정을 내부 회원 계정과 안전하게 연결한다.
-
-    제공자 식별자와 이메일을 혼동하지 않으며, 기존 계정 연결·신규 가입·탈퇴 계정
-    재가입 정책을 한곳에서 적용해 제공자별 callback 구현 차이를 흡수한다.
-    """
-
     CLIENTS = {
         "google": GoogleOAuthClient,
         "kakao": KakaoOAuthClient,

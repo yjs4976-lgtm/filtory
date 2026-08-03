@@ -10,7 +10,7 @@ from app.services.review_ocr_service import ReviewOcrService
 
 logger = logging.getLogger(__name__)
 
-# 리뷰 원문과 이미지가 들어오는 내부 endpoint를 한 prefix 아래에 격리한다.
+# APIRouter는 FastAPI의 라우트 묶음이다. prefix가 붙어 이 파일의 모든 endpoint가 /api/reviews 아래에 생긴다.
 router = APIRouter(prefix="/api/reviews", tags=["review-analysis"])
 
 
@@ -20,8 +20,8 @@ def analyze_review(
     x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
 ):
     settings = get_settings()
-    # 리뷰 분석 API는 backend-main에서 내부 토큰을 붙여 호출하는 서버 간 전용
-    # endpoint다. 토큰 미설정 시 개발 fallback을 공개하지 않고 503으로 닫는다.
+    # Header(alias=...)는 HTTP 헤더 이름과 파이썬 변수명을 서로 다르게 매핑할 때 쓴다.
+    # 리뷰 분석 API는 backend-main에서 내부 토큰을 붙여 호출하는 서버 간 전용 엔드포인트다.
     _verify_internal_token(settings.ai_internal_token, x_internal_token)
     return ReviewAnalysisService.analyze(payload)
 
@@ -47,7 +47,6 @@ def extract_review_text(
 
 
 def _verify_internal_token(expected_token: str | None, received_token: str | None):
-    """backend-main과 공유한 내부 토큰을 timing-safe 비교로 검증한다."""
     expected = str(expected_token or "").strip()
     received = str(received_token or "").strip()
 

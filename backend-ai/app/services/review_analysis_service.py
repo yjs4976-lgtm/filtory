@@ -8,12 +8,6 @@ logger = logging.getLogger(__name__)
 
 
 class ReviewAnalysisService:
-    """실제 AI 분석과 결정론적 fallback 사이의 안정적인 진입점이다.
-
-    외부 모델 사용은 설정으로 명시적으로 활성화된 경우에만 허용한다. 어느 경로를
-    사용해도 동일한 ReviewAnalyzeResponse 계약을 반환해 호출부를 단순하게 유지한다.
-    """
-
     @classmethod
     def analyze(cls, payload: ReviewAnalyzeRequest) -> ReviewAnalyzeResponse:
         settings = get_settings()

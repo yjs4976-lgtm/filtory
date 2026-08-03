@@ -4,12 +4,6 @@ from app.schemas import saved_hospital_to_dict
 
 
 class SavedHospitalService:
-    """회원별 관심 병원을 멱등하게 저장·해제하는 서비스다.
-
-    동일 병원 중복 저장은 하나의 관계로 유지하고 모든 조회·삭제에 member_id를
-    포함해 다른 회원의 관심 병원 데이터에 접근하지 못하게 한다.
-    """
-
     CATEGORIES = {"dermatology", "ophthalmology", "dentistry", "orthopedics"}
 
     @staticmethod

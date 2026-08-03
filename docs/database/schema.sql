@@ -384,7 +384,8 @@ create table if not exists public.payment_transactions (
   idempotency_key uuid not null unique,
   amount int not null check (amount >= 0),
   currency varchar(3) not null default 'KRW',
-  status varchar(30) not null default 'READY' check (status in ('READY', 'IN_PROGRESS', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')),
+  status varchar(30) not null default 'READY' constraint payment_transactions_status_check
+    check (status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')),
   requested_at timestamp with time zone not null default now(), approved_at timestamp with time zone,
   canceled_at timestamp with time zone, failure_code varchar(100), failure_message text,
   raw_response_json jsonb, created_at timestamp with time zone not null default now(),
@@ -402,6 +403,12 @@ create table if not exists public.payment_webhook_events (
   received_at timestamp with time zone not null default now(), processed_at timestamp with time zone,
   error_message text, unique(provider, deduplication_key)
 );
+
+alter table public.payment_transactions
+drop constraint if exists payment_transactions_status_check;
+alter table public.payment_transactions
+add constraint payment_transactions_status_check
+check (status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED'));
 
 drop trigger if exists trg_billing_products_updated_at on public.billing_products;
 create trigger trg_billing_products_updated_at before update on public.billing_products
@@ -503,10 +510,11 @@ on public.payment_transactions(subscription_id);
 create index if not exists idx_payment_transactions_payment_key
 on public.payment_transactions(payment_key) where payment_key is not null;
 -- 애플리케이션 조회와 insert 사이의 경쟁에서도 진행 중 최초 결제는 하나만 허용한다.
+drop index if exists public.uq_payment_transactions_active_initial;
 create unique index if not exists uq_payment_transactions_active_initial
 on public.payment_transactions(member_id, billing_product_id, transaction_type)
 where transaction_type = 'INITIAL'
-  and status in ('READY', 'IN_PROGRESS');
+  and status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED');
 create index if not exists idx_payment_webhook_events_received
 on public.payment_webhook_events(received_at desc);
 

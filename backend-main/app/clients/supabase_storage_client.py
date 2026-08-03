@@ -8,12 +8,6 @@ SUPABASE_API_PATH_SUFFIXES = ("/storage/v1", "/rest/v1", "/auth/v1")
 
 
 class SupabaseStorageClient:
-    """Supabase Storage 객체 작업만 담당하는 REST 어댑터다.
-
-    secret key는 요청 헤더에만 사용하고 URL·예외 메시지에 노출하지 않는다. 공개
-    URL에서 삭제 경로를 복원할 때도 현재 프로젝트와 bucket 범위를 검증한다.
-    """
-
     def __init__(self, base_url, secret_key, bucket):
         if not base_url or not secret_key:
             raise ValueError("Supabase Storage is not configured")

@@ -7,12 +7,6 @@ from app.repositories import AnalysisUsageRepository
 
 
 class AnalysisUsageService:
-    """서버 기준 멤버십 entitlement와 월별 상세 분석 사용량을 계산한다.
-
-    프론트의 로컬 상태는 권한 근거로 사용하지 않는다. 차감은 분석 결과 ID의
-    DB unique 제약으로 멱등성을 보장하며, 기간은 timestamptz 정책과 맞춘 UTC 월이다.
-    """
-
     FREE_LIMIT = 5
     PLUS_LIMIT = 30
     PLUS_PROVIDERS = {"TOSS", "GOOGLE_PLAY", "MOCK", "ADMIN"}
@@ -114,19 +108,12 @@ class AnalysisUsageService:
 
     @staticmethod
     def charge(member_id, analysis_result_id):
-        """분석 결과 하나를 월 사용량에 최대 한 번만 반영한다.
-
-        소유권 검증을 잠금보다 먼저 수행하고, 회원 행 잠금 후 한도 확인과 insert를
-        같은 임계 구역에서 실행한다. IntegrityError는 정상적인 동시 재시도로 해석한다.
-        """
         analysis_result = AnalysisUsageRepository.get_analysis_result(analysis_result_id)
         if not analysis_result:
             raise ValueError("Analysis result not found")
         if analysis_result.member_id != member_id:
             raise PermissionError("Analysis result permission is required")
 
-        # count -> insert 사이에 다른 요청이 끼면 월 한도를 초과할 수 있다. 분석
-        # 결과 행이 아니라 회원 행을 잠가 서로 다른 결과의 동시 차감까지 직렬화한다.
         AnalysisUsageRepository.lock_member(member_id)
         existing = AnalysisUsageRepository.get_log(member_id, analysis_result_id)
         if existing:
@@ -160,11 +147,6 @@ class AnalysisUsageService:
 
     @staticmethod
     def get_access(member_id, analysis_result_id):
-        """상세 결과를 열 수 있는지 조회하되 이 단계에서는 사용량을 차감하지 않는다.
-
-        이미 차감한 결과는 월 한도 소진 뒤에도 다시 볼 수 있다. 신규 결과의 실제
-        차감은 charge에서만 수행해 화면 재조회가 과금 행위를 만들지 않게 한다.
-        """
         analysis_result = AnalysisUsageRepository.get_analysis_result(analysis_result_id)
         if not analysis_result:
             raise ValueError("Analysis result not found")

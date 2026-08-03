@@ -5,8 +5,6 @@ from urllib.request import Request, urlopen
 
 
 class NaverOAuthClient:
-    """Naver OAuth 토큰·프로필 API의 제공자별 응답 구조를 캡슐화한다."""
-
     AUTHORIZE_URL = "https://nid.naver.com/oauth2.0/authorize"
     TOKEN_URL = "https://nid.naver.com/oauth2.0/token"
     USER_INFO_URL = "https://openapi.naver.com/v1/nid/me"

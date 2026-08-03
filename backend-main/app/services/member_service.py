@@ -14,12 +14,6 @@ from app.utils.validators import validate_email, validate_password
 
 
 class MemberService:
-    """회원 프로필과 계정 생명주기의 검증·상태 전이를 담당한다.
-
-    수정 가능한 필드는 allowlist로 제한하고 비밀번호 변경은 별도 검증 흐름을
-    사용한다. 탈퇴는 연관 데이터 정책을 보존하는 soft-delete 방식으로 처리한다.
-    """
-
     # 회원 생성/수정/탈퇴/비밀번호/소셜 재가입 정책을 담당하는 서비스다.
     # API에서 넘어온 payload를 그대로 쓰지 않고 allowlist와 검증을 거쳐 DB에 반영한다.
     SOCIAL_PROVIDERS = {"kakao", "naver", "google"}

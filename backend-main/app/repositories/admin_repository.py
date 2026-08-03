@@ -21,12 +21,6 @@ from app.models import (
 
 
 class AdminRepository:
-    """관리자 화면의 집계·검색·감사 로그용 DB query 모음이다.
-
-    이 계층은 SQL 구성에 집중하고 권한·허용 상태·민감정보 제거는 AdminService가
-    담당한다. 목록 query는 항상 pagination 가능한 limit/offset을 유지한다.
-    """
-
     @staticmethod
     def list_subscription_plans():
         return SubscriptionPlan.query.order_by(SubscriptionPlan.monthly_price.asc(), SubscriptionPlan.id.asc()).all()

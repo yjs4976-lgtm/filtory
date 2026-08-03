@@ -4,12 +4,6 @@ from app.repositories.chatbot_history_repository import ChatbotHistoryRepository
 
 
 class ChatbotHistoryService:
-    """챗봇 대화와 메시지의 회원 소유권·보존 범위를 관리한다.
-
-    LLM에 전달할 문맥은 전체 기록이 아니라 제한된 최근 메시지만 사용하고, 다른
-    회원의 conversation ID로 기록을 조회하거나 추가하지 못하게 한다.
-    """
-
     MAX_TITLE_LENGTH = 80
     MAX_PREVIEW_LENGTH = 120
 

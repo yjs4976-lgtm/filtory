@@ -10,12 +10,6 @@ from app.schemas import inquiry_to_dict
 
 
 class InquiryService:
-    """회원 문의 접수부터 관리자 답변·알림까지의 상태 전이를 관리한다.
-
-    문의 소유권과 관리자 권한을 서비스 경계에서 재확인하고, 답변 저장과 알림 생성이
-    서로 어긋나지 않도록 같은 업무 흐름에서 처리한다.
-    """
-
     MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
     ALLOWED_ATTACHMENT_TYPES = {
         "jpg": {"image/jpeg"},

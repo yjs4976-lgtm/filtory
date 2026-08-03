@@ -4,8 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chatbot_api import router as chatbot_router
 from app.api.review_analysis_api import router as review_analysis_router
 
-# backend-ai는 브라우저가 직접 호출하는 공개 API가 아니라 backend-main의 내부
-# 분석 의존성이다. 각 업무 endpoint는 별도의 내부 토큰 검증을 반드시 유지한다.
+# FastAPI 인스턴스는 backend-ai의 ASGI 애플리케이션 진입점이다.
 app = FastAPI(
     title="Filtory AI Server",
     description="AI review analysis server for Filtory",
@@ -23,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 도메인별 router에서 인증·오류 변환을 수행하고, app 진입점은 조립만 담당한다.
+# APIRouter를 include_router로 붙이면 파일별 API 모듈을 하나의 FastAPI app으로 합칠 수 있다.
 app.include_router(review_analysis_router)
 app.include_router(chatbot_router)
 

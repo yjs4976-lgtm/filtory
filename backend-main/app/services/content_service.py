@@ -5,12 +5,6 @@ from app.repositories import ContentRepository
 
 
 class ContentService:
-    """공지사항·FAQ의 공개 범위와 관리자 변경 규칙을 관리한다.
-
-    공개 API에는 게시 가능한 콘텐츠만 노출하고, 관리자 저장 시에는 허용 필드와
-    게시 상태를 검증한다. 수정 시각은 애플리케이션에서 명시적으로 갱신한다.
-    """
-
     STATUSES = {"DRAFT", "PUBLISHED", "ARCHIVED"}
 
     @staticmethod

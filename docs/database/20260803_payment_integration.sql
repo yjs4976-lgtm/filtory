@@ -126,7 +126,7 @@ create table if not exists public.payment_transactions (
   updated_at timestamp with time zone not null default now(),
   constraint payment_transactions_provider_check check (provider in ('TOSS', 'GOOGLE_PLAY', 'MOCK')),
   constraint payment_transactions_type_check check (transaction_type in ('INITIAL', 'RENEWAL', 'CANCEL', 'REFUND')),
-  constraint payment_transactions_status_check check (status in ('READY', 'IN_PROGRESS', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')),
+  constraint payment_transactions_status_check check (status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED')),
   constraint payment_transactions_amount_check check (amount >= 0),
   constraint payment_transactions_idempotency_unique unique(idempotency_key),
   constraint payment_transactions_provider_order_unique unique(provider, order_id),
@@ -148,6 +148,12 @@ create table if not exists public.payment_webhook_events (
   constraint payment_webhook_events_status_check check (processing_status in ('RECEIVED', 'PROCESSED', 'IGNORED', 'FAILED')),
   constraint payment_webhook_events_provider_dedup_unique unique(provider, deduplication_key)
 );
+
+alter table public.payment_transactions
+drop constraint if exists payment_transactions_status_check;
+alter table public.payment_transactions
+add constraint payment_transactions_status_check
+check (status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED', 'DONE', 'FAILED', 'CANCELED', 'PARTIAL_CANCELED', 'ABORTED', 'EXPIRED'));
 
 drop trigger if exists trg_billing_products_updated_at on public.billing_products;
 create trigger trg_billing_products_updated_at before update on public.billing_products
@@ -171,10 +177,11 @@ create index if not exists idx_payment_transactions_payment_key
 on public.payment_transactions(payment_key) where payment_key is not null;
 
 -- 동일 회원·상품에 결제 가능한 최초 주문이 둘 이상 생기는 경쟁 조건을 DB에서 차단한다.
+drop index if exists public.uq_payment_transactions_active_initial;
 create unique index if not exists uq_payment_transactions_active_initial
 on public.payment_transactions(member_id, billing_product_id, transaction_type)
 where transaction_type = 'INITIAL'
-  and status in ('READY', 'IN_PROGRESS');
+  and status in ('READY', 'IN_PROGRESS', 'VERIFICATION_REQUIRED');
 create index if not exists idx_payment_webhook_events_received
 on public.payment_webhook_events(received_at desc);
 

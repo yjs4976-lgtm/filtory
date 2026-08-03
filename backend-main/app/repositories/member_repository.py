@@ -4,12 +4,6 @@ from app.models import EmailVerificationToken, Member, MemberTermsAgreement, Pas
 
 
 class MemberRepository:
-    """회원 및 인증 보조 레코드의 SQLAlchemy 접근 경계다.
-
-    인증 경쟁이 발생하는 조회에는 명시적으로 FOR UPDATE 변형을 제공하고,
-    이메일·로그인 ID 비교는 정규화해 대소문자 차이로 중복 계정이 생기지 않게 한다.
-    """
-
     # Repository는 SQLAlchemy query를 한 곳에 모아 Service가 ORM 세부 문법을 덜 알게 해준다.
     @staticmethod
     def get_by_id(member_id):

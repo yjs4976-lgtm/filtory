@@ -61,7 +61,8 @@ class PaymentService:
         secret = current_app.config.get("TOSS_SECRET_KEY")
         if not secret:
             raise PaymentConfigurationError("Toss Payments is not configured")
-        return TossPaymentsClient(secret)
+        timeout = current_app.config.get("TOSS_API_TIMEOUT_SECONDS", 70)
+        return TossPaymentsClient(secret, timeout=timeout)
 
     @staticmethod
     def get_plus_product():
@@ -179,6 +180,8 @@ class PaymentService:
 
         idempotency_key = transaction.idempotency_key
         order_id = transaction.order_id
+        if transaction.status == "VERIFICATION_REQUIRED":
+            return PaymentService._reconcile_initial_transaction(transaction, product, profile)
         # A competing request may have completed while this request waited on
         # the partial unique index. Re-check before any provider call.
         if SubscriptionRepository.get_current_paid_subscription(member_id):
@@ -223,30 +226,103 @@ class PaymentService:
             PaymentService._validate_payment_response(response, transaction, product)
         except PaymentVerificationError:
             PaymentTransactionRepository.update(transaction, {
-                "status": "FAILED",
+                "status": "VERIFICATION_REQUIRED",
+                "payment_key": response.get("paymentKey") or transaction.payment_key,
                 "failure_code": "INVALID_PROVIDER_RESPONSE",
                 "failure_message": "Payment approval response verification failed",
                 "raw_response_json": PaymentService._safe_provider_payload(response),
             })
             db.session.commit()
             raise
-        now = datetime.now(timezone.utc)
-        subscription = SubscriptionRepository.create_member_subscription({
-            "member_id": member_id,
-            "plan_id": product.plan_id,
-            "status": "active",
-            "started_at": now,
-            "current_period_start": now,
-            "current_period_end": PaymentService._add_one_month(now),
-            "cancel_at_period_end": False,
-            "payment_provider": PaymentService.PROVIDER,
-            "payment_customer_id": profile.customer_key,
-            "payment_subscription_id": response.get("paymentKey"),
-            "provider_product_id": product.provider_product_id,
-            "provider_purchase_id": response.get("paymentKey"),
-            "last_verified_at": now,
-            "auto_renew": True,
+        return PaymentService._complete_initial_transaction(transaction, product, profile, response)
+
+    @staticmethod
+    def _reconcile_initial_transaction(transaction, product, profile):
+        client = PaymentService._client()
+        try:
+            if transaction.payment_key:
+                response = client.get_payment(transaction.payment_key)
+            else:
+                response = client.get_payment_by_order_id(transaction.order_id)
+        except TossPaymentsError as exc:
+            update = {
+                "status": "VERIFICATION_REQUIRED",
+                "failure_code": exc.code or "RECONCILIATION_PENDING",
+                "failure_message": "Payment verification is pending",
+            }
+            if exc.status == 404 or exc.code == "NOT_FOUND_PAYMENT":
+                update.update({
+                    "status": "FAILED",
+                    "failure_message": "Payment was not approved",
+                })
+            PaymentTransactionRepository.update(transaction, update)
+            db.session.commit()
+            raise
+
+        provider_status = str(response.get("status") or "").upper()
+        try:
+            PaymentService._validate_payment_response(
+                response,
+                transaction,
+                product,
+                allowed_statuses={provider_status},
+            )
+        except PaymentVerificationError:
+            PaymentTransactionRepository.update(transaction, {
+                "status": "VERIFICATION_REQUIRED",
+                "payment_key": response.get("paymentKey") or transaction.payment_key,
+                "failure_code": "INVALID_PROVIDER_RESPONSE",
+                "failure_message": "Payment reconciliation verification failed",
+                "raw_response_json": PaymentService._safe_provider_payload(response),
+            })
+            db.session.commit()
+            raise
+
+        if provider_status == "DONE":
+            return PaymentService._complete_initial_transaction(transaction, product, profile, response)
+
+        if provider_status in {"FAILED", "CANCELED", "PARTIAL_CANCELED", "ABORTED", "EXPIRED"}:
+            PaymentTransactionRepository.update(transaction, {
+                "status": "FAILED",
+                "payment_key": response.get("paymentKey") or transaction.payment_key,
+                "failure_code": f"PROVIDER_{provider_status}",
+                "failure_message": "Payment was not approved",
+                "raw_response_json": PaymentService._safe_provider_payload(response),
+            })
+            db.session.commit()
+            raise PaymentVerificationError("Payment was not approved")
+
+        PaymentTransactionRepository.update(transaction, {
+            "status": "VERIFICATION_REQUIRED",
+            "payment_key": response.get("paymentKey") or transaction.payment_key,
+            "failure_code": "RECONCILIATION_PENDING",
+            "failure_message": "Payment verification is pending",
+            "raw_response_json": PaymentService._safe_provider_payload(response),
         })
+        db.session.commit()
+        raise PaymentVerificationError("Payment verification is pending")
+
+    @staticmethod
+    def _complete_initial_transaction(transaction, product, profile, response):
+        now = datetime.now(timezone.utc)
+        subscription = getattr(transaction, "subscription", None)
+        if not subscription:
+            subscription = SubscriptionRepository.create_member_subscription({
+                "member_id": transaction.member_id,
+                "plan_id": product.plan_id,
+                "status": "active",
+                "started_at": now,
+                "current_period_start": now,
+                "current_period_end": PaymentService._add_one_month(now),
+                "cancel_at_period_end": False,
+                "payment_provider": PaymentService.PROVIDER,
+                "payment_customer_id": profile.customer_key,
+                "payment_subscription_id": response.get("paymentKey"),
+                "provider_product_id": product.provider_product_id,
+                "provider_purchase_id": response.get("paymentKey"),
+                "last_verified_at": now,
+                "auto_renew": True,
+            })
         try:
             db.session.flush()
             PaymentTransactionRepository.update(transaction, {
@@ -254,6 +330,8 @@ class PaymentService:
                 "payment_key": response.get("paymentKey"),
                 "status": "DONE",
                 "approved_at": now,
+                "failure_code": None,
+                "failure_message": None,
                 "raw_response_json": PaymentService._safe_provider_payload(response),
             })
             db.session.commit()
@@ -270,11 +348,19 @@ class PaymentService:
         subscription = SubscriptionRepository.get_current_paid_subscription(member_id)
         profile = MemberBillingProfileRepository.get_by_member_provider(member_id, PaymentService.PROVIDER)
         transactions = PaymentTransactionRepository.list_by_member(member_id)
+        billing_profile = billing_profile_to_dict(profile) if profile else None
+        if billing_profile:
+            billing_profile.pop("customerKey", None)
+        public_transactions = []
+        for transaction in transactions:
+            item = payment_transaction_to_dict(transaction)
+            item.pop("paymentKey", None)
+            public_transactions.append(item)
         return {
             "paymentEnabled": bool(current_app.config.get("PAYMENT_ENABLED", False)),
             "subscription": member_subscription_to_dict(subscription) if subscription else None,
-            "billingProfile": billing_profile_to_dict(profile) if profile else None,
-            "transactions": [payment_transaction_to_dict(item) for item in transactions],
+            "billingProfile": billing_profile,
+            "transactions": public_transactions,
         }
 
     @staticmethod
@@ -351,7 +437,6 @@ class PaymentService:
         try:
             # The webhook body is only a notification. Provider query is the
             # source of truth for all payment/subscription state changes.
-            provider_payment = PaymentService._client().get_payment(payment_key)
             transaction = PaymentTransactionRepository.get_by_payment_key(PaymentService.PROVIDER, payment_key)
             if not transaction:
                 PaymentWebhookRepository.update(event, {
@@ -360,6 +445,7 @@ class PaymentService:
                 db.session.commit()
                 return {"duplicate": False, "status": "IGNORED"}
 
+            provider_payment = PaymentService._client().get_payment(payment_key)
             PaymentService._validate_payment_response(
                 provider_payment,
                 transaction,
@@ -444,8 +530,9 @@ class PaymentService:
             amount_matches = int(response.get("totalAmount")) == int(product.amount)
         except (TypeError, ValueError):
             amount_matches = False
+        provider_status = str(response.get("status") or "").upper()
         checks = (
-            str(response.get("status") or "").upper() in allowed_statuses,
+            bool(provider_status) and provider_status in allowed_statuses,
             bool(response.get("paymentKey")),
             response.get("paymentKey") == (transaction.payment_key or response.get("paymentKey")),
             response.get("orderId") == transaction.order_id,

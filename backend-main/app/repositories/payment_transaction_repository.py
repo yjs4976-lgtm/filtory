@@ -35,7 +35,7 @@ class PaymentTransactionRepository:
             PaymentTransaction.member_id == member_id,
             PaymentTransaction.billing_product_id == billing_product_id,
             PaymentTransaction.transaction_type == "INITIAL",
-            PaymentTransaction.status.in_(["READY", "IN_PROGRESS"]),
+            PaymentTransaction.status.in_(["READY", "IN_PROGRESS", "VERIFICATION_REQUIRED"]),
         ).order_by(PaymentTransaction.created_at.desc()).first()
 
     @staticmethod

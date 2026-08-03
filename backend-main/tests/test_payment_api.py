@@ -47,13 +47,37 @@ def test_payment_summary_is_readable_while_payments_are_disabled(app, monkeypatc
     monkeypatch.setattr(
         PaymentService,
         "get_my_payments",
-        staticmethod(lambda member_id: {"paymentEnabled": False, "subscription": None, "transactions": []}),
+        staticmethod(lambda member_id: {
+            "paymentEnabled": False,
+            "subscription": None,
+            "billingProfile": {"provider": "TOSS", "status": "active"},
+            "transactions": [{"id": 1, "status": "DONE"}],
+        }),
     )
 
     response = app.test_client().get("/api/payments/me", headers=auth_header(app))
 
     assert response.status_code == 200
     assert response.get_json()["data"]["paymentEnabled"] is False
+    assert "customerKey" not in response.get_json()["data"]["billingProfile"]
+    assert "paymentKey" not in response.get_json()["data"]["transactions"][0]
+
+
+def test_billing_prepare_response_keeps_customer_key(app, monkeypatch):
+    app.config["PAYMENT_ENABLED"] = True
+    monkeypatch.setattr(
+        PaymentService,
+        "prepare_billing_auth",
+        staticmethod(lambda member_id: {"customerKey": "customer-1", "clientKey": "client-key"}),
+    )
+
+    response = app.test_client().post(
+        "/api/payments/billing/prepare",
+        headers=auth_header(app),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["customerKey"] == "customer-1"
 
 
 def test_charge_endpoint_never_forwards_client_amount(app, monkeypatch):

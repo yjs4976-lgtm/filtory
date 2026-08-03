@@ -31,7 +31,6 @@ def create_chatbot_message(
 
 
 def _verify_internal_token(expected_token: str | None, received_token: str | None):
-    """외부 브라우저가 backend-ai를 직접 호출하지 못하도록 내부 토큰을 검증한다."""
     expected = str(expected_token or "").strip()
     received = str(received_token or "").strip()
 
